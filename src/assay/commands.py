@@ -1,0 +1,2579 @@
+"""
+Assay CLI commands: Receipt-native AI safety toolkit.
+
+Commands:
+  assay validate  - Validate a tool call against policy
+  assay health    - Check system health (grace window)
+  assay demo      - Run demo showing receipts + blockages
+  assay show      - Show a trace by ID
+  assay list      - List recent traces
+  assay verify    - Verify trace integrity
+  assay diff      - Compare two traces
+  assay pack      - Create evidence pack for patent defense (legacy)
+  assay proof-pack  - Build a signed Proof Pack (5-file kernel)
+  assay verify-pack - Verify a Proof Pack's integrity
+  assay run         - Run a command and build a Proof Pack from receipts
+  assay lock write  - Write a verifier lockfile (assay.lock)
+  assay lock check  - Validate an existing lockfile
+
+Every command emits a trace ID and persists receipts to ~/.loom/assay/
+"""
+
+import json
+from collections import Counter
+from typing import Any, Dict, List, Optional
+
+import typer
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+
+console = Console()
+
+assay_app = typer.Typer(
+    name="assay",
+    help="Receipt-native AI safety toolkit",
+    no_args_is_help=True,
+)
+
+
+def _clamp(value: float, name: str) -> float:
+    """Clamp value to [0, 1] and warn if out of range."""
+    if value < 0 or value > 1:
+        clamped = max(0.0, min(1.0, value))
+        console.print(f"[yellow]Warning: {name}={value} clamped to {clamped}[/]")
+        return clamped
+    return value
+
+
+def _output_json(data: Dict[str, Any], exit_code: Optional[int] = None) -> None:
+    """Print structured JSON to stdout and exit.
+
+    Exit codes:
+    - 0: success (status == "ok")
+    - 1: error (status == "error" or "blocked")
+    - 2: verification failed (status == "failed")
+
+    Can be overridden with explicit exit_code parameter.
+    """
+    print(json.dumps(data, indent=2, default=str))
+    if exit_code is not None:
+        raise typer.Exit(exit_code)
+    status = data.get("status", "ok")
+    if status == "ok":
+        raise typer.Exit(0)
+    elif status == "failed":
+        raise typer.Exit(2)
+    else:  # "error", "blocked", etc.
+        raise typer.Exit(1)
+
+
+def _extract_action_class(action: str) -> str:
+    """Extract action class from action string (e.g., 'shell:pytest' -> 'shell')."""
+    if ":" in action:
+        return action.split(":")[0]
+    return "unknown"
+
+
+@assay_app.command("validate")
+def validate_action(
+    action: str = typer.Argument(..., help="Action to validate (e.g., 'shell:rm -rf /')"),
+    coherence_delta: float = typer.Option(0.0, "--coherence", "-c", help="Expected coherence change (-1 to 1)"),
+    dignity_delta: float = typer.Option(0.0, "--dignity", "-d", help="Expected dignity impact (-1 to 1)"),
+    emit_receipt: bool = typer.Option(True, "--receipt/--no-receipt", help="Emit validation receipt"),
+    persist: bool = typer.Option(True, "--persist/--no-persist", help="Persist receipts to disk"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """
+    Validate an action against Guardian rules.
+
+    Checks:
+    1. No coherence gain by dignity debt
+    2. Receipt will be emitted (auditability)
+
+    Receipts are persisted to ~/.loom/assay/<date>/<trace_id>.jsonl
+
+    Examples:
+        assay validate "shell:pytest" --coherence 0.1 --dignity 0.0
+        assay validate "shell:rm -rf /" --coherence 0.1 --dignity -0.5
+    """
+    from assay import __version__
+    from assay.guardian import no_coherence_by_dignity_debt, no_action_without_receipt
+    from assay.store import get_default_store
+
+    # Start trace
+    store = get_default_store() if persist else None
+    trace_id = store.start_trace() if store else "no-persist"
+
+    # Extract action class for taxonomy
+    action_class = _extract_action_class(action)
+
+    # Check Guardian rules
+    verdict1 = no_coherence_by_dignity_debt(coherence_delta, dignity_delta)
+    verdict2 = no_action_without_receipt(emit_receipt, action_class)
+
+    all_passed = verdict1.allowed and verdict2.allowed
+
+    verdict_entry = {
+        "type": "guardian_check",
+        "action": action,
+        "action_class": action_class,
+        "coherence_delta": coherence_delta,
+        "dignity_delta": dignity_delta,
+        "verdicts": {
+            "no_coherence_by_dignity_debt": {
+                "allowed": verdict1.allowed,
+                "reason": verdict1.reason,
+                "clause0_violation": verdict1.clause0_violation,
+            },
+            "no_action_without_receipt": {
+                "allowed": verdict2.allowed,
+                "reason": verdict2.reason,
+            },
+        },
+        "overall_allowed": all_passed,
+        "assay_version": __version__,
+    }
+
+    def _emit_blockage_receipt() -> Optional[str]:
+        if not emit_receipt or all_passed:
+            return None
+        if not verdict1.allowed:
+            from assay._receipts.domains.blockages import create_contradiction_receipt
+            receipt = create_contradiction_receipt(
+                claim_a=f"Action '{action}' improves coherence (+{coherence_delta:.2f})",
+                claim_a_confidence=0.8,
+                claim_b=f"Action causes dignity harm ({dignity_delta:.2f})",
+                claim_b_confidence=0.9,
+                impacted_invariants=["clause0_dignity_floor"],
+                resolution_attempted=True,
+                resolution_result="BLOCKED: COHERENCE_BY_DIGNITY_DEBT",
+            )
+        elif not verdict2.allowed:
+            from assay._receipts.domains.blockages import create_incompleteness_receipt
+            receipt = create_incompleteness_receipt(
+                undecidable_claim=f"Cannot execute '{action}' without audit trail",
+                missing_evidence=["receipt_emission"],
+                impact_if_wrong="high",
+                recommended_action="gather_evidence",
+            )
+        else:
+            return None
+
+        if store:
+            store.append(receipt)
+        return receipt.receipt_id
+
+    # JSON output - check BEFORE any console prints to avoid contamination
+    if output_json:
+        if store:
+            store.append_dict(verdict_entry)
+        blockage_receipt_id = _emit_blockage_receipt()
+        result = {
+            "command": "validate",
+            "trace_id": trace_id,
+            "status": "ok" if all_passed else "blocked",
+            "action": action,
+            "action_class": action_class,
+            "allowed": all_passed,
+            "verdicts": verdict_entry["verdicts"],
+            "inputs": {
+                "coherence_delta": coherence_delta,
+                "dignity_delta": dignity_delta,
+            },
+        }
+        if store:
+            result["trace_file"] = str(store.trace_file)
+        if blockage_receipt_id:
+            result["blockage_receipt_id"] = blockage_receipt_id
+        _output_json(result)
+
+    # Console output for non-JSON mode
+    console.print(f"[dim]Trace: {trace_id}[/]\n")
+    console.print(f"[bold]Validating:[/] {action}")
+    console.print(f"  Action class: {action_class}")
+    console.print(f"  Coherence delta: {coherence_delta:+.2f}")
+    console.print(f"  Dignity delta: {dignity_delta:+.2f}")
+    console.print()
+
+    # Log verdicts to trace
+    if store:
+        store.append_dict(verdict_entry)
+
+    # Display results
+    if verdict1.allowed:
+        console.print("[green]+[/] No coherence by dignity debt: PASS")
+    else:
+        console.print(f"[red]-[/] No coherence by dignity debt: FAIL ({verdict1.reason})")
+        if verdict1.clause0_violation:
+            console.print("  [red bold]CLAUSE 0 VIOLATION[/]")
+
+    if verdict2.allowed:
+        console.print("[green]+[/] Receipt emission: PASS")
+    else:
+        console.print(f"[red]-[/] Receipt emission: FAIL ({verdict2.reason})")
+
+    console.print()
+
+    if all_passed:
+        console.print("[green bold]ACTION ALLOWED[/]")
+        if store:
+            console.print(f"\n[dim]Trace stored: {store.trace_file}[/]")
+    else:
+        console.print("[red bold]ACTION BLOCKED[/]")
+
+        # Emit appropriate blockage receipt based on which rule failed
+        if emit_receipt:
+            receipt_id = _emit_blockage_receipt()
+            if receipt_id:
+                console.print(f"\n[dim]Blockage receipt: {receipt_id}[/]")
+
+        if store:
+            console.print(f"[dim]Trace stored: {store.trace_file}[/]")
+
+        raise typer.Exit(1)
+
+
+@assay_app.command("health")
+def check_health(
+    coherence: float = typer.Option(0.8, "--coherence", "-c", help="Current coherence (0-1)"),
+    tension: float = typer.Option(0.2, "--tension", "-t", help="Current tension (0-1)"),
+    tension_delta: float = typer.Option(-0.01, "--tension-delta", help="Tension rate of change"),
+    dignity: float = typer.Option(0.3, "--dignity", "-d", help="Current dignity (0-1)"),
+    volatility: float = typer.Option(0.1, "--volatility", "-v", help="Current volatility (0-1)"),
+    stateful: bool = typer.Option(False, "--stateful", help="Use hysteresis tracker (persists state)"),
+    trace_id: Optional[str] = typer.Option(None, "--trace", help="Trace ID for stateful mode"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """
+    Check system health and grace window status.
+
+    Grace window = stable, low-friction state where actions are safer.
+    Values are clamped to [0, 1] range.
+
+    Use --stateful to enable hysteresis (requires N consecutive passes/failures
+    to change state, prevents flickering).
+
+    Examples:
+        assay health
+        assay health --coherence 0.9 --tension 0.1 --dignity 0.4
+        assay health --tension 0.5  # High tension - not in grace
+        assay health --stateful --trace trace_xxx  # With hysteresis
+    """
+    from assay.health import check_grace_status, format_grace_status, GraceConfig, GraceTracker, clamp
+    from assay.store import get_default_store
+
+    # Clamp inputs
+    coherence = clamp(coherence)
+    tension = clamp(tension)
+    dignity = clamp(dignity)
+    volatility = clamp(volatility)
+
+    cfg = GraceConfig()
+    store = get_default_store()
+
+    if stateful:
+        # Use GraceTracker with hysteresis
+        # Load previous tracker state from trace if it exists
+        tracker = GraceTracker(cfg=cfg)
+        trace_warning: Optional[str] = None
+
+        if trace_id:
+            # Load history from existing trace and continue appending to it
+            entries = store.read_trace(trace_id)
+            if not entries:
+                trace_warning = f"trace {trace_id} not found, creating new trace"
+                trace_id = store.start_trace()
+            else:
+                # Set store to append to this existing trace
+                store.start_trace(trace_id)
+                for entry in entries:
+                    if entry.get("type") == "grace_check":
+                        # Replay history to rebuild tracker state
+                        tracker.update(
+                            entry.get("coherence", 0.8),
+                            entry.get("tension", 0.2),
+                            entry.get("tension_delta", 0.0),
+                            entry.get("dignity", 0.3),
+                            entry.get("volatility", 0.1),
+                        )
+        else:
+            trace_id = store.start_trace()
+
+        # Update with current values
+        in_grace = tracker.update(coherence, tension, tension_delta, dignity, volatility)
+
+        # Persist this check
+        store.append_dict({
+            "type": "grace_check",
+            "coherence": coherence,
+            "tension": tension,
+            "tension_delta": tension_delta,
+            "dignity": dignity,
+            "volatility": volatility,
+            "in_grace": in_grace,
+            "history": tracker.history,
+            "stateful": True,
+        })
+
+        # JSON output - check BEFORE any console prints to avoid contamination
+        if output_json:
+            result = {
+                "command": "health",
+                "trace_id": trace_id,
+                "status": "ok",
+                "in_grace": in_grace,
+                "stateful": True,
+                "history": tracker.history,
+                "window_size": cfg.window_size,
+                "inputs": {
+                    "coherence": coherence,
+                    "tension": tension,
+                    "tension_delta": tension_delta,
+                    "dignity": dignity,
+                    "volatility": volatility,
+                },
+            }
+            if trace_warning:
+                result["warning"] = trace_warning
+            _output_json(result)
+
+        # Console warning (only in non-JSON mode)
+        if trace_warning:
+            console.print(f"[yellow]Warning: {trace_warning}[/]")
+
+        # Display with hysteresis info
+        status_text = "GRACE WINDOW" if in_grace else "NOT IN GRACE"
+        history_str = "".join("+" if h else "-" for h in tracker.history)
+        panel_content = f"Status: {status_text}\nHysteresis window: [{history_str}] (need {cfg.window_size} consecutive)"
+
+        console.print(Panel(
+            panel_content,
+            title=f"[{'green' if in_grace else 'yellow'} bold]{status_text}[/]",
+            border_style="green" if in_grace else "yellow",
+        ))
+        console.print(f"\n[dim]Trace: {trace_id}[/]")
+
+    else:
+        # Single-step check (no hysteresis)
+        status = check_grace_status(
+            coherence=coherence,
+            tension=tension,
+            tension_derivative=tension_delta,
+            dignity=dignity,
+            volatility=volatility,
+        )
+
+        if output_json:
+            _output_json({
+                "command": "health",
+                "status": "ok",
+                "in_grace": status.in_grace,
+                "stateful": False,
+                "checks": {
+                    "coherence_ok": status.coherence_ok,
+                    "tension_ok": status.tension_ok,
+                    "tension_decreasing": status.tension_decreasing,
+                    "dignity_ok": status.dignity_ok,
+                    "volatility_ok": status.volatility_ok,
+                },
+                "inputs": {
+                    "coherence": coherence,
+                    "tension": tension,
+                    "tension_delta": tension_delta,
+                    "dignity": dignity,
+                    "volatility": volatility,
+                },
+            })
+
+        # Display with colors
+        if status.in_grace:
+            console.print(Panel(
+                format_grace_status(status).replace("[+]", "[green]+[/]").replace("[-]", "[red]-[/]"),
+                title="[green bold]GRACE WINDOW[/]",
+                border_style="green",
+            ))
+        else:
+            console.print(Panel(
+                format_grace_status(status).replace("[+]", "[green]+[/]").replace("[-]", "[red]-[/]"),
+                title="[yellow bold]NOT IN GRACE[/]",
+                border_style="yellow",
+            ))
+
+    # Show config
+    console.print(f"\n[dim]Thresholds: C>={cfg.c_hi} T<={cfg.t_lo} D>={cfg.d_floor} V<={cfg.v_max}[/]")
+
+
+@assay_app.command("demo")
+def run_demo(
+    scenario: str = typer.Option("all", "--scenario", "-s", help="Demo scenario: all, incomplete, contradiction, paradox, guardian"),
+    persist: bool = typer.Option(True, "--persist/--no-persist", help="Persist receipts to disk"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """
+    Run demonstration showing receipts + blockages.
+
+    All receipts are persisted to ~/.loom/assay/ with a trace ID.
+
+    Scenarios:
+    - all: Run all demos
+    - incomplete: Missing evidence prevents decision
+    - contradiction: Two claims conflict
+    - paradox: Contradiction requires frame change
+    - guardian: Blocked by dignity rule
+
+    Perfect for asciinema recording.
+
+    Examples:
+        assay demo
+        assay demo --scenario guardian
+        assay demo --json
+    """
+    from assay import __version__
+    from assay.store import get_default_store
+
+    # Start trace
+    store = get_default_store() if persist else None
+    trace_id = store.start_trace() if store else "no-persist"
+
+    silent = output_json
+
+    if not silent:
+        console.print(f"[bold cyan]Assay {__version__} Demo[/]")
+        console.print("Receipt-native AI safety toolkit")
+        console.print(f"[dim]Trace: {trace_id}[/]\n")
+
+    if scenario in ("all", "incomplete"):
+        _demo_incompleteness(store, silent=silent)
+
+    if scenario in ("all", "contradiction"):
+        _demo_contradiction(store, silent=silent)
+
+    if scenario in ("all", "paradox"):
+        _demo_paradox(store, silent=silent)
+
+    if scenario in ("all", "guardian"):
+        _demo_guardian(store, silent=silent)
+
+    if output_json:
+        entries = store.read_trace(trace_id) if store else []
+        type_counts = Counter(
+            (entry.get("type") or entry.get("receipt_type") or "unknown")
+            for entry in entries
+        )
+        result: Dict[str, Any] = {
+            "command": "demo",
+            "status": "ok",
+            "trace_id": trace_id,
+            "scenario": scenario,
+            "entry_count": len(entries),
+            "type_counts": dict(type_counts),
+            "persisted": store is not None,
+        }
+        if store:
+            result["trace_file"] = str(store.trace_file)
+        _output_json(result)
+
+    console.print("\n[bold green]Demo complete.[/]")
+    console.print("[dim]Every refusal left a structured proof.[/]")
+
+    if store:
+        console.print(f"\n[bold]Trace stored:[/] {store.trace_file}")
+
+
+def _demo_incompleteness(store=None, silent: bool = False):
+    """Demo: Incompleteness receipt."""
+    if not silent:
+        console.print(Panel("[bold]Scenario: Incompleteness[/]", style="cyan"))
+        console.print("Attempting to run assay without target repository...\n")
+
+    from assay._receipts.domains.blockages import create_incompleteness_receipt
+
+    receipt = create_incompleteness_receipt(
+        undecidable_claim="Cannot run security scan without target repository",
+        missing_evidence=["target_repo", "scan_policy"],
+        impact_if_wrong="high",
+        recommended_action="gather_evidence",
+    )
+
+    if store:
+        store.append(receipt)
+
+    if not silent:
+        console.print("[red]BLOCKED[/]: Missing required context")
+        console.print(f"  Claim: {receipt.undecidable_claim}")
+        console.print(f"  Missing: {', '.join(receipt.missing_evidence)}")
+        console.print(f"  Impact if wrong: {receipt.impact_if_wrong}")
+        console.print(f"  Recommended: {receipt.recommended_action}")
+        console.print(f"\n[dim]Receipt ID: {receipt.receipt_id}[/]\n")
+
+
+def _demo_contradiction(store=None, silent: bool = False):
+    """Demo: Contradiction receipt."""
+    if not silent:
+        console.print(Panel("[bold]Scenario: Contradiction[/]", style="yellow"))
+        console.print("Policy check vs coherence check disagree...\n")
+
+    from assay._receipts.domains.blockages import create_contradiction_receipt
+
+    receipt = create_contradiction_receipt(
+        claim_a="Action improves system coherence (+0.15)",
+        claim_a_confidence=0.85,
+        claim_b="Action violates rate limit policy",
+        claim_b_confidence=0.92,
+        impacted_invariants=["policy_compliance", "coherence_monotonicity"],
+        resolution_attempted=True,
+        resolution_result="Deferred to human review",
+    )
+
+    if store:
+        store.append(receipt)
+
+    if not silent:
+        console.print("[yellow]CONTRADICTION DETECTED[/]")
+        console.print(f"  Claim A ({receipt.claim_a_confidence:.0%}): {receipt.claim_a}")
+        console.print(f"  Claim B ({receipt.claim_b_confidence:.0%}): {receipt.claim_b}")
+        console.print(f"  Invariants: {', '.join(receipt.impacted_invariants)}")
+        console.print(f"  Resolution: {receipt.resolution_result}")
+        console.print(f"\n[dim]Receipt ID: {receipt.receipt_id}[/]\n")
+
+
+def _demo_paradox(store=None, silent: bool = False):
+    """Demo: Paradox receipt."""
+    if not silent:
+        console.print(Panel("[bold]Scenario: Paradox[/]", style="red"))
+        console.print("Contradiction persists after resolution attempt...\n")
+
+    from assay._receipts.domains.blockages import create_paradox_receipt
+
+    receipt = create_paradox_receipt(
+        contradiction_id="con_abc123",
+        why_frame_change_required="Both claims are valid under current policy framework. "
+                                   "Resolving requires updating the rate limit policy itself.",
+        candidate_reframes=[
+            "Add exception for coherence-improving actions",
+            "Implement grace period for near-threshold requests",
+            "Escalate rate limit decisions to council",
+        ],
+        escalation_path="council",
+        dignity_risk=0.3,
+    )
+
+    if store:
+        store.append(receipt)
+
+    if not silent:
+        console.print("[red]PARADOX - FRAME CHANGE REQUIRED[/]")
+        console.print(f"  Source: {receipt.contradiction_id}")
+        console.print(f"  Why: {receipt.why_frame_change_required[:80]}...")
+        console.print(f"  Dignity risk: {receipt.dignity_risk:.0%}")
+        console.print(f"  Escalation: {receipt.escalation_path}")
+        console.print("  Candidate reframes:")
+        for reframe in receipt.candidate_reframes:
+            console.print(f"    - {reframe}")
+        console.print(f"\n[dim]Receipt ID: {receipt.receipt_id}[/]\n")
+
+
+def _demo_guardian(store=None, silent: bool = False):
+    """Demo: Guardian rule blocking action."""
+    if not silent:
+        console.print(Panel("[bold]Scenario: Guardian Block[/]", style="magenta"))
+        console.print("Attempting action that trades dignity for coherence...\n")
+
+    from assay.guardian import no_coherence_by_dignity_debt
+
+    coherence_delta = 0.15
+    dignity_delta = -0.08
+
+    if not silent:
+        console.print("  Proposed action: Cache user data without consent")
+        console.print(f"  Coherence gain: +{coherence_delta:.0%}")
+        console.print(f"  Dignity cost: {dignity_delta:.0%}")
+        console.print()
+
+    verdict = no_coherence_by_dignity_debt(coherence_delta, dignity_delta)
+
+    if store:
+        store.append_dict({
+            "type": "guardian_verdict",
+            "rule": "no_coherence_by_dignity_debt",
+            "coherence_delta": coherence_delta,
+            "dignity_delta": dignity_delta,
+            "dignity_composite": 0.65,
+            "allowed": verdict.allowed,
+            "reason": verdict.reason,
+            "clause0_violation": verdict.clause0_violation,
+        })
+
+    if not silent:
+        if not verdict.allowed:
+            console.print(f"[red bold]BLOCKED: {verdict.reason}[/]")
+            if verdict.clause0_violation:
+                console.print("[red]  CLAUSE 0 VIOLATION: Dignity floor breached[/]")
+            console.print("\n[dim]No coherence gain by dignity debt.[/]\n")
+        else:
+            console.print("[green]ALLOWED[/]")
+
+
+@assay_app.command("show")
+def show_trace(
+    trace_id: str = typer.Argument(..., help="Trace ID to show"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """
+    Show receipts from a trace.
+
+    Examples:
+        assay show trace_20250205T143022_abc12345
+        assay show trace_xxx --json
+    """
+    from assay.store import get_default_store
+
+    store = get_default_store()
+    entries = store.read_trace(trace_id)
+
+    if not entries:
+        if output_json:
+            _output_json({
+                "command": "show",
+                "trace_id": trace_id,
+                "status": "error",
+                "errors": [f"Trace not found: {trace_id}"],
+            })
+        console.print(f"[red]Trace not found:[/] {trace_id}")
+        raise typer.Exit(1)
+
+    if output_json:
+        _output_json({
+            "command": "show",
+            "trace_id": trace_id,
+            "status": "ok",
+            "entry_count": len(entries),
+            "entries": entries,
+        })
+
+    console.print(f"[bold]Trace:[/] {trace_id}")
+    console.print(f"[dim]Entries: {len(entries)}[/]\n")
+
+    for i, entry in enumerate(entries, 1):
+        entry_type = entry.get("type") or entry.get("receipt_type", "unknown")
+        receipt_id = entry.get("receipt_id", "-")
+        stored_at = entry.get("_stored_at", "-")
+
+        console.print(f"{i}. [{entry_type}] {receipt_id}")
+        console.print(f"   [dim]{stored_at}[/]")
+
+        # Show key fields based on type
+        if entry_type == "IncompletenessReceipt":
+            console.print(f"   Claim: {entry.get('undecidable_claim', '-')}")
+        elif entry_type == "ContradictionReceipt":
+            console.print(f"   Claim A: {entry.get('claim_a', '-')}")
+            console.print(f"   Claim B: {entry.get('claim_b', '-')}")
+        elif entry_type == "guardian_check":
+            console.print(f"   Action: {entry.get('action', '-')}")
+            console.print(f"   Allowed: {entry.get('overall_allowed', '-')}")
+        console.print()
+
+
+@assay_app.command("list")
+def list_traces(
+    limit: int = typer.Option(10, "--limit", "-n", help="Number of traces to show"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """
+    List recent traces.
+
+    Examples:
+        assay list
+        assay list --limit 20
+        assay list --json
+    """
+    from assay.store import get_default_store
+
+    store = get_default_store()
+    traces = store.list_traces(limit=limit)
+
+    if output_json:
+        _output_json({
+            "command": "list",
+            "status": "ok",
+            "count": len(traces),
+            "traces": traces,
+        })
+
+    if not traces:
+        console.print("[dim]No traces found.[/]")
+        console.print("[dim]Run 'assay demo' to create one.[/]")
+        return
+
+    table = Table(show_header=True, header_style="bold")
+    table.add_column("Trace ID", style="cyan")
+    table.add_column("Date")
+    table.add_column("Size", justify="right")
+    table.add_column("Modified")
+
+    for t in traces:
+        size = f"{t['size_bytes']} B" if t['size_bytes'] < 1024 else f"{t['size_bytes']//1024} KB"
+        table.add_row(
+            t["trace_id"],
+            t["date"],
+            size,
+            t["modified"][:19],
+        )
+
+    console.print(table)
+
+
+@assay_app.command("verify")
+def verify_trace(
+    trace_id: str = typer.Argument(..., help="Trace ID to verify"),
+    strict: bool = typer.Option(False, "--strict", help="Enable strict mode (check hashes/signatures)"),
+    policy_override: Optional[List[str]] = typer.Option(None, "--policy-override", help="Override policy values (repeatable, e.g., dignity_floor=0.5)"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """
+    Verify trace integrity.
+
+    Checks:
+    - Every entry has required fields (type or receipt_type)
+    - Receipt IDs are unique within the trace
+    - Temporal ordering is consistent (_stored_at increases)
+    - Parent references are valid (if present)
+
+    With --strict: also verifies hashes and signatures (if present).
+
+    With --policy-override: re-verify with different policy thresholds.
+    This is the killer demo feature: show a trace that passed, then watch
+    it fail when the bar is raised.
+
+    Exit codes:
+    - 0: Verification passed
+    - 1: Error (trace not found, etc.)
+    - 2: Verification failed
+
+    Examples:
+        assay verify trace_20250205T143022_abc12345
+        assay verify trace_xxx --strict
+        assay verify trace_xxx --json
+        assay verify trace_xxx --policy-override dignity_floor=0.5
+        assay verify trace_xxx --policy-override dignity_floor=0.8 --policy-override coherence_floor=0.9
+    """
+    from assay.store import get_default_store
+
+    store = get_default_store()
+    entries = store.read_trace(trace_id)
+
+    if not entries:
+        if output_json:
+            _output_json({
+                "command": "verify",
+                "trace_id": trace_id,
+                "status": "error",
+                "errors": [f"Trace not found: {trace_id}"],
+            })
+        console.print(f"[red]Trace not found:[/] {trace_id}")
+        raise typer.Exit(1)
+
+    # Parse policy overrides
+    overrides: Dict[str, float] = {}
+    if policy_override:
+        for override in policy_override:
+            if "=" not in override:
+                if output_json:
+                    _output_json({
+                        "command": "verify",
+                        "trace_id": trace_id,
+                        "status": "error",
+                        "errors": [f"Invalid policy override format: {override} (expected key=value)"],
+                    })
+                console.print(f"[red]Invalid policy override format:[/] {override}")
+                console.print("[dim]Expected format: key=value (e.g., dignity_floor=0.5)[/]")
+                raise typer.Exit(1)
+            key, value = override.split("=", 1)
+            try:
+                overrides[key.strip()] = float(value.strip())
+            except ValueError:
+                if output_json:
+                    _output_json({
+                        "command": "verify",
+                        "trace_id": trace_id,
+                        "status": "error",
+                        "errors": [f"Invalid policy override value: {value} (expected float)"],
+                    })
+                console.print(f"[red]Invalid policy override value:[/] {value}")
+                raise typer.Exit(1)
+
+    errors: List[str] = []
+    warnings: List[str] = []
+    policy_violations: List[Dict[str, Any]] = []
+    prev_stored_at: Optional[str] = None
+
+    # Pre-compute all receipt IDs in the trace for parent reference validation
+    all_receipt_ids: set = set()
+    for entry in entries:
+        receipt_id = entry.get("receipt_id")
+        if receipt_id:
+            all_receipt_ids.add(receipt_id)
+
+    # Track IDs seen so far for duplicate detection
+    seen_receipt_ids: set = set()
+
+    for i, entry in enumerate(entries):
+        entry_num = i + 1
+
+        # Check required fields
+        entry_type = entry.get("type") or entry.get("receipt_type")
+        if not entry_type:
+            errors.append(f"Entry {entry_num}: missing type or receipt_type")
+
+        # Check receipt_id uniqueness
+        receipt_id = entry.get("receipt_id")
+        if receipt_id:
+            if receipt_id in seen_receipt_ids:
+                errors.append(f"Entry {entry_num}: duplicate receipt_id '{receipt_id}'")
+            seen_receipt_ids.add(receipt_id)
+
+        # Check temporal ordering
+        stored_at = entry.get("_stored_at")
+        if stored_at and prev_stored_at:
+            if stored_at < prev_stored_at:
+                errors.append(f"Entry {entry_num}: temporal ordering violation (_stored_at goes backwards)")
+        prev_stored_at = stored_at
+
+        # Check parent references (if present)
+        # ParadoxReceipt has contradiction_id, other receipts may have parent_receipt_id
+        parent_id = entry.get("parent_receipt_id") or entry.get("contradiction_id")
+        if parent_id and parent_id not in all_receipt_ids:
+            warnings.append(f"Entry {entry_num}: parent reference '{parent_id}' not found in trace")
+
+        # Policy override checks
+        if overrides:
+            # Check dignity_floor override
+            if "dignity_floor" in overrides:
+                floor = overrides["dignity_floor"]
+                # Look for dignity_composite in various places
+                dignity = entry.get("dignity_composite")
+                if dignity is None:
+                    # Check in verdicts or nested structures
+                    verdicts = entry.get("verdicts", {})
+                    if isinstance(verdicts, dict):
+                        for v in verdicts.values():
+                            if isinstance(v, dict) and "dignity_composite" in v:
+                                dignity = v.get("dignity_composite")
+                                break
+
+                if dignity is not None:
+                    try:
+                        dignity_val = float(dignity)
+                        if dignity_val < floor:
+                            policy_violations.append({
+                                "entry": entry_num,
+                                "receipt_id": receipt_id,
+                                "field": "dignity_composite",
+                                "value": dignity_val,
+                                "floor": floor,
+                            })
+                            errors.append(
+                                f"Entry {entry_num}: dignity_composite ({dignity_val:.3f}) "
+                                f"below policy floor ({floor:.3f})"
+                            )
+                    except (ValueError, TypeError):
+                        pass
+
+            # Check coherence_floor override
+            if "coherence_floor" in overrides:
+                floor = overrides["coherence_floor"]
+                coherence = entry.get("coherence") or entry.get("coherence_delta")
+                if coherence is not None:
+                    try:
+                        coherence_val = float(coherence)
+                        if coherence_val < floor:
+                            policy_violations.append({
+                                "entry": entry_num,
+                                "receipt_id": receipt_id,
+                                "field": "coherence",
+                                "value": coherence_val,
+                                "floor": floor,
+                            })
+                            errors.append(
+                                f"Entry {entry_num}: coherence ({coherence_val:.3f}) "
+                                f"below policy floor ({floor:.3f})"
+                            )
+                    except (ValueError, TypeError):
+                        pass
+
+        # Strict mode checks
+        if strict:
+            # Check for hash field
+            proof = entry.get("proof", {})
+            content_hash = proof.get("hash") or entry.get("content_hash") or entry.get("hash")
+
+            if entry_type and "Receipt" in str(entry_type):
+                if not content_hash:
+                    warnings.append(f"Entry {entry_num}: receipt has no content_hash (strict)")
+                else:
+                    # Verify hash matches content
+                    try:
+                        from assay._receipts.canonicalize import compute_payload_hash
+
+                        # Exclude proof and trace metadata for hash computation
+                        payload = {k: v for k, v in entry.items()
+                                   if k not in ("proof", "_trace_id", "_stored_at")}
+                        # compute_payload_hash already returns "sha256:..." prefixed
+                        computed_hash = compute_payload_hash(payload, algorithm="sha256")
+
+                        # Normalize stored hash to have prefix for comparison
+                        hash_to_check = content_hash
+                        if ":" not in hash_to_check:
+                            hash_to_check = f"sha256:{hash_to_check}"
+
+                        if hash_to_check != computed_hash:
+                            errors.append(f"Entry {entry_num}: hash mismatch (computed {computed_hash[:25]}..., got {hash_to_check[:25]}...)")
+                    except ImportError:
+                        warnings.append(f"Entry {entry_num}: cannot verify hash (canonicalize not available)")
+                    except Exception as e:
+                        warnings.append(f"Entry {entry_num}: hash verification error: {e}")
+
+                # Verify receipt_hash if present
+                receipt_hash = entry.get("receipt_hash")
+                if receipt_hash:
+                    try:
+                        from assay._receipts.canonicalize import compute_payload_hash
+
+                        payload = {k: v for k, v in entry.items()
+                                   if k not in ("proof", "_trace_id", "_stored_at", "receipt_hash")}
+                        computed_receipt_hash = compute_payload_hash(payload, algorithm="sha256")
+
+                        hash_to_check = receipt_hash
+                        if ":" not in hash_to_check:
+                            hash_to_check = f"sha256:{hash_to_check}"
+
+                        if hash_to_check != computed_receipt_hash:
+                            errors.append(
+                                f"Entry {entry_num}: receipt_hash mismatch "
+                                f"(computed {computed_receipt_hash[:25]}..., got {hash_to_check[:25]}...)"
+                            )
+                    except ImportError:
+                        warnings.append(f"Entry {entry_num}: cannot verify receipt_hash (canonicalize not available)")
+                    except Exception as e:
+                        warnings.append(f"Entry {entry_num}: receipt_hash verification error: {e}")
+
+                # Check signature if present
+                signature = proof.get("producer_signature")
+                if signature:
+                    try:
+                        # Signature verification requires the verify key
+                        # For now, just note that signature is present
+                        warnings.append(f"Entry {entry_num}: signature present but key not configured for verification")
+                    except Exception as e:
+                        warnings.append(f"Entry {entry_num}: signature check error: {e}")
+
+    # Determine result
+    passed = len(errors) == 0
+
+    if output_json:
+        result_data = {
+            "command": "verify",
+            "trace_id": trace_id,
+            "status": "ok" if passed else "failed",
+            "passed": passed,
+            "entry_count": len(entries),
+            "errors": errors,
+            "warnings": warnings,
+            "strict": strict,
+        }
+        if overrides:
+            result_data["policy_override"] = overrides
+            result_data["policy_violations"] = policy_violations
+        _output_json(result_data)
+
+    # Display results
+    console.print(f"[bold]Verifying:[/] {trace_id}")
+    console.print(f"[dim]Entries: {len(entries)}[/]")
+
+    # Show policy overrides if any
+    if overrides:
+        console.print()
+        console.print("[cyan]Policy overrides applied:[/]")
+        for key, value in overrides.items():
+            console.print(f"  {key} = {value}")
+    console.print()
+
+    if errors:
+        console.print("[red bold]VERIFICATION FAILED[/]\n")
+        for err in errors:
+            console.print(f"  [red]-[/] {err}")
+    else:
+        console.print("[green bold]VERIFICATION PASSED[/]\n")
+
+    if warnings:
+        console.print("\n[yellow]Warnings:[/]")
+        for warn in warnings:
+            console.print(f"  [yellow]![/] {warn}")
+
+    console.print(f"\n[dim]Checked: {len(entries)} entries, {len(all_receipt_ids)} receipts[/]")
+
+    if not passed:
+        raise typer.Exit(2)
+
+
+@assay_app.command("diff")
+def diff_traces(
+    trace_a: str = typer.Argument(..., help="First trace ID"),
+    trace_b: str = typer.Argument(..., help="Second trace ID"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """
+    Compare two traces.
+
+    Shows:
+    - Entry count differences
+    - Receipt type distribution
+    - Receipt ID overlap (common, unique to each)
+
+    Examples:
+        assay diff trace_aaa trace_bbb
+        assay diff trace_aaa trace_bbb --json
+    """
+    from assay.store import get_default_store
+    from collections import Counter
+
+    store = get_default_store()
+    entries_a = store.read_trace(trace_a)
+    entries_b = store.read_trace(trace_b)
+
+    if not entries_a:
+        if output_json:
+            _output_json({
+                "command": "diff",
+                "trace_a": trace_a,
+                "trace_b": trace_b,
+                "status": "error",
+                "errors": [f"Trace not found: {trace_a}"],
+            })
+        console.print(f"[red]Trace not found:[/] {trace_a}")
+        raise typer.Exit(1)
+    if not entries_b:
+        if output_json:
+            _output_json({
+                "command": "diff",
+                "trace_a": trace_a,
+                "trace_b": trace_b,
+                "status": "error",
+                "errors": [f"Trace not found: {trace_b}"],
+            })
+        console.print(f"[red]Trace not found:[/] {trace_b}")
+        raise typer.Exit(1)
+
+    # Extract types
+    def get_types(entries: List[Dict]) -> List[str]:
+        return [e.get("type") or e.get("receipt_type", "unknown") for e in entries]
+
+    types_a = get_types(entries_a)
+    types_b = get_types(entries_b)
+
+    counter_a = Counter(types_a)
+    counter_b = Counter(types_b)
+
+    # Find receipt_id overlap
+    ids_a = {e.get("receipt_id") for e in entries_a if e.get("receipt_id")}
+    ids_b = {e.get("receipt_id") for e in entries_b if e.get("receipt_id")}
+
+    common_ids = ids_a & ids_b
+    only_a = ids_a - ids_b
+    only_b = ids_b - ids_a
+
+    # Build diff result
+    diff_result = {
+        "command": "diff",
+        "trace_a": trace_a,
+        "trace_b": trace_b,
+        "status": "ok",
+        "entry_counts": {
+            "trace_a": len(entries_a),
+            "trace_b": len(entries_b),
+            "difference": len(entries_b) - len(entries_a),
+        },
+        "type_distribution": {
+            "trace_a": dict(counter_a),
+            "trace_b": dict(counter_b),
+        },
+        "receipt_overlap": {
+            "common": len(common_ids),
+            "only_in_a": len(only_a),
+            "only_in_b": len(only_b),
+        },
+    }
+
+    if output_json:
+        _output_json(diff_result)
+
+    # Display
+    console.print("[bold]Comparing traces[/]")
+    console.print(f"  A: {trace_a}")
+    console.print(f"  B: {trace_b}\n")
+
+    # Entry counts
+    table = Table(show_header=True, header_style="bold", title="Entry Counts")
+    table.add_column("Metric")
+    table.add_column("Trace A", justify="right")
+    table.add_column("Trace B", justify="right")
+    table.add_column("Diff", justify="right")
+
+    table.add_row(
+        "Total entries",
+        str(len(entries_a)),
+        str(len(entries_b)),
+        f"{len(entries_b) - len(entries_a):+d}",
+    )
+    console.print(table)
+    console.print()
+
+    # Type distribution
+    all_types = set(counter_a.keys()) | set(counter_b.keys())
+    if all_types:
+        type_table = Table(show_header=True, header_style="bold", title="Type Distribution")
+        type_table.add_column("Type")
+        type_table.add_column("Trace A", justify="right")
+        type_table.add_column("Trace B", justify="right")
+
+        for t in sorted(all_types):
+            type_table.add_row(t, str(counter_a.get(t, 0)), str(counter_b.get(t, 0)))
+        console.print(type_table)
+        console.print()
+
+    # Receipt overlap
+    console.print("[bold]Receipt IDs:[/]")
+    console.print(f"  Common: {len(common_ids)}")
+    console.print(f"  Only in A: {len(only_a)}")
+    console.print(f"  Only in B: {len(only_b)}")
+
+    if only_a:
+        console.print(f"\n[dim]IDs only in A: {', '.join(list(only_a)[:5])}{'...' if len(only_a) > 5 else ''}[/]")
+    if only_b:
+        console.print(f"[dim]IDs only in B: {', '.join(list(only_b)[:5])}{'...' if len(only_b) > 5 else ''}[/]")
+
+
+@assay_app.command("pack")
+def create_pack(
+    trace_id: str = typer.Argument(..., help="Trace ID to package"),
+    output: Optional[str] = typer.Option(None, "--output", "-o", help="Output zip path (default: evidence_pack_<trace_id>.zip)"),
+    include_source: bool = typer.Option(False, "--include-source", help="Include relevant source files"),
+    forensic: bool = typer.Option(False, "--forensic", help="Preserve raw trace bytes (forensic fidelity)"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """
+    Create an evidence pack for patent defense and demos.
+
+    Produces a self-contained zip with:
+    - trace.jsonl (the raw receipt chain)
+    - verify_report.json (integrity verification results)
+    - merkle_root.json (tamper-evident hash tree)
+    - claim_map.json (patent claim -> code -> test mapping)
+    - build_metadata.json (versions, timestamps, environment)
+    - README.md (human-readable summary)
+
+    Use --forensic to preserve raw trace bytes (for legal/audit parity).
+    Default mode re-serializes entries (canonicalized, deterministic).
+
+    Examples:
+        assay pack trace_20250205T143022_abc12345
+        assay pack trace_xxx -o evidence.zip
+        assay pack trace_xxx --include-source
+        assay pack trace_xxx --forensic  # Preserve exact bytes
+    """
+    from pathlib import Path
+    from assay.evidence_pack import create_evidence_pack
+
+    output_path = Path(output) if output else None
+
+    try:
+        result_path = create_evidence_pack(
+            trace_id=trace_id,
+            output_path=output_path,
+            include_source=include_source,
+            preserve_raw=forensic,
+        )
+    except ValueError as e:
+        if output_json:
+            _output_json({
+                "command": "pack",
+                "status": "error",
+                "trace_id": trace_id,
+                "errors": [str(e)],
+            })
+            return  # _output_json raises, but be explicit
+        console.print(f"[red]Error:[/] {e}")
+        raise typer.Exit(1)
+    except Exception as e:
+        if output_json:
+            _output_json({
+                "command": "pack",
+                "status": "error",
+                "trace_id": trace_id,
+                "errors": [str(e)],
+            })
+            return  # _output_json raises, but be explicit
+        console.print(f"[red]Unexpected error:[/] {e}")
+        raise typer.Exit(1)
+
+    # JSON output mode - emit and exit
+    if output_json:
+        _output_json({
+            "command": "pack",
+            "status": "ok",
+            "trace_id": trace_id,
+            "output_path": str(result_path),
+            "include_source": include_source,
+            "forensic_mode": forensic,
+        })
+        return  # _output_json raises, but be explicit
+
+    # Console output mode
+    console.print(f"[green bold]Evidence pack created:[/] {result_path}")
+    console.print(f"\n[dim]Trace: {trace_id}[/]")
+    console.print(f"[dim]Source files: {include_source}, Forensic mode: {forensic}[/]")
+
+
+@assay_app.command("launch-check")
+def launch_check(
+    emit: bool = typer.Option(False, "--emit", help="Persist LaunchReadinessReceipt to disk"),
+    artifacts_dir: Optional[str] = typer.Option(None, "--artifacts-dir", help="Directory for stdout/stderr captures"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+    timeout: int = typer.Option(120, "--timeout", help="Per-check timeout in seconds"),
+):
+    """
+    Run verification suite and emit LaunchReadinessReceipt.
+
+    Checks each component and captures pass/fail + artifact hashes:
+    - assay --help (CLI installed)
+    - assay demo (creates trace)
+    - assay validate (Guardian rules work)
+    - assay health (health checks work)
+    - pytest tests/assay/ (unit tests pass)
+    - pytest tests/receipts/test_patent_receipts.py (patent tests pass)
+    - Evidence pack generation (from demo trace)
+
+    Exit codes:
+    - 0: All checks passed
+    - 1: Execution error
+    - 2: One or more checks failed
+
+    Examples:
+        assay launch-check
+        assay launch-check --emit
+        assay launch-check --json
+        assay launch-check --artifacts-dir ./artifacts
+    """
+    import hashlib
+    import os
+    import subprocess
+    import time
+    import uuid
+    from datetime import datetime, timezone
+    from pathlib import Path
+
+    from rich.table import Table
+
+    # Set up artifacts directory
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+    if artifacts_dir:
+        artifact_path = Path(artifacts_dir)
+    else:
+        artifact_path = Path.home() / ".assay" / "artifacts" / "launch-check" / timestamp
+    artifact_path.mkdir(parents=True, exist_ok=True)
+
+    # Get working directory (ccio root)
+    cwd = str(Path(__file__).parent.parent.parent)
+
+    # Import receipt types
+    from assay._receipts.domains.launch_readiness import (
+        CheckResult,
+        create_launch_readiness_receipt,
+    )
+
+    checks: List[Dict[str, Any]] = []
+    demo_trace_id: Optional[str] = None
+
+    def run_check(name: str, cmd: List[str], expect_trace: bool = False) -> Dict[str, Any]:
+        """Run a single check and capture results."""
+        nonlocal demo_trace_id
+
+        start_time = time.time()
+        stdout_file = artifact_path / f"{name}_stdout.txt"
+        stderr_file = artifact_path / f"{name}_stderr.txt"
+
+        try:
+            env = os.environ.copy()
+            env["PYTHONPATH"] = str(Path(cwd) / "src")
+
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                cwd=cwd,
+                env=env,
+            )
+
+            duration_ms = int((time.time() - start_time) * 1000)
+
+            # Write captures
+            stdout_file.write_text(result.stdout)
+            stderr_file.write_text(result.stderr)
+
+            # Compute artifact hash
+            hash_payload = {
+                "cmd": cmd,
+                "cwd": cwd,
+                "exit_code": result.returncode,
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+            }
+            artifact_hash = hashlib.sha256(
+                json.dumps(hash_payload, sort_keys=True).encode()
+            ).hexdigest()
+
+            passed = result.returncode == 0
+
+            # Extract trace_id from demo output if needed
+            if expect_trace and passed:
+                for line in result.stdout.split("\n"):
+                    if "Trace:" in line or "trace_" in line:
+                        import re
+                        match = re.search(r"trace_\w+", line)
+                        if match:
+                            demo_trace_id = match.group(0)
+                            break
+
+            error_msg = None
+            if not passed:
+                error_msg = result.stderr[:500] if result.stderr else f"Exit code {result.returncode}"
+
+            return {
+                "name": name,
+                "cmd": cmd,
+                "cwd": cwd,
+                "passed": passed,
+                "exit_code": result.returncode,
+                "duration_ms": duration_ms,
+                "stdout_path": str(stdout_file),
+                "stderr_path": str(stderr_file),
+                "artifact_hash": artifact_hash,
+                "error_message": error_msg,
+            }
+
+        except subprocess.TimeoutExpired:
+            duration_ms = int((time.time() - start_time) * 1000)
+            return {
+                "name": name,
+                "cmd": cmd,
+                "cwd": cwd,
+                "passed": False,
+                "exit_code": -1,
+                "duration_ms": duration_ms,
+                "stdout_path": str(stdout_file),
+                "stderr_path": str(stderr_file),
+                "artifact_hash": None,
+                "error_message": f"Timeout after {timeout}s",
+            }
+        except Exception as e:
+            duration_ms = int((time.time() - start_time) * 1000)
+            return {
+                "name": name,
+                "cmd": cmd,
+                "cwd": cwd,
+                "passed": False,
+                "exit_code": -1,
+                "duration_ms": duration_ms,
+                "stdout_path": str(stdout_file),
+                "stderr_path": str(stderr_file),
+                "artifact_hash": None,
+                "error_message": str(e)[:500],
+            }
+
+    # Run checks
+    console.print("[bold]Running launch readiness checks...[/]\n")
+
+    # 1. CLI help
+    console.print("  [dim]1/7[/] assay --help")
+    checks.append(run_check("assay_help", ["python", "-m", "assay.cli", "--help"]))
+
+    # 2. Demo
+    console.print("  [dim]2/7[/] assay demo")
+    checks.append(run_check("assay_demo", ["python", "-m", "assay.cli", "demo"], expect_trace=True))
+
+    # 3. Validate
+    console.print("  [dim]3/7[/] assay validate")
+    checks.append(run_check("assay_validate", [
+        "python", "-m", "assay.cli", "validate",
+        "test action", "--coherence", "0.8", "--dignity", "0.7", "--receipt"
+    ]))
+
+    # 4. Health
+    console.print("  [dim]4/7[/] assay health")
+    checks.append(run_check("assay_health", ["python", "-m", "assay.cli", "health"]))
+
+    # 5. Assay tests
+    console.print("  [dim]5/7[/] pytest tests/assay/")
+    checks.append(run_check("assay_tests", ["python", "-m", "pytest", "tests/assay/", "-v", "--tb=short"]))
+
+    # 6. Patent receipt tests
+    console.print("  [dim]6/7[/] pytest tests/receipts/test_patent_receipts.py")
+    checks.append(run_check("patent_tests", ["python", "-m", "pytest", "tests/receipts/test_patent_receipts.py", "-v", "--tb=short"]))
+
+    # 7. Evidence pack (only if demo succeeded and we have a trace_id)
+    console.print("  [dim]7/7[/] evidence pack generation")
+    if demo_trace_id:
+        pack_output = artifact_path / f"evidence_pack_{demo_trace_id}.zip"
+        checks.append(run_check("evidence_pack", [
+            "python", "-m", "assay.cli", "pack",
+            demo_trace_id, "-o", str(pack_output)
+        ]))
+    else:
+        checks.append({
+            "name": "evidence_pack",
+            "cmd": ["assay", "pack", "<trace_id>"],
+            "cwd": cwd,
+            "passed": False,
+            "exit_code": -1,
+            "duration_ms": 0,
+            "stdout_path": None,
+            "stderr_path": None,
+            "artifact_hash": None,
+            "error_message": "Skipped: no trace_id from demo",
+        })
+
+    console.print()
+
+    # Create check result objects
+    check_results = []
+    for c in checks:
+        check_results.append(CheckResult(
+            receipt_id=f"chk_{uuid.uuid4().hex[:12]}",
+            name=c["name"],
+            cmd=c["cmd"],
+            cwd=c["cwd"],
+            passed=c["passed"],
+            exit_code=c["exit_code"],
+            duration_ms=c["duration_ms"],
+            stdout_path=c.get("stdout_path"),
+            stderr_path=c.get("stderr_path"),
+            artifact_hash=c.get("artifact_hash"),
+            error_message=c.get("error_message"),
+        ))
+
+    # Create receipt
+    receipt = create_launch_readiness_receipt(
+        checks=check_results,
+        artifacts_dir=str(artifact_path),
+    )
+
+    # Emit if requested
+    receipt_path = None
+    if emit:
+        emit_dir = Path.home() / ".assay" / "launch" / timestamp
+        emit_dir.mkdir(parents=True, exist_ok=True)
+        receipt_path = emit_dir / "LaunchReadinessReceipt.json"
+        receipt_path.write_text(json.dumps(receipt.model_dump(mode="json"), indent=2, default=str))
+
+    # JSON output
+    if output_json:
+        result_data = {
+            "command": "launch-check",
+            "status": "ok" if receipt.overall_passed else "failed",
+            "overall_passed": receipt.overall_passed,
+            "component_summary": {
+                "total": receipt.component_summary.total,
+                "passed": receipt.component_summary.passed,
+                "failed": receipt.component_summary.failed,
+            },
+            "checks": [c.model_dump(mode="json") for c in check_results],
+            "system_fingerprint": receipt.system_fingerprint.model_dump(mode="json"),
+            "artifacts_dir": str(artifact_path),
+        }
+        if receipt_path:
+            result_data["receipt_path"] = str(receipt_path)
+        _output_json(result_data, exit_code=0 if receipt.overall_passed else 2)
+        return
+
+    # Console output - Rich table
+    table = Table(title="Launch Readiness Checks", show_header=True, header_style="bold")
+    table.add_column("Check", style="cyan")
+    table.add_column("Status", justify="center")
+    table.add_column("Duration", justify="right")
+    table.add_column("Details")
+
+    for c in check_results:
+        status = "[green]PASS[/]" if c.passed else "[red]FAIL[/]"
+        duration = f"{c.duration_ms}ms"
+        details = c.error_message[:50] + "..." if c.error_message and len(c.error_message) > 50 else (c.error_message or "")
+        table.add_row(c.name, status, duration, details)
+
+    console.print(table)
+    console.print()
+
+    # Summary
+    summary = receipt.component_summary
+    if receipt.overall_passed:
+        console.print(f"[green bold]LAUNCH READINESS: PASSED[/] ({summary.passed}/{summary.total} checks)")
+    else:
+        console.print(f"[red bold]LAUNCH READINESS: FAILED[/] ({summary.failed}/{summary.total} checks failed)")
+
+    # Fingerprint
+    fp = receipt.system_fingerprint
+    console.print(f"\n[dim]Platform: {fp.platform}[/]")
+    console.print(f"[dim]Python: {fp.python_version}[/]")
+    if fp.git_commit:
+        dirty = " (dirty)" if fp.git_dirty else ""
+        console.print(f"[dim]Git: {fp.git_commit}{dirty}[/]")
+
+    console.print(f"\n[dim]Artifacts: {artifact_path}[/]")
+
+    if receipt_path:
+        console.print(f"[dim]Receipt: {receipt_path}[/]")
+        console.print(f"\n[bold]LAUNCH_READINESS: {'PASSED' if receipt.overall_passed else 'FAILED'} path={receipt_path} receipt_id={receipt.receipt_id}[/]")
+
+    if not receipt.overall_passed:
+        raise typer.Exit(2)
+
+
+@assay_app.command("version")
+def show_version(
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Show Assay version and configuration."""
+    from assay import __version__
+    from assay.store import get_default_store
+
+    store = get_default_store()
+
+    if output_json:
+        _output_json({
+            "command": "version",
+            "status": "ok",
+            "version": __version__,
+            "storage_dir": str(store.base_dir),
+            "components": {
+                "guardian_rules": ["no_coherence_by_dignity_debt", "no_action_without_receipt"],
+                "health_checks": ["grace_window"],
+                "blockage_receipts": ["incompleteness", "contradiction", "paradox"],
+            },
+        })
+
+    console.print(f"[bold]Assay {__version__}[/]")
+    console.print("Receipt-native AI safety toolkit")
+    console.print()
+    console.print("Components:")
+    console.print("  - Guardian rules: no_coherence_by_dignity_debt")
+    console.print("  - Health checks: grace_window (with hysteresis)")
+    console.print("  - Blockage receipts: incompleteness, contradiction, paradox")
+    console.print()
+    console.print(f"Storage: {store.base_dir}")
+    console.print()
+    console.print("Part of the CCIO/Loom ecosystem")
+
+
+@assay_app.command("proof-pack")
+def proof_pack_cmd(
+    trace_id: str = typer.Argument(..., help="Trace ID to package"),
+    output_dir: str = typer.Option(None, "--output", "-o", help="Output directory"),
+    mode: str = typer.Option("shadow", "--mode", "-m", help="Mode: shadow|enforced|breakglass"),
+    run_card: Optional[List[str]] = typer.Option(
+        None, "--run-card", "-c",
+        help="Run card: builtin name or path to JSON file (repeatable)",
+    ),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Build a signed Proof Pack (5-file kernel) from a trace."""
+    from pathlib import Path
+
+    from assay.proof_pack import build_proof_pack
+    from assay.run_cards import collect_claims_from_cards, get_builtin_card, load_run_card
+
+    # Resolve run cards to claims
+    claims = None
+    if run_card:
+        cards = []
+        for card_ref in run_card:
+            builtin = get_builtin_card(card_ref)
+            if builtin:
+                cards.append(builtin)
+            else:
+                card_path = Path(card_ref)
+                if card_path.exists():
+                    cards.append(load_run_card(card_path))
+                else:
+                    console.print(f"[red]Error:[/] Unknown run card: {card_ref}")
+                    raise typer.Exit(1)
+        claims = collect_claims_from_cards(cards)
+
+    out = Path(output_dir) if output_dir else Path(f"proof_pack_{trace_id}")
+
+    try:
+        result_dir = build_proof_pack(trace_id, output_dir=out, mode=mode, claims=claims)
+    except ValueError as e:
+        if output_json:
+            _output_json({"command": "proof-pack", "status": "error", "error": str(e)})
+        console.print(f"[red]Error:[/] {e}")
+        raise typer.Exit(1)
+
+    # Read manifest for summary
+    manifest_path = result_dir / "pack_manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    att = manifest.get("attestation", {})
+
+    if output_json:
+        _output_json({
+            "command": "proof-pack",
+            "status": "ok",
+            "pack_id": att.get("pack_id"),
+            "trace_id": trace_id,
+            "output_dir": str(result_dir),
+            "receipt_integrity": att.get("receipt_integrity"),
+            "claim_check": att.get("claim_check"),
+            "n_receipts": att.get("n_receipts"),
+            "hash_covered_files": [f["path"] for f in manifest.get("files", [])],
+            "expected_files": manifest.get("expected_files", []),
+        })
+
+    console.print()
+    claim_line = f"Claims:     {att.get('claim_check', 'N/A')}\n" if claims else ""
+    console.print(Panel.fit(
+        f"[bold green]Proof Pack Built[/]\n\n"
+        f"Pack ID:    {att.get('pack_id')}\n"
+        f"Trace:      {trace_id}\n"
+        f"Integrity:  {att.get('receipt_integrity')}\n"
+        f"{claim_line}"
+        f"Receipts:   {att.get('n_receipts')}\n"
+        f"Mode:       {att.get('mode')}\n"
+        f"Output:     {result_dir}/",
+        title="assay proof-pack",
+    ))
+
+    # List files
+    for f in sorted(result_dir.iterdir()):
+        size = f.stat().st_size
+        console.print(f"  {f.name:30s} {size:>8,} bytes")
+
+    console.print()
+    console.print(f"Verify: [bold]assay verify-pack {result_dir}[/]")
+
+
+@assay_app.command("verify-pack")
+def verify_pack_cmd(
+    pack_dir: str = typer.Argument(..., help="Path to Proof Pack directory"),
+    require_claim_pass: bool = typer.Option(
+        False, "--require-claim-pass",
+        help="Fail (exit 1) if claim_check is not PASS. For CI gating.",
+    ),
+    lock: Optional[str] = typer.Option(
+        None, "--lock",
+        help="Path to assay.lock file. Enforces locked verification semantics.",
+    ),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Verify a Proof Pack's integrity (manifest, signatures, file hashes)."""
+    from pathlib import Path
+
+    from assay.integrity import verify_pack_manifest
+    from assay.keystore import get_default_keystore
+
+    pack_path = Path(pack_dir)
+    manifest_path = pack_path / "pack_manifest.json"
+
+    if not manifest_path.exists():
+        if output_json:
+            _output_json({"command": "verify-pack", "status": "error", "error": "pack_manifest.json not found"})
+        console.print(f"[red]Error:[/] {manifest_path} not found")
+        raise typer.Exit(1)
+
+    manifest = json.loads(manifest_path.read_text())
+
+    # Schema validation (verify-time enforcement)
+    from assay.manifest_schema import validate_manifest
+    schema_errors = validate_manifest(manifest)
+    if schema_errors:
+        if output_json:
+            _output_json({
+                "command": "verify-pack", "status": "error",
+                "error": "schema_validation_failed", "details": schema_errors,
+            })
+        console.print("[red]Schema validation failed:[/]")
+        for se in schema_errors[:10]:
+            console.print(f"  {se}")
+        raise typer.Exit(1)
+
+    ks = get_default_keystore()
+    result = verify_pack_manifest(manifest, pack_path, ks)
+
+    att = manifest.get("attestation", {})
+    claim_check = att.get("claim_check", "N/A")
+
+    # Determine claim gate result
+    claim_gate_failed = require_claim_pass and claim_check != "PASS"
+
+    # Lock enforcement (fail-closed)
+    lock_failed = False
+    lock_errors: list = []
+    if lock:
+        from assay.lockfile import check_lockfile, load_lockfile, validate_against_lock
+
+        lock_path = Path(lock)
+        if not lock_path.exists():
+            if output_json:
+                _output_json({"command": "verify-pack", "status": "error", "error": f"Lock file not found: {lock}"})
+            console.print(f"[red]Error:[/] Lock file not found: {lock}")
+            raise typer.Exit(2)
+
+        # Step 1: Validate lockfile itself (structure, hashes, version)
+        lock_issues = check_lockfile(lock_path)
+        if lock_issues:
+            if output_json:
+                _output_json({
+                    "command": "verify-pack", "status": "error",
+                    "error": "lockfile_invalid", "details": lock_issues,
+                })
+            console.print(f"[red]Error:[/] Lockfile is invalid: {lock}")
+            for issue in lock_issues:
+                console.print(f"  [red]{issue}[/]")
+            raise typer.Exit(2)
+
+        # Step 2: Load (structural validation) + validate pack against lock
+        lockfile_data = load_lockfile(lock_path)
+        lock_result = validate_against_lock(manifest, lockfile_data)
+        if not lock_result.passed:
+            lock_failed = True
+            lock_errors = lock_result.errors
+
+    overall_status = "ok"
+    if not result.passed:
+        overall_status = "failed"
+    elif lock_failed:
+        overall_status = "lock_mismatch"
+    elif claim_gate_failed:
+        overall_status = "claim_gate_failed"
+
+    if output_json:
+        out = {
+            "command": "verify-pack",
+            "status": overall_status,
+            "claim_check": claim_check,
+            **result.to_dict(),
+        }
+        if claim_gate_failed:
+            out["claim_gate"] = f"--require-claim-pass: claim_check is '{claim_check}'"
+        if lock_failed:
+            out["lock_errors"] = [str(e) for e in lock_errors]
+        _output_json(out)
+
+    if lock_failed:
+        console.print()
+        console.print(Panel.fit(
+            f"[bold red]LOCK MISMATCH[/]\n\n"
+            f"Pack ID:    {att.get('pack_id')}\n"
+            f"Lock file:  {lock}\n"
+            f"Mismatches: {len(lock_errors)}",
+            title="assay verify-pack",
+        ))
+        for le in lock_errors:
+            console.print(f"  [red]{le.field}[/]: expected {le.expected}, got {le.actual}")
+        console.print()
+        raise typer.Exit(2)
+
+    if result.passed and not claim_gate_failed:
+        lock_line = f"\nLock:       PASS ({lock})" if lock else ""
+        console.print()
+        console.print(Panel.fit(
+            f"[bold green]VERIFICATION PASSED[/]\n\n"
+            f"Pack ID:    {att.get('pack_id')}\n"
+            f"Integrity:  PASS\n"
+            f"Claims:     {claim_check}\n"
+            f"Receipts:   {result.receipt_count}\n"
+            f"Head Hash:  {result.head_hash or 'N/A'}\n"
+            f"Errors:     0\n"
+            f"Warnings:   {len(result.warnings)}"
+            f"{lock_line}",
+            title="assay verify-pack",
+        ))
+    elif result.passed and claim_gate_failed:
+        console.print()
+        console.print(Panel.fit(
+            f"[bold yellow]CLAIM GATE FAILED[/]\n\n"
+            f"Pack ID:    {att.get('pack_id')}\n"
+            f"Integrity:  PASS\n"
+            f"Claims:     {claim_check}\n"
+            f"Receipts:   {result.receipt_count}\n\n"
+            f"--require-claim-pass was set but claim_check is '{claim_check}'",
+            title="assay verify-pack",
+        ))
+    else:
+        console.print()
+        console.print(Panel.fit(
+            f"[bold red]VERIFICATION FAILED[/]\n\n"
+            f"Pack ID:    {att.get('pack_id')}\n"
+            f"Errors:     {len(result.errors)}",
+            title="assay verify-pack",
+        ))
+        for err in result.errors:
+            console.print(f"  [red]{err.code}[/]: {err.message}")
+
+    if result.warnings:
+        for w in result.warnings:
+            console.print(f"  [yellow]Warning:[/] {w}")
+
+    console.print()
+
+    if not result.passed:
+        raise typer.Exit(2)
+    if claim_gate_failed:
+        raise typer.Exit(1)
+
+
+@assay_app.command("demo-pack")
+def demo_pack_cmd(
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Generate, sign, and verify a Proof Pack in one command.
+
+    Creates synthetic receipts (model_call, guardian_verdict, capability_use),
+    builds a signed pack with claims, verifies it, then shows how different
+    claims produce different outcomes against the same evidence.
+
+    No API key, no configuration, no prior setup required.
+    """
+    import tempfile
+    from pathlib import Path
+
+    from assay.claim_verifier import ClaimSpec
+    from assay.integrity import verify_pack_manifest
+    from assay.keystore import AssayKeyStore
+    from assay.proof_pack import ProofPack
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        td = Path(tmpdir)
+        ks = AssayKeyStore(keys_dir=td / "keys")
+        ks.generate_key("demo")
+
+        # Synthetic receipts: a realistic mix of types
+        ts_base = "2026-01-15T10:00:0"
+        receipts = [
+            {
+                "receipt_id": "r_demo_001",
+                "type": "model_call",
+                "timestamp": f"{ts_base}0Z",
+                "schema_version": "3.0",
+                "seq": 0,
+                "model_id": "claude-sonnet-4-20250514",
+                "total_tokens": 1847,
+            },
+            {
+                "receipt_id": "r_demo_002",
+                "type": "guardian_verdict",
+                "timestamp": f"{ts_base}1Z",
+                "schema_version": "3.0",
+                "seq": 1,
+                "verdict": "allow",
+                "tool": "web_search",
+                "risk_score": 0.12,
+            },
+            {
+                "receipt_id": "r_demo_003",
+                "type": "model_call",
+                "timestamp": f"{ts_base}2Z",
+                "schema_version": "3.0",
+                "seq": 2,
+                "model_id": "claude-sonnet-4-20250514",
+                "total_tokens": 523,
+            },
+            {
+                "receipt_id": "r_demo_004",
+                "type": "capability_use",
+                "timestamp": f"{ts_base}3Z",
+                "schema_version": "3.0",
+                "seq": 3,
+                "capability": "file_write",
+                "target": "/tmp/output.txt",
+            },
+            {
+                "receipt_id": "r_demo_005",
+                "type": "model_call",
+                "timestamp": f"{ts_base}4Z",
+                "schema_version": "3.0",
+                "seq": 4,
+                "model_id": "claude-sonnet-4-20250514",
+                "total_tokens": 312,
+            },
+        ]
+
+        # Claims that PASS: these match the receipts above
+        passing_claims = [
+            ClaimSpec(
+                claim_id="has_model_calls",
+                description="At least one model_call receipt",
+                check="receipt_type_present",
+                params={"receipt_type": "model_call"},
+            ),
+            ClaimSpec(
+                claim_id="has_guardian",
+                description="Guardian was active",
+                check="receipt_type_present",
+                params={"receipt_type": "guardian_verdict"},
+            ),
+            ClaimSpec(
+                claim_id="no_breakglass",
+                description="No override receipts",
+                check="no_receipt_type",
+                params={"receipt_type": "breakglass"},
+            ),
+            ClaimSpec(
+                claim_id="timestamps_ok",
+                description="Timestamps are monotonic",
+                check="timestamps_monotonic",
+            ),
+        ]
+
+        # Build pack A: all claims pass
+        pack_a = ProofPack(
+            run_id="demo-passing",
+            entries=receipts,
+            signer_id="demo",
+            claims=passing_claims,
+            mode="shadow",
+        )
+        out_a = pack_a.build(td / "pack_pass", keystore=ks)
+        manifest_a = json.loads((out_a / "pack_manifest.json").read_text())
+        att_a = manifest_a["attestation"]
+        result_a = verify_pack_manifest(manifest_a, out_a, ks)
+
+        # Build pack B: same receipts, stricter claims -> one claim FAILS
+        strict_claims = [
+            ClaimSpec(
+                claim_id="need_100_receipts",
+                description="At least 100 receipts (will fail)",
+                check="receipt_count_ge",
+                params={"min_count": 100},
+                severity="critical",
+            ),
+        ]
+        pack_b = ProofPack(
+            run_id="demo-failing",
+            entries=receipts,  # same receipts
+            signer_id="demo",
+            claims=strict_claims,
+            mode="shadow",
+        )
+        out_b = pack_b.build(td / "pack_fail", keystore=ks)
+        manifest_b = json.loads((out_b / "pack_manifest.json").read_text())
+        att_b = manifest_b["attestation"]
+
+        if output_json:
+            _output_json({
+                "command": "demo-pack",
+                "status": "ok",
+                "pack_a": {
+                    "pack_id": att_a["pack_id"],
+                    "receipt_integrity": att_a["receipt_integrity"],
+                    "claim_check": att_a["claim_check"],
+                    "n_receipts": att_a["n_receipts"],
+                    "verified": result_a.passed,
+                },
+                "pack_b": {
+                    "pack_id": att_b["pack_id"],
+                    "receipt_integrity": att_b["receipt_integrity"],
+                    "claim_check": att_b["claim_check"],
+                    "n_receipts": att_b["n_receipts"],
+                },
+            })
+
+        # Output
+        console.print()
+        console.print("[bold]ASSAY DEMO PACK[/]")
+        console.print()
+
+        console.print("[dim]Step 1:[/] Created 5 synthetic receipts")
+        for r in receipts:
+            console.print(f"  {r['type']:20s} seq={r['seq']}  {r['receipt_id']}")
+
+        console.print()
+        console.print("[dim]Step 2:[/] Built Proof Pack A (4 claims, all should pass)")
+        console.print(Panel.fit(
+            f"Pack ID:    {att_a['pack_id']}\n"
+            f"Integrity:  [green]{att_a['receipt_integrity']}[/]\n"
+            f"Claims:     [green]{att_a['claim_check']}[/]\n"
+            f"Receipts:   {att_a['n_receipts']}\n"
+            f"Verified:   [green]{'PASS' if result_a.passed else 'FAIL'}[/]",
+            title="Pack A: all claims pass",
+        ))
+
+        console.print("[dim]Step 3:[/] Built Pack B (same receipts, stricter claim: need 100 receipts)")
+        console.print(Panel.fit(
+            f"Pack ID:    {att_b['pack_id']}\n"
+            f"Integrity:  [green]{att_b['receipt_integrity']}[/]  (same receipts = same integrity)\n"
+            f"Claims:     [red]{att_b['claim_check']}[/]  (5 receipts < 100 required)\n"
+            f"Receipts:   {att_b['n_receipts']}",
+            title="Pack B: claim fails honestly",
+        ))
+
+        console.print()
+        console.print("[bold]Key insight:[/] Same evidence, different claims, different outcomes.")
+        console.print("Integrity PASS + Claim FAIL = honest failure report, not a cover-up.")
+        console.print()
+        console.print("[dim]Files in each pack:[/]")
+        for f in sorted(out_a.iterdir()):
+            console.print(f"  {f.name}")
+        console.print()
+        console.print("Next steps:")
+        console.print("  Emit receipts from your code:  [bold]from assay import emit_receipt[/]")
+        console.print("  Wrap a command:                [bold]assay run -- python my_agent.py[/]")
+        console.print("  Verify a pack:                 [bold]assay verify-pack <dir>[/]")
+        console.print("  CI gate:                       [bold]assay verify-pack <dir> --require-claim-pass[/]")
+
+
+@assay_app.command("run", context_settings={"allow_extra_args": True, "allow_interspersed_args": False})
+def run_cmd(
+    ctx: typer.Context,
+    run_card: Optional[List[str]] = typer.Option(
+        None, "--run-card", "-c",
+        help="Run card: builtin name or path to JSON file (repeatable)",
+    ),
+    output_dir: str = typer.Option(None, "--output", "-o", help="Output directory for proof pack"),
+    mode: str = typer.Option("shadow", "--mode", "-m", help="Mode: shadow|enforced|breakglass"),
+    allow_empty: bool = typer.Option(
+        False, "--allow-empty",
+        help="Allow empty receipt packs (default: fail if no receipts emitted)",
+    ),
+    no_generate_key: bool = typer.Option(
+        False, "--no-generate-key",
+        help="Fail if signing key doesn't exist instead of auto-generating",
+    ),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Run a command and build a Proof Pack from emitted receipts.
+
+    Usage: assay run [OPTIONS] -- <command> [args...]
+
+    The command's receipts are captured and packaged into a signed Proof Pack.
+    """
+    import subprocess
+    from pathlib import Path
+
+    from assay.claim_verifier import ClaimSpec
+    from assay.keystore import get_default_keystore
+    from assay.proof_pack import ProofPack
+    from assay.run_cards import collect_claims_from_cards, get_builtin_card, load_run_card
+    from assay.store import get_default_store
+
+    cmd_args = ctx.args
+    if not cmd_args:
+        console.print("[red]Error:[/] No command provided. Usage: assay run -- <command>")
+        raise typer.Exit(1)
+
+    # Resolve run cards to claims
+    claims: list[ClaimSpec] | None = None
+    if run_card:
+        cards = []
+        for card_ref in run_card:
+            builtin = get_builtin_card(card_ref)
+            if builtin:
+                cards.append(builtin)
+            else:
+                card_path = Path(card_ref)
+                if card_path.exists():
+                    cards.append(load_run_card(card_path))
+                else:
+                    console.print(f"[red]Error:[/] Unknown run card: {card_ref}")
+                    raise typer.Exit(1)
+        claims = collect_claims_from_cards(cards)
+
+    # Start trace
+    store = get_default_store()
+    trace_id = store.start_trace()
+
+    # Resolve signing key before running the command
+    from assay.keystore import DEFAULT_SIGNER_ID
+    out = Path(output_dir) if output_dir else Path(f"proof_pack_{trace_id}")
+    ks = get_default_keystore()
+
+    try:
+        ks.get_verify_key(DEFAULT_SIGNER_ID)
+    except Exception:
+        if no_generate_key:
+            console.print(
+                f"[red]Error:[/] Signing key '{DEFAULT_SIGNER_ID}' not found.\n"
+                f"Remove --no-generate-key to auto-generate on first run,\n"
+                f"or run once without --no-generate-key to create the key."
+            )
+            raise typer.Exit(1)
+        ks.generate_key(DEFAULT_SIGNER_ID)
+        console.print(f"[dim]assay run: generated signing key '{DEFAULT_SIGNER_ID}'[/]")
+
+    # Run the command with ASSAY_TRACE_ID in environment
+    import os
+    env = {**os.environ, "ASSAY_TRACE_ID": trace_id}
+    console.print(f"[dim]assay run: trace={trace_id}[/]")
+    console.print(f"[dim]assay run: executing: {' '.join(cmd_args)}[/]")
+
+    proc = subprocess.run(cmd_args, capture_output=False, env=env)
+    exit_code = proc.returncode
+
+    console.print(f"[dim]assay run: command exited with code {exit_code}[/]")
+
+    # Read whatever receipts were emitted during the run
+    entries = store.read_trace(trace_id)
+
+    if not entries and not allow_empty:
+        console.print(
+            "[red]Error:[/] No receipts emitted during run.\n"
+            "The subprocess did not write any receipts to the trace.\n"
+            "Use --allow-empty to build a pack anyway, or ensure your\n"
+            "command emits receipts via the Assay SDK."
+        )
+        raise typer.Exit(1)
+    if not entries:
+        console.print("[yellow]Warning:[/] No receipts emitted. Building empty pack (--allow-empty).")
+        entries = []
+
+    pack = ProofPack(
+        run_id=trace_id,
+        entries=entries,
+        signer_id=DEFAULT_SIGNER_ID,
+        claims=claims,
+        mode=mode,
+    )
+
+    try:
+        result_dir = pack.build(out, keystore=ks)
+    except Exception as e:
+        console.print(f"[red]Error building pack:[/] {e}")
+        raise typer.Exit(1)
+
+    manifest = json.loads((result_dir / "pack_manifest.json").read_text())
+    att = manifest.get("attestation", {})
+
+    if output_json:
+        _output_json({
+            "command": "run",
+            "status": "ok",
+            "exit_code": exit_code,
+            "trace_id": trace_id,
+            "pack_id": att.get("pack_id"),
+            "output_dir": str(result_dir),
+            "receipt_integrity": att.get("receipt_integrity"),
+            "claim_check": att.get("claim_check"),
+            "n_receipts": att.get("n_receipts"),
+        })
+
+    claim_line = f"Claims:     {att.get('claim_check', 'N/A')}\n" if claims else ""
+    console.print()
+    console.print(Panel.fit(
+        f"[bold green]Proof Pack Built[/]\n\n"
+        f"Trace:      {trace_id}\n"
+        f"Pack ID:    {att.get('pack_id')}\n"
+        f"Exit Code:  {exit_code}\n"
+        f"Integrity:  {att.get('receipt_integrity')}\n"
+        f"{claim_line}"
+        f"Receipts:   {att.get('n_receipts')}\n"
+        f"Output:     {result_dir}/",
+        title="assay run",
+    ))
+
+    for f in sorted(result_dir.iterdir()):
+        size = f.stat().st_size
+        console.print(f"  {f.name:30s} {size:>8,} bytes")
+
+    console.print()
+    console.print(f"Verify: [bold]assay verify-pack {result_dir}[/]")
+
+    if exit_code != 0:
+        raise typer.Exit(exit_code)
+
+
+# ---------------------------------------------------------------------------
+# Lock subcommands
+# ---------------------------------------------------------------------------
+
+lock_app = typer.Typer(
+    name="lock",
+    help="Manage verifier lockfile (assay.lock)",
+    no_args_is_help=True,
+)
+assay_app.add_typer(lock_app, name="lock")
+
+
+@lock_app.command("write")
+def lock_write_cmd(
+    cards: str = typer.Option(
+        ..., "--cards", "-c",
+        help="Comma-separated RunCard IDs (e.g. receipt_completeness,guardian_enforcement)",
+    ),
+    signer: Optional[str] = typer.Option(
+        None, "--signer",
+        help="Comma-separated signer pubkey SHA-256 fingerprints for allowlist policy",
+    ),
+    output: str = typer.Option(
+        "assay.lock", "--output", "-o",
+        help="Output path for lockfile",
+    ),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Write a verifier lockfile that freezes verification semantics."""
+    from pathlib import Path
+
+    from assay.lockfile import write_lockfile
+
+    card_ids = [c.strip() for c in cards.split(",") if c.strip()]
+    signer_fps = None
+    if signer:
+        signer_fps = [s.strip() for s in signer.split(",") if s.strip()]
+
+    try:
+        lockfile = write_lockfile(
+            card_ids,
+            signer_fingerprints=signer_fps,
+            output_path=Path(output),
+        )
+    except ValueError as e:
+        if output_json:
+            _output_json({"command": "lock write", "status": "error", "error": str(e)})
+        console.print(f"[red]Error:[/] {e}")
+        raise typer.Exit(1)
+
+    if output_json:
+        _output_json({
+            "command": "lock write",
+            "status": "ok",
+            "output": output,
+            "run_cards": len(card_ids),
+            "composite_hash": lockfile["run_cards_composite_hash"],
+        })
+    else:
+        console.print()
+        console.print(Panel.fit(
+            f"[bold green]Lockfile written[/]\n\n"
+            f"Path:       {output}\n"
+            f"RunCards:    {', '.join(card_ids)}\n"
+            f"Composite:  {lockfile['run_cards_composite_hash'][:16]}...\n"
+            f"Signer:     {lockfile['signer_policy']['mode']}",
+            title="assay lock write",
+        ))
+        console.print()
+
+
+@lock_app.command("check")
+def lock_check_cmd(
+    path: str = typer.Argument("assay.lock", help="Path to lockfile"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Validate an existing lockfile (structure, card references, hashes)."""
+    from pathlib import Path
+
+    from assay.lockfile import check_lockfile
+
+    lock_path = Path(path)
+    if not lock_path.exists():
+        if output_json:
+            _output_json({"command": "lock check", "status": "error", "error": f"Not found: {path}"})
+        console.print(f"[red]Error:[/] {path} not found")
+        raise typer.Exit(1)
+
+    issues = check_lockfile(lock_path)
+
+    if output_json:
+        _output_json({
+            "command": "lock check",
+            "status": "ok" if not issues else "failed",
+            "issues": issues,
+        })
+    elif issues:
+        console.print()
+        console.print(Panel.fit(
+            f"[bold red]Lockfile invalid[/]\n\n"
+            f"Path:    {path}\n"
+            f"Issues:  {len(issues)}",
+            title="assay lock check",
+        ))
+        for issue in issues:
+            console.print(f"  [red]{issue}[/]")
+        console.print()
+        raise typer.Exit(1)
+    else:
+        console.print()
+        console.print(Panel.fit(
+            f"[bold green]Lockfile valid[/]\n\n"
+            f"Path:  {path}",
+            title="assay lock check",
+        ))
+        console.print()
+
+
+@assay_app.command("scan")
+def scan_cmd(
+    path: str = typer.Argument(".", help="Directory to scan"),
+    output_json: bool = typer.Option(False, "--json", help="Machine-readable JSON output"),
+    ci: bool = typer.Option(False, "--ci", help="CI mode (non-zero exit on uninstrumented sites)"),
+    fail_on: str = typer.Option(
+        "high", "--fail-on",
+        help="Minimum confidence to fail on in CI mode: high, medium, low",
+    ),
+    include: Optional[str] = typer.Option(
+        None, "--include",
+        help="Comma-separated glob patterns to include (e.g. 'src/**/*.py')",
+    ),
+    exclude: Optional[str] = typer.Option(
+        None, "--exclude",
+        help="Comma-separated glob patterns to exclude (e.g. 'tests/**')",
+    ),
+):
+    """Scan a project for uninstrumented LLM call sites.
+
+    Finds LLM SDK calls (OpenAI, Anthropic, LangChain) and reports which
+    ones have evidence emission. Prints exact fix for each finding.
+
+    \b
+    Examples:
+      assay scan .
+      assay scan . --json
+      assay scan . --ci --fail-on high
+      assay scan src/ --exclude "tests/**"
+    """
+    from pathlib import Path as P
+
+    from assay.scanner import Confidence, scan_directory
+
+    include_pats = [p.strip() for p in include.split(",") if p.strip()] if include else None
+    exclude_pats = [p.strip() for p in exclude.split(",") if p.strip()] if exclude else None
+
+    try:
+        result = scan_directory(P(path), include=include_pats, exclude=exclude_pats)
+    except Exception as e:
+        if output_json:
+            _output_json({"tool": "assay-scan", "status": "error", "error": str(e)}, exit_code=2)
+        else:
+            console.print(f"[red]Scan error:[/] {e}")
+        raise typer.Exit(2)
+
+    if output_json:
+        # Determine exit code
+        s = result.summary
+        exit_code = 0
+        if ci:
+            threshold = {"high": Confidence.HIGH, "medium": Confidence.MEDIUM, "low": Confidence.LOW}.get(fail_on, Confidence.HIGH)
+            uninstrumented = [f for f in result.findings if not f.instrumented]
+            if threshold == Confidence.HIGH and s["high"] > 0:
+                exit_code = 1
+            elif threshold == Confidence.MEDIUM and (s["high"] + s["medium"]) > 0:
+                exit_code = 1
+            elif threshold == Confidence.LOW and s["uninstrumented"] > 0:
+                exit_code = 1
+        _output_json(result.to_dict(), exit_code=exit_code)
+        return
+
+    # Human output
+    s = result.summary
+    console.print()
+
+    if not result.findings:
+        console.print("  [dim]No LLM call sites detected.[/]")
+        console.print()
+        console.print("  [dim]If your code uses LLM APIs, check that the source files")
+        console.print("  are Python (.py) and not excluded by default filters.[/]")
+        console.print()
+        raise typer.Exit(0)
+
+    # Header
+    console.print(f"  [bold]Found {s['sites_total']} LLM call site{'s' if s['sites_total'] != 1 else ''}:[/]")
+    console.print()
+
+    conf_styles = {
+        "high": "[red]HIGH[/]  ",
+        "medium": "[yellow]MED[/]   ",
+        "low": "[dim]LOW[/]   ",
+    }
+    status_styles = {
+        True: "[green]INSTRUMENTED[/]",
+        False: "[red]NO RECEIPT[/]  ",
+    }
+
+    for finding in result.findings:
+        conf = conf_styles.get(finding.confidence.value, "")
+        status = status_styles[finding.instrumented]
+        console.print(f"  {conf} {finding.path}:{finding.line:<6} {finding.call:<45} {status}")
+
+    console.print()
+    console.print(
+        f"  [bold]{s['instrumented']}[/] of [bold]{s['sites_total']}[/] call sites instrumented. "
+        f"[red]{s['uninstrumented']} uninstrumented[/] "
+        f"({s['high']} high, {s['medium']} medium, {s['low']} low)"
+    )
+
+    if result.next_command:
+        console.print()
+        console.print(f"  [bold]Quick fix:[/]")
+        for line in result.next_command.split("\n"):
+            console.print(f"    {line}")
+
+    console.print()
+
+    # Exit code
+    if ci:
+        threshold = {"high": Confidence.HIGH, "medium": Confidence.MEDIUM, "low": Confidence.LOW}.get(fail_on, Confidence.HIGH)
+        if threshold == Confidence.HIGH and s["high"] > 0:
+            raise typer.Exit(1)
+        elif threshold == Confidence.MEDIUM and (s["high"] + s["medium"]) > 0:
+            raise typer.Exit(1)
+        elif threshold == Confidence.LOW and s["uninstrumented"] > 0:
+            raise typer.Exit(1)
+
+    raise typer.Exit(0)
+
+
+@assay_app.command("doctor")
+def doctor_cmd(
+    profile: str = typer.Option(
+        "local", "--profile", "-p",
+        help="Check profile: local, ci, release, ledger",
+    ),
+    pack: Optional[str] = typer.Option(
+        None, "--pack",
+        help="Path to Proof Pack directory to check",
+    ),
+    lock: Optional[str] = typer.Option(
+        None, "--lock",
+        help="Path to lockfile to check",
+    ),
+    strict: bool = typer.Option(
+        False, "--strict",
+        help="Treat warnings as failures",
+    ),
+    output_json: bool = typer.Option(False, "--json", help="Machine-readable JSON output"),
+    fix: bool = typer.Option(
+        False, "--fix",
+        help="Apply safe automatic fixes (generate key, write lockfile)",
+    ),
+):
+    """Check if Assay is installed, configured, and ready to use.
+
+    Answers four questions in under 2 seconds:
+    1. Is Assay installed and runnable here?
+    2. Can this machine create and verify packs?
+    3. Is this repo configured for your claimed workflow?
+    4. What is the single next command to become "green"?
+    """
+    from pathlib import Path
+
+    from assay.doctor import Profile, CheckStatus, run_doctor
+
+    # Parse profile
+    try:
+        prof = Profile(profile.lower())
+    except ValueError:
+        console.print(f"[red]Error:[/] Unknown profile '{profile}'. Use: local, ci, release, ledger")
+        raise typer.Exit(3)
+
+    pack_dir = Path(pack) if pack else None
+    lock_path = Path(lock) if lock else None
+
+    # Run checks
+    report = run_doctor(prof, pack_dir=pack_dir, lock_path=lock_path, strict=strict)
+
+    # Apply fixes if requested
+    if fix:
+        for check in report.checks:
+            if check.status in (CheckStatus.WARN, CheckStatus.FAIL) and check.fix:
+                if check.id == "DOCTOR_KEY_001" and check.status == CheckStatus.WARN:
+                    try:
+                        from assay.keystore import DEFAULT_SIGNER_ID, get_default_keystore
+                        ks = get_default_keystore()
+                        ks.generate_key(DEFAULT_SIGNER_ID)
+                        check.status = CheckStatus.PASS
+                        check.message += " (fixed: key generated)"
+                        if not output_json:
+                            console.print(f"  [green]Fixed:[/] Generated signing key")
+                    except Exception as e:
+                        if not output_json:
+                            console.print(f"  [red]Fix failed:[/] {e}")
+
+                elif check.id == "DOCTOR_LOCK_001" and check.status in (CheckStatus.WARN, CheckStatus.FAIL):
+                    try:
+                        from assay.lockfile import write_lockfile
+                        target = lock_path or Path("assay.lock")
+                        write_lockfile(
+                            ["receipt_completeness", "guardian_enforcement"],
+                            output_path=target,
+                        )
+                        check.status = CheckStatus.PASS
+                        check.message += " (fixed: lockfile written)"
+                        if not output_json:
+                            console.print(f"  [green]Fixed:[/] Wrote {target}")
+                        # Re-run LOCK_002 against the newly written lockfile
+                        for other in report.checks:
+                            if other.id == "DOCTOR_LOCK_002":
+                                from assay.doctor import _check_lock_002
+                                refreshed = _check_lock_002(target)
+                                other.status = refreshed.status
+                                other.message = refreshed.message
+                                other.evidence = refreshed.evidence
+                                other.fix = refreshed.fix
+                                break
+                    except Exception as e:
+                        if not output_json:
+                            console.print(f"  [red]Fix failed:[/] {e}")
+
+        # Recompute next command after fixes
+        from assay.doctor import _determine_next_command
+        report.next_command = _determine_next_command(report)
+
+    # Output
+    if output_json:
+        _output_json(report.to_dict(), exit_code=report.exit_code_strict() if strict else report.exit_code)
+        return
+
+    # Human output
+    console.print()
+    console.print(f"[bold]assay doctor[/] (profile={prof.value})")
+    console.print()
+
+    status_styles = {
+        "pass": "[green]PASS[/] ",
+        "warn": "[yellow]WARN[/] ",
+        "fail": "[red]FAIL[/] ",
+        "skip": "[dim]SKIP[/] ",
+    }
+
+    for check in report.checks:
+        style = status_styles.get(check.status.value, "")
+        console.print(f"  {style} {check.id}  {check.message}")
+        if check.status == CheckStatus.FAIL and check.fix:
+            console.print(f"         [dim]Fix:[/] {check.fix}")
+
+    # Summary line
+    s = report.summary
+    console.print()
+    parts = []
+    if s["pass"]:
+        parts.append(f"[green]PASS: {s['pass']}[/]")
+    if s["warn"]:
+        parts.append(f"[yellow]WARN: {s['warn']}[/]")
+    if s["fail"]:
+        parts.append(f"[red]FAIL: {s['fail']}[/]")
+    if s["skip"]:
+        parts.append(f"[dim]SKIP: {s['skip']}[/]")
+    console.print("  " + " | ".join(parts))
+
+    if report.next_command:
+        console.print()
+        console.print(f"  [bold]Next:[/] {report.next_command}")
+
+    console.print()
+
+    exit_code = report.exit_code_strict() if strict else report.exit_code
+    raise typer.Exit(exit_code)
+
+
+def main():
+    """Entrypoint for assay CLI."""
+    assay_app()
+
+
+__all__ = ["assay_app", "main"]

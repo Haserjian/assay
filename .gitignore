@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+.eggs/
+*.egg-info/
+dist/
+build/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.hypothesis/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Assay runtime
+proof_pack_*/
+*.jsonl
+assay.lock
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Conformance signing keys (deterministic seed, but don't track private key)
+conformance/corpus_v1/.keys/*.key

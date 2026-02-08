@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://assay.local/schemas/pack_manifest.schema.json",
+  "title": "Proof Pack Manifest (Signed)",
+  "description": "Signed envelope for Proof Pack bundle integrity and omission resistance. pack_manifest.json and pack_signature.sig cannot appear in the hash-covered files array due to circular dependency; their integrity is protected by the Ed25519 signature and the detached-sig parity check.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "pack_id",
+    "pack_version",
+    "manifest_version",
+    "hash_alg",
+    "attestation",
+    "attestation_sha256",
+    "suite_hash",
+    "claim_set_id",
+    "claim_set_hash",
+    "receipt_count_expected",
+    "files",
+    "expected_files",
+    "signer_id",
+    "signer_pubkey",
+    "signer_pubkey_sha256",
+    "signature_alg",
+    "signature_scope",
+    "signature",
+    "pack_root_sha256"
+  ],
+  "properties": {
+    "pack_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "pack_version": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]+$"
+    },
+    "manifest_version": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]+$"
+    },
+    "hash_alg": {
+      "type": "string",
+      "enum": ["sha256"]
+    },
+    "attestation": {
+      "$ref": "attestation.schema.json"
+    },
+    "attestation_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "suite_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "claim_set_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "claim_set_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "redaction_policy_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "receipt_count_expected": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "files": {
+      "type": "array",
+      "description": "Hash-covered content files. Excludes pack_manifest.json (self-referential) and pack_signature.sig (circular dependency). Their integrity is protected by Ed25519 signature and detached-sig parity check respectively.",
+      "minItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "sha256", "bytes"],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "expected_files": {
+      "type": "array",
+      "description": "All files expected in the pack directory, including non-hash-covered ones.",
+      "minItems": 5,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "signer_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "signer_pubkey": {
+      "type": "string",
+      "description": "Base64-encoded Ed25519 public key (32 bytes). Enables self-contained offline verification."
+    },
+    "signer_pubkey_sha256": {
+      "type": "string",
+      "description": "SHA-256 fingerprint of the raw public key bytes.",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "signature_alg": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]+$"
+    },
+    "signature_scope": {
+      "type": "string",
+      "const": "JCS(pack_manifest_without_signature)"
+    },
+    "signature": {
+      "type": "string",
+      "description": "Base64-encoded Ed25519 signature over JCS(unsigned_manifest).",
+      "minLength": 1
+    },
+    "pack_root_sha256": {
+      "type": "string",
+      "description": "Equals attestation_sha256 (D12 invariant). SHA-256 of JCS-canonical attestation object. Single immutable identifier for the evidence unit.",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

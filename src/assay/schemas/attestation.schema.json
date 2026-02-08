@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://assay.local/schemas/attestation.schema.json",
+  "title": "Proof Pack Attestation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "pack_format_version",
+    "fingerprint_version",
+    "pack_id",
+    "run_id",
+    "suite_id",
+    "suite_hash",
+    "verifier_version",
+    "canon_version",
+    "canon_impl",
+    "canon_impl_version",
+    "policy_hash",
+    "claim_set_id",
+    "claim_set_hash",
+    "receipt_integrity",
+    "claim_check",
+    "assurance_level",
+    "proof_tier",
+    "mode",
+    "head_hash",
+    "head_hash_algorithm",
+    "time_authority",
+    "n_receipts",
+    "timestamp_start",
+    "timestamp_end"
+  ],
+  "properties": {
+    "pack_format_version": {
+      "type": "string",
+      "description": "Pack format version. Verifiers must reject unknown versions.",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "fingerprint_version": {
+      "type": "integer",
+      "description": "Discrepancy fingerprint algorithm version. Prevents cross-version comparison.",
+      "minimum": 1
+    },
+    "pack_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "suite_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "suite_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "verifier_version": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]+$"
+    },
+    "canon_version": {
+      "type": "string",
+      "description": "Canonicalization standard (e.g. jcs-rfc8785).",
+      "pattern": "^[A-Za-z0-9._-]+$"
+    },
+    "canon_impl": {
+      "type": "string",
+      "description": "Canonicalization implementation module (e.g. receipts.jcs)."
+    },
+    "canon_impl_version": {
+      "type": "string",
+      "description": "Version of the canon implementation. Detects cross-impl drift."
+    },
+    "policy_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "claim_set_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "claim_set_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "receipt_integrity": {
+      "type": "string",
+      "enum": ["PASS", "FAIL"]
+    },
+    "claim_check": {
+      "type": "string",
+      "enum": ["PASS", "FAIL", "N/A"]
+    },
+    "assurance_level": {
+      "type": "string",
+      "enum": ["L0", "L1", "L2", "L3"]
+    },
+    "proof_tier": {
+      "type": "string",
+      "description": "What the verifier actually proved. Prevents over-claiming.",
+      "enum": ["hash-only", "signed-pack", "signed-receipts"]
+    },
+    "mode": {
+      "type": "string",
+      "enum": ["shadow", "enforced", "breakglass"]
+    },
+    "head_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "head_hash_algorithm": {
+      "type": "string",
+      "description": "How head_hash is computed. v0: last-receipt-digest-v0. Future: merkle-root-v1."
+    },
+    "time_authority": {
+      "type": "string",
+      "description": "Source of timestamps. local_clock = no TSA. tsa = RFC 3161."
+    },
+    "n_receipts": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "timestamp_start": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "timestamp_end": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "discrepancy_fingerprint": {
+      "type": ["string", "null"],
+      "description": "SHA-256 of JCS-canonical claim results. Null when no claims evaluated.",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}
