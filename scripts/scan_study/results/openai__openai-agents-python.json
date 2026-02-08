@@ -1,0 +1,31 @@
+{
+  "tool": "assay-scan",
+  "status": "fail",
+  "summary": {
+    "sites_total": 2,
+    "instrumented": 0,
+    "uninstrumented": 2,
+    "high": 1,
+    "medium": 1,
+    "low": 0
+  },
+  "findings": [
+    {
+      "path": "src/agents/extensions/models/litellm_model.py",
+      "line": 497,
+      "call": "litellm.acompletion",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/agents/models/openai_chatcompletions.py",
+      "line": 337,
+      "call": "chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    }
+  ],
+  "next_command": "# Add to your entrypoint:\nfrom assay.integrations.openai import patch; patch()\n# Then: assay run -- python your_app.py"
+}

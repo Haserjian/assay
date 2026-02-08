@@ -1,0 +1,207 @@
+{
+  "tool": "assay-scan",
+  "status": "fail",
+  "summary": {
+    "sites_total": 24,
+    "instrumented": 0,
+    "uninstrumented": 24,
+    "high": 3,
+    "medium": 21,
+    "low": 0
+  },
+  "findings": [
+    {
+      "path": "libs/chatchat-server/chatchat/server/agent/tools_factory/text2promql.py",
+      "line": 61,
+      "call": "get_ChatOpenAI",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "libs/chatchat-server/chatchat/server/agent/tools_factory/text2promql.py",
+      "line": 83,
+      "call": "prometheus_chain.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/chatchat-server/chatchat/server/agent/tools_factory/text2sql.py",
+      "line": 61,
+      "call": "get_ChatOpenAI",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "libs/chatchat-server/chatchat/server/agent/tools_factory/text2sql.py",
+      "line": 91,
+      "call": "read_only_chain.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/chatchat-server/chatchat/server/agent/tools_factory/text2sql.py",
+      "line": 109,
+      "call": "db_chain.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/chatchat-server/chatchat/server/agent/tools_factory/text2sql.py",
+      "line": 119,
+      "call": "db_chain.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/chatchat-server/chatchat/server/chat/chat.py",
+      "line": 61,
+      "call": "get_ChatOpenAI",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "libs/chatchat-server/chatchat/server/chat/chat.py",
+      "line": 186,
+      "call": "full_chain.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/chatchat-server/chatchat/server/chat/file_chat.py",
+      "line": 175,
+      "call": "get_ChatOpenAI",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "libs/chatchat-server/chatchat/server/chat/kb_chat.py",
+      "line": 142,
+      "call": "get_ChatOpenAI",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "libs/chatchat-server/chatchat/server/chat/kb_chat.py",
+      "line": 176,
+      "call": "chain.ainvoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/chatchat-server/chatchat/server/knowledge_base/kb_summary_api.py",
+      "line": 62,
+      "call": "get_ChatOpenAI",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "libs/chatchat-server/chatchat/server/knowledge_base/kb_summary_api.py",
+      "line": 68,
+      "call": "get_ChatOpenAI",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "libs/chatchat-server/chatchat/server/knowledge_base/kb_summary_api.py",
+      "line": 156,
+      "call": "get_ChatOpenAI",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "libs/chatchat-server/chatchat/server/knowledge_base/kb_summary_api.py",
+      "line": 162,
+      "call": "get_ChatOpenAI",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "libs/chatchat-server/chatchat/server/knowledge_base/kb_summary_api.py",
+      "line": 233,
+      "call": "get_ChatOpenAI",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "libs/chatchat-server/chatchat/server/knowledge_base/kb_summary_api.py",
+      "line": 239,
+      "call": "get_ChatOpenAI",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "libs/chatchat-server/chatchat/server/utils.py",
+      "line": 263,
+      "call": "ChatOpenAI",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.langchain import patch; patch()"
+    },
+    {
+      "path": "libs/chatchat-server/chatchat/webui_pages/dialogue/dialogue.py",
+      "line": 437,
+      "call": "client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "libs/chatchat-server/chatchat/webui_pages/dialogue/dialogue.py",
+      "line": 523,
+      "call": "client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "libs/chatchat-server/chatchat/webui_pages/kb_chat.py",
+      "line": 225,
+      "call": "client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "libs/chatchat-server/langchain_chatchat/agents/platform_tools/base.py",
+      "line": 273,
+      "call": "self.agent_executor.ainvoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/chatchat-server/langchain_chatchat/chat_models/base.py",
+      "line": 474,
+      "call": "self.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/chatchat-server/langchain_chatchat/chat_models/base.py",
+      "line": 561,
+      "call": "self.ainvoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    }
+  ],
+  "next_command": "# Add to your entrypoint:\nfrom assay.integrations.openai import patch; patch()\n# Then: assay run -- python your_app.py"
+}

@@ -1,0 +1,47 @@
+{
+  "tool": "assay-scan",
+  "status": "fail",
+  "summary": {
+    "sites_total": 4,
+    "instrumented": 0,
+    "uninstrumented": 4,
+    "high": 4,
+    "medium": 0,
+    "low": 0
+  },
+  "findings": [
+    {
+      "path": "instructor/distil.py",
+      "line": 184,
+      "call": "self.client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "instructor/validation/llm_validators.py",
+      "line": 51,
+      "call": "client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "scripts/make_desc.py",
+      "line": 56,
+      "call": "client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "scripts/make_sitemap.py",
+      "line": 125,
+      "call": "client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    }
+  ],
+  "next_command": "# Add to your entrypoint:\nfrom assay.integrations.openai import patch; patch()\n# Then: assay run -- python your_app.py"
+}

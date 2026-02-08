@@ -1,0 +1,39 @@
+{
+  "tool": "assay-scan",
+  "status": "fail",
+  "summary": {
+    "sites_total": 3,
+    "instrumented": 0,
+    "uninstrumented": 3,
+    "high": 1,
+    "medium": 2,
+    "low": 0
+  },
+  "findings": [
+    {
+      "path": "sage/llm.py",
+      "line": 13,
+      "call": "ChatOpenAI",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.langchain import patch; patch()"
+    },
+    {
+      "path": "sage/llm.py",
+      "line": 17,
+      "call": "ChatAnthropic",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.langchain import patch; patch()"
+    },
+    {
+      "path": "sage/retriever.py",
+      "line": 190,
+      "call": "beta.prompt_caching.messages.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.anthropic import patch; patch()"
+    }
+  ],
+  "next_command": "# Add to your entrypoint:\nfrom assay.integrations.openai import patch; patch()\n# Then: assay run -- python your_app.py"
+}

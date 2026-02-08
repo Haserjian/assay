@@ -1,0 +1,31 @@
+{
+  "tool": "assay-scan",
+  "status": "fail",
+  "summary": {
+    "sites_total": 2,
+    "instrumented": 0,
+    "uninstrumented": 2,
+    "high": 2,
+    "medium": 0,
+    "low": 0
+  },
+  "findings": [
+    {
+      "path": "src/anthropic/lib/tools/_beta_runner.py",
+      "line": 210,
+      "call": "self._client.beta.messages.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.anthropic import patch; patch()"
+    },
+    {
+      "path": "src/anthropic/lib/tools/_beta_runner.py",
+      "line": 461,
+      "call": "self._client.beta.messages.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.anthropic import patch; patch()"
+    }
+  ],
+  "next_command": "# Add to your entrypoint:\nfrom assay.integrations.anthropic import patch; patch()\n# Then: assay run -- python your_app.py"
+}

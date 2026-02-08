@@ -1,0 +1,71 @@
+{
+  "tool": "assay-scan",
+  "status": "fail",
+  "summary": {
+    "sites_total": 7,
+    "instrumented": 0,
+    "uninstrumented": 7,
+    "high": 7,
+    "medium": 0,
+    "low": 0
+  },
+  "findings": [
+    {
+      "path": "app/e2e/sdk-api/src/agents/basic_agent.py",
+      "line": 25,
+      "call": "self.client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "app/e2e/sdk-api/src/agents/basic_agent.py",
+      "line": 36,
+      "call": "self.client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "app/e2e/sdk-api/src/agents/basic_agent.py",
+      "line": 48,
+      "call": "self.client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "app/e2e/sdk-api/src/agents/basic_agent.py",
+      "line": 61,
+      "call": "self.async_client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "app/e2e/sdk-api/src/agents/basic_agent.py",
+      "line": 72,
+      "call": "self.async_client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "app/e2e/sdk-api/src/agents/multi_agents.py",
+      "line": 10,
+      "call": "openai_client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "app/e2e/sdk-api/src/agents/multi_agents.py",
+      "line": 34,
+      "call": "openai_client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    }
+  ],
+  "next_command": "# Add to your entrypoint:\nfrom assay.integrations.openai import patch; patch()\n# Then: assay run -- python your_app.py"
+}

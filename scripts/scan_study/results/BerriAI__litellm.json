@@ -1,0 +1,503 @@
+{
+  "tool": "assay-scan",
+  "status": "fail",
+  "summary": {
+    "sites_total": 61,
+    "instrumented": 0,
+    "uninstrumented": 61,
+    "high": 9,
+    "medium": 52,
+    "low": 0
+  },
+  "findings": [
+    {
+      "path": "cookbook/benchmark/eval_suites_mlflow_autoevals/auto_evals.py",
+      "line": 13,
+      "call": "litellm.completion",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "cookbook/litellm_proxy_server/cli_token_usage.py",
+      "line": 45,
+      "call": "litellm.completion",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "cookbook/litellm_router/load_test_proxy.py",
+      "line": 87,
+      "call": "client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "cookbook/misc/openai_timeouts.py",
+      "line": 15,
+      "call": "client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "enterprise/litellm_enterprise/enterprise_callbacks/llama_guard.py",
+      "line": 113,
+      "call": "litellm.acompletion",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/a2a_protocol/litellm_completion_bridge/handler.py",
+      "line": 109,
+      "call": "litellm.acompletion",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/a2a_protocol/litellm_completion_bridge/handler.py",
+      "line": 227,
+      "call": "litellm.acompletion",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/a2a_protocol/providers/litellm_completion/handler.py",
+      "line": 107,
+      "call": "litellm.acompletion",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/a2a_protocol/providers/litellm_completion/handler.py",
+      "line": 227,
+      "call": "litellm.acompletion",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/batches/batch_utils.py",
+      "line": 160,
+      "call": "litellm.completion_cost",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/batches/batch_utils.py",
+      "line": 254,
+      "call": "litellm.completion_cost",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/budget_manager.py",
+      "line": 146,
+      "call": "litellm.completion_cost",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/google_genai/adapters/handler.py",
+      "line": 77,
+      "call": "litellm.acompletion",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/google_genai/adapters/handler.py",
+      "line": 150,
+      "call": "litellm.completion",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/integrations/supabase.py",
+      "line": 74,
+      "call": "litellm.completion_cost",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/litellm_core_utils/fallback_utils.py",
+      "line": 55,
+      "call": "litellm.acompletion",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/litellm_core_utils/health_check_helpers.py",
+      "line": 132,
+      "call": "litellm.acompletion",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/litellm_core_utils/litellm_logging.py",
+      "line": 1758,
+      "call": "litellm.completion_cost",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/llms/anthropic/experimental_pass_through/adapters/handler.py",
+      "line": 167,
+      "call": "litellm.acompletion",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/llms/anthropic/experimental_pass_through/adapters/handler.py",
+      "line": 254,
+      "call": "litellm.completion",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/llms/azure/assistants.py",
+      "line": 206,
+      "call": "openai_client.beta.threads.messages.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "litellm/llms/azure/assistants.py",
+      "line": 294,
+      "call": "openai_client.beta.threads.messages.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "litellm/llms/bedrock/realtime/handler.py",
+      "line": 100,
+      "call": "bedrock_client.invoke_model_with_bidirectional_stream",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/llms/litellm_proxy/skills/code_execution.py",
+      "line": 158,
+      "call": "litellm.acompletion",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/llms/openai/openai.py",
+      "line": 2323,
+      "call": "openai_client.beta.threads.messages.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "litellm/llms/openai/openai.py",
+      "line": 2401,
+      "call": "openai_client.beta.threads.messages.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "litellm/llms/sagemaker/completion/handler.py",
+      "line": 649,
+      "call": "client.invoke_endpoint",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/proxy/common_request_processing.py",
+      "line": 1427,
+      "call": "litellm.completion_cost",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/proxy/example_config_yaml/custom_callbacks.py",
+      "line": 58,
+      "call": "litellm.completion_cost",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/proxy/example_config_yaml/custom_handler.py",
+      "line": 12,
+      "call": "litellm.completion",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/proxy/example_config_yaml/custom_handler.py",
+      "line": 19,
+      "call": "litellm.completion",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/proxy/health_endpoints/_health_endpoints.py",
+      "line": 255,
+      "call": "litellm.acompletion",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/proxy/health_endpoints/_health_endpoints.py",
+      "line": 296,
+      "call": "litellm.completion",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/proxy/management_endpoints/key_management_endpoints.py",
+      "line": 4532,
+      "call": "litellm.acompletion",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/proxy/pass_through_endpoints/llm_provider_handlers/anthropic_passthrough_logging_handler.py",
+      "line": 127,
+      "call": "litellm.completion_cost",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/proxy/pass_through_endpoints/llm_provider_handlers/base_passthrough_logging_handler.py",
+      "line": 112,
+      "call": "litellm.completion_cost",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/proxy/pass_through_endpoints/llm_provider_handlers/cohere_passthrough_logging_handler.py",
+      "line": 115,
+      "call": "litellm.completion_cost",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/proxy/pass_through_endpoints/llm_provider_handlers/gemini_passthrough_logging_handler.py",
+      "line": 59,
+      "call": "litellm.completion_cost",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/proxy/pass_through_endpoints/llm_provider_handlers/gemini_passthrough_logging_handler.py",
+      "line": 223,
+      "call": "litellm.completion_cost",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/proxy/pass_through_endpoints/llm_provider_handlers/openai_passthrough_logging_handler.py",
+      "line": 276,
+      "call": "litellm.completion_cost",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/proxy/pass_through_endpoints/llm_provider_handlers/openai_passthrough_logging_handler.py",
+      "line": 350,
+      "call": "litellm.completion_cost",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/proxy/pass_through_endpoints/llm_provider_handlers/openai_passthrough_logging_handler.py",
+      "line": 532,
+      "call": "litellm.completion_cost",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/proxy/pass_through_endpoints/llm_provider_handlers/vertex_passthrough_logging_handler.py",
+      "line": 73,
+      "call": "litellm.completion_cost",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/proxy/pass_through_endpoints/llm_provider_handlers/vertex_passthrough_logging_handler.py",
+      "line": 200,
+      "call": "litellm.completion_cost",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/proxy/pass_through_endpoints/llm_provider_handlers/vertex_passthrough_logging_handler.py",
+      "line": 309,
+      "call": "litellm.completion_cost",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/proxy/pass_through_endpoints/llm_provider_handlers/vertex_passthrough_logging_handler.py",
+      "line": 541,
+      "call": "litellm.completion_cost",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/proxy/proxy_cli.py",
+      "line": 85,
+      "call": "client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "litellm/proxy/proxy_cli.py",
+      "line": 101,
+      "call": "client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "litellm/proxy/proxy_cli.py",
+      "line": 114,
+      "call": "client.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "litellm/rag/main.py",
+      "line": 251,
+      "call": "litellm.acompletion",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/responses/litellm_completion_transformation/handler.py",
+      "line": 68,
+      "call": "litellm.completion",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/responses/litellm_completion_transformation/handler.py",
+      "line": 118,
+      "call": "litellm.acompletion",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/responses/mcp/chat_completions_handler.py",
+      "line": 432,
+      "call": "litellm.acompletion",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/router.py",
+      "line": 1309,
+      "call": "litellm.completion",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/router.py",
+      "line": 1709,
+      "call": "litellm.acompletion",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/router.py",
+      "line": 2480,
+      "call": "litellm.acompletion",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/utils.py",
+      "line": 1693,
+      "call": "litellm.completion_with_retries",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/utils.py",
+      "line": 1996,
+      "call": "litellm.acompletion_with_retries",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/utils.py",
+      "line": 6421,
+      "call": "litellm.acompletion",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/utils.py",
+      "line": 6452,
+      "call": "litellm.completion",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "litellm/utils.py",
+      "line": 6470,
+      "call": "litellm.completion",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    }
+  ],
+  "next_command": "# Add to your entrypoint:\nfrom assay.integrations.openai import patch; patch()\n# Then: assay run -- python your_app.py"
+}

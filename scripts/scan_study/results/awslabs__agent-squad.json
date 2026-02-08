@@ -1,0 +1,55 @@
+{
+  "tool": "assay-scan",
+  "status": "fail",
+  "summary": {
+    "sites_total": 5,
+    "instrumented": 0,
+    "uninstrumented": 5,
+    "high": 5,
+    "medium": 0,
+    "low": 0
+  },
+  "findings": [
+    {
+      "path": "python/src/agent_squad/agents/anthropic_agent.py",
+      "line": 354,
+      "call": "self.client.messages.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.anthropic import patch; patch()"
+    },
+    {
+      "path": "python/src/agent_squad/agents/openai_agent.py",
+      "line": 147,
+      "call": "self.client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "python/src/agent_squad/agents/openai_agent.py",
+      "line": 168,
+      "call": "self.client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "python/src/agent_squad/classifiers/anthropic_classifier.py",
+      "line": 90,
+      "call": "self.client.messages.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.anthropic import patch; patch()"
+    },
+    {
+      "path": "python/src/agent_squad/classifiers/openai_classifier.py",
+      "line": 77,
+      "call": "self.client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    }
+  ],
+  "next_command": "# Add to your entrypoint:\nfrom assay.integrations.openai import patch; patch()\n# Then: assay run -- python your_app.py"
+}

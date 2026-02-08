@@ -37,3 +37,6 @@ Thumbs.db
 
 # Conformance signing keys (deterministic seed, but don't track private key)
 conformance/corpus_v1/.keys/*.key
+
+# Scan study clones (large, reproducible via run_study.sh)
+scripts/scan_study/clones/

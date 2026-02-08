@@ -1,0 +1,63 @@
+{
+  "tool": "assay-scan",
+  "status": "fail",
+  "summary": {
+    "sites_total": 6,
+    "instrumented": 0,
+    "uninstrumented": 6,
+    "high": 2,
+    "medium": 4,
+    "low": 0
+  },
+  "findings": [
+    {
+      "path": "dspy/clients/databricks.py",
+      "line": 152,
+      "call": "client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "dspy/clients/databricks.py",
+      "line": 156,
+      "call": "client.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "dspy/clients/lm.py",
+      "line": 325,
+      "call": "litellm.acompletion",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "dspy/clients/lm.py",
+      "line": 360,
+      "call": "litellm.completion",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "dspy/clients/lm.py",
+      "line": 408,
+      "call": "litellm.acompletion",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "dspy/utils/langchain_tool.py",
+      "line": 24,
+      "call": "tool.ainvoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    }
+  ],
+  "next_command": "# Add to your entrypoint:\nfrom assay.integrations.openai import patch; patch()\n# Then: assay run -- python your_app.py"
+}

@@ -1,0 +1,47 @@
+{
+  "tool": "assay-scan",
+  "status": "fail",
+  "summary": {
+    "sites_total": 4,
+    "instrumented": 0,
+    "uninstrumented": 4,
+    "high": 4,
+    "medium": 0,
+    "low": 0
+  },
+  "findings": [
+    {
+      "path": "pydantic_ai_slim/pydantic_ai/models/anthropic.py",
+      "line": 431,
+      "call": "self.client.beta.messages.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.anthropic import patch; patch()"
+    },
+    {
+      "path": "pydantic_ai_slim/pydantic_ai/models/groq.py",
+      "line": 290,
+      "call": "self.client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "pydantic_ai_slim/pydantic_ai/models/huggingface.py",
+      "line": 239,
+      "call": "self.client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "pydantic_ai_slim/pydantic_ai/models/openai.py",
+      "line": 706,
+      "call": "self.client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    }
+  ],
+  "next_command": "# Add to your entrypoint:\nfrom assay.integrations.openai import patch; patch()\n# Then: assay run -- python your_app.py"
+}

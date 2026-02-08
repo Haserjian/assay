@@ -1,0 +1,39 @@
+{
+  "tool": "assay-scan",
+  "status": "warn",
+  "summary": {
+    "sites_total": 3,
+    "instrumented": 0,
+    "uninstrumented": 3,
+    "high": 0,
+    "medium": 3,
+    "low": 0
+  },
+  "findings": [
+    {
+      "path": "aider/coders/base_coder.py",
+      "line": 1373,
+      "call": "litellm.completion",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "aider/coders/base_coder.py",
+      "line": 2037,
+      "call": "litellm.completion_cost",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "aider/models.py",
+      "line": 1001,
+      "call": "litellm.completion",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    }
+  ],
+  "next_command": "# Add receipt emission:\nfrom assay import emit_receipt\n# Then: assay run -- python your_app.py"
+}

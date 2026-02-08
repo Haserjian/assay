@@ -1,0 +1,1303 @@
+{
+  "tool": "assay-scan",
+  "status": "fail",
+  "summary": {
+    "sites_total": 161,
+    "instrumented": 0,
+    "uninstrumented": 161,
+    "high": 38,
+    "medium": 119,
+    "low": 4
+  },
+  "findings": [
+    {
+      "path": "llama-index-core/llama_index/core/chat_engine/condense_question.py",
+      "line": 130,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/chat_engine/condense_question.py",
+      "line": 149,
+      "call": "self._llm.apredict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/evaluation/answer_relevancy.py",
+      "line": 121,
+      "call": "self._llm.apredict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/evaluation/correctness.py",
+      "line": 137,
+      "call": "self._llm.apredict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/evaluation/guideline.py",
+      "line": 110,
+      "call": "self._llm.apredict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/evaluation/pairwise.py",
+      "line": 148,
+      "call": "self._llm.apredict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/extractors/metadata_extractors.py",
+      "line": 147,
+      "call": "self.llm.apredict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/extractors/metadata_extractors.py",
+      "line": 166,
+      "call": "self.llm.apredict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/extractors/metadata_extractors.py",
+      "line": 233,
+      "call": "self.llm.apredict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/extractors/metadata_extractors.py",
+      "line": 330,
+      "call": "self.llm.apredict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/extractors/metadata_extractors.py",
+      "line": 419,
+      "call": "self.llm.apredict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/common/struct_store/base.py",
+      "line": 203,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/common_tree/base.py",
+      "line": 161,
+      "call": "self._llm.apredict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/common_tree/base.py",
+      "line": 177,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/common_tree/base.py",
+      "line": 222,
+      "call": "self._llm.apredict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/document_summary/retrievers.py",
+      "line": 96,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/keyword_table/base.py",
+      "line": 239,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/keyword_table/base.py",
+      "line": 247,
+      "call": "self._llm.apredict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/keyword_table/retrievers.py",
+      "line": 158,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/knowledge_graph/base.py",
+      "line": 160,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/knowledge_graph/retrievers.py",
+      "line": 159,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/knowledge_graph/retrievers.py",
+      "line": 574,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/knowledge_graph/retrievers.py",
+      "line": 624,
+      "call": "self._llm.apredict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/list/retrievers.py",
+      "line": 202,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/property_graph/sub_retrievers/llm_synonym.py",
+      "line": 122,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/property_graph/sub_retrievers/llm_synonym.py",
+      "line": 134,
+      "call": "self._llm.apredict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/property_graph/sub_retrievers/text_to_cypher.py",
+      "line": 141,
+      "call": "self.llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/property_graph/sub_retrievers/text_to_cypher.py",
+      "line": 154,
+      "call": "self.llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/property_graph/sub_retrievers/text_to_cypher.py",
+      "line": 186,
+      "call": "self.llm.apredict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/property_graph/sub_retrievers/text_to_cypher.py",
+      "line": 199,
+      "call": "self.llm.apredict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/property_graph/transformations/dynamic_llm.py",
+      "line": 309,
+      "call": "self.llm.apredict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/property_graph/transformations/dynamic_llm.py",
+      "line": 332,
+      "call": "self.llm.apredict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/property_graph/transformations/simple_llm.py",
+      "line": 86,
+      "call": "self.llm.apredict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/query/query_transform/base.py",
+      "line": 143,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/query/query_transform/base.py",
+      "line": 197,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/query/query_transform/base.py",
+      "line": 309,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/query/query_transform/feedback_transform.py",
+      "line": 110,
+      "call": "self.llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/struct_store/json_query.py",
+      "line": 162,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/struct_store/json_query.py",
+      "line": 189,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/struct_store/json_query.py",
+      "line": 208,
+      "call": "self._llm.apredict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/struct_store/json_query.py",
+      "line": 235,
+      "call": "self._llm.apredict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/struct_store/sql_query.py",
+      "line": 262,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/struct_store/sql_query.py",
+      "line": 278,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/struct_store/sql_query.py",
+      "line": 294,
+      "call": "self._llm.apredict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/struct_store/sql_retriever.py",
+      "line": 314,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/struct_store/sql_retriever.py",
+      "line": 360,
+      "call": "self._llm.apredict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/tree/inserter.py",
+      "line": 85,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/tree/inserter.py",
+      "line": 97,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/tree/inserter.py",
+      "line": 140,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/tree/inserter.py",
+      "line": 173,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/tree/select_leaf_retriever.py",
+      "line": 151,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/tree/select_leaf_retriever.py",
+      "line": 193,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/tree/select_leaf_retriever.py",
+      "line": 213,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/tree/select_leaf_retriever.py",
+      "line": 309,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/tree/select_leaf_retriever.py",
+      "line": 329,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/vector_store/retrievers/auto_retriever/auto_retriever.py",
+      "line": 166,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/indices/vector_store/retrievers/auto_retriever/auto_retriever.py",
+      "line": 184,
+      "call": "self._llm.apredict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/postprocessor/llm_rerank.py",
+      "line": 90,
+      "call": "self.llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/postprocessor/pii.py",
+      "line": 68,
+      "call": "self.llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/program/function_program.py",
+      "line": 153,
+      "call": "self._llm.predict_and_call",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/program/function_program.py",
+      "line": 180,
+      "call": "self._llm.apredict_and_call",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/query_engine/flare/answer_inserter.py",
+      "line": 179,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/query_engine/flare/base.py",
+      "line": 200,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/query_engine/knowledge_graph_query_engine.py",
+      "line": 129,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/query_engine/knowledge_graph_query_engine.py",
+      "line": 141,
+      "call": "self._llm.apredict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/query_engine/sql_join_query_engine.py",
+      "line": 152,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/query_engine/sql_join_query_engine.py",
+      "line": 308,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/question_gen/llm_generators.py",
+      "line": 72,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/question_gen/llm_generators.py",
+      "line": 88,
+      "call": "self._llm.apredict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/response_synthesizers/generation.py",
+      "line": 65,
+      "call": "self._llm.apredict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/response_synthesizers/generation.py",
+      "line": 87,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/response_synthesizers/refine.py",
+      "line": 85,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/response_synthesizers/refine.py",
+      "line": 101,
+      "call": "self._llm.apredict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/response_synthesizers/simple_summarize.py",
+      "line": 57,
+      "call": "self._llm.apredict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/response_synthesizers/simple_summarize.py",
+      "line": 92,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/response_synthesizers/tree_summarize.py",
+      "line": 86,
+      "call": "self._llm.apredict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/response_synthesizers/tree_summarize.py",
+      "line": 106,
+      "call": "self._llm.apredict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/response_synthesizers/tree_summarize.py",
+      "line": 159,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/response_synthesizers/tree_summarize.py",
+      "line": 179,
+      "call": "self._llm.apredict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/response_synthesizers/tree_summarize.py",
+      "line": 208,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/selectors/llm_selectors.py",
+      "line": 108,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/selectors/llm_selectors.py",
+      "line": 127,
+      "call": "self._llm.apredict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/selectors/llm_selectors.py",
+      "line": 205,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-core/llama_index/core/selectors/llm_selectors.py",
+      "line": 224,
+      "call": "self._llm.apredict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-experimental/llama_index/experimental/query_engine/jsonalyze/jsonalyze_query_engine.py",
+      "line": 102,
+      "call": "llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-experimental/llama_index/experimental/query_engine/jsonalyze/jsonalyze_query_engine.py",
+      "line": 171,
+      "call": "llm.apredict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-experimental/llama_index/experimental/query_engine/jsonalyze/jsonalyze_query_engine.py",
+      "line": 308,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-experimental/llama_index/experimental/query_engine/jsonalyze/jsonalyze_query_engine.py",
+      "line": 343,
+      "call": "self._llm.apredict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-experimental/llama_index/experimental/query_engine/pandas/pandas_query_engine.py",
+      "line": 181,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-experimental/llama_index/experimental/query_engine/pandas/pandas_query_engine.py",
+      "line": 200,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-experimental/llama_index/experimental/query_engine/pandas/pandas_query_engine.py",
+      "line": 216,
+      "call": "self._llm.apredict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-experimental/llama_index/experimental/query_engine/pandas/pandas_query_engine.py",
+      "line": 235,
+      "call": "self._llm.apredict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-experimental/llama_index/experimental/query_engine/polars/polars_query_engine.py",
+      "line": 164,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-experimental/llama_index/experimental/query_engine/polars/polars_query_engine.py",
+      "line": 183,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-experimental/llama_index/experimental/query_engine/polars/polars_query_engine.py",
+      "line": 199,
+      "call": "self._llm.apredict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-experimental/llama_index/experimental/query_engine/polars/polars_query_engine.py",
+      "line": 218,
+      "call": "self._llm.apredict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-experimental/llama_index/experimental/retrievers/natural_language/nl_data_frame_retriever.py",
+      "line": 156,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-integrations/agent/llama-index-agent-azure/llama_index/agent/azure_foundry_agent/base.py",
+      "line": 175,
+      "call": "self._client.agents.messages.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.anthropic import patch; patch()"
+    },
+    {
+      "path": "llama-index-integrations/agent/llama-index-agent-azure/llama_index/agent/azure_foundry_agent/base.py",
+      "line": 356,
+      "call": "self._client.agents.messages.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.anthropic import patch; patch()"
+    },
+    {
+      "path": "llama-index-integrations/embeddings/llama-index-embeddings-bedrock/llama_index/embeddings/bedrock/base.py",
+      "line": 428,
+      "call": "self._client.invoke_model",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-integrations/embeddings/llama-index-embeddings-bedrock/llama_index/embeddings/bedrock/base.py",
+      "line": 543,
+      "call": "client.invoke_model",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-integrations/embeddings/llama-index-embeddings-sagemaker-endpoint/llama_index/embeddings/sagemaker_endpoint/base.py",
+      "line": 120,
+      "call": "self._client.invoke_endpoint",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-ai21/llama_index/llms/ai21/base.py",
+      "line": 245,
+      "call": "self._client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-ai21/llama_index/llms/ai21/base.py",
+      "line": 270,
+      "call": "self._async_client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-ai21/llama_index/llms/ai21/base.py",
+      "line": 294,
+      "call": "self._async_client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-ai21/llama_index/llms/ai21/base.py",
+      "line": 413,
+      "call": "self._client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-anthropic/llama_index/llms/anthropic/base.py",
+      "line": 425,
+      "call": "self._client.messages.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.anthropic import patch; patch()"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-anthropic/llama_index/llms/anthropic/base.py",
+      "line": 460,
+      "call": "self._client.messages.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.anthropic import patch; patch()"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-anthropic/llama_index/llms/anthropic/base.py",
+      "line": 677,
+      "call": "self._aclient.messages.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.anthropic import patch; patch()"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-anthropic/llama_index/llms/anthropic/base.py",
+      "line": 712,
+      "call": "self._aclient.messages.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.anthropic import patch; patch()"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-bedrock/llama_index/llms/bedrock/utils.py",
+      "line": 357,
+      "call": "client.invoke_model_with_response_stream",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-bedrock/llama_index/llms/bedrock/utils.py",
+      "line": 362,
+      "call": "client.invoke_model_with_response_stream",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-bedrock/llama_index/llms/bedrock/utils.py",
+      "line": 371,
+      "call": "client.invoke_model",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-bedrock/llama_index/llms/bedrock/utils.py",
+      "line": 373,
+      "call": "client.invoke_model",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-friendli/llama_index/llms/friendli/base.py",
+      "line": 109,
+      "call": "self._client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-friendli/llama_index/llms/friendli/base.py",
+      "line": 128,
+      "call": "self._client.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-friendli/llama_index/llms/friendli/base.py",
+      "line": 145,
+      "call": "self._client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-friendli/llama_index/llms/friendli/base.py",
+      "line": 170,
+      "call": "self._client.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-friendli/llama_index/llms/friendli/base.py",
+      "line": 195,
+      "call": "self._aclient.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-friendli/llama_index/llms/friendli/base.py",
+      "line": 214,
+      "call": "self._aclient.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-friendli/llama_index/llms/friendli/base.py",
+      "line": 231,
+      "call": "self._aclient.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-friendli/llama_index/llms/friendli/base.py",
+      "line": 256,
+      "call": "self._aclient.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-huggingface-api/llama_index/llms/huggingface_api/base.py",
+      "line": 287,
+      "call": "self._sync_client.chat_completion",
+      "confidence": "low",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-huggingface-api/llama_index/llms/huggingface_api/base.py",
+      "line": 340,
+      "call": "self._sync_client.chat_completion",
+      "confidence": "low",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-huggingface-api/llama_index/llms/huggingface_api/base.py",
+      "line": 409,
+      "call": "self._async_client.chat_completion",
+      "confidence": "low",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-huggingface-api/llama_index/llms/huggingface_api/base.py",
+      "line": 462,
+      "call": "self._async_client.chat_completion",
+      "confidence": "low",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-konko/llama_index/llms/konko/utils.py",
+      "line": 210,
+      "call": "chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-konko/llama_index/llms/konko/utils.py",
+      "line": 215,
+      "call": "completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-langchain/llama_index/llms/langchain/base.py",
+      "line": 104,
+      "call": "self._llm.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-langchain/llama_index/llms/langchain/base.py",
+      "line": 115,
+      "call": "self._llm.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-openai/llama_index/llms/openai/base.py",
+      "line": 499,
+      "call": "client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-openai/llama_index/llms/openai/base.py",
+      "line": 506,
+      "call": "client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-openai/llama_index/llms/openai/base.py",
+      "line": 546,
+      "call": "client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-openai/llama_index/llms/openai/base.py",
+      "line": 605,
+      "call": "client.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-openai/llama_index/llms/openai/base.py",
+      "line": 612,
+      "call": "client.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-openai/llama_index/llms/openai/base.py",
+      "line": 639,
+      "call": "client.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-openai/llama_index/llms/openai/base.py",
+      "line": 768,
+      "call": "aclient.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-openai/llama_index/llms/openai/base.py",
+      "line": 773,
+      "call": "aclient.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-openai/llama_index/llms/openai/base.py",
+      "line": 814,
+      "call": "aclient.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-openai/llama_index/llms/openai/base.py",
+      "line": 883,
+      "call": "aclient.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-openai/llama_index/llms/openai/base.py",
+      "line": 890,
+      "call": "aclient.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-openai/llama_index/llms/openai/base.py",
+      "line": 919,
+      "call": "aclient.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-premai/llama_index/llms/premai/base.py",
+      "line": 190,
+      "call": "self._client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-premai/llama_index/llms/premai/base.py",
+      "line": 223,
+      "call": "self._client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-sagemaker-endpoint/llama_index/llms/sagemaker_endpoint/base.py",
+      "line": 216,
+      "call": "self._client.invoke_endpoint",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-sagemaker-endpoint/llama_index/llms/sagemaker_endpoint/base.py",
+      "line": 249,
+      "call": "self._client.invoke_endpoint_with_response_stream",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-zhipuai/llama_index/llms/zhipuai/base.py",
+      "line": 245,
+      "call": "self._client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-zhipuai/llama_index/llms/zhipuai/base.py",
+      "line": 307,
+      "call": "self._client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "llama-index-integrations/llms/llama-index-llms-zhipuai/llama_index/llms/zhipuai/base.py",
+      "line": 344,
+      "call": "self._client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "llama-index-integrations/program/llama-index-program-evaporate/llama_index/program/evaporate/extractor.py",
+      "line": 135,
+      "call": "self._llm.predict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-integrations/tools/llama-index-tools-aws-bedrock-agentcore/llama_index/tools/aws_bedrock_agentcore/code_interpreter/base.py",
+      "line": 148,
+      "call": "code_interpreter.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-integrations/tools/llama-index-tools-aws-bedrock-agentcore/llama_index/tools/aws_bedrock_agentcore/code_interpreter/base.py",
+      "line": 210,
+      "call": "code_interpreter.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-integrations/tools/llama-index-tools-aws-bedrock-agentcore/llama_index/tools/aws_bedrock_agentcore/code_interpreter/base.py",
+      "line": 258,
+      "call": "code_interpreter.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-integrations/tools/llama-index-tools-aws-bedrock-agentcore/llama_index/tools/aws_bedrock_agentcore/code_interpreter/base.py",
+      "line": 306,
+      "call": "code_interpreter.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-integrations/tools/llama-index-tools-aws-bedrock-agentcore/llama_index/tools/aws_bedrock_agentcore/code_interpreter/base.py",
+      "line": 354,
+      "call": "code_interpreter.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-integrations/tools/llama-index-tools-aws-bedrock-agentcore/llama_index/tools/aws_bedrock_agentcore/code_interpreter/base.py",
+      "line": 402,
+      "call": "code_interpreter.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-integrations/tools/llama-index-tools-aws-bedrock-agentcore/llama_index/tools/aws_bedrock_agentcore/code_interpreter/base.py",
+      "line": 450,
+      "call": "code_interpreter.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-integrations/tools/llama-index-tools-aws-bedrock-agentcore/llama_index/tools/aws_bedrock_agentcore/code_interpreter/base.py",
+      "line": 498,
+      "call": "code_interpreter.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-integrations/tools/llama-index-tools-aws-bedrock-agentcore/llama_index/tools/aws_bedrock_agentcore/code_interpreter/base.py",
+      "line": 546,
+      "call": "code_interpreter.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "llama-index-integrations/vector_stores/llama-index-vector-stores-volcenginemysql/examples/volcengine_mysql_vector_store_demo.py",
+      "line": 87,
+      "call": "ARK_CLIENT.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "llama-index-packs/llama-index-packs-dense-x-retrieval/llama_index/packs/dense_x_retrieval/base.py",
+      "line": 115,
+      "call": "self._proposition_llm.apredict",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    }
+  ],
+  "next_command": "# Add to your entrypoint:\nfrom assay.integrations.openai import patch; patch()\n# Then: assay run -- python your_app.py"
+}

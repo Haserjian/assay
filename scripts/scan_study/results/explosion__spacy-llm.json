@@ -1,0 +1,23 @@
+{
+  "tool": "assay-scan",
+  "status": "warn",
+  "summary": {
+    "sites_total": 1,
+    "instrumented": 0,
+    "uninstrumented": 1,
+    "high": 0,
+    "medium": 1,
+    "low": 0
+  },
+  "findings": [
+    {
+      "path": "spacy_llm/models/langchain/model.py",
+      "line": 103,
+      "call": "model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    }
+  ],
+  "next_command": "# Add to your entrypoint:\nfrom assay.integrations.langchain import patch; patch()\n# Then: assay run -- python your_app.py"
+}

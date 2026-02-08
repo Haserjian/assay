@@ -1,0 +1,463 @@
+{
+  "tool": "assay-scan",
+  "status": "warn",
+  "summary": {
+    "sites_total": 56,
+    "instrumented": 0,
+    "uninstrumented": 56,
+    "high": 0,
+    "medium": 56,
+    "low": 0
+  },
+  "findings": [
+    {
+      "path": "libs/cli/examples/graph_prerelease_reqs/agent.py",
+      "line": 11,
+      "call": "ChatOpenAI",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.langchain import patch; patch()"
+    },
+    {
+      "path": "libs/cli/examples/graph_prerelease_reqs/agent.py",
+      "line": 36,
+      "call": "model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/cli/examples/graph_prerelease_reqs_fail/agent.py",
+      "line": 12,
+      "call": "ChatOpenAI",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.langchain import patch; patch()"
+    },
+    {
+      "path": "libs/cli/examples/graph_prerelease_reqs_fail/agent.py",
+      "line": 37,
+      "call": "model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/cli/examples/graphs/agent.py",
+      "line": 14,
+      "call": "ChatAnthropic",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.langchain import patch; patch()"
+    },
+    {
+      "path": "libs/cli/examples/graphs/agent.py",
+      "line": 15,
+      "call": "ChatOpenAI",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.langchain import patch; patch()"
+    },
+    {
+      "path": "libs/cli/examples/graphs/agent.py",
+      "line": 48,
+      "call": "model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/cli/examples/graphs/storm.py",
+      "line": 25,
+      "call": "ChatOpenAI",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.langchain import patch; patch()"
+    },
+    {
+      "path": "libs/cli/examples/graphs/storm.py",
+      "line": 28,
+      "call": "ChatOpenAI",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.langchain import patch; patch()"
+    },
+    {
+      "path": "libs/cli/examples/graphs/storm.py",
+      "line": 146,
+      "call": "ChatOpenAI",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.langchain import patch; patch()"
+    },
+    {
+      "path": "libs/cli/examples/graphs/storm.py",
+      "line": 167,
+      "call": "expand_chain.ainvoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/cli/examples/graphs/storm.py",
+      "line": 177,
+      "call": "gen_perspectives_chain.ainvoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/cli/examples/graphs/storm.py",
+      "line": 253,
+      "call": "gn_chain.ainvoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/cli/examples/graphs/storm.py",
+      "line": 272,
+      "call": "ChatOpenAI",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.langchain import patch; patch()"
+    },
+    {
+      "path": "libs/cli/examples/graphs/storm.py",
+      "line": 318,
+      "call": "tavily_search.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/cli/examples/graphs/storm.py",
+      "line": 329,
+      "call": "gen_queries_chain.ainvoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/cli/examples/graphs/storm.py",
+      "line": 348,
+      "call": "gen_answer_chain.ainvoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/cli/examples/graphs/storm.py",
+      "line": 471,
+      "call": "retriever.ainvoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/cli/examples/graphs/storm.py",
+      "line": 519,
+      "call": "generate_outline_direct.ainvoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/cli/examples/graphs/storm.py",
+      "line": 520,
+      "call": "survey_subjects.ainvoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/cli/examples/graphs/storm.py",
+      "line": 567,
+      "call": "refine_outline_chain.ainvoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/cli/examples/graphs/storm.py",
+      "line": 611,
+      "call": "writer.ainvoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/cli/examples/graphs_reqs_a/graphs_submod/agent.py",
+      "line": 15,
+      "call": "ChatAnthropic",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.langchain import patch; patch()"
+    },
+    {
+      "path": "libs/cli/examples/graphs_reqs_a/graphs_submod/agent.py",
+      "line": 16,
+      "call": "ChatOpenAI",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.langchain import patch; patch()"
+    },
+    {
+      "path": "libs/cli/examples/graphs_reqs_a/graphs_submod/agent.py",
+      "line": 52,
+      "call": "model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/cli/examples/graphs_reqs_b/graphs_submod/agent.py",
+      "line": 15,
+      "call": "ChatAnthropic",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.langchain import patch; patch()"
+    },
+    {
+      "path": "libs/cli/examples/graphs_reqs_b/graphs_submod/agent.py",
+      "line": 16,
+      "call": "ChatOpenAI",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.langchain import patch; patch()"
+    },
+    {
+      "path": "libs/cli/examples/graphs_reqs_b/graphs_submod/agent.py",
+      "line": 52,
+      "call": "model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/cli/tests/unit_tests/agent.py",
+      "line": 37,
+      "call": "model.ainvoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/langgraph/langgraph/_internal/_runnable.py",
+      "line": 402,
+      "call": "ret.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/langgraph/langgraph/_internal/_runnable.py",
+      "line": 409,
+      "call": "self.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/langgraph/langgraph/_internal/_runnable.py",
+      "line": 475,
+      "call": "ret.ainvoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/langgraph/langgraph/_internal/_runnable.py",
+      "line": 658,
+      "call": "step.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/langgraph/langgraph/_internal/_runnable.py",
+      "line": 706,
+      "call": "step.ainvoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/langgraph/langgraph/_internal/_runnable.py",
+      "line": 709,
+      "call": "step.ainvoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/langgraph/langgraph/_internal/_runnable.py",
+      "line": 711,
+      "call": "step.ainvoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/langgraph/langgraph/graph/_branch.py",
+      "line": 166,
+      "call": "self.path.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/langgraph/langgraph/graph/_branch.py",
+      "line": 189,
+      "call": "self.path.ainvoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/langgraph/langgraph/pregel/_draw.py",
+      "line": 132,
+      "call": "w.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/langgraph/langgraph/pregel/_read.py",
+      "line": 233,
+      "call": "self.bound.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/langgraph/langgraph/pregel/_read.py",
+      "line": 246,
+      "call": "self.bound.ainvoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/langgraph/langgraph/pregel/_retry.py",
+      "line": 42,
+      "call": "task.proc.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/langgraph/langgraph/pregel/_retry.py",
+      "line": 50,
+      "call": "w.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/langgraph/langgraph/pregel/_retry.py",
+      "line": 138,
+      "call": "task.proc.ainvoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/langgraph/langgraph/pregel/_retry.py",
+      "line": 146,
+      "call": "w.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/langgraph/langgraph/pregel/main.py",
+      "line": 1801,
+      "call": "run.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/langgraph/langgraph/pregel/main.py",
+      "line": 2239,
+      "call": "run.ainvoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/langgraph/tests/example_app/example_graph.py",
+      "line": 74,
+      "call": "model.ainvoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/prebuilt/langgraph/prebuilt/chat_agent_executor.py",
+      "line": 677,
+      "call": "dynamic_model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/prebuilt/langgraph/prebuilt/chat_agent_executor.py",
+      "line": 679,
+      "call": "static_model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/prebuilt/langgraph/prebuilt/chat_agent_executor.py",
+      "line": 705,
+      "call": "dynamic_model.ainvoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/prebuilt/langgraph/prebuilt/chat_agent_executor.py",
+      "line": 707,
+      "call": "static_model.ainvoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/prebuilt/langgraph/prebuilt/chat_agent_executor.py",
+      "line": 766,
+      "call": "model_with_structured_output.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/prebuilt/langgraph/prebuilt/chat_agent_executor.py",
+      "line": 784,
+      "call": "model_with_structured_output.ainvoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/prebuilt/langgraph/prebuilt/tool_node.py",
+      "line": 930,
+      "call": "tool.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "libs/prebuilt/langgraph/prebuilt/tool_node.py",
+      "line": 1083,
+      "call": "tool.ainvoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    }
+  ],
+  "next_command": "# Add to your entrypoint:\nfrom assay.integrations.openai import patch; patch()\n# Then: assay run -- python your_app.py"
+}

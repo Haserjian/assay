@@ -1,0 +1,55 @@
+{
+  "tool": "assay-scan",
+  "status": "fail",
+  "summary": {
+    "sites_total": 5,
+    "instrumented": 0,
+    "uninstrumented": 5,
+    "high": 5,
+    "medium": 0,
+    "low": 0
+  },
+  "findings": [
+    {
+      "path": "griptape/drivers/assistant/openai_assistant_driver.py",
+      "line": 90,
+      "call": "self.client.beta.threads.messages.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.anthropic import patch; patch()"
+    },
+    {
+      "path": "griptape/drivers/prompt/anthropic_prompt_driver.py",
+      "line": 93,
+      "call": "self.client.messages.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.anthropic import patch; patch()"
+    },
+    {
+      "path": "griptape/drivers/prompt/anthropic_prompt_driver.py",
+      "line": 107,
+      "call": "self.client.messages.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.anthropic import patch; patch()"
+    },
+    {
+      "path": "griptape/drivers/prompt/openai_chat_prompt_driver.py",
+      "line": 152,
+      "call": "self.client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "griptape/drivers/prompt/openai_chat_prompt_driver.py",
+      "line": 161,
+      "call": "self.client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    }
+  ],
+  "next_command": "# Add to your entrypoint:\nfrom assay.integrations.openai import patch; patch()\n# Then: assay run -- python your_app.py"
+}

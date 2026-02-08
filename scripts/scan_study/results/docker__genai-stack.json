@@ -1,0 +1,71 @@
+{
+  "tool": "assay-scan",
+  "status": "warn",
+  "summary": {
+    "sites_total": 7,
+    "instrumented": 0,
+    "uninstrumented": 7,
+    "high": 0,
+    "medium": 7,
+    "low": 0
+  },
+  "findings": [
+    {
+      "path": "api.py",
+      "line": 131,
+      "call": "output_function.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "api.py",
+      "line": 146,
+      "call": "output_function.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "bot.py",
+      "line": 95,
+      "call": "output_function.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "chains.py",
+      "line": 66,
+      "call": "ChatOpenAI",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.langchain import patch; patch()"
+    },
+    {
+      "path": "chains.py",
+      "line": 69,
+      "call": "ChatOpenAI",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.langchain import patch; patch()"
+    },
+    {
+      "path": "chains.py",
+      "line": 98,
+      "call": "ChatOpenAI",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.langchain import patch; patch()"
+    },
+    {
+      "path": "pdf_bot.py",
+      "line": 111,
+      "call": "qa.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    }
+  ],
+  "next_command": "# Add to your entrypoint:\nfrom assay.integrations.openai import patch; patch()\n# Then: assay run -- python your_app.py"
+}

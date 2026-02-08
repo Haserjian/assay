@@ -1,0 +1,727 @@
+{
+  "tool": "assay-scan",
+  "status": "warn",
+  "summary": {
+    "sites_total": 89,
+    "instrumented": 0,
+    "uninstrumented": 89,
+    "high": 0,
+    "medium": 89,
+    "low": 0
+  },
+  "findings": [
+    {
+      "path": "src/local_deep_research/advanced_search_system/candidate_exploration/base_explorer.py",
+      "line": 208,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/candidate_exploration/base_explorer.py",
+      "line": 250,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/constraint_checking/evidence_analyzer.py",
+      "line": 72,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/constraints/constraint_analyzer.py",
+      "line": 59,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/evidence/evaluator.py",
+      "line": 61,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/filters/journal_reputation_filter.py",
+      "line": 237,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/filters/journal_reputation_filter.py",
+      "line": 303,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/findings/repository.py",
+      "line": 405,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/knowledge/followup_context_manager.py",
+      "line": 152,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/knowledge/followup_context_manager.py",
+      "line": 294,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/knowledge/followup_context_manager.py",
+      "line": 339,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/query_generation/adaptive_query_generator.py",
+      "line": 191,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/query_generation/adaptive_query_generator.py",
+      "line": 232,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/query_generation/adaptive_query_generator.py",
+      "line": 338,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/questions/decomposition_question.py",
+      "line": 133,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/questions/decomposition_question.py",
+      "line": 253,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/search_optimization/cross_constraint_manager.py",
+      "line": 102,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/search_optimization/cross_constraint_manager.py",
+      "line": 246,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/search_optimization/cross_constraint_manager.py",
+      "line": 363,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/search_optimization/cross_constraint_manager.py",
+      "line": 401,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/search_optimization/cross_constraint_manager.py",
+      "line": 425,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/search_optimization/cross_constraint_manager.py",
+      "line": 497,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/search_optimization/cross_constraint_manager.py",
+      "line": 530,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/source_management/diversity_manager.py",
+      "line": 189,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/source_management/diversity_manager.py",
+      "line": 245,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/strategies/adaptive_decomposition_strategy.py",
+      "line": 211,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/strategies/adaptive_decomposition_strategy.py",
+      "line": 288,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/strategies/adaptive_decomposition_strategy.py",
+      "line": 425,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/strategies/adaptive_decomposition_strategy.py",
+      "line": 517,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/strategies/adaptive_decomposition_strategy.py",
+      "line": 537,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/strategies/browsecomp_optimized_strategy.py",
+      "line": 253,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/strategies/browsecomp_optimized_strategy.py",
+      "line": 481,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/strategies/browsecomp_optimized_strategy.py",
+      "line": 712,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/strategies/constrained_search_strategy.py",
+      "line": 565,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/strategies/evidence_based_strategy.py",
+      "line": 443,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/strategies/evidence_based_strategy.py",
+      "line": 785,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/strategies/evidence_based_strategy.py",
+      "line": 860,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/strategies/evidence_based_strategy.py",
+      "line": 899,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/strategies/evidence_based_strategy.py",
+      "line": 1082,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/strategies/evidence_based_strategy_v2.py",
+      "line": 928,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/strategies/evidence_based_strategy_v2.py",
+      "line": 1011,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/strategies/improved_evidence_based_strategy.py",
+      "line": 255,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/strategies/improved_evidence_based_strategy.py",
+      "line": 387,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/strategies/improved_evidence_based_strategy.py",
+      "line": 409,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/strategies/improved_evidence_based_strategy.py",
+      "line": 542,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/strategies/improved_evidence_based_strategy.py",
+      "line": 563,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/strategies/improved_evidence_based_strategy.py",
+      "line": 661,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/strategies/improved_evidence_based_strategy.py",
+      "line": 702,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/strategies/iterative_reasoning_strategy.py",
+      "line": 390,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/strategies/iterative_reasoning_strategy.py",
+      "line": 533,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/strategies/iterative_reasoning_strategy.py",
+      "line": 693,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/strategies/recursive_decomposition_strategy.py",
+      "line": 174,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/strategies/recursive_decomposition_strategy.py",
+      "line": 353,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/advanced_search_system/strategies/smart_decomposition_strategy.py",
+      "line": 141,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/benchmarks/graders.py",
+      "line": 193,
+      "call": "evaluation_llm.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/benchmarks/graders.py",
+      "line": 198,
+      "call": "evaluation_llm.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/benchmarks/graders.py",
+      "line": 369,
+      "call": "evaluation_llm.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/benchmarks/graders.py",
+      "line": 374,
+      "call": "evaluation_llm.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/config/llm_config.py",
+      "line": 532,
+      "call": "ChatAnthropic",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.langchain import patch; patch()"
+    },
+    {
+      "path": "src/local_deep_research/config/llm_config.py",
+      "line": 617,
+      "call": "ChatOpenAI",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.langchain import patch; patch()"
+    },
+    {
+      "path": "src/local_deep_research/config/llm_config.py",
+      "line": 646,
+      "call": "ChatOpenAI",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.langchain import patch; patch()"
+    },
+    {
+      "path": "src/local_deep_research/config/llm_config.py",
+      "line": 831,
+      "call": "ChatOpenAI",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.langchain import patch; patch()"
+    },
+    {
+      "path": "src/local_deep_research/config/llm_config.py",
+      "line": 1031,
+      "call": "self.base_llm.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/llm/providers/implementations/anthropic.py",
+      "line": 92,
+      "call": "ChatAnthropic",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.langchain import patch; patch()"
+    },
+    {
+      "path": "src/local_deep_research/llm/providers/implementations/openai.py",
+      "line": 148,
+      "call": "ChatOpenAI",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.langchain import patch; patch()"
+    },
+    {
+      "path": "src/local_deep_research/llm/providers/openai_base.py",
+      "line": 133,
+      "call": "ChatOpenAI",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.langchain import patch; patch()"
+    },
+    {
+      "path": "src/local_deep_research/llm/providers/openai_base.py",
+      "line": 174,
+      "call": "ChatOpenAI",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.langchain import patch; patch()"
+    },
+    {
+      "path": "src/local_deep_research/report_generator.py",
+      "line": 126,
+      "call": "self.model.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/utilities/llm_utils.py",
+      "line": 226,
+      "call": "ChatOpenAI",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.langchain import patch; patch()"
+    },
+    {
+      "path": "src/local_deep_research/utilities/llm_utils.py",
+      "line": 240,
+      "call": "ChatAnthropic",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.langchain import patch; patch()"
+    },
+    {
+      "path": "src/local_deep_research/utilities/llm_utils.py",
+      "line": 267,
+      "call": "ChatOpenAI",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.langchain import patch; patch()"
+    },
+    {
+      "path": "src/local_deep_research/utilities/llm_utils.py",
+      "line": 273,
+      "call": "ChatOpenAI",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.langchain import patch; patch()"
+    },
+    {
+      "path": "src/local_deep_research/web_search_engines/engines/full_search.py",
+      "line": 60,
+      "call": "self.llm.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/web_search_engines/engines/full_search.py",
+      "line": 81,
+      "call": "self.web_search.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/web_search_engines/engines/full_search.py",
+      "line": 133,
+      "call": "self.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/web_search_engines/engines/search_engine_github.py",
+      "line": 133,
+      "call": "self.llm.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/web_search_engines/engines/search_engine_github.py",
+      "line": 887,
+      "call": "self.llm.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/web_search_engines/engines/search_engine_guardian.py",
+      "line": 143,
+      "call": "self.llm.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/web_search_engines/engines/search_engine_guardian.py",
+      "line": 206,
+      "call": "self.llm.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/web_search_engines/engines/search_engine_paperless.py",
+      "line": 198,
+      "call": "self.llm.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/web_search_engines/engines/search_engine_pubmed.py",
+      "line": 258,
+      "call": "self.llm.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/web_search_engines/engines/search_engine_pubmed.py",
+      "line": 478,
+      "call": "self.llm.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/web_search_engines/engines/search_engine_retriever.py",
+      "line": 58,
+      "call": "self.retriever.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/web_search_engines/engines/search_engine_retriever.py",
+      "line": 129,
+      "call": "self.retriever.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/web_search_engines/engines/search_engine_semantic_scholar.py",
+      "line": 263,
+      "call": "self.llm.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/web_search_engines/engines/search_engine_semantic_scholar.py",
+      "line": 401,
+      "call": "self.llm.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/web_search_engines/engines/search_engine_wikinews.py",
+      "line": 158,
+      "call": "self.llm.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/web_search_engines/engines/search_engine_wikinews.py",
+      "line": 234,
+      "call": "self.llm.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/local_deep_research/web_search_engines/search_engine_base.py",
+      "line": 536,
+      "call": "self.llm.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    }
+  ],
+  "next_command": "# Add to your entrypoint:\nfrom assay.integrations.openai import patch; patch()\n# Then: assay run -- python your_app.py"
+}

@@ -1,0 +1,119 @@
+{
+  "tool": "assay-scan",
+  "status": "warn",
+  "summary": {
+    "sites_total": 13,
+    "instrumented": 0,
+    "uninstrumented": 13,
+    "high": 0,
+    "medium": 12,
+    "low": 1
+  },
+  "findings": [
+    {
+      "path": "src/codeinterpreterapi/chains/extract_code.py",
+      "line": 23,
+      "call": "ChatOpenAI",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.langchain import patch; patch()"
+    },
+    {
+      "path": "src/codeinterpreterapi/chains/modifications_check.py",
+      "line": 19,
+      "call": "llm.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/codeinterpreterapi/chains/modifications_check.py",
+      "line": 45,
+      "call": "llm.ainvoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/codeinterpreterapi/chains/modifications_check.py",
+      "line": 64,
+      "call": "ChatOpenAI",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.langchain import patch; patch()"
+    },
+    {
+      "path": "src/codeinterpreterapi/chains/rm_dl_link.py",
+      "line": 16,
+      "call": "llm.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/codeinterpreterapi/chains/rm_dl_link.py",
+      "line": 32,
+      "call": "llm.ainvoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/codeinterpreterapi/chains/rm_dl_link.py",
+      "line": 42,
+      "call": "ChatOpenAI",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.langchain import patch; patch()"
+    },
+    {
+      "path": "src/codeinterpreterapi/session.py",
+      "line": 137,
+      "call": "AzureChatOpenAI",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "src/codeinterpreterapi/session.py",
+      "line": 149,
+      "call": "ChatOpenAI",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.langchain import patch; patch()"
+    },
+    {
+      "path": "src/codeinterpreterapi/session.py",
+      "line": 162,
+      "call": "ChatAnthropic",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay.integrations.langchain import patch; patch()"
+    },
+    {
+      "path": "src/codeinterpreterapi/session.py",
+      "line": 414,
+      "call": "self.generate_response",
+      "confidence": "low",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/codeinterpreterapi/session.py",
+      "line": 429,
+      "call": "self.agent_executor.invoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "src/codeinterpreterapi/session.py",
+      "line": 455,
+      "call": "self.agent_executor.ainvoke",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    }
+  ],
+  "next_command": "# Add to your entrypoint:\nfrom assay.integrations.openai import patch; patch()\n# Then: assay run -- python your_app.py"
+}

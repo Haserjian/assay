@@ -1,0 +1,95 @@
+{
+  "tool": "assay-scan",
+  "status": "warn",
+  "summary": {
+    "sites_total": 10,
+    "instrumented": 0,
+    "uninstrumented": 10,
+    "high": 0,
+    "medium": 0,
+    "low": 10
+  },
+  "findings": [
+    {
+      "path": "backend/app/routes/inference/chat_completion.py",
+      "line": 93,
+      "call": "chat_completion",
+      "confidence": "low",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "backend/app/routes/openai/chat_completion.py",
+      "line": 70,
+      "call": "chat_completion",
+      "confidence": "low",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "backend/app/services/assistant/generation/session.py",
+      "line": 383,
+      "call": "chat_completion",
+      "confidence": "low",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "inference/app/routes/chat_completion/route.py",
+      "line": 55,
+      "call": "model.chat_completion",
+      "confidence": "low",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "inference/app/routes/chat_completion/route.py",
+      "line": 252,
+      "call": "chat_completion",
+      "confidence": "low",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "inference/app/routes/verify/route.py",
+      "line": 77,
+      "call": "chat_completion",
+      "confidence": "low",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "inference/app/routes/verify/route.py",
+      "line": 202,
+      "call": "chat_completion",
+      "confidence": "low",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "inference/app/routes/verify/route.py",
+      "line": 253,
+      "call": "chat_completion",
+      "confidence": "low",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "inference/app/routes/verify/route.py",
+      "line": 284,
+      "call": "chat_completion",
+      "confidence": "low",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "inference/scripts/credential_health_check.py",
+      "line": 104,
+      "call": "chat_completion",
+      "confidence": "low",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    }
+  ],
+  "next_command": "# Add receipt emission:\nfrom assay import emit_receipt\n# Then: assay run -- python your_app.py"
+}

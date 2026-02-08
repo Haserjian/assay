@@ -1,0 +1,63 @@
+{
+  "tool": "assay-scan",
+  "status": "fail",
+  "summary": {
+    "sites_total": 6,
+    "instrumented": 0,
+    "uninstrumented": 6,
+    "high": 1,
+    "medium": 0,
+    "low": 5
+  },
+  "findings": [
+    {
+      "path": "swarms/agents/openai_assistant.py",
+      "line": 267,
+      "call": "self.client.beta.threads.messages.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.anthropic import patch; patch()"
+    },
+    {
+      "path": "swarms/structs/agent.py",
+      "line": 1740,
+      "call": "self.call_llm",
+      "confidence": "low",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "swarms/structs/agent.py",
+      "line": 1749,
+      "call": "self.call_llm",
+      "confidence": "low",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "swarms/structs/agent.py",
+      "line": 2366,
+      "call": "self.call_llm",
+      "confidence": "low",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "swarms/structs/agent.py",
+      "line": 2603,
+      "call": "self.call_llm",
+      "confidence": "low",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "swarms/structs/agent.py",
+      "line": 2996,
+      "call": "self.call_llm",
+      "confidence": "low",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    }
+  ],
+  "next_command": "# Add to your entrypoint:\nfrom assay.integrations.anthropic import patch; patch()\n# Then: assay run -- python your_app.py"
+}

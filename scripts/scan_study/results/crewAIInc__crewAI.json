@@ -1,0 +1,159 @@
+{
+  "tool": "assay-scan",
+  "status": "fail",
+  "summary": {
+    "sites_total": 18,
+    "instrumented": 0,
+    "uninstrumented": 18,
+    "high": 14,
+    "medium": 4,
+    "low": 0
+  },
+  "findings": [
+    {
+      "path": "lib/crewai-tools/src/crewai_tools/tools/ai_mind_tool/ai_mind_tool.py",
+      "line": 94,
+      "call": "openai_client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "lib/crewai/src/crewai/llm.py",
+      "line": 765,
+      "call": "litellm.completion",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "lib/crewai/src/crewai/llm.py",
+      "line": 1174,
+      "call": "litellm.completion",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "lib/crewai/src/crewai/llm.py",
+      "line": 1309,
+      "call": "litellm.acompletion",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "lib/crewai/src/crewai/llm.py",
+      "line": 1421,
+      "call": "litellm.acompletion",
+      "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "lib/crewai/src/crewai/llms/providers/anthropic/completion.py",
+      "line": 676,
+      "call": "self.client.beta.messages.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.anthropic import patch; patch()"
+    },
+    {
+      "path": "lib/crewai/src/crewai/llms/providers/anthropic/completion.py",
+      "line": 680,
+      "call": "self.client.messages.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.anthropic import patch; patch()"
+    },
+    {
+      "path": "lib/crewai/src/crewai/llms/providers/anthropic/completion.py",
+      "line": 1102,
+      "call": "self.client.messages.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.anthropic import patch; patch()"
+    },
+    {
+      "path": "lib/crewai/src/crewai/llms/providers/anthropic/completion.py",
+      "line": 1197,
+      "call": "self.async_client.beta.messages.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.anthropic import patch; patch()"
+    },
+    {
+      "path": "lib/crewai/src/crewai/llms/providers/anthropic/completion.py",
+      "line": 1201,
+      "call": "self.async_client.messages.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.anthropic import patch; patch()"
+    },
+    {
+      "path": "lib/crewai/src/crewai/llms/providers/anthropic/completion.py",
+      "line": 1497,
+      "call": "self.async_client.messages.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.anthropic import patch; patch()"
+    },
+    {
+      "path": "lib/crewai/src/crewai/llms/providers/openai/completion.py",
+      "line": 1593,
+      "call": "self.client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "lib/crewai/src/crewai/llms/providers/openai/completion.py",
+      "line": 1755,
+      "call": "self.client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "lib/crewai/src/crewai/llms/providers/openai/completion.py",
+      "line": 1909,
+      "call": "self.async_client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "lib/crewai/src/crewai/llms/providers/openai/completion.py",
+      "line": 2027,
+      "call": "self.async_client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "lib/crewai/src/crewai/llms/providers/openai/completion.py",
+      "line": 2080,
+      "call": "self.async_client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "lib/crewai/src/crewai/utilities/internal_instructor.py",
+      "line": 148,
+      "call": "self._client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    },
+    {
+      "path": "lib/devtools/src/crewai_devtools/cli.py",
+      "line": 591,
+      "call": "client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()"
+    }
+  ],
+  "next_command": "# Add to your entrypoint:\nfrom assay.integrations.openai import patch; patch()\n# Then: assay run -- python your_app.py"
+}
