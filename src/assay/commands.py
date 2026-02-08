@@ -2376,8 +2376,8 @@ def scan_cmd(
     if not result.findings:
         console.print("  [dim]No LLM call sites detected.[/]")
         console.print()
-        console.print("  [dim]If your code uses LLM APIs, check that the source files")
-        console.print("  are Python (.py) and not excluded by default filters.[/]")
+        console.print("  [dim]If your code uses LLM APIs, check that the source files[/]")
+        console.print("  [dim]are Python (.py) and not excluded by default filters.[/]")
         console.print()
         raise typer.Exit(0)
 
