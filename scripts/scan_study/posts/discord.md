@@ -7,14 +7,11 @@
 
 ## Message
 
-I scanned 30 popular AI repos for **tamper-evident evidence emission** (signed receipts / proof packs that prove what went into and came out of each LLM call).
+I scanned 30 popular AI repos for **tamper-evident evidence emission** (signed receipts that prove what went into and came out of each LLM call, verifiable without your infra).
 
-Found:
-- **202** high-confidence direct SDK call sites (OpenAI/Anthropic)
-- **903** total findings incl. framework heuristics
-- **0** repos emitting tamper-evident evidence
+Found **202** high-confidence direct SDK call sites, **903** total including framework heuristics, **0** with tamper-evident evidence.
 
-Limitation: this is static AST analysis, not runtime. It doesn't measure logging/monitoring -- just cryptographic evidence.
+This doesn't measure logging/monitoring -- just cryptographic evidence. Many of these projects have great observability. The gap is between "we can see" and "we can prove."
 
 One command to check your repo:
 ```

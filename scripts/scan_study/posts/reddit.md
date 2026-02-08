@@ -6,7 +6,7 @@ I scanned 30 popular AI projects for tamper-evident audit evidence. None had it.
 
 ## Body
 
-I built a scanner that finds LLM call sites (OpenAI/Anthropic SDK + LangChain/LiteLLM framework patterns) and checks for tamper-evident evidence emission -- i.e., signed receipts / proof packs that can be independently verified.
+I built a scanner that finds LLM call sites (OpenAI/Anthropic SDK + LangChain/LiteLLM framework patterns) and checks for tamper-evident evidence emission -- signed receipts that can be independently verified without access to the project's infrastructure.
 
 Ran it on 30 popular repos: LangChain, LlamaIndex, CrewAI, Browser-Use, Aider, pydantic-ai, DSPy, LiteLLM, and others.
 
@@ -18,7 +18,7 @@ Ran it on 30 popular repos: LangChain, LlamaIndex, CrewAI, Browser-Use, Aider, p
 | Total (incl. framework heuristics) | 903 |
 | Repos with tamper-evident evidence | 0 |
 
-**Limitations:** Static AST analysis, specifically about tamper-evident evidence (not dashboards/logging). Many of these projects have extensive observability. The gap is between "we can see what happened" and "we can cryptographically prove what happened."
+**What this is not:** a claim that these projects have no logging. Many have extensive observability (callbacks, OpenTelemetry, LangSmith). This specifically measures cryptographically signed, independently verifiable evidence -- the difference between "we can see what happened" and "we can prove what happened."
 
 **Check your repo:**
 
@@ -26,15 +26,17 @@ Ran it on 30 popular repos: LangChain, LlamaIndex, CrewAI, Browser-Use, Aider, p
 pip install assay-ai && assay scan .
 ```
 
-Full report with per-repo breakdown, method limits, and reproducibility instructions:
+Full report with per-repo breakdown and method limits:
 https://github.com/Haserjian/assay/blob/9641c7c/scripts/scan_study/results/report.md
 
 If I missed your instrumentation or if a finding is a false positive, post a commit link and I'll update the dataset.
+
+I'm taking 3 pilot integrations this month (1-week sprint to instrument a codebase + lock it in CI). If your team has LLM calls in production and needs audit-ready evidence, DM me.
 
 ---
 
 ## Subreddit targets
 
-- r/MachineLearning (frame as research/discussion, not self-promotion)
+- r/MachineLearning (frame as research/discussion)
 - r/LocalLLaMA (tool-focused, more receptive)
-- r/LangChain (directly relevant, many of their users would benefit)
+- r/LangChain (directly relevant)
