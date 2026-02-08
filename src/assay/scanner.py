@@ -133,19 +133,31 @@ _HIGH_PATTERNS = [
     ("chat_completions.create", "openai"),
 ]
 
-# Medium confidence: framework calls
+# Medium confidence: framework calls (always match)
 _MEDIUM_PATTERNS = [
-    # LangChain / LangGraph
-    (".invoke(", "langchain"),
-    (".ainvoke(", "langchain"),
+    # LangChain wrapper constructors (unambiguous)
     ("ChatOpenAI(", "langchain"),
     ("ChatAnthropic(", "langchain"),
-    ("llm.predict(", "langchain"),
-    ("llm.apredict(", "langchain"),
-    # LiteLLM
+    # LiteLLM (unambiguous namespace)
     ("litellm.completion(", "litellm"),
     ("litellm.acompletion(", "litellm"),
 ]
+
+# Medium confidence: generic patterns that need framework import evidence
+# These match too broadly without import context (e.g., ctx.invoke, db.invoke)
+_MEDIUM_GUARDED_PATTERNS = [
+    (".invoke(", "langchain"),
+    (".ainvoke(", "langchain"),
+    ("llm.predict(", "langchain"),
+    ("llm.apredict(", "langchain"),
+]
+
+# Imports that qualify a file as "framework-adjacent" for guarded patterns
+_FRAMEWORK_IMPORT_PREFIXES = {
+    "langchain", "langgraph", "llama_index", "litellm",
+    "langchain_core", "langchain_community", "langchain_openai",
+    "langchain_anthropic", "llama_index.core",
+}
 
 # Low confidence: heuristic name patterns in function/method calls
 _LOW_HEURISTIC_NAMES = {
@@ -179,14 +191,25 @@ class _LLMCallVisitor(ast.NodeVisitor):
     def __init__(self) -> None:
         self.call_sites: List[tuple[int, str, Confidence]] = []
         self.has_instrumentation = False
+        self.has_framework_imports = False
         self._imports: Set[str] = set()
         self._calls: Set[str] = set()
+        self._deferred_medium: List[tuple[int, str]] = []
+
+    def resolve_deferred(self) -> None:
+        """Promote deferred guarded patterns based on collected import evidence."""
+        if self.has_framework_imports:
+            for line, call in self._deferred_medium:
+                self.call_sites.append((line, call, Confidence.MEDIUM))
+        # If no framework imports, guarded patterns are silently dropped
 
     def visit_Import(self, node: ast.Import) -> None:
         for alias in node.names:
             self._imports.add(alias.name)
             if any(pat in alias.name for pat in _INSTRUMENTATION_IMPORTS):
                 self.has_instrumentation = True
+            if any(alias.name == pfx or alias.name.startswith(pfx + ".") for pfx in _FRAMEWORK_IMPORT_PREFIXES):
+                self.has_framework_imports = True
         self.generic_visit(node)
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
@@ -199,6 +222,8 @@ class _LLMCallVisitor(ast.NodeVisitor):
                 self.has_instrumentation = True
             if any(pat in full for pat in _INSTRUMENTATION_IMPORTS):
                 self.has_instrumentation = True
+        if any(module == pfx or module.startswith(pfx + ".") for pfx in _FRAMEWORK_IMPORT_PREFIXES):
+            self.has_framework_imports = True
         self.generic_visit(node)
 
     def visit_Call(self, node: ast.Call) -> None:
@@ -216,18 +241,25 @@ class _LLMCallVisitor(ast.NodeVisitor):
                     self.call_sites.append((node.lineno, call_str, Confidence.HIGH))
                     break
             else:
-                # Check medium-confidence patterns
+                # Check medium-confidence patterns (always match)
                 for pattern, _framework in _MEDIUM_PATTERNS:
-                    # Strip the trailing ( for matching
                     pat = pattern.rstrip("(")
                     if pat in call_str:
                         self.call_sites.append((node.lineno, call_str, Confidence.MEDIUM))
                         break
                 else:
-                    # Check low-confidence heuristics
-                    func_name = name_parts[-1].lower()
-                    if func_name in _LOW_HEURISTIC_NAMES:
-                        self.call_sites.append((node.lineno, call_str, Confidence.LOW))
+                    # Check guarded medium patterns (need framework imports)
+                    # Store as deferred -- resolved after full tree walk
+                    for pattern, _framework in _MEDIUM_GUARDED_PATTERNS:
+                        pat = pattern.rstrip("(")
+                        if pat in call_str:
+                            self._deferred_medium.append((node.lineno, call_str))
+                            break
+                    else:
+                        # Check low-confidence heuristics
+                        func_name = name_parts[-1].lower()
+                        if func_name in _LOW_HEURISTIC_NAMES:
+                            self.call_sites.append((node.lineno, call_str, Confidence.LOW))
 
         self.generic_visit(node)
 
@@ -300,6 +332,7 @@ def scan_file(filepath: Path) -> tuple[List[CallSite], bool]:
 
     visitor = _LLMCallVisitor()
     visitor.visit(tree)
+    visitor.resolve_deferred()
 
     rel_path = str(filepath)
     sites = []

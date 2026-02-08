@@ -94,6 +94,7 @@ class TestHighConfidence:
 class TestMediumConfidence:
     def test_langchain_invoke(self, tmp_path):
         f = _write(tmp_path, "app.py", """\
+            from langchain_core.runnables import RunnableSequence
             chain = build_chain()
             result = chain.invoke({"input": "hello"})
         """)
@@ -103,11 +104,20 @@ class TestMediumConfidence:
 
     def test_langchain_ainvoke(self, tmp_path):
         f = _write(tmp_path, "app.py", """\
+            from langchain_core.runnables import RunnableSequence
             result = await chain.ainvoke({"input": "hello"})
         """)
         sites, _ = scan_file(f)
         assert len(sites) == 1
         assert sites[0].confidence == Confidence.MEDIUM
+
+    def test_invoke_without_framework_import_is_dropped(self, tmp_path):
+        """invoke() without framework imports is silently dropped (not a false positive)."""
+        f = _write(tmp_path, "app.py", """\
+            result = something.invoke({"key": "val"})
+        """)
+        sites, _ = scan_file(f)
+        assert len(sites) == 0
 
     def test_langchain_chatopenai(self, tmp_path):
         f = _write(tmp_path, "app.py", """\
@@ -146,6 +156,7 @@ class TestMediumConfidence:
 
     def test_llm_predict(self, tmp_path):
         f = _write(tmp_path, "app.py", """\
+            from langchain.llms import OpenAI
             result = llm.predict("What is 2+2?")
         """)
         sites, _ = scan_file(f)
@@ -205,15 +216,12 @@ class TestNoFalsePositives:
         assert len(sites) == 0
 
     def test_regular_invoke_on_non_chain(self, tmp_path):
-        """invoke() is medium-confidence -- it matches any .invoke() call.
-        This is by design: we tolerate some false positives for coverage."""
+        """invoke() without framework imports is correctly dropped."""
         f = _write(tmp_path, "app.py", """\
             result = something.invoke({"key": "val"})
         """)
         sites, _ = scan_file(f)
-        # This IS detected as medium (by design)
-        assert len(sites) == 1
-        assert sites[0].confidence == Confidence.MEDIUM
+        assert len(sites) == 0
 
     def test_empty_file(self, tmp_path):
         f = _write(tmp_path, "empty.py", "")
@@ -279,6 +287,7 @@ class TestInstrumentationEvidence:
 
     def test_langchain_patch_import(self, tmp_path):
         f = _write(tmp_path, "app.py", """\
+            from langchain_core.runnables import RunnableSequence
             from assay.integrations.langchain import patch
             patch()
             chain = build_chain()
@@ -536,6 +545,7 @@ class TestMixedConfidence:
     def test_high_and_medium_same_file(self, tmp_path):
         f = _write(tmp_path, "app.py", """\
             import openai
+            from langchain_core.runnables import RunnableSequence
             client = openai.OpenAI()
             resp = client.chat.completions.create(model="gpt-4", messages=[])
             chain = build_chain()
@@ -550,6 +560,7 @@ class TestMixedConfidence:
     def test_all_three_levels(self, tmp_path):
         f = _write(tmp_path, "app.py", """\
             import openai
+            from langchain_core.runnables import RunnableSequence
             client = openai.OpenAI()
             resp = client.chat.completions.create(model="gpt-4", messages=[])
             result = chain.invoke({"input": "hello"})
