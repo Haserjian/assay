@@ -19,9 +19,9 @@ Results:
 
 Important limitation: this is static AST analysis scoped to tamper-evident evidence (signed receipts / proof packs). It does NOT measure logging, OpenTelemetry, LangSmith, or other observability. Many of these projects have extensive logging. What they don't have is cryptographically signed evidence that an auditor or regulator could independently verify.
 
-Full report with per-repo breakdown + method limits: https://github.com/Haserjian/assay/blob/main/scripts/scan_study/results/report.md
+Full report with per-repo breakdown + method limits: https://github.com/Haserjian/assay/blob/9641c7c/scripts/scan_study/results/report.md
 
-Dataset (CSV with commit SHAs): https://github.com/Haserjian/assay/blob/main/scripts/scan_study/results/results.csv
+Dataset (CSV with commit SHAs): https://github.com/Haserjian/assay/blob/9641c7c/scripts/scan_study/results/results.csv
 
 One-command check on your repo:
 

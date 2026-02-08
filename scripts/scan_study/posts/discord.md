@@ -21,6 +21,6 @@ One command to check your repo:
 pip install assay-ai && assay scan .
 ```
 
-Full report + dataset: https://github.com/Haserjian/assay/blob/main/scripts/scan_study/results/report.md
+Full report + dataset: https://github.com/Haserjian/assay/blob/9641c7c/scripts/scan_study/results/report.md
 
 If I missed your setup, drop a commit link and I'll update the dataset.

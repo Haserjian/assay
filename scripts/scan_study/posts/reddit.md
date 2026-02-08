@@ -27,7 +27,7 @@ pip install assay-ai && assay scan .
 ```
 
 Full report with per-repo breakdown, method limits, and reproducibility instructions:
-https://github.com/Haserjian/assay/blob/main/scripts/scan_study/results/report.md
+https://github.com/Haserjian/assay/blob/9641c7c/scripts/scan_study/results/report.md
 
 If I missed your instrumentation or if a finding is a false positive, post a commit link and I'll update the dataset.
 
