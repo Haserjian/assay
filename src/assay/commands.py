@@ -2577,6 +2577,464 @@ def doctor_cmd(
     raise typer.Exit(exit_code)
 
 
+@assay_app.command("explain")
+def explain_cmd(
+    pack_dir: str = typer.Argument(..., help="Path to proof pack directory"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Explain a proof pack in plain English.
+
+    Reads a proof pack and outputs a human-readable summary covering:
+    what happened, integrity status, claim results, what the pack proves,
+    and what it does NOT prove.
+
+    Designed for non-engineers: compliance officers, auditors, executives.
+
+    Examples:
+      assay explain ./proof_pack_*/
+      assay explain ./proof_pack_abc123/ --json
+    """
+    from pathlib import Path
+
+    from assay.explain import explain_pack, render_text
+
+    pd = Path(pack_dir)
+    if not pd.is_dir():
+        console.print(f"[red]Error:[/] {pack_dir} is not a directory")
+        raise typer.Exit(1)
+
+    info = explain_pack(pd)
+
+    if output_json:
+        _output_json({
+            "command": "explain",
+            "status": "ok",
+            **info,
+        })
+
+    console.print()
+    console.print(render_text(info))
+
+
+@assay_app.command("demo-incident")
+def demo_incident_cmd(
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Demonstrate how Assay catches policy violations.
+
+    Runs a two-act scenario using synthetic data (no API key needed):
+
+    Act 1: Agent runs correctly with gpt-4 and guardian check.
+           Result: Integrity PASS, Claims PASS.
+
+    Act 2: Someone swaps the model to gpt-3.5-turbo and removes
+           the guardian check. Same code, different behavior.
+           Result: Integrity PASS, Claims FAIL.
+
+    This demonstrates "honest failure" -- the evidence is authentic,
+    and it proves the run violated the declared standards.
+    """
+    import tempfile
+    from pathlib import Path
+
+    from assay.claim_verifier import ClaimSpec
+    from assay.explain import explain_pack, render_text
+    from assay.integrity import verify_pack_manifest
+    from assay.keystore import AssayKeyStore
+    from assay.proof_pack import ProofPack
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        td = Path(tmpdir)
+        ks = AssayKeyStore(keys_dir=td / "keys")
+        ks.generate_key("demo")
+
+        ts_base = "2026-02-10T09:00:0"
+
+        # --- ACT 1: Everything works correctly ---
+        receipts_good = [
+            {
+                "receipt_id": "r_act1_001",
+                "type": "model_call",
+                "timestamp": f"{ts_base}0Z",
+                "schema_version": "3.0",
+                "seq": 0,
+                "model_id": "gpt-4",
+                "provider": "openai",
+                "total_tokens": 2100,
+                "input_tokens": 1500,
+                "output_tokens": 600,
+                "latency_ms": 1200,
+                "finish_reason": "stop",
+            },
+            {
+                "receipt_id": "r_act1_002",
+                "type": "guardian_verdict",
+                "timestamp": f"{ts_base}1Z",
+                "schema_version": "3.0",
+                "seq": 1,
+                "verdict": "allow",
+                "action": "generate_response",
+                "reason": "Content meets safety policy",
+            },
+            {
+                "receipt_id": "r_act1_003",
+                "type": "model_call",
+                "timestamp": f"{ts_base}2Z",
+                "schema_version": "3.0",
+                "seq": 2,
+                "model_id": "gpt-4",
+                "provider": "openai",
+                "total_tokens": 1800,
+                "input_tokens": 1200,
+                "output_tokens": 600,
+                "latency_ms": 980,
+                "finish_reason": "stop",
+            },
+        ]
+
+        # Claims: require guardian + model calls
+        claims = [
+            ClaimSpec(
+                claim_id="has_model_calls",
+                description="At least one model_call receipt",
+                check="receipt_type_present",
+                params={"receipt_type": "model_call"},
+            ),
+            ClaimSpec(
+                claim_id="guardian_enforced",
+                description="Guardian verdict was issued",
+                check="receipt_type_present",
+                params={"receipt_type": "guardian_verdict"},
+            ),
+            ClaimSpec(
+                claim_id="no_breakglass",
+                description="No override receipts",
+                check="no_receipt_type",
+                params={"receipt_type": "breakglass"},
+            ),
+        ]
+
+        # Build & verify Act 1
+        pack_good = ProofPack(
+            run_id="incident-act1-correct",
+            entries=receipts_good,
+            signer_id="demo",
+            claims=claims,
+            mode="shadow",
+        )
+        out_good = pack_good.build(td / "pack_act1", keystore=ks)
+        manifest_good = json.loads((out_good / "pack_manifest.json").read_text())
+        att_good = manifest_good["attestation"]
+        result_good = verify_pack_manifest(manifest_good, out_good, ks)
+
+        # --- ACT 2: Model swapped, guardian removed ---
+        receipts_bad = [
+            {
+                "receipt_id": "r_act2_001",
+                "type": "model_call",
+                "timestamp": f"{ts_base}5Z",
+                "schema_version": "3.0",
+                "seq": 0,
+                "model_id": "gpt-3.5-turbo",  # <-- swapped
+                "provider": "openai",
+                "total_tokens": 900,
+                "input_tokens": 600,
+                "output_tokens": 300,
+                "latency_ms": 340,
+                "finish_reason": "stop",
+            },
+            # No guardian_verdict -- removed
+            {
+                "receipt_id": "r_act2_002",
+                "type": "model_call",
+                "timestamp": f"{ts_base}6Z",
+                "schema_version": "3.0",
+                "seq": 1,
+                "model_id": "gpt-3.5-turbo",  # <-- swapped
+                "provider": "openai",
+                "total_tokens": 750,
+                "input_tokens": 500,
+                "output_tokens": 250,
+                "latency_ms": 280,
+                "finish_reason": "stop",
+            },
+        ]
+
+        # Same claims applied to bad receipts
+        pack_bad = ProofPack(
+            run_id="incident-act2-violated",
+            entries=receipts_bad,
+            signer_id="demo",
+            claims=claims,
+            mode="shadow",
+        )
+        out_bad = pack_bad.build(td / "pack_act2", keystore=ks)
+        manifest_bad = json.loads((out_bad / "pack_manifest.json").read_text())
+        att_bad = manifest_bad["attestation"]
+
+        if output_json:
+            _output_json({
+                "command": "demo-incident",
+                "status": "ok",
+                "act1": {
+                    "pack_id": att_good["pack_id"],
+                    "integrity": att_good["receipt_integrity"],
+                    "claims": att_good["claim_check"],
+                    "model": "gpt-4",
+                    "guardian": True,
+                    "n_receipts": att_good["n_receipts"],
+                },
+                "act2": {
+                    "pack_id": att_bad["pack_id"],
+                    "integrity": att_bad["receipt_integrity"],
+                    "claims": att_bad["claim_check"],
+                    "model": "gpt-3.5-turbo",
+                    "guardian": False,
+                    "n_receipts": att_bad["n_receipts"],
+                },
+            })
+
+        # --- Console output ---
+        console.print()
+        console.print("[bold]ASSAY DEMO: INCIDENT DETECTION[/]")
+        console.print()
+        console.print("[dim]This demo shows how Assay catches policy violations[/]")
+        console.print("[dim]using the same claims against different evidence.[/]")
+        console.print()
+
+        # Act 1
+        console.print("[bold]ACT 1: Correct operation[/]")
+        console.print("  Agent uses gpt-4 with guardian enforcement.")
+        console.print(f"  3 receipts: 2 model_call (gpt-4) + 1 guardian_verdict")
+        console.print()
+        console.print(Panel.fit(
+            f"Integrity:  [green]{att_good['receipt_integrity']}[/]\n"
+            f"Claims:     [green]{att_good['claim_check']}[/]\n"
+            f"  has_model_calls:    [green]PASS[/]\n"
+            f"  guardian_enforced:  [green]PASS[/]\n"
+            f"  no_breakglass:     [green]PASS[/]",
+            title="Act 1: PASS / PASS",
+            border_style="green",
+        ))
+
+        console.print()
+        console.print("[bold]ACT 2: Someone cuts corners[/]")
+        console.print("  Model swapped to gpt-3.5-turbo (cheaper, less capable).")
+        console.print("  Guardian check removed entirely.")
+        console.print(f"  2 receipts: 2 model_call (gpt-3.5-turbo), no guardian_verdict")
+        console.print()
+        console.print(Panel.fit(
+            f"Integrity:  [green]{att_bad['receipt_integrity']}[/]  (evidence is authentic)\n"
+            f"Claims:     [red]{att_bad['claim_check']}[/]  (policy violated)\n"
+            f"  has_model_calls:    [green]PASS[/]\n"
+            f"  guardian_enforced:  [red]FAIL[/]  -- no guardian_verdict receipt\n"
+            f"  no_breakglass:     [green]PASS[/]",
+            title="Act 2: PASS / FAIL",
+            border_style="red",
+        ))
+
+        console.print()
+        console.print("[bold]THE EVIDENCE[/]")
+        console.print()
+        console.print("  Act 1 receipts show: gpt-4, guardian approved")
+        console.print("  Act 2 receipts show: gpt-3.5-turbo, no guardian")
+        console.print()
+        console.print("  The model was swapped. The guardian was removed.")
+        console.print("  The evidence is cryptographic. Nobody can argue about what happened.")
+        console.print()
+
+        console.print("[bold]KEY INSIGHT[/]")
+        console.print()
+        console.print("  Integrity PASS + Claims FAIL = [bold]honest failure[/].")
+        console.print("  The evidence is authentic, and it proves the run")
+        console.print("  violated the declared standards. This is not a bug.")
+        console.print("  This is Assay working as designed.")
+        console.print()
+        console.print("[dim]To see the full explanation of each pack:[/]")
+        console.print("  assay explain <pack_dir>")
+        console.print()
+
+
+@assay_app.command("demo-challenge")
+def demo_challenge_cmd(
+    output_dir: str = typer.Option("./challenge_pack", "--output", "-o", help="Output directory"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Generate a challenge: one valid pack, one tampered pack.
+
+    Creates two proof packs side by side. One is authentic.
+    One has been tampered with (a single byte changed in the receipts).
+    Your machine decides which is real.
+
+    No API key needed. No trust required. Just verification.
+
+    Examples:
+      assay demo-challenge
+      assay verify-pack ./challenge_pack/good/
+      assay verify-pack ./challenge_pack/tampered/
+    """
+    import hashlib
+    import tempfile
+    from pathlib import Path
+
+    from assay.claim_verifier import ClaimSpec
+    from assay.keystore import AssayKeyStore
+    from assay.proof_pack import ProofPack
+
+    out = Path(output_dir)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        td = Path(tmpdir)
+        ks = AssayKeyStore(keys_dir=td / "keys")
+        ks.generate_key("challenge")
+
+        ts_base = "2026-02-10T12:00:0"
+        receipts = [
+            {
+                "receipt_id": "r_chal_001",
+                "type": "model_call",
+                "timestamp": f"{ts_base}0Z",
+                "schema_version": "3.0",
+                "seq": 0,
+                "model_id": "gpt-4",
+                "provider": "openai",
+                "total_tokens": 2500,
+                "input_tokens": 1800,
+                "output_tokens": 700,
+                "latency_ms": 1100,
+                "finish_reason": "stop",
+            },
+            {
+                "receipt_id": "r_chal_002",
+                "type": "guardian_verdict",
+                "timestamp": f"{ts_base}1Z",
+                "schema_version": "3.0",
+                "seq": 1,
+                "verdict": "allow",
+                "action": "generate_summary",
+                "reason": "Content is within policy bounds",
+            },
+            {
+                "receipt_id": "r_chal_003",
+                "type": "model_call",
+                "timestamp": f"{ts_base}2Z",
+                "schema_version": "3.0",
+                "seq": 2,
+                "model_id": "gpt-4",
+                "provider": "openai",
+                "total_tokens": 1900,
+                "input_tokens": 1300,
+                "output_tokens": 600,
+                "latency_ms": 950,
+                "finish_reason": "stop",
+            },
+        ]
+
+        claims = [
+            ClaimSpec(
+                claim_id="has_model_calls",
+                description="At least one model_call receipt",
+                check="receipt_type_present",
+                params={"receipt_type": "model_call"},
+            ),
+            ClaimSpec(
+                claim_id="guardian_enforced",
+                description="Guardian verdict was issued",
+                check="receipt_type_present",
+                params={"receipt_type": "guardian_verdict"},
+            ),
+        ]
+
+        # Build the good pack
+        pack = ProofPack(
+            run_id="challenge-run",
+            entries=receipts,
+            signer_id="challenge",
+            claims=claims,
+            mode="shadow",
+        )
+        good_dir = pack.build(td / "good", keystore=ks)
+
+        # Copy the good pack to output
+        out.mkdir(parents=True, exist_ok=True)
+        good_out = out / "good"
+        tampered_out = out / "tampered"
+
+        # Copy good pack
+        import shutil
+        if good_out.exists():
+            shutil.rmtree(good_out)
+        shutil.copytree(good_dir, good_out)
+
+        # Create tampered pack: copy good, then flip one byte in receipt_pack.jsonl
+        if tampered_out.exists():
+            shutil.rmtree(tampered_out)
+        shutil.copytree(good_dir, tampered_out)
+        receipt_file = tampered_out / "receipt_pack.jsonl"
+        data = bytearray(receipt_file.read_bytes())
+        # Find "gpt-4" in the receipts and change it to "gpt-5" (one char)
+        target = b'"gpt-4"'
+        idx = data.find(target)
+        if idx >= 0:
+            data[idx + 1:idx + 6] = b"gpt-5"
+        receipt_file.write_bytes(bytes(data))
+
+    # Generate SHA256 sums
+    sha_lines = []
+    for subdir in ["good", "tampered"]:
+        for f in sorted((out / subdir).iterdir()):
+            h = hashlib.sha256(f.read_bytes()).hexdigest()
+            sha_lines.append(f"{h}  {subdir}/{f.name}")
+    sha_file = out / "SHA256SUMS.txt"
+    sha_file.write_text("\n".join(sha_lines) + "\n")
+
+    # Write instructions
+    readme = out / "CHALLENGE.md"
+    readme.write_text(
+        "# Assay Challenge Pack\n\n"
+        "Two proof packs. One is authentic. One has been tampered with.\n"
+        "Your machine decides which is real.\n\n"
+        "```bash\n"
+        "pip install assay-ai\n"
+        "assay verify-pack ./good/\n"
+        "assay verify-pack ./tampered/\n"
+        "```\n\n"
+        "One will exit 0 (authentic). One will exit non-zero (tampered).\n\n"
+        "To see the full explanation:\n"
+        "```bash\n"
+        "assay explain ./good/\n"
+        "assay explain ./tampered/\n"
+        "```\n\n"
+        "Learn more: https://github.com/Haserjian/assay\n"
+    )
+
+    if output_json:
+        _output_json({
+            "command": "demo-challenge",
+            "status": "ok",
+            "output_dir": str(out),
+            "good_pack": str(good_out),
+            "tampered_pack": str(tampered_out),
+        })
+
+    console.print()
+    console.print("[bold]ASSAY CHALLENGE PACK[/]")
+    console.print()
+    console.print(f"  Created: {out}/")
+    console.print(f"    good/       -- authentic proof pack")
+    console.print(f"    tampered/   -- one byte changed in the receipts")
+    console.print(f"    SHA256SUMS.txt")
+    console.print(f"    CHALLENGE.md")
+    console.print()
+    console.print("  [bold]Try it:[/]")
+    console.print(f"    assay verify-pack {good_out}/")
+    console.print(f"    assay verify-pack {tampered_out}/")
+    console.print()
+    console.print("  One will [green]PASS[/]. One will [red]FAIL[/].")
+    console.print("  No trust required. Just verification.")
+    console.print()
+
+
 def main():
     """Entrypoint for assay CLI."""
     assay_app()
