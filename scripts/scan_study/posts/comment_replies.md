@@ -55,3 +55,9 @@ No. Assay proves tamper-evident evidence integrity and control conformance, not 
 ## 9. "Why should I trust your tool?"
 
 You don't have to. The verifier is open source -- `assay verify-pack` is ~200 lines of deterministic hash + signature checking. Read it, run it, or write your own. The trust chain is public: assay repo, verify action, ledger. No phone-home, no SaaS dependency for verification.
+
+---
+
+## 10. "Can you help us integrate this?" (pilot CTA -- use as a reply, not in post body)
+
+I'm taking 3 pilot integrations this month -- 1-week sprint to instrument a codebase and lock it in CI so every merge produces a verified proof pack. If your team has LLM calls in production and needs audit-ready evidence, DM me.

@@ -31,7 +31,7 @@ https://github.com/Haserjian/assay/blob/9641c7c/scripts/scan_study/results/repor
 
 If I missed your instrumentation or if a finding is a false positive, post a commit link and I'll update the dataset.
 
-I'm taking 3 pilot integrations this month (1-week sprint to instrument a codebase + lock it in CI). If your team has LLM calls in production and needs audit-ready evidence, DM me.
+Source: https://github.com/Haserjian/assay
 
 ---
 
