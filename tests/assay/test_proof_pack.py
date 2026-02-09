@@ -222,7 +222,7 @@ class TestProofPackBuilder:
         )
         out = pack.build(tmp_path / "pack", keystore=tmp_keys)
 
-        expected_files = {
+        kernel_files = {
             "receipt_pack.jsonl",
             "verify_report.json",
             "verify_transcript.md",
@@ -230,7 +230,9 @@ class TestProofPackBuilder:
             "pack_signature.sig",
         }
         actual_files = {f.name for f in out.iterdir()}
-        assert expected_files == actual_files
+        assert kernel_files.issubset(actual_files)
+        # PACK_SUMMARY.md is a presentation extra, not part of the verification kernel
+        assert actual_files - kernel_files <= {"PACK_SUMMARY.md"}
 
     def test_manifest_is_valid_json(self, tmp_path, tmp_keys, sample_receipts):
         pack = ProofPack(

@@ -1,12 +1,12 @@
 # Assay
 
-Tamper-evident audit trails for AI systems. When someone asks "prove what
-your AI did," Assay gives you a signed evidence bundle they can verify
-independently -- no access to your systems required.
+Stop filling out the AI compliance spreadsheet. Add one CI step. Every
+merge produces portable, signed evidence that anyone can verify.
 
-**Exit code 0:** evidence checks out. **Exit code 1:** evidence is authentic
-but behavior didn't meet your declared standards. **Exit code 2:** evidence
-has been tampered with.
+When someone asks "prove what your AI did," you need more than logs.
+Logs live on your infrastructure, under your control. Assay produces
+**signed evidence bundles** they can verify independently -- no access
+to your systems required.
 
 ## Install
 
@@ -14,44 +14,64 @@ has been tampered with.
 pip install assay-ai
 ```
 
-## 60-Second Demo
+## 2-Minute Demo
 
 ```bash
-assay demo-pack        # build + verify a signed proof pack
-assay demo-incident    # see what an honest failure looks like
-assay demo-challenge   # spot the tampered pack (CTF-style)
+pip install assay-ai
+assay demo-incident
 ```
 
-No API key, no configuration required.
+This runs a two-act scenario with synthetic data (no API key needed):
 
-## Core Flow
+- **Act 1**: Agent uses gpt-4 with a guardian check. Result: integrity PASS, claims PASS.
+- **Act 2**: Someone swaps the model and drops the guardian. Result: integrity PASS, claims FAIL.
+
+That second result is an **honest failure** -- authentic evidence proving the
+run violated its declared standards. Not a cover-up. Not theater. Exit code 1.
 
 ```bash
-# 1. Scan your project for uninstrumented LLM calls
+assay demo-challenge    # CTF-style: spot the tampered pack
+assay demo-pack         # build + verify from scratch
+```
+
+## The Golden Path
+
+```bash
+# 1. Find uninstrumented LLM calls
 assay scan .
 
-# 2. Instrument your code (one line)
+# 2. Instrument (one line)
 #    from assay.integrations.openai import patch; patch()
 
-# 3. Run your code through Assay
-assay run -c receipt_completeness -c guardian_enforcement -- python my_agent.py
+# 3. Produce a signed proof pack
+assay run -c receipt_completeness -c guardian_enforcement -- python my_app.py
 
-# 4. Verify the output
+# 4. Verify + explain
 assay verify-pack ./proof_pack_*/
+assay explain ./proof_pack_*/
 
-# 5. Gate in CI
-assay verify-pack ./proof_pack_*/ --require-claim-pass
+# 5. Lock the verification contract
+assay lock write --cards receipt_completeness,guardian_enforcement -o assay.lock
+assay verify-pack ./proof_pack_*/ --lock assay.lock --require-claim-pass
 ```
 
-## What Assay Does
+## How It Works
 
-Assay is a verification layer for AI systems. It does two jobs:
+Assay separates two questions on purpose:
 
-- **Courthouse job**: prove structural integrity of evidence (signatures, hashes, required files)
-- **Laboratory job**: test behavioral claims against that evidence (RunCards)
+- **Integrity**: "Were these bytes tampered with after creation?"
+  (signatures, hashes, required files)
+- **Claims**: "Does this evidence satisfy our declared governance checks?"
+  (receipt types, counts, field values)
 
-These are deliberately orthogonal: integrity can pass while claims fail.
-That's the honesty property.
+| Integrity | Claims | Exit Code | Meaning |
+|-----------|--------|-----------|---------|
+| PASS | PASS | 0 | Evidence checks out, behavior meets standards |
+| PASS | FAIL | 1 | Honest failure: authentic evidence of standards violation |
+| FAIL | -- | 2 | Evidence has been tampered with |
+
+The split is the point. Systems that can prove they failed honestly are
+more trustworthy than systems that always claim to pass.
 
 ## Commands
 
@@ -68,17 +88,11 @@ That's the honesty property.
 | `assay lock check` | Validate lockfile against current card definitions |
 | `assay doctor` | Preflight check: is Assay ready here? |
 
-## Exit Codes
-
-- **0** -- integrity PASS and claims PASS
-- **1** -- integrity PASS, claims FAIL
-- **2** -- integrity FAIL or lock mismatch
-
 ## Documentation
 
-- [Quickstart](docs/README_quickstart.md)
-- [Deep Dive](docs/ASSAY_DEEP_DIVE_2026Q1.md)
-- [Decision Log](docs/ASSAY_DECISION_LOG.md)
+- [Quickstart](docs/README_quickstart.md) -- install, golden path, command reference
+- [Deep Dive](docs/ASSAY_DEEP_DIVE_2026Q1.md) -- architecture, trust model, honest failure
+- [Decision Log](docs/ASSAY_DECISION_LOG.md) -- every locked decision and why
 
 ## Related Repos
 

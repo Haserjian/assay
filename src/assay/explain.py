@@ -187,3 +187,108 @@ def render_text(info: Dict[str, Any]) -> str:
     lines.append("")
 
     return "\n".join(lines)
+
+
+def render_md(info: Dict[str, Any]) -> str:
+    """Render explanation as markdown (suitable for PACK_SUMMARY.md)."""
+    lines: List[str] = []
+
+    lines.append(f"# Proof Pack Summary")
+    lines.append("")
+    lines.append(f"**Pack ID:** `{info['pack_id']}`")
+    lines.append(f"**Run ID:** `{info['run_id']}`")
+    lines.append(f"**Signed by:** `{info['signer_id']}`")
+    lines.append("")
+
+    # Verdicts
+    integrity_icon = "PASS" if info["integrity_pass"] else "FAIL"
+    lines.append(f"## Verdicts")
+    lines.append("")
+    lines.append(f"| Check | Result |")
+    lines.append(f"|-------|--------|")
+    lines.append(f"| Integrity | **{integrity_icon}** |")
+    lines.append(f"| Claims | **{info['claims_status']}** |")
+    lines.append("")
+
+    if info["integrity_pass"] and info["claims_present"] and not info["claims_pass"]:
+        lines.append("> **Honest failure**: the evidence is authentic (not tampered with),")
+        lines.append("> and it proves this run violated the declared standards.")
+        lines.append("")
+
+    # What happened
+    lines.append("## What Happened")
+    lines.append("")
+    receipt_parts = []
+    for rtype, count in sorted(info["type_counts"].items()):
+        receipt_parts.append(f"{count} {rtype}")
+    if receipt_parts:
+        lines.append(f"- **{info['n_receipts']} receipts** recorded: {', '.join(receipt_parts)}")
+    else:
+        lines.append(f"- **{info['n_receipts']} receipts** recorded")
+    if info["providers"]:
+        lines.append(f"- **Providers:** {', '.join(info['providers'])}")
+    if info["models"]:
+        lines.append(f"- **Models:** {', '.join(info['models'])}")
+    if info["total_tokens"] > 0:
+        lines.append(f"- **Total tokens:** {info['total_tokens']:,}")
+    lines.append(f"- **Time window:** {info['timestamp_start']} to {info['timestamp_end']}")
+    lines.append("")
+
+    # Integrity details
+    lines.append("## Integrity Check")
+    lines.append("")
+    if info["integrity_pass"]:
+        lines.append("All file hashes match. The Ed25519 signature is valid.")
+        lines.append("This evidence has not been tampered with since creation.")
+    else:
+        lines.append("**FAILED**")
+        lines.append("")
+        for err in info["errors"]:
+            msg = err.get("message", str(err)) if isinstance(err, dict) else str(err)
+            lines.append(f"- {msg}")
+    lines.append("")
+
+    # Claims details
+    lines.append("## Claim Checks")
+    lines.append("")
+    if not info["claims_present"]:
+        lines.append("No claims were declared for this pack.")
+    else:
+        lines.append(f"| Claim | Result |")
+        lines.append(f"|-------|--------|")
+        for cr in info["claim_results"]:
+            status = "PASS" if cr.get("passed") else "FAIL"
+            claim_id = cr.get("claim_id", "?")
+            lines.append(f"| `{claim_id}` | **{status}** |")
+    lines.append("")
+
+    # What this proves / doesn't prove
+    lines.append("## What This Proves")
+    lines.append("")
+    if info["integrity_pass"]:
+        lines.append("- The recorded evidence is authentic (signed, hash-verified)")
+    if info["claims_present"] and info["claims_pass"]:
+        lines.append("- All declared behavioral checks passed")
+    elif info["claims_present"]:
+        lines.append("- Some declared behavioral checks failed (see above)")
+        lines.append("- This is an honest failure: authentic evidence of a standards violation")
+    lines.append("")
+
+    lines.append("## What This Does NOT Prove")
+    lines.append("")
+    lines.append("- That every action was recorded (only recorded actions are in the pack)")
+    lines.append("- That model outputs are correct or safe")
+    lines.append("- That receipts were honestly created (tamper-evidence, not source attestation)")
+    lines.append("- That timestamps are externally anchored (local clock was used)")
+    lines.append("- That the signer key was not compromised")
+    lines.append("")
+
+    # Verify
+    lines.append("## Verify Independently")
+    lines.append("")
+    lines.append("```bash")
+    lines.append(f"pip install assay-ai && assay verify-pack {info['pack_dir']}")
+    lines.append("```")
+    lines.append("")
+
+    return "\n".join(lines)

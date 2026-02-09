@@ -382,6 +382,17 @@ class ProofPack:
         sig_raw = base64.b64decode(signature_b64)
         (output_dir / "pack_signature.sig").write_bytes(sig_raw)
 
+        # 10. Write PACK_SUMMARY.md (presentation layer, not part of
+        # the 5-file verification kernel). Safe to import here since
+        # explain has no dependency on proof_pack.
+        try:
+            from assay.explain import explain_pack, render_md
+            info = explain_pack(output_dir)
+            summary = render_md(info)
+            (output_dir / "PACK_SUMMARY.md").write_text(summary, encoding="utf-8")
+        except Exception:
+            pass  # Never fail a pack build over a summary file
+
         return output_dir
 
 

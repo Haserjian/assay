@@ -2580,7 +2580,8 @@ def doctor_cmd(
 @assay_app.command("explain")
 def explain_cmd(
     pack_dir: str = typer.Argument(..., help="Path to proof pack directory"),
-    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+    output_format: str = typer.Option("text", "--format", "-f", help="Output format: text, md, json"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON (same as --format json)"),
 ):
     """Explain a proof pack in plain English.
 
@@ -2592,11 +2593,12 @@ def explain_cmd(
 
     Examples:
       assay explain ./proof_pack_*/
+      assay explain ./proof_pack_*/ --format md
       assay explain ./proof_pack_abc123/ --json
     """
     from pathlib import Path
 
-    from assay.explain import explain_pack, render_text
+    from assay.explain import explain_pack, render_md, render_text
 
     pd = Path(pack_dir)
     if not pd.is_dir():
@@ -2605,12 +2607,17 @@ def explain_cmd(
 
     info = explain_pack(pd)
 
-    if output_json:
+    if output_json or output_format == "json":
         _output_json({
             "command": "explain",
             "status": "ok",
             **info,
         })
+        return
+
+    if output_format == "md":
+        console.print(render_md(info))
+        return
 
     console.print()
     console.print(render_text(info))
