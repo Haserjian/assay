@@ -46,6 +46,12 @@ Right. Assay prevents *post-hoc editing* of evidence (tamper-evidence), not *lyi
 
 ---
 
-## 8. "Why should I trust your tool?"
+## 8. "So this proves the AI is correct / safe?"
+
+No. Assay proves tamper-evident evidence integrity and control conformance, not model correctness. It answers "was this evidence modified after creation?" and "did the run satisfy declared checks?" -- not "was the output right." Correctness is a separate layer that sits on top of evidence.
+
+---
+
+## 9. "Why should I trust your tool?"
 
 You don't have to. The verifier is open source -- `assay verify-pack` is ~200 lines of deterministic hash + signature checking. Read it, run it, or write your own. The trust chain is public: assay repo, verify action, ledger. No phone-home, no SaaS dependency for verification.

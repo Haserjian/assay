@@ -6,9 +6,11 @@ Show HN: I scanned 30 popular AI projects for tamper-evident LLM evidence. 0 had
 
 ## Body
 
-I scanned 30 popular open-source AI projects for tamper-evident evidence emission at LLM call sites -- signed receipts that prove what went in and came out of each call, verifiable without access to the project's infrastructure. Try it on your own repo:
+Assay produces tamper-evident audit trails for AI systems. Whoever controls the server controls the story -- logs aren't proof. Try it on your own repo:
 
     pip install assay-ai && assay scan .
+
+I scanned 30 popular open-source AI projects for tamper-evident evidence emission at LLM call sites -- signed receipts that prove what went in and came out of each call, verifiable without access to the project's infrastructure.
 
 Results: 202 high-confidence direct SDK call sites (`client.chat.completions.create`, `anthropic.messages.create`) across 21 repos. 903 total findings including framework heuristics. 0 repos with tamper-evident evidence emission at any call site.
 
