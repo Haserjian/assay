@@ -2,21 +2,20 @@
 Assay CLI commands: Receipt-native AI safety toolkit.
 
 Commands:
-  assay validate  - Validate a tool call against policy
-  assay health    - Check system health (grace window)
-  assay demo      - Run demo showing receipts + blockages
-  assay show      - Show a trace by ID
-  assay list      - List recent traces
-  assay verify    - Verify trace integrity
-  assay diff      - Compare two traces
-  assay pack      - Create evidence pack for patent defense (legacy)
-  assay proof-pack  - Build a signed Proof Pack (5-file kernel)
-  assay verify-pack - Verify a Proof Pack's integrity
-  assay run         - Run a command and build a Proof Pack from receipts
-  assay lock write  - Write a verifier lockfile (assay.lock)
-  assay lock check  - Validate an existing lockfile
-
-Every command emits a trace ID and persists receipts to ~/.loom/assay/
+  assay run           - Run a command and build a Proof Pack from receipts
+  assay verify-pack   - Verify a Proof Pack's integrity
+  assay explain       - Plain-English summary of a proof pack
+  assay scan          - Find uninstrumented LLM call sites
+  assay doctor        - Preflight checks
+  assay onboard       - Guided setup
+  assay demo-incident - Two-act scenario (honest failure demo)
+  assay demo-challenge- CTF-style good + tampered pack pair
+  assay demo-pack     - Build + verify a demo pack
+  assay proof-pack    - Build a signed Proof Pack from an existing trace
+  assay lock write    - Write a verifier lockfile (assay.lock)
+  assay lock check    - Validate an existing lockfile
+  assay ci init       - Generate CI workflow
+  assay version       - Show version info
 """
 
 import json
@@ -75,7 +74,7 @@ def _extract_action_class(action: str) -> str:
     return "unknown"
 
 
-@assay_app.command("validate")
+@assay_app.command("validate", hidden=True)
 def validate_action(
     action: str = typer.Argument(..., help="Action to validate (e.g., 'shell:rm -rf /')"),
     coherence_delta: float = typer.Option(0.0, "--coherence", "-c", help="Expected coherence change (-1 to 1)"),
@@ -234,7 +233,7 @@ def validate_action(
         raise typer.Exit(1)
 
 
-@assay_app.command("health")
+@assay_app.command("health", hidden=True)
 def check_health(
     coherence: float = typer.Option(0.8, "--coherence", "-c", help="Current coherence (0-1)"),
     tension: float = typer.Option(0.2, "--tension", "-t", help="Current tension (0-1)"),
@@ -404,7 +403,7 @@ def check_health(
     console.print(f"\n[dim]Thresholds: C>={cfg.c_hi} T<={cfg.t_lo} D>={cfg.d_floor} V<={cfg.v_max}[/]")
 
 
-@assay_app.command("demo")
+@assay_app.command("demo", hidden=True)
 def run_demo(
     scenario: str = typer.Option("all", "--scenario", "-s", help="Demo scenario: all, incomplete, contradiction, paradox, guardian"),
     persist: bool = typer.Option(True, "--persist/--no-persist", help="Persist receipts to disk"),
@@ -615,7 +614,7 @@ def _demo_guardian(store=None, silent: bool = False):
             console.print("[green]ALLOWED[/]")
 
 
-@assay_app.command("show")
+@assay_app.command("show", hidden=True)
 def show_trace(
     trace_id: str = typer.Argument(..., help="Trace ID to show"),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
@@ -675,7 +674,7 @@ def show_trace(
         console.print()
 
 
-@assay_app.command("list")
+@assay_app.command("list", hidden=True)
 def list_traces(
     limit: int = typer.Option(10, "--limit", "-n", help="Number of traces to show"),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
@@ -724,7 +723,7 @@ def list_traces(
     console.print(table)
 
 
-@assay_app.command("verify")
+@assay_app.command("verify", hidden=True)
 def verify_trace(
     trace_id: str = typer.Argument(..., help="Trace ID to verify"),
     strict: bool = typer.Option(False, "--strict", help="Enable strict mode (check hashes/signatures)"),
@@ -1017,7 +1016,7 @@ def verify_trace(
         raise typer.Exit(2)
 
 
-@assay_app.command("diff")
+@assay_app.command("diff", hidden=True)
 def diff_traces(
     trace_a: str = typer.Argument(..., help="First trace ID"),
     trace_b: str = typer.Argument(..., help="Second trace ID"),
@@ -1154,7 +1153,7 @@ def diff_traces(
         console.print(f"[dim]IDs only in B: {', '.join(list(only_b)[:5])}{'...' if len(only_b) > 5 else ''}[/]")
 
 
-@assay_app.command("pack")
+@assay_app.command("pack", hidden=True)
 def create_pack(
     trace_id: str = typer.Argument(..., help="Trace ID to package"),
     output: Optional[str] = typer.Option(None, "--output", "-o", help="Output zip path (default: evidence_pack_<trace_id>.zip)"),
@@ -1235,7 +1234,7 @@ def create_pack(
     console.print(f"[dim]Source files: {include_source}, Forensic mode: {forensic}[/]")
 
 
-@assay_app.command("launch-check")
+@assay_app.command("launch-check", hidden=True)
 def launch_check(
     emit: bool = typer.Option(False, "--emit", help="Persist LaunchReadinessReceipt to disk"),
     artifacts_dir: Optional[str] = typer.Option(None, "--artifacts-dir", help="Directory for stdout/stderr captures"),

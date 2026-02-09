@@ -490,6 +490,25 @@ class TestDirectoryScanning:
         result = scan_directory(tmp_path)
         assert len(result.findings) == 0
 
+    def test_scan_excludes_proof_pack_and_challenge_pack(self, tmp_path):
+        """Scanner skips assay-generated proof_pack_* and challenge_pack dirs."""
+        pack_dir = tmp_path / "proof_pack_20260209T013526_8abbd030"
+        pack_dir.mkdir()
+        _write(pack_dir, "stray.py", """\
+            client.chat.completions.create(model="gpt-4", messages=[])
+        """)
+        challenge_dir = tmp_path / "challenge_pack"
+        challenge_dir.mkdir()
+        _write(challenge_dir, "stray2.py", """\
+            client.chat.completions.create(model="gpt-4", messages=[])
+        """)
+        _write(tmp_path, "app.py", """\
+            client.chat.completions.create(model="gpt-4", messages=[])
+        """)
+        result = scan_directory(tmp_path)
+        assert len(result.findings) == 1
+        assert result.findings[0].path == "app.py"
+
     def test_include_filter(self, tmp_path):
         _write(tmp_path, "app.py", """\
             client.chat.completions.create(model="gpt-4", messages=[])

@@ -402,13 +402,16 @@ def scan_directory(
         ".venv", "venv", "node_modules", ".git", "__pycache__",
         ".tox", ".mypy_cache", ".pytest_cache", "dist", "build",
         ".eggs", "*.egg-info",
+        "challenge_pack",
     }
 
     for dirpath, dirnames, filenames in os.walk(root):
-        # Skip excluded directories
+        # Skip excluded directories (including assay-generated proof_pack_* dirs)
         dirnames[:] = [
             d for d in dirnames
-            if d not in default_exclude and not d.startswith(".")
+            if d not in default_exclude
+            and not d.startswith(".")
+            and not d.startswith("proof_pack_")
         ]
 
         for filename in filenames:

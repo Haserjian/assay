@@ -1,0 +1,39 @@
+name: SDK Compatibility
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'  # Weekly Monday 9am UTC
+  push:
+    branches: [main]
+    paths:
+      - 'src/assay/integrations/**'
+      - 'tests/assay/test_integrations.py'
+  workflow_dispatch:
+
+jobs:
+  compat:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        sdk:
+          - { name: openai, pkg: "openai", version: "latest" }
+          - { name: openai, pkg: "openai==1.0.0", version: "min" }
+          - { name: anthropic, pkg: "anthropic", version: "latest" }
+          - { name: anthropic, pkg: "anthropic==0.20.0", version: "min" }
+          - { name: langchain, pkg: "langchain-core", version: "latest" }
+          - { name: langchain, pkg: "langchain-core==0.1.0", version: "min" }
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Assay + SDK
+        run: |
+          pip install -e ".[dev]"
+          pip install "${{ matrix.sdk.pkg }}"
+
+      - name: Run integration tests
+        run: pytest tests/assay/test_integrations.py -v -k "${{ matrix.sdk.name }}"
