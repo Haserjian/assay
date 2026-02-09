@@ -1,27 +1,21 @@
 # Assay
 
-Stop filling out the AI compliance spreadsheet. Add one CI step. Every
-merge produces portable, signed evidence that anyone can verify.
-
-When someone asks "prove what your AI did," you need more than logs.
-Logs live on your infrastructure, under your control. Assay produces
-**signed evidence bundles** they can verify independently -- no access
-to your systems required.
-
-## Install
-
-```bash
-pip install assay-ai
-```
-
-## 2-Minute Demo
+Tamper-evident audit trails for AI systems. When someone asks "prove
+what your AI did," logs are not enough: whoever controls the server
+controls the story. Assay gives you a signed evidence bundle that
+anyone can verify independently, including someone who does not trust
+you. Integrity PASS + claims FAIL is an **honest failure**: authentic
+evidence that controls were violated. Assay does not prove model
+correctness; it proves evidence integrity and control conformance.
+Easier than a spreadsheet, harder to bullshit.
 
 ```bash
-pip install assay-ai
-assay demo-incident
+pip install assay-ai && assay demo-incident
 ```
 
-This runs a two-act scenario with synthetic data (no API key needed):
+## 60-Second Demo
+
+No API key needed. This runs a two-act scenario with synthetic data:
 
 - **Act 1**: Agent uses gpt-4 with a guardian check. Result: integrity PASS, claims PASS.
 - **Act 2**: Someone swaps the model and drops the guardian. Result: integrity PASS, claims FAIL.
