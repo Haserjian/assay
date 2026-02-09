@@ -82,33 +82,34 @@ class ScanResult:
 
     @property
     def next_command(self) -> Optional[str]:
-        # Find dominant framework and build tailored next-steps
-        frameworks = _detect_frameworks(self.findings)
-        if "openai" in frameworks:
-            patch_line = "from assay.integrations.openai import patch; patch()"
-        elif "anthropic" in frameworks:
-            patch_line = "from assay.integrations.anthropic import patch; patch()"
-        elif "langchain" in frameworks:
-            patch_line = "from assay.integrations.langchain import patch; patch()"
-        elif self.findings:
-            return (
-                "# Add receipt emission to your LLM calls:\n"
-                "from assay.store import emit_receipt\n"
-                "emit_receipt('model_call', {'provider': '...', 'model_id': '...'})\n"
-                "\n"
-                "# Then produce + verify a proof pack:\n"
-                "assay run -c receipt_completeness -- python your_app.py\n"
-                "assay verify-pack ./proof_pack_*/"
-            )
-        else:
+        if not self.findings:
             return None
+
+        patch_line = _recommended_patch_line(self.findings)
+        if patch_line:
+            return (
+                "1) Add instrumentation in your entrypoint:\n"
+                f"   {patch_line}\n"
+                "\n"
+                "2) Generate a proof pack:\n"
+                "   assay run -c receipt_completeness -- python your_app.py\n"
+                "\n"
+                "3) Verify and lock your baseline:\n"
+                "   assay verify-pack ./proof_pack_*/\n"
+                "   assay lock write --cards receipt_completeness,guardian_enforcement -o assay.lock"
+            )
+
         return (
-            f"# Add to your entrypoint:\n"
-            f"{patch_line}\n"
-            f"\n"
-            f"# Then produce + verify a proof pack:\n"
-            f"assay run -c receipt_completeness -- python your_app.py\n"
-            f"assay verify-pack ./proof_pack_*/"
+            "1) Add receipt emission near your LLM wrapper:\n"
+            "   from assay import emit_receipt\n"
+            "   emit_receipt('model_call', {'provider': '...', 'model_id': '...'})\n"
+            "\n"
+            "2) Generate a proof pack:\n"
+            "   assay run -c receipt_completeness -- python your_app.py\n"
+            "\n"
+            "3) Verify and lock your baseline:\n"
+            "   assay verify-pack ./proof_pack_*/\n"
+            "   assay lock write --cards receipt_completeness,guardian_enforcement -o assay.lock"
         )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -133,6 +134,17 @@ def _detect_frameworks(findings: List[CallSite]) -> Set[str]:
         elif "langchain" in call_lower or "invoke" in call_lower:
             frameworks.add("langchain")
     return frameworks
+
+
+def _recommended_patch_line(findings: List[CallSite]) -> Optional[str]:
+    frameworks = _detect_frameworks(findings)
+    if "openai" in frameworks:
+        return "from assay.integrations.openai import patch; patch()"
+    if "anthropic" in frameworks:
+        return "from assay.integrations.anthropic import patch; patch()"
+    if "langchain" in frameworks:
+        return "from assay.integrations.langchain import patch; patch()"
+    return None
 
 
 # ---------------------------------------------------------------------------

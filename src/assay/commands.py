@@ -2307,6 +2307,241 @@ def lock_check_cmd(
         console.print()
 
 
+ci_app = typer.Typer(
+    name="ci",
+    help="Generate CI workflows for Assay verification",
+    no_args_is_help=True,
+)
+assay_app.add_typer(ci_app, name="ci")
+
+
+@ci_app.command("init")
+def ci_init_cmd(
+    provider: str = typer.Argument("github", help="CI provider (currently: github)"),
+    run_command: str = typer.Option(
+        "python my_app.py",
+        "--run-command",
+        help="Command Assay should wrap in CI",
+    ),
+    cards: str = typer.Option(
+        "receipt_completeness,guardian_enforcement",
+        "--cards",
+        help="Comma-separated run cards for assay run",
+    ),
+    output: str = typer.Option(
+        ".github/workflows/assay-verify.yml",
+        "--output",
+        "-o",
+        help="Workflow output path",
+    ),
+    force: bool = typer.Option(False, "--force", help="Overwrite existing workflow file"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Generate a CI workflow for Proof Pack generation + verification."""
+    from pathlib import Path
+
+    from assay import __version__
+
+    provider_norm = provider.strip().lower()
+    if provider_norm != "github":
+        if output_json:
+            _output_json({
+                "command": "ci init",
+                "status": "error",
+                "error": f"Unsupported provider '{provider}'. Supported: github",
+            })
+        console.print(f"[red]Error:[/] Unsupported provider '{provider}'. Supported: github")
+        raise typer.Exit(1)
+
+    run_command = " ".join(run_command.strip().split())
+    if not run_command:
+        if output_json:
+            _output_json({"command": "ci init", "status": "error", "error": "run_command cannot be empty"})
+        console.print("[red]Error:[/] --run-command cannot be empty")
+        raise typer.Exit(1)
+
+    card_args = []
+    for card in [c.strip() for c in cards.split(",") if c.strip()]:
+        card_args.extend(["-c", card])
+    card_flags = " ".join(card_args) if card_args else ""
+
+    workflow_path = Path(output)
+    if workflow_path.exists() and not force:
+        if output_json:
+            _output_json({
+                "command": "ci init",
+                "status": "error",
+                "error": f"{output} already exists (use --force to overwrite)",
+            })
+        console.print(f"[red]Error:[/] {output} already exists. Use --force to overwrite.")
+        raise typer.Exit(1)
+
+    workflow_path.parent.mkdir(parents=True, exist_ok=True)
+
+    workflow = f"""name: Assay Verify
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  assay-verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Assay
+        run: |
+          python -m pip install --upgrade pip
+          pip install "assay-ai=={__version__}"
+
+      # Install your project dependencies before this step if needed.
+      - name: Generate Proof Pack
+        run: |
+          assay run {card_flags} -- {run_command}
+
+      - name: Verify Proof Pack
+        uses: Haserjian/assay-verify-action@v1
+        with:
+          pack-path: "proof_pack_*/"
+          require-claim-pass: true
+          comment-on-pr: true
+          upload-artifact: true
+"""
+
+    workflow_path.write_text(workflow, encoding="utf-8")
+
+    if output_json:
+        _output_json({
+            "command": "ci init",
+            "status": "ok",
+            "provider": "github",
+            "output": str(workflow_path),
+            "run_command": run_command,
+            "cards": [c.strip() for c in cards.split(",") if c.strip()],
+        })
+
+    console.print()
+    console.print(Panel.fit(
+        f"[bold green]CI workflow generated[/]\n\n"
+        f"Provider:   github\n"
+        f"Output:     {workflow_path}\n"
+        f"Run:        {run_command}\n"
+        f"RunCards:   {cards}",
+        title="assay ci init github",
+    ))
+    console.print()
+    console.print("Next:")
+    console.print(f"  1. Review [bold]{workflow_path}[/]")
+    console.print("  2. Commit and push")
+    console.print("  3. Open a PR to see Assay verification in checks")
+    console.print()
+
+
+@assay_app.command("onboard")
+def onboard_cmd(
+    path: str = typer.Argument(".", help="Project directory to onboard"),
+    run_command: Optional[str] = typer.Option(
+        None,
+        "--run-command",
+        help="Command to wrap with assay run (e.g. 'python app.py')",
+    ),
+    entrypoint: Optional[str] = typer.Option(
+        None,
+        "--entrypoint",
+        help="Entrypoint file hint for patch placement",
+    ),
+    skip_doctor: bool = typer.Option(False, "--skip-doctor", help="Skip assay doctor preflight"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Guided onboarding: doctor -> scan -> patch suggestion -> first run commands."""
+    from collections import Counter as _Counter
+    from pathlib import Path as P
+
+    from assay.doctor import Profile, run_doctor
+    from assay.scanner import scan_directory
+
+    root = P(path).resolve()
+    if not root.exists() or not root.is_dir():
+        if output_json:
+            _output_json({"command": "onboard", "status": "error", "error": f"Directory not found: {path}"})
+        console.print(f"[red]Error:[/] Directory not found: {path}")
+        raise typer.Exit(1)
+
+    doctor_report = None
+    if not skip_doctor:
+        doctor_report = run_doctor(Profile.LOCAL)
+
+    scan_result = scan_directory(root)
+    summary = scan_result.summary
+
+    uninstrumented = [f for f in scan_result.findings if not f.instrumented]
+    patch_line = next((f.fix for f in uninstrumented if f.fix), None)
+
+    path_counts = _Counter(f.path for f in uninstrumented)
+    top_paths = [p for p, _count in path_counts.most_common(3)]
+    selected_entrypoint = entrypoint or (top_paths[0] if top_paths else "main.py")
+    selected_run = run_command or f"python {selected_entrypoint}"
+
+    next_steps: list[str] = []
+    if patch_line:
+        next_steps.append(f"Add to your entrypoint ({selected_entrypoint}): {patch_line}")
+    else:
+        next_steps.append("No SDK patterns detected; add manual emission: from assay import emit_receipt")
+    next_steps.append(
+        f"Generate first Proof Pack: assay run -c receipt_completeness -c guardian_enforcement -- {selected_run}"
+    )
+    next_steps.append("Verify + explain: assay verify-pack ./proof_pack_*/ && assay explain ./proof_pack_*/ --format md")
+    next_steps.append("Lock baseline: assay lock write --cards receipt_completeness,guardian_enforcement -o assay.lock")
+    next_steps.append("Enable CI: assay ci init github --run-command \"" + selected_run + "\"")
+
+    if output_json:
+        _output_json({
+            "command": "onboard",
+            "status": "ok",
+            "path": str(root),
+            "doctor": None if doctor_report is None else {
+                "status": doctor_report.overall_status,
+                "summary": doctor_report.summary,
+            },
+            "scan_summary": summary,
+            "top_paths": top_paths,
+            "entrypoint": selected_entrypoint,
+            "run_command": selected_run,
+            "patch_line": patch_line,
+            "next_steps": next_steps,
+        })
+
+    console.print()
+    console.print(Panel.fit(
+        f"[bold]Step 1: Preflight[/]\n"
+        f"Doctor: {'skipped' if doctor_report is None else doctor_report.overall_status.upper()}\n\n"
+        f"[bold]Step 2: Scan[/]\n"
+        f"Call sites: {summary['sites_total']} total, {summary['uninstrumented']} uninstrumented\n"
+        f"High/Med/Low: {summary['high']}/{summary['medium']}/{summary['low']}\n\n"
+        f"[bold]Step 3: Suggested entrypoint[/]\n"
+        f"{selected_entrypoint}\n\n"
+        f"[bold]Step 4: Recommended run command[/]\n"
+        f"{selected_run}",
+        title="assay onboard",
+    ))
+    console.print()
+    console.print("[bold]Next 5 moves:[/]")
+    for i, step in enumerate(next_steps, 1):
+        console.print(f"  {i}. {step}")
+    console.print()
+
+
 @assay_app.command("scan")
 def scan_cmd(
     path: str = typer.Argument(".", help="Directory to scan"),
@@ -2359,7 +2594,6 @@ def scan_cmd(
         exit_code = 0
         if ci:
             threshold = {"high": Confidence.HIGH, "medium": Confidence.MEDIUM, "low": Confidence.LOW}.get(fail_on, Confidence.HIGH)
-            uninstrumented = [f for f in result.findings if not f.instrumented]
             if threshold == Confidence.HIGH and s["high"] > 0:
                 exit_code = 1
             elif threshold == Confidence.MEDIUM and (s["high"] + s["medium"]) > 0:
@@ -2376,14 +2610,15 @@ def scan_cmd(
     if not result.findings:
         console.print("  [dim]No LLM call sites detected.[/]")
         console.print()
-        console.print("  [dim]If your code uses a custom wrapper or non-Python SDK,[/]")
-        console.print("  [dim]you can still emit receipts directly:[/]")
-        console.print()
-        console.print("    [bold]from[/] assay.store [bold]import[/] emit_receipt")
-        console.print("    emit_receipt([dim]'model_call'[/], {[dim]'provider'[/]: [dim]'...'[/], [dim]'model_id'[/]: [dim]'...'[/]})")
-        console.print()
-        console.print("  [dim]Or run with runtime patching:[/]")
-        console.print("    assay run -- python your_app.py")
+        console.print("  [bold]Next 3 moves:[/]")
+        console.print("    1. If you use wrappers, add manual receipt emission near your model call:")
+        console.print("       from assay import emit_receipt")
+        console.print("       emit_receipt('model_call', {'provider': '...', 'model_id': '...'})")
+        console.print("    2. Run a first pack anyway:")
+        console.print("       assay run --allow-empty -- python your_app.py")
+        console.print("    3. Verify + demo confidence model:")
+        console.print("       assay verify-pack ./proof_pack_*/")
+        console.print("       assay demo-incident")
         console.print()
         raise typer.Exit(0)
 
@@ -2415,7 +2650,7 @@ def scan_cmd(
 
     if result.next_command:
         console.print()
-        console.print(f"  [bold]Next steps:[/]")
+        console.print("  [bold]Next 3 moves:[/]")
         for line in result.next_command.split("\n"):
             console.print(f"    {line}")
 

@@ -28,6 +28,7 @@ htmlcov/
 
 # Assay runtime
 proof_pack_*/
+challenge_pack/
 *.jsonl
 assay.lock
 

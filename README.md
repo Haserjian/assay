@@ -37,6 +37,9 @@ assay demo-pack         # build + verify from scratch
 ## The Golden Path
 
 ```bash
+# 0. Guided path (recommended)
+assay onboard .
+
 # 1. Find uninstrumented LLM calls
 assay scan .
 
@@ -80,10 +83,12 @@ more trustworthy than systems that always claim to pass.
 | `assay demo-pack` | Generate demo packs (no config needed) |
 | `assay demo-incident` | Two-act scenario: passing run vs failing run |
 | `assay demo-challenge` | CTF-style good + tampered pack pair |
+| `assay onboard` | Guided setup: doctor -> scan -> first run plan |
 | `assay scan` | Find uninstrumented LLM call sites |
 | `assay run` | Wrap command, collect receipts, build signed pack |
 | `assay verify-pack` | Verify a Proof Pack (integrity + claims) |
 | `assay explain` | Plain-English summary of a proof pack |
+| `assay ci init github` | Generate a GitHub Actions workflow |
 | `assay lock write` | Freeze verification contract to lockfile |
 | `assay lock check` | Validate lockfile against current card definitions |
 | `assay doctor` | Preflight check: is Assay ready here? |
@@ -93,6 +98,7 @@ more trustworthy than systems that always claim to pass.
 - [Quickstart](docs/README_quickstart.md) -- install, golden path, command reference
 - [Deep Dive](docs/ASSAY_DEEP_DIVE_2026Q1.md) -- architecture, trust model, honest failure
 - [Decision Log](docs/ASSAY_DECISION_LOG.md) -- every locked decision and why
+- [Semantic Simulation Matrix](docs/SEMANTIC_SIMULATION_MATRIX.md) -- 7 drills for UX and comprehension
 
 ## Related Repos
 

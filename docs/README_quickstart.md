@@ -103,6 +103,12 @@ Lock mismatch exits with code 2.
 
 ## The Golden Path
 
+### 0. Guided onboarding (recommended)
+
+```bash
+assay onboard .
+```
+
 ### 1. Scan for uninstrumented LLM calls
 
 ```bash
@@ -213,10 +219,12 @@ trust faster than bugs.
 | `assay demo-pack` | Generate demo packs (no config needed) |
 | `assay demo-incident` | Two-act scenario: passing run vs failing run |
 | `assay demo-challenge` | CTF-style good + tampered pack pair |
+| `assay onboard` | Guided setup: doctor -> scan -> first run plan |
 | `assay scan` | Find uninstrumented LLM call sites |
 | `assay run` | Wrap command, collect receipts, build signed pack |
 | `assay verify-pack` | Verify a Proof Pack (integrity + claims) |
 | `assay explain` | Plain-English summary of a proof pack |
+| `assay ci init github` | Generate a GitHub Actions workflow |
 | `assay lock write` | Freeze verification contract to lockfile |
 | `assay lock check` | Validate lockfile against current card definitions |
 | `assay doctor` | Preflight check: is Assay ready here? |
@@ -249,3 +257,4 @@ trust faster than bugs.
 
 - [Deep Dive](ASSAY_DEEP_DIVE_2026Q1.md) -- architecture, trust model, implementation details
 - [Decision Log](ASSAY_DECISION_LOG.md) -- every locked decision and why
+- [Semantic Simulation Matrix](SEMANTIC_SIMULATION_MATRIX.md) -- operator drills and pass/fail criteria
