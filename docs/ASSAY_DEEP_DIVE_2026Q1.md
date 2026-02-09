@@ -1,423 +1,354 @@
-# Assay Deep Dive 2026Q1
+# Assay Deep Dive
 
-Purpose: provide one long-form, implementation-accurate document for what Assay is, how it works, what shipped, what is still risky, and how current work across CCIO and Quintet connects.
+How Assay works, what it proves, and what it doesn't.
 
-Audience:
-- engineering leads implementing Assay
-- operators running CI gates
-- security/compliance reviewers validating evidence claims
-- collaborators integrating Assay into external stacks
-
-Status:
-- Assay is published (`pip install assay-ai`)
-- Proof Pack v1 flow is live (`assay run`, `assay verify-pack`)
-- lockfile contract is live (`assay lock write`, `assay lock check`, `assay verify-pack --lock`)
-- conformance corpus is live (`conformance/corpus_v1`)
-- external integration work exists in `~/puppetlabs` (Quintet router + demos + CI gate)
+Audience: engineers implementing Assay, operators running CI gates,
+security/compliance reviewers validating evidence, anyone deciding
+whether to trust a Proof Pack.
 
 ---
 
 ## 1) What Assay Is
 
-Assay is a verification layer for AI systems.
+Assay is a verification layer for AI systems. It produces tamper-evident,
+independently verifiable evidence bundles that prove what an AI system did.
 
-It does two different jobs on purpose:
-- Courthouse job: prove structural integrity of evidence
-- Laboratory job: test behavioral claims against that evidence
+It does two jobs on purpose:
 
-This split is the central invariant:
-- integrity can pass while claims fail
-- this is not a bug, it is the honesty property
+- **Courthouse job**: prove structural integrity of evidence (signatures,
+  hashes, required files)
+- **Laboratory job**: test behavioral claims against that evidence
+  (RunCards)
 
-Assay is not a general-purpose agent framework. It is the evidence and verification spine you attach to an existing runtime.
+These are deliberately orthogonal. Integrity can pass while claims fail.
+That's the honesty property -- and it's the central design invariant.
 
----
-
-## 2) Core Concepts
-
-### 2.1 Receipts
-
-Receipts are structured records emitted during execution:
-- examples: `model_call`, `guardian_verdict`, `capability_use`
-- minimum required fields are enforced by Assay internals when emitted through `emit_receipt`
-
-Canonical fields include:
-- `receipt_id`
-- `type`
-- `timestamp`
-- `schema_version`
-- `seq`
-
-Optional domain fields carry behavior context:
-- model/provider/tokens/latency
-- guardian decisions
-- capability metadata
-
-### 2.2 Proof Pack
-
-A Proof Pack is the portable evidence unit. Current kernel:
-- `receipt_pack.jsonl`
-- `pack_manifest.json`
-- `pack_signature.sig`
-- `verify_report.json`
-- `verify_transcript.md`
-
-Key property:
-- one folder can be forwarded and independently verified offline
-
-### 2.3 Two Verifiers
-
-Integrity verifier:
-- validates signature, hashes, schema, required files, omission/tamper failures
-- this decides structural truth
-
-Claim verifier:
-- executes RunCard claim specs on receipts
-- this decides semantic truth
-
-Orthogonality rule:
-- claim results never upgrade integrity
-- integrity fail is always authoritative
-
-### 2.4 Exit Contract
-
-`assay verify-pack` exit semantics:
-- `0`: integrity pass and (if required) claims pass
-- `1`: integrity pass, claim gate fail (`--require-claim-pass`)
-- `2`: integrity fail or lock mismatch fail
+Assay is not a logging framework, an observability platform, or an agent
+runtime. It is the evidence and verification spine you attach to an
+existing system.
 
 ---
 
-## 3) End-to-End Operational Flow
+## 2) The Primitive Stack
 
-### 3.1 Recommended Golden Path
+Assay introduces a small number of new primitives. Everything else is
+composition of these.
 
-```bash
-pip install assay-ai
-assay demo-pack
+### 2.1 Receipt (the atomic evidence event)
+
+A receipt is a single structured statement: "this action happened."
+
+```json
+{
+  "receipt_id": "r_abc123",
+  "type": "model_call",
+  "timestamp": "2026-02-08T10:00:00Z",
+  "schema_version": "3.0",
+  "provider": "openai",
+  "model_id": "gpt-4",
+  "input_tokens": 500,
+  "output_tokens": 200,
+  "total_tokens": 700,
+  "prompt_hash": "sha256:...",
+  "response_hash": "sha256:..."
+}
 ```
 
-Then instrument real code:
+Receipts are not logs. Logs are mutable narrative under infrastructure you
+control. A receipt is evidence bytes designed to be a portable input to
+independent verification.
 
-```python
-from assay import emit_receipt
+Key properties:
+- Content-addressed (hashes of inputs/outputs, not the raw content)
+- Canonicalizable (JCS for cross-language determinism)
+- Typed (model_call, guardian_verdict, capability_use, etc.)
+- Self-describing (schema_version, auto-populated receipt_id and timestamp)
 
-emit_receipt("model_call", {"model": "gpt-4", "total_tokens": 1200})
-emit_receipt("guardian_verdict", {"verdict": "allow", "tool": "web_search"})
-```
+### 2.2 Proof Pack (the portable evidence bundle)
 
-Run wrapped execution:
+A Proof Pack is a minimal kernel that makes receipts transportable and
+tamper-evident. Five files:
 
-```bash
-assay run -c receipt_completeness -c guardian_enforcement -- python my_agent.py
-```
+| File | Purpose |
+|------|---------|
+| `receipt_pack.jsonl` | All receipts from the run (append-only) |
+| `pack_manifest.json` | SHA-256 hashes of all files, Ed25519 signature, attestation metadata |
+| `pack_signature.sig` | Detached signature for offline verification |
+| `verify_report.json` | Machine-readable verification verdict |
+| `verify_transcript.md` | Human-readable summary |
 
-Verify output pack:
+Five is the right number. Fewer files and you're stuffing too much into
+each one. More files and the pack becomes unwieldy to transport. Five is
+where a human can open each file, understand what it does, and mentally
+model the whole pack.
 
-```bash
-assay verify-pack ./proof_pack_<id>/ --require-claim-pass
-```
+Key property: you can hand this folder to someone who does not trust you
+or your infrastructure, and they can verify integrity independently.
 
-### 3.2 Lock-Enforced Verification
+### 2.3 Integrity vs Claims (the honest failure split)
 
-Write lockfile:
+**Integrity** answers: "Were these bytes tampered with after creation?"
+- Validates Ed25519 signature over canonical manifest
+- Recomputes SHA-256 hashes of all pack files
+- Checks required files are present
+- Checks schema version compatibility
+
+**Claims** answer: "Does this evidence satisfy the declared behavioral checks?"
+- Executes RunCard claim specifications against receipt data
+- Each claim is a simple predicate (receipt type present, count >= N,
+  field value matches, timestamps monotonic)
+
+Four outcomes:
+
+| Integrity | Claims | Exit Code | Meaning |
+|-----------|--------|-----------|---------|
+| PASS | PASS | 0 | Evidence authentic, behavior meets standards |
+| PASS | FAIL | 1 | **Honest failure**: authentic evidence proving standards violated |
+| FAIL | -- | 2 | Evidence tampered with or structurally invalid |
+| PASS | SKIPPED | 0 | Evidence authentic, no behavioral checks declared |
+
+The honest failure (exit 1) is the most valuable outcome for trust.
+It proves the system reports truthfully even when the news is bad.
+Every current accountability system -- corporate compliance, government
+auditing, academic peer review -- incentivizes hiding failures. Assay
+inverts this: a claim failure with integrity pass is *more trustworthy*
+than a claim pass, because it proves honest reporting.
+
+Orthogonality rule: claim results never upgrade integrity. Integrity
+failure is always authoritative.
+
+### 2.4 Lockfile (the governance contract)
+
+The lockfile pins verification semantics so they can't drift silently:
+
+- Which RunCards are required
+- Their exact claim definitions (content-addressed hashes)
+- Pack format version
+- Minimum Assay version
+- Allowed signer identities
+- Exit contract behavior
 
 ```bash
 assay lock write --cards receipt_completeness,guardian_enforcement -o assay.lock
 ```
 
-Validate lockfile:
+Without a lockfile, you can quietly weaken your verification criteria
+between runs. With a lockfile, any drift triggers exit code 2.
 
-```bash
-assay lock check assay.lock
-```
+Key property: the lockfile turns "we comply" into "we comply under this
+pinned contract, and drift is detectable." This is a machine-readable
+governance contract.
 
-Enforce lock during verify:
+Lockfile behavior is fail-closed:
+- Missing required fields in a lockfile = rejection (not skip)
+- Invalid signer mode = rejection
+- Version below minimum = rejection
+- Hash mismatch = rejection
 
-```bash
-assay verify-pack ./proof_pack_<id>/ --lock assay.lock --require-claim-pass
-```
+### 2.5 Scanner (the integration wedge)
 
-### 3.3 Preflight Check
+The scanner finds uninstrumented LLM call sites using AST analysis:
 
-Before running Assay in a new environment, use `assay doctor` to verify readiness:
+- **High confidence**: direct SDK calls (`chat.completions.create`,
+  `messages.create`)
+- **Medium confidence**: framework wrappers (LangChain `.invoke()`,
+  LiteLLM), gated behind framework import evidence
+- **Low confidence**: heuristic function name matches
 
-```bash
-assay doctor                          # local dev (default)
-assay doctor --profile ci             # CI environment
-assay doctor --profile ledger         # ledger submission readiness
-assay doctor --profile ledger --strict  # prod: require signature_verified
-```
-
-Doctor checks install, keys, run cards, lockfile, pack integrity, and CI integration.
-It prints the single next command to become "green":
-
-```
-assay doctor (profile=local)
-
-  PASS  DOCTOR_CORE_001  Assay CLI available (1.0.1)
-  PASS  DOCTOR_KEY_001   Signer key present (assay-local)
-  WARN  DOCTOR_LOCK_001  No lockfile found at assay.lock
-
-  PASS: 5 | WARN: 1
-
-  Next: assay lock write --cards receipt_completeness,guardian_enforcement -o assay.lock
-```
-
-Use `--json` for CI automation, `--fix` to auto-generate missing keys and lockfiles.
+The scanner is a wedge, not a source of truth. Its job is to surface
+where the evidence gap is, create urgency, and propose the smallest fix.
+The actual product is evidence + verification, not scanning.
 
 ---
 
-## 4) Implementation Surfaces in This Repo
+## 3) Runtime Flow
 
-### 4.1 CLI Surface
+### 3.1 How `assay run` works
 
-Primary commands currently used in production workflow:
-- `assay demo-pack`
-- `assay run`
-- `assay verify-pack`
-- `assay lock write`
-- `assay lock check`
+```
+assay run -c receipt_completeness -- python my_agent.py
+```
 
-Note:
-- legacy commands still exist in CLI for backward compatibility
-- production docs should emphasize the Proof Pack path above
+1. Generates a trace ID, sets `ASSAY_TRACE_ID` in subprocess environment
+2. Runs the command
+3. Any `emit_receipt()` call in the subprocess writes to
+   `~/.loom/assay/<date>/<trace>.jsonl` (keyed by the env var)
+4. After exit, reads all receipts for the trace
+5. Builds pack files (receipt_pack.jsonl, verify_report, transcript)
+6. Computes SHA-256 hashes into manifest
+7. Signs manifest with Ed25519 key (from keystore)
+8. Writes detached signature
+9. Runs verification (integrity + claims) on the completed pack
+10. Prints verdict and exits with appropriate code
 
-### 4.2 Lockfile Contract
+### 3.2 How `assay verify-pack` works
 
-Implementation: `src/assay/lockfile.py`
+```
+assay verify-pack ./proof_pack_abc/ --lock assay.lock --require-claim-pass
+```
 
-Lockfile fields include:
-- `lock_version`
-- `assay_version_min`
-- `pack_format_version`
-- `receipt_schema_version`
-- `run_cards[]` with per-card `claim_set_hash`
-- `claim_set_hash` (flattened, aligns to Proof Pack claim hash)
-- `run_cards_composite_hash`
-- `exit_contract`
-- `signer_policy`
+1. If `--lock`: loads lockfile, validates all required fields, checks
+   claim hashes and composite hash against current card definitions.
+   Any mismatch = exit 2.
+2. Integrity check: re-hash all files, verify Ed25519 signature over
+   canonical manifest, check required files present.
+3. If integrity fails: exit 2.
+4. Claim check: execute each RunCard's claims against receipt data.
+5. If `--require-claim-pass` and any claim fails: exit 1.
+6. Otherwise: exit 0.
 
-Current behavior:
-- mismatch on pack format / claim set / signer allowlist triggers lock mismatch and exit `2`
+Order matters: lockfile validation happens before integrity check.
+Invalid governance contracts are rejected at entry.
+
+### 3.3 Signing and keys
+
+- Ed25519 key pairs stored in `~/.assay/keys/`
+- `assay doctor --fix` auto-generates a key if none exists
+- Signing uses JCS (JSON Canonicalization Scheme, RFC 8785) for
+  deterministic byte representation
+- JCS ensures cross-language verification compatibility (a Go or
+  JavaScript verifier produces identical canonical bytes)
+
+---
+
+## 4) Implementation Details
+
+### 4.1 Source Layout
+
+```
+src/assay/
+  cli.py              # Typer entrypoint
+  commands.py         # All CLI commands
+  store.py            # Receipt store (emit_receipt, file-backed)
+  keystore.py         # Ed25519 key management
+  integrity.py        # Integrity verifier
+  proof_pack.py       # Pack builder
+  claim_verifier.py   # Claim execution engine
+  run_cards.py        # Built-in RunCard definitions
+  lockfile.py         # Lockfile load/write/check/validate
+  scanner.py          # AST-based LLM call site scanner
+  doctor.py           # Preflight check engine (13 checks, 4 profiles)
+  explain.py          # Plain-English pack explanation
+  guardian.py         # Guardian verdict types
+  health.py           # Health check types
+  evidence_pack.py    # Evidence pack assembly
+  _receipts/          # Vendored: canonicalize, jcs, merkle, compat, domains
+  integrations/
+    openai.py         # OpenAI SDK monkey-patch
+    anthropic.py      # Anthropic SDK monkey-patch
+    langchain.py      # LangChain callback handler
+  schemas/
+    *.json            # JSON Schema files for validation
+```
+
+### 4.2 Test Coverage
+
+407 tests across 16 test files:
+- Lockfile: 25 tests (write, validate, check, fail-closed load, fail-closed validate, semantic check, conformance)
+- Scanner: 72 tests (high/medium/low confidence, guarded patterns, framework import gating)
+- Doctor: 40 tests (13 checks, 4 profiles)
+- Integrity + claims + pack building: remaining tests
 
 ### 4.3 Conformance Corpus
 
-Generator: `conformance/generate_corpus.py`  
-Verifier: `conformance/run_corpus.py`  
-Outcome table: `conformance/corpus_v1/expected_outcomes.json`
+Deterministic test fixtures with known expected outcomes:
 
-Corpus v1 includes 6 packs:
-- `good_01`, `good_02`, `good_03` -> expect `0`
-- `claimfail_01` -> expect `1`
-- `tampered_01`, `tampered_02` -> expect `2`
+```bash
+python conformance/generate_corpus.py
+python conformance/run_corpus.py
+```
 
-This is the verifier ABI contract fixture.
+6 packs: 3 good (exit 0), 1 claim-fail (exit 1), 2 tampered (exit 2).
+Generation is seeded (SHA-256 derived IDs, fixed timestamps) so
+regeneration produces identical bytes. This is the verifier ABI contract.
 
-### 4.4 CI Surfaces
+### 4.4 CI
 
-Primary CI file: `.github/workflows/ci.yml`
+`.github/workflows/ci.yml` runs:
+- Full test suite
+- Wheel smoke test (build + install + verify)
+- Conformance corpus verification
 
-Notable jobs:
-- `test`
-- `wheel_smoke`
-- `conformance`
-
-Reusable verification workflow:
-- `.github/workflows/assay-verify.yml`
-
-This gives both in-repo verification and drop-in cross-repo gating.
+`.github/workflows/assay-verify.yml` is a reusable workflow for
+drop-in cross-repo pack verification.
 
 ---
 
-## 5) Cross-Repo Map (What You Already Have)
+## 5) Trust Model
 
-Assay is now usable across your existing ecosystem, not just in `~/ccio`.
+### 5.1 What Assay currently provides
 
-### 5.1 Verified downstream integration
+- Tamper-evident bundles (Ed25519 + SHA-256)
+- Deterministic verifier behavior (same inputs = same verdict)
+- Explicit integrity/claims split
+- Fail-closed lockfile enforcement
+- JCS canonicalization for cross-language compatibility
+- Portable, offline-verifiable evidence
 
-Location: `~/puppetlabs` (external to this repo)
+### 5.2 What Assay does NOT currently provide
 
-Shipped there:
-- router-level optional Assay emission
-- positive demo (`scripts/assay_demo.py`)
-- adversarial two-act demo (`scripts/assay_demo_evil.py`)
-- integration tests and CI gate
-- Make targets (`make assay-smoke`, `make assay-evil`)
+- **Completeness guarantee**: only emitted receipts are in the pack.
+  Receipts that should exist but weren't emitted are invisible.
+- **Source attestation**: integrity proves "not tampered after creation,"
+  not "honestly created." A compromised runtime can emit false receipts.
+- **External time anchoring**: timestamps are local clock. No RFC 3161
+  time authority.
+- **Third-party witnessing**: packs are self-attested. No independent
+  witness protocol yet.
+- **Confidentiality**: receipt hashes of low-entropy fields can be
+  brute-forced. No keyed commitments.
 
-Why this matters:
-- proves Assay works outside its home repo
-- demonstrates integrity PASS / claim FAIL using realistic LLM call topology
-- provides an operator-facing smoke path that is easy to rerun
+### 5.3 Design philosophy
 
-### 5.2 Integration-ready surfaces across your repos
-
-| Repo | Surface | What Assay can prove now |
-|------|---------|---------------------------|
-| `~/ccio` | `src/assay/integrations/*`, `assay run`, `assay verify-pack` | Portable pack integrity + claim gates in CI |
-| `~/puppetlabs` | `quintet/model/router.py`, demos, CI job | Router-level LLM receipts and guardian evidence |
-| `~/loom-labs/Loom` | `tools/agent_harness/*` pipeline | Multi-stage writer/checker/guardian execution evidence |
-| `~/csp-tool-safety-profile` | policy contract layer | Policy-level conformance constraints mapped into RunCards |
-
-Boundary note:
-- downstream repos are not vendored into `~/ccio`; treat them as independent integrators with their own CI and release cadence.
-
----
-
-## 6) Security and Trust Posture (Current Reality)
-
-Assay currently provides:
-- tamper-evident bundles
-- deterministic verifier behavior
-- explicit split between structural and semantic verification
-
-Assay does not currently provide:
-- universal runtime honesty guarantees if emitter runtime is compromised
-- third-party witness trust by default
-- court-grade external timestamp anchoring by default
-
-Practical interpretation:
-- Assay is strong evidence infrastructure
-- not a magical truth oracle
+Over-claiming destroys trust faster than bugs. Every limitation above
+is stated explicitly in pack explanations (`assay explain`) and
+documentation. The system earns trust by being honest about what it
+can and cannot prove -- which is itself an instance of the honest
+failure principle.
 
 ---
 
-## 7) QA State and Remaining Gaps
+## 6) Architecture Invariants
 
-### 7.1 Verified in latest cycle (2026-02-07)
+These are non-negotiable and should survive any future changes:
 
-- 295 tests passing across 12 test files
-- lockfile unit tests: 25 tests (`tests/assay/test_lockfile.py`)
-  - 4 write tests, 2 validate tests, 5 check tests
-  - 4 fail-closed load tests (missing fields, bad mode, bad fingerprints, bad version)
-  - 4 fail-closed validate tests (missing hash, missing format, version below min, empty allowlist)
-  - 5 semantic check tests (composite hash drift, claim hash drift, version below min, bad mode, missing fields)
-  - 1 conformance corpus test
-- corpus runner passes all 6 expected outcomes (`conformance/run_corpus.py`)
-- lock write/check CLI path works
-- lock mismatch exits with code `2`
-- `verify-pack --lock` runs `check_lockfile()` BEFORE `validate_against_lock()` -- invalid lockfiles are rejected at entry
-- `load_lockfile()` validates required fields, signer mode enum, PEP 440 version parseability
-- `validate_against_lock()` treats missing fields as mismatches (not skips), checks version minimum
-- `check_lockfile()` recomputes both `claim_set_hash` and `run_cards_composite_hash` from current card definitions
-- corpus generation is deterministic (SHA-256 seeded IDs, no UUIDs)
-- private corpus signing key excluded via `conformance/.gitignore`
-- `packaging>=21.0` added to `pyproject.toml` dependencies
-
-### 7.2 Completed hardening items
-
-- [x] fail-closed lock enforcement in `verify-pack --lock`
-- [x] full semantic validation in `check_lockfile()` (hash recomputation, version comparison)
-- [x] remove private corpus signing key from tracked fixtures (`.gitignore`)
-- [x] deterministic corpus generation (seeded receipt IDs, fixed timestamps)
-- [x] 13 new fail-closed tests covering all rejection paths
-
-### 7.3 Open hardening items (priority)
-
-P1:
-- formalize stochastic acceptance method in docs and code comments (default interval method + minimum trials; spec exists in `assay_master_plan.md` section 5.4)
-- codify pre/post key revocation verifier semantics (non-retroactivity and conflict resolution order; spec exists in `assay_master_plan.md` section 4.2)
-
-P1/P2:
-- reduce PYTHONPATH coupling in base CI test job where feasible
-- converge lint strategy to avoid broad unrelated debt blocking critical paths
-- add CI assertion that regenerated corpus diffs are empty when inputs are unchanged
+1. **Never merge integrity and claims into one verdict.** The
+   orthogonality is what enables honest failure.
+2. **Verifier semantics stay deterministic and strict.** Same pack +
+   same cards = same verdict. Always.
+3. **Docs state what is and is not proven.** Over-claiming is a bug.
+4. **The pack is the product, not the platform.** Independence from
+   infrastructure is the value proposition.
+5. **Fail closed on governance drift.** Lock mismatch = exit 2, not
+   a warning.
+6. **JCS canonicalization everywhere.** Cross-language verification
+   is not optional.
 
 ---
 
-## 8) Architecture Notes Worth Keeping Stable
+## 7) Ecosystem
 
-### 8.1 Keep the orthogonality contract stable
+| Repo | Purpose |
+|------|---------|
+| [assay](https://github.com/Haserjian/assay) | Core CLI + SDK (this repo) |
+| [assay-verify-action](https://github.com/Haserjian/assay-verify-action) | GitHub Action for CI verification |
+| [assay-ledger](https://github.com/Haserjian/assay-ledger) | Public transparency ledger (GitHub Pages) |
 
-Never merge integrity and claim verification into one opaque verdict path.
-
-### 8.2 Keep verifier semantics boring
-
-Verifier should remain deterministic, strict, and small-surface.
-
-### 8.3 Keep docs explicit on what is and is not proven
-
-Over-claiming destroys trust faster than bugs.
-
-### 8.4 Keep conformance packs as artifacts, not screenshots
-
-The pack itself is the product primitive.
+Boundary rule: the trust chain (signing, verification, evidence format)
+is open source. Operations (key management, deployment) are private.
 
 ---
 
-## 9) 30-Day Practical Plan (No Theater)
+## 8) Current State (v1.2.0)
 
-Week 1 (DONE):
-- [x] fail-closed lock enforcement (`load_lockfile`, `validate_against_lock`, `verify-pack --lock`)
-- [x] full semantic `check_lockfile()` with hash recomputation
-- [x] remove tracked corpus private key + `.gitignore`
-- [x] deterministic corpus fixture generation (seeded IDs, fixed timestamps)
-- [x] 13 fail-closed tests covering all rejection paths
-- [x] `packaging>=21.0` dependency added
-
-Week 2:
-- add CI assertion that regenerated corpus diffs are empty when inputs are unchanged
-- finalize lockfile/verifier semantic contract doc: lock precedence, revocation ordering, exit code authority
-- add explicit statistical acceptance defaults for stochastic claims (method + min trials)
-- keep phase dependency gate explicit in docs and reviews: Phase 3 starts only after Phase 2 gate is passed
-
-Week 3:
-- run one external integration using only published docs + reusable workflow (no source edits by core team)
-- collect integration friction as issue labels: docs ambiguity, CLI ambiguity, schema ambiguity
-- tune quickstart and one-pager language for procurement-safe wording
-
-Week 4:
-- cut `v1.0.1` hardening release focused on verifier contract stability
-- publish a public conformance corpus usage page with reproducible commands
-- finalize one design-partner evidence pack from non-CCIO runtime
-
----
-
-## 10) Document Map (Read Order)
-
-Primary:
-- `docs/README_quickstart.md`
-- `docs/ASSAY_DEEP_DIVE_2026Q1.md` (this doc)
-- `docs/assay_master_plan.md`
-- `docs/ASSAY_DECISION_LOG.md`
-
-Execution:
-- `docs/PHASE_0_1_CUT_LIST.md`
-- `docs/14_DAY_EXECUTION_BOARD.md`
-- `docs/PROOF_PACK_SPRINT_ONE_PAGER.md`
-
-Schemas and contracts:
-- `docs/schemas/pack_manifest.schema.json`
-- `docs/schemas/pack_manifest_unsigned.schema.json`
-- `docs/schemas/attestation.schema.json`
-
-Verification fixtures:
-- `conformance/corpus_v1/expected_outcomes.json`
-- `conformance/generate_corpus.py`
-- `conformance/run_corpus.py`
-
-Cross-repo integration context:
-- `docs/DOC_OF_LINKS_ADDENDA.md`
-
----
-
-## 11) Summary
-
-Assay has crossed from concept to executable contract:
-- signed pack format
-- deterministic verifier semantics
-- lockfile contract
-- conformance corpus ABI
-- external integration precedent
-
-Contract hardening is now complete:
-- fail-closed lock semantics (load, validate, check all fail-closed)
-- deterministic corpus fixtures (seeded IDs, `.gitignore` for keys)
-- 295 tests, all passing
-
-The next value step is external operator usability:
-- one external integration using only published docs
-- friction logging and quickstart tuning
-- v1.0.1 hardening release
-
-That is the path from "interesting toolkit" to "trusted verification substrate."
+- 407 tests, all passing
+- Published on PyPI: `pip install assay-ai`
+- 10 CLI commands (demo-pack, demo-incident, demo-challenge, scan, run,
+  verify-pack, explain, lock write, lock check, doctor)
+- 5 built-in RunCards
+- 6-pack conformance corpus (deterministic, seeded)
+- Lockfile contract with fail-closed semantics
+- AST-based scanner with 3 confidence levels
+- Ed25519 signing with JCS canonicalization
+- GitHub Action for CI gating
+- Public transparency ledger

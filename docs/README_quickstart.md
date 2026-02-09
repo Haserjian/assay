@@ -1,7 +1,12 @@
 # Assay Quickstart
 
-Receipt-native AI safety toolkit. Build, sign, and verify Proof Packs
-that prove what your AI system actually did.
+When someone asks "prove what your AI did," you need more than logs.
+Logs live on your infrastructure, under your control. They can be edited,
+deleted, or selectively presented. Assay produces **signed evidence bundles**
+that anyone can verify independently -- no access to your systems required.
+
+If you're currently filling out spreadsheets to document AI system behavior
+for compliance reviews, Assay replaces that process with one CI step.
 
 ## Install
 
@@ -9,190 +14,238 @@ that prove what your AI system actually did.
 pip install assay-ai
 ```
 
-Verify:
+## See It Work (No API Key Required)
 
 ```bash
-assay --help
+assay demo-pack           # build + verify a signed proof pack
+assay demo-incident       # see what an honest failure looks like
+assay demo-challenge      # spot the tampered pack (CTF-style)
 ```
 
-## 60-Second Demo
+`demo-pack` creates synthetic receipts, builds two signed Proof Packs with
+different claims, and verifies them. One passes. One fails on purpose --
+demonstrating that **integrity PASS + claim FAIL = honest failure**.
 
-```bash
-assay demo-pack
-```
+`demo-incident` runs a two-act scenario: Act 1 uses gpt-4 with a guardian
+(PASS/PASS). Act 2 swaps to gpt-3.5-turbo and drops the guardian
+(PASS/FAIL). Same tool, different evidence, different verdict.
 
-This creates 5 synthetic receipts, builds two signed Proof Packs with
-different claims against the same evidence, and verifies them. One pack
-passes all claims. The other fails -- on purpose -- to demonstrate the
-core invariant: **integrity PASS + claim FAIL = honest failure report.**
+`demo-challenge` generates a good pack and a tampered pack side by side.
+Run `assay verify-pack` on each -- your machine decides which is authentic.
 
-No API key, no configuration, no git clone required.
+## Core Concepts
 
-## Emit Receipts from Your Code
+### Receipts
+
+A receipt is a single evidence event: "this action happened."
 
 ```python
 from assay import emit_receipt
 
 emit_receipt("model_call", {"model": "claude-sonnet-4-20250514", "tokens": 1200})
 emit_receipt("guardian_verdict", {"verdict": "allow", "tool": "web_search"})
-emit_receipt("capability_use", {"capability": "file_write", "target": "/tmp/out.txt"})
 ```
 
-`emit_receipt` auto-populates `receipt_id`, `timestamp`, and `schema_version`.
-When called inside `assay run`, it picks up `ASSAY_TRACE_ID` from the
-environment automatically.
+Receipts are not logs. Logs are mutable narrative under your control.
+Receipts are structured evidence bytes designed to be portable inputs
+to independent verification.
 
-## Wrap a Command
+### Proof Packs
+
+A Proof Pack is a 5-file signed evidence bundle:
+
+| File | Purpose |
+|------|---------|
+| `receipt_pack.jsonl` | All receipts from the run (append-only) |
+| `pack_manifest.json` | SHA-256 hashes of all files + Ed25519 signature |
+| `pack_signature.sig` | Detached signature for offline verification |
+| `verify_report.json` | Machine-readable verification verdict |
+| `verify_transcript.md` | Human-readable summary |
+
+You can hand this folder to someone who doesn't trust you or your
+infrastructure. They run `assay verify-pack` and get a verdict.
+
+### Integrity vs Claims
+
+This is the core architectural split.
+
+**Integrity** answers: "Were these bytes tampered with after creation?"
+- Checks file hashes, Ed25519 signature, required files, schema
+
+**Claims** answer: "Does this evidence satisfy the declared behavioral checks?"
+- Checks receipt types, counts, field values, ordering
+
+These are deliberately independent. Four outcomes:
+
+| Integrity | Claims | Exit Code | Meaning |
+|-----------|--------|-----------|---------|
+| PASS | PASS | 0 | Evidence checks out, behavior meets standards |
+| PASS | FAIL | 1 | **Honest failure**: authentic evidence proving the run violated standards |
+| FAIL | -- | 2 | Evidence has been tampered with |
+| PASS | SKIPPED | 0 | Evidence is authentic, no behavioral checks declared |
+
+**Honest failure** (exit 1) is the most important outcome. It proves the
+system is reporting truthfully even when the news is bad. That's the
+difference between compliance theater and actual accountability.
+
+### Lockfile
+
+The lockfile is a machine-readable governance contract. It pins:
+
+- Which claims exist and their exact semantics (hashes)
+- Required checks and exit behavior
+- Allowed signers and minimum versions
+- Fail-closed rules
+
+Without a lockfile, you can quietly weaken your verification criteria
+between runs and nobody would notice. With a lockfile, drift is detectable.
+Lock mismatch exits with code 2.
+
+## The Golden Path
+
+### 1. Scan for uninstrumented LLM calls
 
 ```bash
-assay run -- python my_agent.py
-assay run -c guardian_enforcement -- pytest tests/
+assay scan .
 ```
 
-This runs the command, collects emitted receipts, builds a signed Proof
+Finds every LLM call site and checks for evidence emission. Confidence levels:
+- **high** -- direct SDK calls (`chat.completions.create`, `messages.create`)
+- **medium** -- framework wrappers (LangChain `.invoke()`, LiteLLM)
+- **low** -- heuristic name matches (`call_llm`, `query_model`)
+
+Each finding includes a fix suggestion and the next command to run.
+
+### 2. Instrument your code (one line)
+
+```python
+# OpenAI
+from assay.integrations.openai import patch; patch()
+
+# Anthropic
+from assay.integrations.anthropic import patch; patch()
+
+# LangChain
+from assay.integrations.langchain import patch; patch()
+
+# Manual (any framework)
+from assay import emit_receipt
+emit_receipt("model_call", {"provider": "...", "model_id": "..."})
+```
+
+### 3. Run through Assay
+
+```bash
+assay run -c receipt_completeness -c guardian_enforcement -- python my_agent.py
+```
+
+This runs your command, collects emitted receipts, builds a signed Proof
 Pack, and prints the verdict. Use `--allow-empty` if your command doesn't
 emit receipts yet.
 
-## Verify a Pack
+### 4. Verify the pack
 
 ```bash
-assay verify-pack ./proof_pack_<id>/
+assay verify-pack ./proof_pack_*/
 ```
 
-## CI Gating
+### 5. Read the explanation
 
 ```bash
-assay verify-pack ./proof_pack_<id>/ --require-claim-pass
+assay explain ./proof_pack_*/
 ```
 
-Exit codes:
-- **0** -- integrity PASS and claim_check PASS
-- **1** -- integrity PASS but claim_check FAIL (claim gate)
-- **2** -- integrity FAIL (structural problem)
+Plain-English summary: what happened, integrity status, claim results,
+what the pack proves, and what it does NOT prove.
 
-## Lock Verification Semantics
-
-Freeze your verification contract so CI, local runs, and external verifiers
-use the same claim set and signer policy:
+### 6. Lock your verification contract
 
 ```bash
 assay lock write --cards receipt_completeness,guardian_enforcement -o assay.lock
 assay lock check assay.lock
-assay verify-pack ./proof_pack_<id>/ --lock assay.lock --require-claim-pass
 ```
 
-Lock mismatch exits with code **2**.
-
-## Scan for Uninstrumented LLM Calls
-
-Find every LLM call site in your project and check if it has receipt emission:
+### 7. Gate in CI
 
 ```bash
-assay scan .
-assay scan . --json
-assay scan . --ci --fail-on high
-assay scan src/ --exclude "tests/**"
+assay verify-pack ./proof_pack_*/ --lock assay.lock --require-claim-pass
 ```
 
-Confidence levels:
-- **high** -- direct SDK calls (OpenAI `chat.completions.create`, Anthropic `messages.create`)
-- **medium** -- framework wrappers (LangChain `invoke`, LiteLLM `completion`)
-- **low** -- heuristic name matches (`call_llm`, `query_model`, etc.)
-
-Each finding includes a per-framework fix suggestion. In CI mode (`--ci`),
-exits with code **1** if uninstrumented sites exceed the `--fail-on` threshold.
+Exit code 0 = pass the build. Exit code 1 = fail the build (honest
+failure). Exit code 2 = fail the build (tampering or lock drift).
 
 ## Preflight Check
 
-Verify your environment is ready before running Assay:
-
 ```bash
-assay doctor                          # local dev (default)
-assay doctor --profile ci             # CI environment
-assay doctor --profile ledger         # ledger submission readiness
-assay doctor --profile ledger --strict  # prod: treat warnings as failures
+assay doctor                            # local dev (default)
+assay doctor --profile ci               # CI environment
+assay doctor --profile ledger --strict   # prod: treat warnings as failures
 ```
 
-Doctor checks install, keys, run cards, lockfile, pack integrity, and CI
-integration. It prints the single next command to become "green."
-
-Use `--json` for CI automation, `--fix` to auto-generate missing keys and lockfiles.
-
-## Conformance Corpus (Verifier ABI Check)
-
-Assay ships a conformance corpus with known expected outcomes:
-
-```bash
-python conformance/generate_corpus.py
-python conformance/run_corpus.py
-```
-
-Expected behavior in corpus:
-- good packs -> exit `0`
-- claim-fail packs -> exit `1`
-- tampered packs -> exit `2`
-
-See `conformance/corpus_v1/expected_outcomes.json`.
+Doctor checks install, keys, run cards, lockfile, and pack integrity.
+It prints the single next command to become "green." Use `--fix` to
+auto-generate missing keys and lockfiles.
 
 ## What This Does NOT Prove
 
-Assay produces **self-attested evidence**. The integrity verifier proves
+Assay produces **self-attested evidence**. Integrity verification proves
 evidence hasn't been tampered with *after creation*. It does not prove
 evidence was honestly created in the first place. Specifically:
 
 - **Completeness**: Assay verifies receipts that exist. It cannot prove
   receipts that should exist but were never emitted.
 - **Freshness**: A valid pack can be replayed. No challenge-nonce or
-  freshness window is enforced in v1.
+  freshness window is enforced.
 - **Trust root**: Embedded pubkeys allow self-signed truth. No external
-  trust anchor or witness protocol exists yet.
+  trust anchor exists yet.
 - **Timestamp honesty**: Timestamps come from the local clock. Without a
-  time authority (RFC 3161), they can be fabricated.
+  time authority, they can be fabricated.
 - **Confidentiality**: Receipt hashes of low-entropy fields can be
-  brute-forced. No keyed commitments in v1.
+  brute-forced.
 
-Independent attestation (external timestamps, third-party witnesses,
-environment-constrained receipt emission) is a planned upgrade path.
+These are stated limitations, not hidden ones. Over-claiming destroys
+trust faster than bugs.
 
 ## Command Reference
 
 | Command | Purpose |
 |---------|---------|
 | `assay demo-pack` | Generate demo packs (no config needed) |
-| `assay run` | Wrap command execution, collect receipts, build pack |
-| `assay verify-pack` | Verify a Proof Pack (integrity + claims) |
-| `assay lock write` | Write a lockfile freezing verification contract |
-| `assay lock check` | Validate a lockfile against current card definitions |
+| `assay demo-incident` | Two-act scenario: passing run vs failing run |
+| `assay demo-challenge` | CTF-style good + tampered pack pair |
 | `assay scan` | Find uninstrumented LLM call sites |
+| `assay run` | Wrap command, collect receipts, build signed pack |
+| `assay verify-pack` | Verify a Proof Pack (integrity + claims) |
+| `assay explain` | Plain-English summary of a proof pack |
+| `assay lock write` | Freeze verification contract to lockfile |
+| `assay lock check` | Validate lockfile against current card definitions |
 | `assay doctor` | Preflight check: is Assay ready here? |
-
-## Read Next
-
-- `ASSAY_DEEP_DIVE_2026Q1.md`
-- `assay_master_plan.md`
-- `ASSAY_DECISION_LOG.md`
-
-## Glossary
-
-| Term | Meaning |
-|------|---------|
-| **receipt** | Structured record of one action (model call, guardian verdict, etc.) |
-| **receipt_integrity** | Structural truth: hashes match, signatures verify, files present |
-| **claim_check** | Semantic truth: claims about behavior pass or fail against evidence |
-| **Proof Pack** | 5-file signed kernel: `receipt_pack.jsonl`, `verify_report.json`, `verify_transcript.md`, `pack_manifest.json`, `pack_signature.sig` |
-| **pack_root_sha256** | SHA-256 of the attestation -- the single immutable pack identifier |
-| **discrepancy_fingerprint** | Hash of claim results; same receipts + different claims = different fingerprints |
-| **RunCard** | Named collection of claims (e.g., `guardian_enforcement`, `no_breakglass`) |
-| **mode** | `shadow` (observe), `enforced` (block on failure), `breakglass` (override with receipt) |
-| **signer_id** | Ed25519 key identity used to sign the pack manifest |
-| **claim severity** | `critical` (fails the pack) or `warning` (noted but doesn't fail) |
 
 ## Built-in RunCards
 
 | Card ID | What it checks |
 |---------|----------------|
-| `guardian_enforcement` | At least one guardian_verdict receipt exists |
-| `receipt_completeness` | At least 1 receipt + at least 1 model_call |
+| `guardian_enforcement` | At least one `guardian_verdict` receipt exists |
+| `receipt_completeness` | At least 1 receipt + at least 1 `model_call` |
 | `no_breakglass` | No breakglass override receipts |
 | `timestamp_ordering` | Timestamps are monotonically non-decreasing |
-| `schema_consistency` | All model_call receipts use schema_version 3.0 |
+| `schema_consistency` | All `model_call` receipts use schema_version 3.0 |
+
+## Glossary
+
+| Term | Meaning |
+|------|---------|
+| **receipt** | Structured evidence event (model call, guardian verdict, etc.) |
+| **Proof Pack** | 5-file signed evidence bundle, independently verifiable |
+| **integrity** | Structural truth: hashes match, signature verifies, files present |
+| **claim check** | Semantic truth: behavioral claims pass or fail against evidence |
+| **honest failure** | Integrity PASS + claims FAIL: authentic evidence proving standards were violated |
+| **lockfile** | Machine-readable governance contract pinning verification semantics |
+| **RunCard** | Named collection of claims (e.g., `guardian_enforcement`) |
+| **pack_root_sha256** | SHA-256 of the attestation -- the immutable pack identifier |
+| **signer_id** | Ed25519 key identity used to sign the pack manifest |
+
+## Read Next
+
+- [Deep Dive](ASSAY_DEEP_DIVE_2026Q1.md) -- architecture, trust model, implementation details
+- [Decision Log](ASSAY_DECISION_LOG.md) -- every locked decision and why
