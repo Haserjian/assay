@@ -82,17 +82,34 @@ class ScanResult:
 
     @property
     def next_command(self) -> Optional[str]:
-        # Find dominant framework
+        # Find dominant framework and build tailored next-steps
         frameworks = _detect_frameworks(self.findings)
         if "openai" in frameworks:
-            return "# Add to your entrypoint:\nfrom assay.integrations.openai import patch; patch()\n# Then: assay run -- python your_app.py"
-        if "anthropic" in frameworks:
-            return "# Add to your entrypoint:\nfrom assay.integrations.anthropic import patch; patch()\n# Then: assay run -- python your_app.py"
-        if "langchain" in frameworks:
-            return "# Add to your entrypoint:\nfrom assay.integrations.langchain import patch; patch()\n# Then: assay run -- python your_app.py"
-        if self.findings:
-            return "# Add receipt emission:\nfrom assay import emit_receipt\n# Then: assay run -- python your_app.py"
-        return None
+            patch_line = "from assay.integrations.openai import patch; patch()"
+        elif "anthropic" in frameworks:
+            patch_line = "from assay.integrations.anthropic import patch; patch()"
+        elif "langchain" in frameworks:
+            patch_line = "from assay.integrations.langchain import patch; patch()"
+        elif self.findings:
+            return (
+                "# Add receipt emission to your LLM calls:\n"
+                "from assay.store import emit_receipt\n"
+                "emit_receipt('model_call', {'provider': '...', 'model_id': '...'})\n"
+                "\n"
+                "# Then produce + verify a proof pack:\n"
+                "assay run -c receipt_completeness -- python your_app.py\n"
+                "assay verify-pack ./proof_pack_*/"
+            )
+        else:
+            return None
+        return (
+            f"# Add to your entrypoint:\n"
+            f"{patch_line}\n"
+            f"\n"
+            f"# Then produce + verify a proof pack:\n"
+            f"assay run -c receipt_completeness -- python your_app.py\n"
+            f"assay verify-pack ./proof_pack_*/"
+        )
 
     def to_dict(self) -> Dict[str, Any]:
         return {

@@ -1,7 +1,12 @@
 # Assay
 
-Receipt-native AI safety toolkit. Build, sign, and verify Proof Packs
-that prove what your AI system actually did.
+Tamper-evident audit trails for AI systems. When someone asks "prove what
+your AI did," Assay gives you a signed evidence bundle they can verify
+independently -- no access to your systems required.
+
+**Exit code 0:** evidence checks out. **Exit code 1:** evidence is authentic
+but behavior didn't meet your declared standards. **Exit code 2:** evidence
+has been tampered with.
 
 ## Install
 

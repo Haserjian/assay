@@ -2376,8 +2376,14 @@ def scan_cmd(
     if not result.findings:
         console.print("  [dim]No LLM call sites detected.[/]")
         console.print()
-        console.print("  [dim]If your code uses LLM APIs, check that the source files[/]")
-        console.print("  [dim]are Python (.py) and not excluded by default filters.[/]")
+        console.print("  [dim]If your code uses a custom wrapper or non-Python SDK,[/]")
+        console.print("  [dim]you can still emit receipts directly:[/]")
+        console.print()
+        console.print("    [bold]from[/] assay.store [bold]import[/] emit_receipt")
+        console.print("    emit_receipt([dim]'model_call'[/], {[dim]'provider'[/]: [dim]'...'[/], [dim]'model_id'[/]: [dim]'...'[/]})")
+        console.print()
+        console.print("  [dim]Or run with runtime patching:[/]")
+        console.print("    assay run -- python your_app.py")
         console.print()
         raise typer.Exit(0)
 
@@ -2409,7 +2415,7 @@ def scan_cmd(
 
     if result.next_command:
         console.print()
-        console.print(f"  [bold]Quick fix:[/]")
+        console.print(f"  [bold]Next steps:[/]")
         for line in result.next_command.split("\n"):
             console.print(f"    {line}")
 
