@@ -1,6 +1,6 @@
 # I scanned 30 popular AI projects for tamper-evident audit trails. None had one.
 
-*2026-02-08 | assay-ai v1.1.0*
+*2026-02-08 | assay-ai v1.2.2*
 
 ## TL;DR
 

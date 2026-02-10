@@ -1,7 +1,7 @@
 {
   "study": "assay-scan-30-repos",
   "date": "2026-02-08T22:35:17Z",
-  "assay_version": "1.1.0",
+  "assay_version": "1.2.2",
   "repos_scanned": 30,
   "repos_with_llm_calls": 28,
   "total_llm_call_sites": 903,
