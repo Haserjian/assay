@@ -94,6 +94,21 @@ more trustworthy than systems that always claim to pass.
 - [Decision Log](docs/ASSAY_DECISION_LOG.md) -- every locked decision and why
 - [Semantic Simulation Matrix](docs/SEMANTIC_SIMULATION_MATRIX.md) -- 7 drills for UX and comprehension
 
+## Scan Study
+
+We scanned 30 popular open-source AI projects for tamper-evident audit
+trails. Found 202 high-confidence LLM SDK call sites across 28 projects.
+Zero had evidence emission at any call site.
+[Full results](scripts/scan_study/results/report.md).
+
+## Get Involved
+
+- **Try it**: `pip install assay-ai && assay demo-incident`
+- **Questions / feedback**: [GitHub Discussions](https://github.com/Haserjian/assay/discussions)
+- **Bug reports**: [Issues](https://github.com/Haserjian/assay/issues)
+- **Pilot integration**: Want help instrumenting your AI stack?
+  [Open a pilot inquiry](https://github.com/Haserjian/assay/issues/new?template=pilot-inquiry.md)
+
 ## Related Repos
 
 | Repo | Purpose |
