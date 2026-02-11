@@ -208,12 +208,57 @@ def check_field_value_matches(
 
 CheckFn = Callable[..., ClaimResult]
 
+def check_coverage_contract(
+    receipts: List[Dict[str, Any]],
+    *,
+    claim_id: str,
+    contract_path: str = "assay.coverage.json",
+    min_coverage: float = 0.8,
+    **_: Any,
+) -> ClaimResult:
+    """Verify that receipts cover at least min_coverage of the call sites
+    declared in the coverage contract.
+    """
+    import json as _json
+    from pathlib import Path
+
+    try:
+        from assay.coverage import CoverageContract, verify_coverage
+        contract = CoverageContract.load(Path(contract_path))
+    except FileNotFoundError:
+        return ClaimResult(
+            claim_id=claim_id,
+            passed=False,
+            expected=f"valid coverage contract at {contract_path}",
+            actual=f"file not found: {contract_path}",
+        )
+    except (_json.JSONDecodeError, ValueError, KeyError) as e:
+        return ClaimResult(
+            claim_id=claim_id,
+            passed=False,
+            expected=f"valid coverage contract at {contract_path}",
+            actual=f"error: {e}",
+        )
+
+    result = verify_coverage(contract, receipts)
+    pct = result["coverage_pct"]
+
+    return ClaimResult(
+        claim_id=claim_id,
+        passed=pct >= min_coverage,
+        expected=f">= {min_coverage:.0%} call site coverage",
+        actual=f"{pct:.0%} ({result['covered_count']}/{result['total_count']})",
+        evidence_receipt_ids=result["covered_ids"][:5],
+    )
+
+
 CHECKS: Dict[str, CheckFn] = {
     "receipt_type_present": check_receipt_type_present,
     "no_receipt_type": check_no_receipt_type,
     "receipt_count_ge": check_receipt_count_ge,
     "timestamps_monotonic": check_timestamps_monotonic,
     "field_value_matches": check_field_value_matches,
+    "coverage_contract": check_coverage_contract,
 }
 
 

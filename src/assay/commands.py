@@ -1669,6 +1669,14 @@ def verify_pack_cmd(
         None, "--lock",
         help="Path to assay.lock file. Enforces locked verification semantics.",
     ),
+    coverage_contract: Optional[str] = typer.Option(
+        None, "--coverage-contract",
+        help="Path to coverage contract JSON. Checks receipt callsite coverage.",
+    ),
+    min_coverage: float = typer.Option(
+        0.8, "--min-coverage",
+        help="Minimum coverage threshold (0.0-1.0). Used with --coverage-contract.",
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Verify a Proof Pack's integrity (manifest, signatures, file hashes)."""
@@ -1676,6 +1684,12 @@ def verify_pack_cmd(
 
     from assay.integrity import verify_pack_manifest
     from assay.keystore import get_default_keystore
+
+    if not 0.0 <= min_coverage <= 1.0:
+        if output_json:
+            _output_json({"command": "verify-pack", "status": "error", "error": f"--min-coverage must be between 0.0 and 1.0, got {min_coverage}"})
+        console.print(f"[red]Error:[/] --min-coverage must be between 0.0 and 1.0, got {min_coverage}")
+        raise typer.Exit(3)
 
     pack_path = Path(pack_dir)
     manifest_path = pack_path / "pack_manifest.json"
@@ -1744,6 +1758,40 @@ def verify_pack_cmd(
             lock_failed = True
             lock_errors = lock_result.errors
 
+    # Coverage contract verification
+    coverage_failed = False
+    coverage_result: Optional[dict] = None
+    if coverage_contract:
+        from assay.coverage import CoverageContract, verify_coverage
+
+        cc_path = Path(coverage_contract)
+        if not cc_path.exists():
+            if output_json:
+                _output_json({"command": "verify-pack", "status": "error", "error": f"Coverage contract not found: {coverage_contract}"})
+            console.print(f"[red]Error:[/] Coverage contract not found: {coverage_contract}")
+            raise typer.Exit(2)
+
+        try:
+            contract = CoverageContract.load(cc_path)
+        except (json.JSONDecodeError, ValueError, KeyError) as e:
+            if output_json:
+                _output_json({"command": "verify-pack", "status": "error", "error": f"Invalid coverage contract: {e}"})
+            console.print(f"[red]Error:[/] Invalid coverage contract: {e}")
+            raise typer.Exit(2)
+
+        # Load receipts from the pack (JSONL: one JSON object per line)
+        receipts_path = pack_path / "receipt_pack.jsonl"
+        pack_receipts = []
+        if receipts_path.exists():
+            for line in receipts_path.read_text().splitlines():
+                line = line.strip()
+                if line:
+                    pack_receipts.append(json.loads(line))
+
+        coverage_result = verify_coverage(contract, pack_receipts)
+        if coverage_result["coverage_pct"] < min_coverage:
+            coverage_failed = True
+
     overall_status = "ok"
     if not result.passed:
         overall_status = "failed"
@@ -1751,6 +1799,8 @@ def verify_pack_cmd(
         overall_status = "lock_mismatch"
     elif claim_gate_failed:
         overall_status = "claim_gate_failed"
+    elif coverage_failed:
+        overall_status = "coverage_below_threshold"
 
     if output_json:
         out = {
@@ -1763,6 +1813,8 @@ def verify_pack_cmd(
             out["claim_gate"] = f"--require-claim-pass: claim_check is '{claim_check}'"
         if lock_failed:
             out["lock_errors"] = [str(e) for e in lock_errors]
+        if coverage_result is not None:
+            out["coverage"] = coverage_result
         _output_json(out)
 
     if lock_failed:
@@ -1779,8 +1831,12 @@ def verify_pack_cmd(
         console.print()
         raise typer.Exit(2)
 
-    if result.passed and not claim_gate_failed:
+    if result.passed and not claim_gate_failed and not coverage_failed:
         lock_line = f"\nLock:       PASS ({lock})" if lock else ""
+        cov_line = ""
+        if coverage_result is not None:
+            pct = coverage_result["coverage_pct"]
+            cov_line = f"\nCoverage:   {pct:.0%} ({coverage_result['covered_count']}/{coverage_result['total_count']})"
         console.print()
         console.print(Panel.fit(
             f"[bold green]VERIFICATION PASSED[/]\n\n"
@@ -1791,7 +1847,8 @@ def verify_pack_cmd(
             f"Head Hash:  {result.head_hash or 'N/A'}\n"
             f"Errors:     0\n"
             f"Warnings:   {len(result.warnings)}"
-            f"{lock_line}",
+            f"{lock_line}"
+            f"{cov_line}",
             title="assay verify-pack",
         ))
     elif result.passed and claim_gate_failed:
@@ -1803,6 +1860,19 @@ def verify_pack_cmd(
             f"Claims:     {claim_check}\n"
             f"Receipts:   {result.receipt_count}\n\n"
             f"--require-claim-pass was set but claim_check is '{claim_check}'",
+            title="assay verify-pack",
+        ))
+    elif result.passed and coverage_failed and coverage_result is not None:
+        pct = coverage_result["coverage_pct"]
+        console.print()
+        console.print(Panel.fit(
+            f"[bold yellow]COVERAGE BELOW THRESHOLD[/]\n\n"
+            f"Pack ID:    {att.get('pack_id')}\n"
+            f"Integrity:  PASS\n"
+            f"Claims:     {claim_check}\n"
+            f"Coverage:   {pct:.0%} ({coverage_result['covered_count']}/{coverage_result['total_count']})\n"
+            f"Threshold:  {min_coverage:.0%}\n"
+            f"Uncovered:  {len(coverage_result.get('uncovered_ids', []))} site(s)",
             title="assay verify-pack",
         ))
     else:
@@ -1825,6 +1895,8 @@ def verify_pack_cmd(
     if not result.passed:
         raise typer.Exit(2)
     if claim_gate_failed:
+        raise typer.Exit(1)
+    if coverage_failed:
         raise typer.Exit(1)
 
 
@@ -2565,6 +2637,14 @@ def scan_cmd(
         None, "--report-path",
         help="Output path for HTML report (default: evidence_gap_report.html)",
     ),
+    emit_contract: Optional[str] = typer.Option(
+        None, "--emit-contract",
+        help="Write a coverage contract JSON file from scan results",
+    ),
+    include_low: bool = typer.Option(
+        False, "--include-low",
+        help="Include LOW confidence sites in the coverage contract",
+    ),
 ):
     """Scan a project for uninstrumented LLM call sites.
 
@@ -2594,6 +2674,30 @@ def scan_cmd(
         else:
             console.print(f"[red]Scan error:[/] {e}")
         raise typer.Exit(2)
+
+    # Emit coverage contract if requested
+    if emit_contract:
+        from assay.coverage import CoverageContract
+
+        try:
+            contract = CoverageContract.from_scan_result(
+                result, include_low=include_low, project_root=str(P(path).resolve()),
+            )
+            contract_path = P(emit_contract)
+            contract.write(contract_path)
+            if not output_json:
+                n = len(contract.call_sites)
+                console.print(
+                    f"  [bold green]Coverage contract written:[/] {contract_path} "
+                    f"({n} site{'s' if n != 1 else ''})"
+                )
+                console.print()
+        except Exception as e:
+            if output_json:
+                _output_json({"tool": "assay-scan", "status": "error", "error": f"contract emission failed: {e}"}, exit_code=2)
+            else:
+                console.print(f"[red]Contract emission error:[/] {e}")
+            raise typer.Exit(2)
 
     # Generate HTML report if requested
     if report:

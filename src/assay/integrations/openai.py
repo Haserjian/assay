@@ -57,6 +57,9 @@ def _create_model_call_receipt(
     response: Any,
     latency_ms: int,
     error: Optional[str] = None,
+    callsite_file: Optional[str] = None,
+    callsite_line: Optional[int] = None,
+    callsite_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Create a model_call receipt from an OpenAI call.
 
@@ -84,22 +87,31 @@ def _create_model_call_receipt(
             content = getattr(choice.message, "content", "") or ""
             response_hash = _hash_content(content)
 
+    data: Dict[str, Any] = {
+        "provider": "openai",
+        "model_id": model,
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "total_tokens": input_tokens + output_tokens,
+        "latency_ms": latency_ms,
+        "finish_reason": finish_reason,
+        "error": error,
+        "input_hash": _extract_messages_hash(messages),
+        "output_hash": response_hash,
+        "message_count": len(messages),
+        "integration_source": "assay.integrations.openai",
+    }
+
+    if callsite_file is not None:
+        data["callsite_file"] = callsite_file
+    if callsite_line is not None:
+        data["callsite_line"] = callsite_line
+    if callsite_id is not None:
+        data["callsite_id"] = callsite_id
+
     return emit_receipt(
         "model_call",
-        {
-            "provider": "openai",
-            "model_id": model,
-            "input_tokens": input_tokens,
-            "output_tokens": output_tokens,
-            "total_tokens": input_tokens + output_tokens,
-            "latency_ms": latency_ms,
-            "finish_reason": finish_reason,
-            "error": error,
-            "input_hash": _extract_messages_hash(messages),
-            "output_hash": response_hash,
-            "message_count": len(messages),
-            "integration_source": "assay.integrations.openai",
-        },
+        data,
         receipt_id=f"mcr_{uuid.uuid4().hex[:16]}",
     )
 
@@ -109,6 +121,14 @@ def _wrapped_create(original_create: Callable) -> Callable:
 
     @wraps(original_create)
     def wrapper(*args, **kwargs):
+        # Capture caller frame BEFORE the API call (stack is correct here)
+        from assay.integrations import find_caller_frame
+        caller_file, caller_line = find_caller_frame()
+        caller_id = None
+        if caller_file is not None and caller_line is not None:
+            from assay.coverage import compute_callsite_id
+            caller_id = compute_callsite_id(caller_file, caller_line)
+
         start_time = time.time()
         error = None
         response = None
@@ -132,6 +152,9 @@ def _wrapped_create(original_create: Callable) -> Callable:
                     response=response,
                     latency_ms=latency_ms,
                     error=error,
+                    callsite_file=caller_file,
+                    callsite_line=caller_line,
+                    callsite_id=caller_id,
                 )
             except Exception as exc:
                 import warnings
@@ -149,6 +172,13 @@ def _wrapped_create_async(original_create: Callable) -> Callable:
 
     @wraps(original_create)
     async def wrapper(*args, **kwargs):
+        from assay.integrations import find_caller_frame
+        caller_file, caller_line = find_caller_frame()
+        caller_id = None
+        if caller_file is not None and caller_line is not None:
+            from assay.coverage import compute_callsite_id
+            caller_id = compute_callsite_id(caller_file, caller_line)
+
         start_time = time.time()
         error = None
         response = None
@@ -171,6 +201,9 @@ def _wrapped_create_async(original_create: Callable) -> Callable:
                     response=response,
                     latency_ms=latency_ms,
                     error=error,
+                    callsite_file=caller_file,
+                    callsite_line=caller_line,
+                    callsite_id=caller_id,
                 )
             except Exception as exc:
                 import warnings

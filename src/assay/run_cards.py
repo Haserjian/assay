@@ -143,6 +143,23 @@ CARD_SCHEMA_CONSISTENCY = RunCard(
 )
 
 
+CARD_COVERAGE_CONTRACT = RunCard(
+    card_id="coverage_contract",
+    name="Coverage Contract",
+    description="Runtime receipts cover scanned call sites above the minimum threshold.",
+    claims=[
+        ClaimSpec(
+            claim_id="callsite_coverage",
+            description="Receipt callsite_ids cover >= min_coverage of contract sites",
+            check="coverage_contract",
+            params={
+                "contract_path": "assay.coverage.json",
+                "min_coverage": 0.8,
+            },
+        ),
+    ],
+)
+
 BUILTIN_CARDS: Dict[str, RunCard] = {
     c.card_id: c
     for c in [
@@ -151,6 +168,7 @@ BUILTIN_CARDS: Dict[str, RunCard] = {
         CARD_NO_BREAKGLASS,
         CARD_TIMESTAMP_ORDERING,
         CARD_SCHEMA_CONSISTENCY,
+        CARD_COVERAGE_CONTRACT,
     ]
 }
 

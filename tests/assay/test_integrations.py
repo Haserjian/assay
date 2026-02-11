@@ -199,6 +199,218 @@ class TestAnthropicIntegration:
                 assert "seq" in receipt
 
 
+class TestCallsiteTracking:
+    """Tests for callsite tracking in integration receipts."""
+
+    def test_openai_receipt_has_callsite_fields(self):
+        """OpenAI receipt includes callsite_file, callsite_line, callsite_id."""
+        from assay.integrations.openai import _create_model_call_receipt
+        from assay.store import AssayStore
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = AssayStore(base_dir=Path(tmpdir))
+            store.start_trace()
+
+            with mock_patch("assay.store.get_default_store", return_value=store), \
+                 mock_patch.object(store_mod, "_seq_counter", 0):
+                mock_response = MagicMock()
+                mock_response.usage.prompt_tokens = 10
+                mock_response.usage.completion_tokens = 20
+                mock_response.choices = [MagicMock()]
+                mock_response.choices[0].finish_reason = "stop"
+                mock_response.choices[0].message.content = "Hello!"
+
+                receipt = _create_model_call_receipt(
+                    model="gpt-4",
+                    messages=[{"role": "user", "content": "Hi"}],
+                    response=mock_response,
+                    latency_ms=100,
+                    callsite_file="src/app.py",
+                    callsite_line=42,
+                    callsite_id="abc123def456",
+                )
+
+                assert receipt["callsite_file"] == "src/app.py"
+                assert receipt["callsite_line"] == 42
+                assert receipt["callsite_id"] == "abc123def456"
+
+    def test_anthropic_receipt_has_callsite_fields(self):
+        """Anthropic receipt includes callsite_file, callsite_line, callsite_id."""
+        from assay.integrations.anthropic import _create_model_call_receipt
+        from assay.store import AssayStore
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = AssayStore(base_dir=Path(tmpdir))
+            store.start_trace()
+
+            with mock_patch("assay.store.get_default_store", return_value=store), \
+                 mock_patch.object(store_mod, "_seq_counter", 0):
+                mock_response = MagicMock()
+                mock_response.usage.input_tokens = 15
+                mock_response.usage.output_tokens = 25
+                mock_response.stop_reason = "end_turn"
+                mock_content_block = MagicMock()
+                mock_content_block.text = "Hello!"
+                mock_response.content = [mock_content_block]
+
+                receipt = _create_model_call_receipt(
+                    model="claude-sonnet-4-20250514",
+                    messages=[{"role": "user", "content": "Hi"}],
+                    system=None,
+                    response=mock_response,
+                    latency_ms=200,
+                    callsite_file="src/worker.py",
+                    callsite_line=99,
+                    callsite_id="feed0000cafe",
+                )
+
+                assert receipt["callsite_file"] == "src/worker.py"
+                assert receipt["callsite_line"] == 99
+                assert receipt["callsite_id"] == "feed0000cafe"
+
+    def test_callsite_id_matches_scanner_formula(self):
+        """callsite_id uses the same SHA256(path:line)[:12] as the scanner."""
+        from assay.coverage import compute_callsite_id
+
+        expected = compute_callsite_id("src/app.py", 42)
+        assert len(expected) == 12
+
+        from assay.integrations.openai import _create_model_call_receipt
+        from assay.store import AssayStore
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = AssayStore(base_dir=Path(tmpdir))
+            store.start_trace()
+
+            with mock_patch("assay.store.get_default_store", return_value=store), \
+                 mock_patch.object(store_mod, "_seq_counter", 0):
+                mock_response = MagicMock()
+                mock_response.usage.prompt_tokens = 10
+                mock_response.usage.completion_tokens = 20
+                mock_response.choices = [MagicMock()]
+                mock_response.choices[0].finish_reason = "stop"
+                mock_response.choices[0].message.content = "Hello!"
+
+                receipt = _create_model_call_receipt(
+                    model="gpt-4",
+                    messages=[{"role": "user", "content": "Hi"}],
+                    response=mock_response,
+                    latency_ms=100,
+                    callsite_file="src/app.py",
+                    callsite_line=42,
+                    callsite_id=expected,
+                )
+
+                assert receipt["callsite_id"] == expected
+
+    def test_no_callsite_fields_when_none(self):
+        """Receipt omits callsite fields when find_caller_frame returns None."""
+        from assay.integrations.openai import _create_model_call_receipt
+        from assay.store import AssayStore
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = AssayStore(base_dir=Path(tmpdir))
+            store.start_trace()
+
+            with mock_patch("assay.store.get_default_store", return_value=store), \
+                 mock_patch.object(store_mod, "_seq_counter", 0):
+                mock_response = MagicMock()
+                mock_response.usage.prompt_tokens = 10
+                mock_response.usage.completion_tokens = 20
+                mock_response.choices = [MagicMock()]
+                mock_response.choices[0].finish_reason = "stop"
+                mock_response.choices[0].message.content = "Hello!"
+
+                receipt = _create_model_call_receipt(
+                    model="gpt-4",
+                    messages=[{"role": "user", "content": "Hi"}],
+                    response=mock_response,
+                    latency_ms=100,
+                    # No callsite params = graceful degradation
+                )
+
+                assert "callsite_file" not in receipt
+                assert "callsite_line" not in receipt
+                assert "callsite_id" not in receipt
+
+    def test_callsite_receipt_passes_integrity(self):
+        """Receipt with callsite fields still passes proof pack integrity."""
+        from assay.integrations.openai import _create_model_call_receipt
+        from assay.integrity import verify_pack_manifest
+        from assay.keystore import AssayKeyStore
+        from assay.proof_pack import ProofPack
+        from assay.store import AssayStore
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            store = AssayStore(base_dir=base / "store")
+            trace_id = store.start_trace("trace_callsite_integrity")
+
+            with mock_patch("assay.store.get_default_store", return_value=store), \
+                 mock_patch.object(store_mod, "_seq_counter", 0):
+                mock_response = MagicMock()
+                mock_response.usage.prompt_tokens = 7
+                mock_response.usage.completion_tokens = 11
+                mock_response.choices = [MagicMock()]
+                mock_response.choices[0].finish_reason = "stop"
+                mock_response.choices[0].message.content = "Response"
+
+                _create_model_call_receipt(
+                    model="gpt-4",
+                    messages=[{"role": "user", "content": "Prompt"}],
+                    response=mock_response,
+                    latency_ms=50,
+                    callsite_file="src/app.py",
+                    callsite_line=42,
+                    callsite_id="abc123def456",
+                )
+
+            entries = store.read_trace(trace_id)
+            assert entries[0]["callsite_id"] == "abc123def456"
+
+            ks = AssayKeyStore(keys_dir=base / "keys")
+            ks.generate_key("test-signer")
+
+            out_dir = base / "pack"
+            pack = ProofPack(
+                run_id=trace_id,
+                entries=entries,
+                signer_id="test-signer",
+            )
+            pack.build(out_dir, keystore=ks)
+
+            manifest = json.loads((out_dir / "pack_manifest.json").read_text())
+            verify = verify_pack_manifest(manifest, out_dir, ks)
+
+            assert verify.passed
+            assert verify.errors == []
+
+
+class TestFindCallerFrame:
+    """Tests for find_caller_frame utility."""
+
+    def test_returns_tuple(self):
+        from assay.integrations import find_caller_frame
+        result = find_caller_frame()
+        assert isinstance(result, tuple)
+        assert len(result) == 2
+
+    def test_finds_test_file(self):
+        """When called from test code, should find the test file."""
+        from assay.integrations import find_caller_frame
+        path, line = find_caller_frame()
+        # Should find this test file since it's outside assay.*
+        assert path is not None
+        assert line is not None
+        assert "test_integrations" in path
+
+    def test_line_number_is_positive(self):
+        from assay.integrations import find_caller_frame
+        _, line = find_caller_frame()
+        assert line is not None
+        assert line > 0
+
+
 class TestIntegrationPrivacy:
     """Tests for privacy-preserving behavior."""
 

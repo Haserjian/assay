@@ -303,3 +303,140 @@ class TestTruthTable:
         _tamper_receipts(pack_dir)
         r2 = runner.invoke(assay_app, ["verify-pack", str(pack_dir), "--json"])
         assert "status" in json.loads(r2.output)
+
+
+# ---------------------------------------------------------------------------
+# Coverage contract via verify-pack --coverage-contract
+# ---------------------------------------------------------------------------
+
+class TestCoverageContractCLI:
+    """Exit codes and output for --coverage-contract flag on verify-pack."""
+
+    def _write_contract(self, tmp_path, callsite_ids):
+        """Write a coverage contract with given callsite_ids."""
+        from assay.coverage import ContractSite, CoverageContract
+
+        sites = [
+            ContractSite(
+                callsite_id=cid, path=f"{cid}.py", line=1,
+                call="create()", confidence="high", instrumented=False,
+            )
+            for cid in callsite_ids
+        ]
+        contract = CoverageContract(call_sites=sites)
+        path = tmp_path / "test_contract.json"
+        contract.write(path)
+        return path
+
+    def test_coverage_pass_exits_0(self, tmp_path):
+        """Full coverage above threshold -> exit 0."""
+        from assay.coverage import compute_callsite_id
+
+        cid = compute_callsite_id("app.py", 10)
+        contract_path = self._write_contract(tmp_path, [cid])
+
+        receipts = [_make_receipt(seq=0, callsite_id=cid)]
+        pack_dir, ks = _build_pack(tmp_path, receipts=receipts)
+
+        result = runner.invoke(assay_app, [
+            "verify-pack", str(pack_dir),
+            "--coverage-contract", str(contract_path),
+            "--min-coverage", "0.8",
+        ])
+        assert result.exit_code == 0, f"Expected 0, got {result.exit_code}\n{result.output}"
+
+    def test_coverage_fail_exits_1(self, tmp_path):
+        """Coverage below threshold -> exit 1."""
+        from assay.coverage import compute_callsite_id
+
+        cid_a = compute_callsite_id("a.py", 10)
+        cid_b = compute_callsite_id("b.py", 20)
+        contract_path = self._write_contract(tmp_path, [cid_a, cid_b])
+
+        # Only one of two sites covered
+        receipts = [_make_receipt(seq=0, callsite_id=cid_a)]
+        pack_dir, ks = _build_pack(tmp_path, receipts=receipts)
+
+        result = runner.invoke(assay_app, [
+            "verify-pack", str(pack_dir),
+            "--coverage-contract", str(contract_path),
+            "--min-coverage", "0.8",
+        ])
+        assert result.exit_code == 1, f"Expected 1, got {result.exit_code}\n{result.output}"
+
+    def test_coverage_fail_shows_yellow_panel_not_red(self, tmp_path):
+        """Coverage failure shows COVERAGE BELOW THRESHOLD, not VERIFICATION FAILED."""
+        from assay.coverage import compute_callsite_id
+
+        cid_a = compute_callsite_id("a.py", 10)
+        cid_b = compute_callsite_id("b.py", 20)
+        contract_path = self._write_contract(tmp_path, [cid_a, cid_b])
+
+        receipts = [_make_receipt(seq=0, callsite_id=cid_a)]
+        pack_dir, ks = _build_pack(tmp_path, receipts=receipts)
+
+        result = runner.invoke(assay_app, [
+            "verify-pack", str(pack_dir),
+            "--coverage-contract", str(contract_path),
+            "--min-coverage", "0.8",
+        ])
+        assert "COVERAGE BELOW THRESHOLD" in result.output
+        assert "VERIFICATION FAILED" not in result.output
+
+    def test_coverage_json_includes_coverage_field(self, tmp_path):
+        """JSON output includes coverage result dict."""
+        from assay.coverage import compute_callsite_id
+
+        cid = compute_callsite_id("app.py", 10)
+        contract_path = self._write_contract(tmp_path, [cid])
+        receipts = [_make_receipt(seq=0, callsite_id=cid)]
+        pack_dir, ks = _build_pack(tmp_path, receipts=receipts)
+
+        result = runner.invoke(assay_app, [
+            "verify-pack", str(pack_dir),
+            "--coverage-contract", str(contract_path),
+            "--json",
+        ])
+        data = json.loads(result.output)
+        assert "coverage" in data
+        assert data["coverage"]["coverage_pct"] == 1.0
+        assert data["coverage"]["covered_count"] == 1
+
+    def test_missing_contract_exits_2(self, tmp_path):
+        """Missing contract file -> exit 2."""
+        pack_dir, ks = _build_pack(tmp_path)
+        result = runner.invoke(assay_app, [
+            "verify-pack", str(pack_dir),
+            "--coverage-contract", "/nonexistent/contract.json",
+        ])
+        assert result.exit_code == 2
+
+    def test_min_coverage_out_of_range_exits_3(self, tmp_path):
+        """--min-coverage outside 0.0-1.0 -> exit 3."""
+        pack_dir, ks = _build_pack(tmp_path)
+        result = runner.invoke(assay_app, [
+            "verify-pack", str(pack_dir),
+            "--min-coverage", "1.5",
+        ])
+        assert result.exit_code == 3
+
+    def test_integrity_fail_trumps_coverage(self, tmp_path):
+        """Integrity failure (exit 2) takes precedence over coverage failure."""
+        from assay.coverage import compute_callsite_id
+
+        cid_a = compute_callsite_id("a.py", 10)
+        cid_b = compute_callsite_id("b.py", 20)
+        contract_path = self._write_contract(tmp_path, [cid_a, cid_b])
+
+        receipts = [_make_receipt(seq=0, callsite_id=cid_a)]
+        pack_dir, ks = _build_pack(tmp_path, receipts=receipts)
+        _tamper_receipts(pack_dir)
+
+        result = runner.invoke(assay_app, [
+            "verify-pack", str(pack_dir),
+            "--coverage-contract", str(contract_path),
+            "--min-coverage", "0.8",
+        ])
+        assert result.exit_code == 2, (
+            f"Integrity failure should be exit 2, got {result.exit_code}\n{result.output}"
+        )

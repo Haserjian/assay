@@ -1009,7 +1009,7 @@ class TestVerifyClaims:
 
 class TestRunCards:
     def test_builtin_cards_count(self):
-        assert len(BUILTIN_CARDS) == 5
+        assert len(BUILTIN_CARDS) == 6
 
     def test_get_builtin_card(self):
         card = get_builtin_card("guardian_enforcement")
@@ -1021,7 +1021,7 @@ class TestRunCards:
 
     def test_get_all_builtin_cards(self):
         cards = get_all_builtin_cards()
-        assert len(cards) == 5
+        assert len(cards) == 6
         ids = {c.card_id for c in cards}
         assert "guardian_enforcement" in ids
         assert "receipt_completeness" in ids
