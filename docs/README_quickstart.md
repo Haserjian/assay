@@ -238,6 +238,7 @@ trust faster than bugs.
 | `no_breakglass` | No breakglass override receipts |
 | `timestamp_ordering` | Timestamps are monotonically non-decreasing |
 | `schema_consistency` | All `model_call` receipts use schema_version 3.0 |
+| `coverage_contract` | Receipt callsite_ids cover scan-discovered call sites |
 
 ## Glossary
 
