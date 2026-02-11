@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Assay - Tamper-Evident Audit Trails for AI Systems</title>
+<meta name="description" content="Cryptographically signed proof packs for AI systems. When someone asks 'prove what your AI did,' logs aren't enough.">
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg2: #161b22;
+    --bg3: #1c2128;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text2: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --red: #f85149;
+    --yellow: #d29922;
+    --orange: #db6d28;
+    --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .container { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+
+  /* Nav */
+  nav {
+    border-bottom: 1px solid var(--border);
+    padding: 16px 0;
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 100;
+  }
+  nav .container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  nav .logo {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+    text-decoration: none;
+    font-family: var(--mono);
+  }
+  nav .links { display: flex; gap: 24px; align-items: center; }
+  nav .links a {
+    color: var(--text2);
+    text-decoration: none;
+    font-size: 14px;
+    transition: color 0.2s;
+  }
+  nav .links a:hover { color: var(--text); }
+  nav .links .cta {
+    background: var(--accent);
+    color: var(--bg);
+    padding: 6px 16px;
+    border-radius: 6px;
+    font-weight: 600;
+  }
+  nav .links .cta:hover { opacity: 0.9; color: var(--bg); }
+
+  /* Hero */
+  .hero {
+    padding: 80px 0 60px;
+    text-align: center;
+  }
+  .hero h1 {
+    font-size: 48px;
+    font-weight: 800;
+    line-height: 1.1;
+    margin-bottom: 20px;
+    letter-spacing: -0.02em;
+  }
+  .hero h1 span { color: var(--accent); }
+  .hero .subtitle {
+    font-size: 20px;
+    color: var(--text2);
+    max-width: 640px;
+    margin: 0 auto 32px;
+    line-height: 1.5;
+  }
+  .hero .install {
+    display: inline-block;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 24px;
+    font-family: var(--mono);
+    font-size: 16px;
+    color: var(--green);
+    cursor: pointer;
+    transition: border-color 0.2s;
+    position: relative;
+  }
+  .hero .install:hover { border-color: var(--accent); }
+  .hero .install .dollar { color: var(--text2); user-select: none; }
+  .hero .install .copied {
+    position: absolute;
+    top: -30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--green);
+    color: var(--bg);
+    padding: 2px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .hero .install .copied.show { opacity: 1; }
+
+  /* Section */
+  section { padding: 60px 0; }
+  section h2 {
+    font-size: 32px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    letter-spacing: -0.01em;
+  }
+  section .section-sub {
+    color: var(--text2);
+    font-size: 16px;
+    margin-bottom: 40px;
+    max-width: 640px;
+  }
+
+  /* The Diff */
+  .diff-section { border-top: 1px solid var(--border); }
+  .diff-block {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    max-width: 720px;
+  }
+  .diff-header {
+    padding: 10px 16px;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text2);
+    border-bottom: 1px solid var(--border);
+    background: var(--bg3);
+  }
+  .diff-body {
+    padding: 16px;
+    font-family: var(--mono);
+    font-size: 14px;
+    line-height: 1.8;
+    overflow-x: auto;
+  }
+  .diff-line { white-space: pre; }
+  .diff-context { color: var(--text2); }
+  .diff-add {
+    color: var(--green);
+    background: rgba(63, 185, 80, 0.1);
+    display: block;
+    margin: 0 -16px;
+    padding: 0 16px;
+  }
+  .diff-label {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 24px;
+    margin-bottom: 12px;
+  }
+  .diff-label .tag {
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+  }
+  .diff-label .tag-before {
+    background: rgba(139, 148, 158, 0.2);
+    color: var(--text2);
+  }
+  .diff-label .tag-after {
+    background: rgba(63, 185, 80, 0.15);
+    color: var(--green);
+  }
+  .diff-label p {
+    color: var(--text2);
+    font-size: 14px;
+  }
+
+  /* Exit codes */
+  .exit-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 24px;
+    font-size: 15px;
+  }
+  .exit-table th {
+    text-align: left;
+    padding: 12px 16px;
+    border-bottom: 2px solid var(--border);
+    color: var(--text2);
+    font-weight: 600;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .exit-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .exit-table tr:last-child td { border-bottom: none; }
+  .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: var(--mono);
+  }
+  .badge-pass { background: rgba(63, 185, 80, 0.15); color: var(--green); }
+  .badge-fail { background: rgba(248, 81, 73, 0.15); color: var(--red); }
+  .badge-skip { background: rgba(139, 148, 158, 0.15); color: var(--text2); }
+  .exit-code {
+    font-family: var(--mono);
+    font-weight: 700;
+  }
+  .exit-0 { color: var(--green); }
+  .exit-1 { color: var(--yellow); }
+  .exit-2 { color: var(--red); }
+
+  /* Gap map */
+  .gap-section { border-top: 1px solid var(--border); }
+  .gap-controls {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+    align-items: center;
+  }
+  .gap-controls input {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: var(--text);
+    font-size: 14px;
+    flex: 1;
+    max-width: 300px;
+    outline: none;
+  }
+  .gap-controls input:focus { border-color: var(--accent); }
+  .gap-controls .count {
+    color: var(--text2);
+    font-size: 13px;
+    font-family: var(--mono);
+  }
+  .gap-table-wrap {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .gap-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  .gap-table th {
+    text-align: left;
+    padding: 10px 14px;
+    background: var(--bg3);
+    border-bottom: 1px solid var(--border);
+    color: var(--text2);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+  }
+  .gap-table th:hover { color: var(--text); }
+  .gap-table th .sort-arrow { margin-left: 4px; font-size: 10px; }
+  .gap-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .gap-table tr:last-child td { border-bottom: none; }
+  .gap-table tr:hover td { background: var(--bg2); }
+  .gap-table a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .gap-table a:hover { text-decoration: underline; }
+  .gap-table .num {
+    font-family: var(--mono);
+    text-align: right;
+    font-size: 13px;
+  }
+  .gap-table .stars {
+    color: var(--yellow);
+    font-family: var(--mono);
+    font-size: 13px;
+    text-align: right;
+  }
+  .gap-table .bar-cell { width: 120px; }
+  .bar {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: var(--red);
+    position: absolute;
+    left: 0;
+    top: 0;
+  }
+  .coverage-zero {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--red);
+    font-weight: 600;
+  }
+
+  /* Try it */
+  .try-section { border-top: 1px solid var(--border); }
+  .try-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  .try-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+  }
+  .try-card h3 {
+    font-size: 16px;
+    margin-bottom: 8px;
+  }
+  .try-card p {
+    color: var(--text2);
+    font-size: 14px;
+    margin-bottom: 16px;
+  }
+  .try-card pre {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px;
+    font-family: var(--mono);
+    font-size: 13px;
+    overflow-x: auto;
+    line-height: 1.7;
+  }
+  .try-card .cmd { color: var(--green); }
+  .try-card .comment { color: var(--text2); }
+
+  /* Stats bar */
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 48px;
+  }
+  .stat {
+    background: var(--bg2);
+    padding: 24px;
+    text-align: center;
+  }
+  .stat .num {
+    font-size: 36px;
+    font-weight: 800;
+    font-family: var(--mono);
+    color: var(--accent);
+  }
+  .stat .label {
+    font-size: 13px;
+    color: var(--text2);
+    margin-top: 4px;
+  }
+
+  /* CTA */
+  .cta-section {
+    border-top: 1px solid var(--border);
+    text-align: center;
+    padding: 80px 0;
+  }
+  .cta-section h2 { margin-bottom: 12px; }
+  .cta-section p {
+    color: var(--text2);
+    margin-bottom: 32px;
+    font-size: 16px;
+  }
+  .cta-buttons { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    display: inline-block;
+    padding: 12px 28px;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: opacity 0.2s;
+  }
+  .btn:hover { opacity: 0.9; }
+  .btn-primary { background: var(--accent); color: var(--bg); }
+  .btn-secondary {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover { border-color: var(--text2); }
+
+  /* Footer */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 32px 0;
+    text-align: center;
+    color: var(--text2);
+    font-size: 13px;
+  }
+  footer a { color: var(--text2); text-decoration: none; }
+  footer a:hover { color: var(--text); }
+
+  /* Responsive */
+  @media (max-width: 640px) {
+    .hero h1 { font-size: 32px; }
+    .hero .subtitle { font-size: 16px; }
+    .stats-bar { grid-template-columns: repeat(2, 1fr); }
+    .try-grid { grid-template-columns: 1fr; }
+    .stat .num { font-size: 28px; }
+    nav .links { gap: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="container">
+    <a href="#" class="logo">assay</a>
+    <div class="links">
+      <a href="#how-it-works">How It Works</a>
+      <a href="#gap-map">Gap Map</a>
+      <a href="https://github.com/Haserjian/assay" target="_blank">GitHub</a>
+      <a href="https://pypi.org/project/assay-ai/" target="_blank">PyPI</a>
+      <a href="https://github.com/Haserjian/assay/issues/new?template=pilot-inquiry.md" class="cta" target="_blank">Get a Pilot</a>
+    </div>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="container">
+    <h1>Prove what your AI did.<br><span>Cryptographically.</span></h1>
+    <p class="subtitle">
+      Logs say what happened. Assay <em>proves</em> it. Tamper-evident proof packs
+      with Ed25519 signatures, Merkle trees, and claims verification.
+      Two lines of code. Exit code 0, 1, or 2. Done.
+    </p>
+    <div class="install" onclick="copyInstall(this)">
+      <span class="dollar">$ </span>pip install assay-ai && assay demo-incident
+      <span class="copied" id="copied">Copied!</span>
+    </div>
+  </div>
+</section>
+
+<div class="container">
+  <div class="stats-bar">
+    <div class="stat">
+      <div class="num">30</div>
+      <div class="label">AI projects scanned</div>
+    </div>
+    <div class="stat">
+      <div class="num">202</div>
+      <div class="label">LLM call sites found</div>
+    </div>
+    <div class="stat">
+      <div class="num">0</div>
+      <div class="label">with tamper-evident evidence</div>
+    </div>
+    <div class="stat">
+      <div class="num">0%</div>
+      <div class="label">coverage</div>
+    </div>
+  </div>
+</div>
+
+<section class="diff-section" id="how-it-works">
+  <div class="container">
+    <h2>Two lines. That's the diff.</h2>
+    <p class="section-sub">
+      Add a one-line patch. Run through <code>assay run</code>. Every LLM call
+      now produces a signed receipt. The proof pack is a 5-file evidence bundle
+      that anyone can verify independently.
+    </p>
+
+    <div class="diff-label">
+      <span class="tag tag-before">BEFORE</span>
+      <p>Your code calls OpenAI. No evidence trail.</p>
+    </div>
+    <div class="diff-block">
+      <div class="diff-header">app.py</div>
+      <div class="diff-body">
+<span class="diff-line diff-context">import openai</span>
+<span class="diff-line diff-context">client = openai.OpenAI()</span>
+<span class="diff-line diff-context">response = client.chat.completions.create(</span>
+<span class="diff-line diff-context">    model="gpt-4", messages=[{"role": "user", "content": prompt}]</span>
+<span class="diff-line diff-context">)</span>
+      </div>
+    </div>
+
+    <div class="diff-label">
+      <span class="tag tag-after">AFTER</span>
+      <p>Add one import. Every call emits a cryptographically signed receipt.</p>
+    </div>
+    <div class="diff-block">
+      <div class="diff-header">app.py</div>
+      <div class="diff-body">
+<span class="diff-line diff-add">+ from assay.integrations.openai import patch; patch()</span>
+<span class="diff-line diff-context">import openai</span>
+<span class="diff-line diff-context">client = openai.OpenAI()</span>
+<span class="diff-line diff-context">response = client.chat.completions.create(</span>
+<span class="diff-line diff-context">    model="gpt-4", messages=[{"role": "user", "content": prompt}]</span>
+<span class="diff-line diff-context">)</span>
+      </div>
+    </div>
+
+    <div style="margin-top: 40px;">
+      <h3 style="font-size: 20px; margin-bottom: 16px;">Then verify</h3>
+      <div class="diff-block">
+        <div class="diff-header">terminal</div>
+        <div class="diff-body">
+<span class="diff-line" style="color: var(--text2);">$ </span><span class="diff-line" style="color: var(--green);">assay run -c receipt_completeness -- python app.py</span>
+<span class="diff-line diff-context">Receipts captured: 3</span>
+<span class="diff-line diff-context">Proof pack: ./proof_pack_20260211_143022/</span>
+<span class="diff-line diff-context"></span>
+<span class="diff-line" style="color: var(--text2);">$ </span><span class="diff-line" style="color: var(--green);">assay verify-pack ./proof_pack_20260211_143022/</span>
+<span class="diff-line" style="color: var(--green);">Integrity: PASS</span>
+<span class="diff-line" style="color: var(--green);">Claims:    PASS</span>
+<span class="diff-line" style="color: var(--green);">Exit code: 0</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top: 48px;">
+      <h3 style="font-size: 20px; margin-bottom: 12px;">Three exit codes. That's the whole API.</h3>
+      <table class="exit-table">
+        <thead>
+          <tr>
+            <th>Integrity</th>
+            <th>Claims</th>
+            <th>Exit</th>
+            <th>Meaning</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="badge badge-pass">PASS</span></td>
+            <td><span class="badge badge-pass">PASS</span></td>
+            <td><span class="exit-code exit-0">0</span></td>
+            <td>Evidence checks out, behavior meets standards</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-pass">PASS</span></td>
+            <td><span class="badge badge-fail">FAIL</span></td>
+            <td><span class="exit-code exit-1">1</span></td>
+            <td>Honest failure: authentic evidence of standards violation</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-fail">FAIL</span></td>
+            <td><span class="badge badge-skip">--</span></td>
+            <td><span class="exit-code exit-2">2</span></td>
+            <td>Evidence has been tampered with</td>
+          </tr>
+        </tbody>
+      </table>
+      <p style="color: var(--text2); font-size: 14px; margin-top: 16px;">
+        The split is the point. Systems that can prove they failed honestly are more
+        trustworthy than systems that always claim to pass.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="gap-section" id="gap-map">
+  <div class="container">
+    <h2>Evidence Gap Map</h2>
+    <p class="section-sub">
+      We scanned 30 popular open-source AI projects for tamper-evident audit trails.
+      High-confidence = direct SDK calls (OpenAI, Anthropic). Click column headers to sort.
+    </p>
+
+    <div class="gap-controls">
+      <input type="text" id="gap-search" placeholder="Filter repos..." oninput="filterGapTable()">
+      <span class="count" id="gap-count">27 repos</span>
+    </div>
+
+    <div class="gap-table-wrap">
+      <table class="gap-table" id="gap-table">
+        <thead>
+          <tr>
+            <th onclick="sortGap('repo')">Repo <span class="sort-arrow"></span></th>
+            <th onclick="sortGap('stars')">Stars <span class="sort-arrow"></span></th>
+            <th onclick="sortGap('high')">High <span class="sort-arrow"></span></th>
+            <th onclick="sortGap('medium')">Med <span class="sort-arrow"></span></th>
+            <th onclick="sortGap('low')">Low <span class="sort-arrow"></span></th>
+            <th onclick="sortGap('total')">Total <span class="sort-arrow"></span></th>
+            <th>Coverage</th>
+          </tr>
+        </thead>
+        <tbody id="gap-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="try-section" id="try-it">
+  <div class="container">
+    <h2>Try it in 60 seconds</h2>
+    <p class="section-sub">No API key needed. Synthetic data. Real cryptography.</p>
+
+    <div class="try-grid">
+      <div class="try-card">
+        <h3>See an honest failure</h3>
+        <p>Two-act scenario: a passing run, then someone swaps the model and drops the guardian.</p>
+        <pre><span class="comment"># Act 1: PASS. Act 2: honest FAIL.</span>
+<span class="cmd">pip install assay-ai
+assay demo-incident</span></pre>
+      </div>
+      <div class="try-card">
+        <h3>Spot the tampered pack</h3>
+        <p>CTF-style challenge. One pack is legit, one has been tampered with. Can you tell which?</p>
+        <pre><span class="comment"># Good pack vs tampered pack</span>
+<span class="cmd">assay demo-challenge</span></pre>
+      </div>
+      <div class="try-card">
+        <h3>Scan your own code</h3>
+        <p>Find every uninstrumented LLM call site. Get a self-contained HTML gap report.</p>
+        <pre><span class="comment"># Interactive HTML report</span>
+<span class="cmd">assay scan . --report</span></pre>
+      </div>
+      <div class="try-card">
+        <h3>Lock it into CI</h3>
+        <p>Freeze the verification contract. Block merges when evidence degrades.</p>
+        <pre><span class="comment"># Generate GitHub Actions workflow</span>
+<span class="cmd">assay ci init github
+assay lock write --cards receipt_completeness</span></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="cta-section">
+  <div class="container">
+    <h2>Ready to prove what your AI does?</h2>
+    <p>Open source. Apache-2.0. Works with OpenAI, Anthropic, and LangChain today.</p>
+    <div class="cta-buttons">
+      <a href="https://github.com/Haserjian/assay" class="btn btn-primary" target="_blank">View on GitHub</a>
+      <a href="https://github.com/Haserjian/assay/issues/new?template=pilot-inquiry.md" class="btn btn-secondary" target="_blank">Request a Pilot</a>
+      <a href="https://github.com/Haserjian/assay/discussions" class="btn btn-secondary" target="_blank">Join the Discussion</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <p>
+      <a href="https://github.com/Haserjian/assay">assay</a> &middot;
+      <a href="https://github.com/Haserjian/assay-verify-action">assay-verify-action</a> &middot;
+      <a href="https://github.com/Haserjian/assay-ledger">assay-ledger</a> &middot;
+      <a href="https://pypi.org/project/assay-ai/">PyPI</a>
+    </p>
+    <p style="margin-top: 8px;">Apache-2.0 License</p>
+  </div>
+</footer>
+
+<script>
+const GAP_DATA = [
+  {repo:"run-llama/llama_index",stars:46870,high:38,medium:119,low:4,total:161},
+  {repo:"agno-agi/agno",stars:37673,high:27,medium:2,low:0,total:29},
+  {repo:"mem0ai/mem0",stars:46901,high:22,medium:25,low:18,total:65},
+  {repo:"browser-use/browser-use",stars:78027,high:20,medium:11,low:0,total:31},
+  {repo:"crewAIInc/crewAI",stars:43808,high:14,medium:4,low:0,total:18},
+  {repo:"comet-ml/opik",stars:17696,high:13,medium:23,low:31,total:67},
+  {repo:"langchain-ai/langchain",stars:126246,high:12,medium:195,low:4,total:211},
+  {repo:"BerriAI/litellm",stars:35519,high:9,medium:52,low:0,total:61},
+  {repo:"Doriandarko/claude-engineer",stars:11166,high:8,medium:0,low:0,total:8},
+  {repo:"AgentOps-AI/agentops",stars:5274,high:7,medium:0,low:0,total:7},
+  {repo:"awslabs/agent-squad",stars:7357,high:5,medium:0,low:0,total:5},
+  {repo:"griptape-ai/griptape",stars:2464,high:5,medium:0,low:0,total:5},
+  {repo:"pydantic/pydantic-ai",stars:14746,high:4,medium:0,low:0,total:4},
+  {repo:"567-labs/instructor",stars:12340,high:4,medium:0,low:0,total:4},
+  {repo:"gptme/gptme",stars:4186,high:4,medium:1,low:0,total:5},
+  {repo:"chatchat-space/Langchain-Chatchat",stars:37270,high:3,medium:21,low:0,total:24},
+  {repo:"stanfordnlp/dspy",stars:32084,high:2,medium:4,low:0,total:6},
+  {repo:"anthropics/anthropic-sdk-python",stars:2735,high:2,medium:0,low:0,total:2},
+  {repo:"openai/openai-agents-python",stars:18842,high:1,medium:1,low:0,total:2},
+  {repo:"kyegomez/swarms",stars:5724,high:1,medium:0,low:5,total:6},
+  {repo:"Storia-AI/sage",stars:1264,high:1,medium:2,low:0,total:3},
+  {repo:"langchain-ai/langgraph",stars:24446,high:0,medium:56,low:0,total:56},
+  {repo:"Aider-AI/aider",stars:40431,high:0,medium:3,low:0,total:3},
+  {repo:"docker/genai-stack",stars:5198,high:0,medium:7,low:0,total:7},
+  {repo:"shroominic/codeinterpreter-api",stars:3865,high:0,medium:12,low:1,total:13},
+  {repo:"explosion/spacy-llm",stars:1362,high:0,medium:1,low:0,total:1},
+  {repo:"TaskingAI/TaskingAI",stars:5367,high:0,medium:0,low:10,total:10},
+  {repo:"LearningCircuit/local-deep-research",stars:3978,high:0,medium:89,low:0,total:89}
+];
+
+const maxTotal = Math.max(...GAP_DATA.map(d => d.total));
+let currentSort = {col: 'high', dir: 'desc'};
+
+function formatStars(n) {
+  return n >= 1000 ? (n/1000).toFixed(n >= 10000 ? 0 : 1) + 'k' : n.toString();
+}
+
+function renderGapTable(data) {
+  const tbody = document.getElementById('gap-tbody');
+  tbody.innerHTML = data.map(d => `
+    <tr>
+      <td><a href="https://github.com/${d.repo}" target="_blank">${d.repo.split('/')[1]}</a></td>
+      <td class="stars">${formatStars(d.stars)}</td>
+      <td class="num">${d.high || '-'}</td>
+      <td class="num">${d.medium || '-'}</td>
+      <td class="num">${d.low || '-'}</td>
+      <td class="num" style="font-weight:600">${d.total}</td>
+      <td><span class="coverage-zero">0%</span></td>
+    </tr>
+  `).join('');
+  document.getElementById('gap-count').textContent = data.length + ' repos';
+}
+
+function sortGap(col) {
+  if (currentSort.col === col) {
+    currentSort.dir = currentSort.dir === 'desc' ? 'asc' : 'desc';
+  } else {
+    currentSort.col = col;
+    currentSort.dir = col === 'repo' ? 'asc' : 'desc';
+  }
+  const sorted = [...GAP_DATA].sort((a, b) => {
+    let va = a[col], vb = b[col];
+    if (typeof va === 'string') va = va.toLowerCase();
+    if (typeof vb === 'string') vb = vb.toLowerCase();
+    if (va < vb) return currentSort.dir === 'asc' ? -1 : 1;
+    if (va > vb) return currentSort.dir === 'asc' ? 1 : -1;
+    return 0;
+  });
+  const filtered = document.getElementById('gap-search').value.toLowerCase();
+  renderGapTable(filtered ? sorted.filter(d => d.repo.toLowerCase().includes(filtered)) : sorted);
+}
+
+function filterGapTable() {
+  const q = document.getElementById('gap-search').value.toLowerCase();
+  const filtered = GAP_DATA.filter(d => d.repo.toLowerCase().includes(q));
+  const sorted = [...filtered].sort((a, b) => {
+    let va = a[currentSort.col], vb = b[currentSort.col];
+    if (typeof va === 'string') va = va.toLowerCase();
+    if (typeof vb === 'string') vb = vb.toLowerCase();
+    if (va < vb) return currentSort.dir === 'asc' ? -1 : 1;
+    if (va > vb) return currentSort.dir === 'asc' ? 1 : -1;
+    return 0;
+  });
+  renderGapTable(sorted);
+}
+
+function copyInstall(el) {
+  navigator.clipboard.writeText('pip install assay-ai && assay demo-incident');
+  const tip = el.querySelector('.copied');
+  tip.classList.add('show');
+  setTimeout(() => tip.classList.remove('show'), 1500);
+}
+
+// Initial render sorted by high-confidence desc
+sortGap('high');
+</script>
+
+</body>
+</html>
