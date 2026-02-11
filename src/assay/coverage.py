@@ -43,9 +43,10 @@ class ContractSite:
     call: str
     confidence: str  # "high" or "medium" (LOW excluded by default)
     instrumented: bool
+    framework: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        d: Dict[str, Any] = {
             "callsite_id": self.callsite_id,
             "path": self.path,
             "line": self.line,
@@ -53,6 +54,9 @@ class ContractSite:
             "confidence": self.confidence,
             "instrumented": self.instrumented,
         }
+        if self.framework:
+            d["framework"] = self.framework
+        return d
 
 
 @dataclass
@@ -63,12 +67,19 @@ class CoverageContract:
     generated_at: str = ""
     project_root: str = "."
 
+    # Frameworks where runtime callsite_id tracking is not yet supported.
+    # LangChain uses callbacks (not monkey-patching), so the user's call
+    # site is not on the stack when on_llm_end fires.  Including these in
+    # the contract denominator would cause false coverage failures.
+    _UNSUPPORTED_CALLSITE_FRAMEWORKS = {"langchain", "litellm"}
+
     @classmethod
     def from_scan_result(
         cls,
         result: Any,
         *,
         include_low: bool = False,
+        include_all_frameworks: bool = False,
         project_root: str = ".",
     ) -> CoverageContract:
         """Build a coverage contract from scanner output.
@@ -76,12 +87,19 @@ class CoverageContract:
         By default, only HIGH and MEDIUM confidence sites are included.
         LOW confidence sites are excluded from the contract denominator
         because they are heuristic matches with high false-positive rates.
+
+        Frameworks without runtime callsite_id support (LangChain, LiteLLM)
+        are excluded by default.  Pass ``include_all_frameworks=True`` to
+        override.
         """
         from assay.scanner import Confidence
 
         sites: List[ContractSite] = []
         for finding in result.findings:
             if not include_low and finding.confidence == Confidence.LOW:
+                continue
+            framework = getattr(finding, "framework", "") or ""
+            if not include_all_frameworks and framework in cls._UNSUPPORTED_CALLSITE_FRAMEWORKS:
                 continue
             cid = compute_callsite_id(finding.path, finding.line)
             sites.append(ContractSite(
@@ -91,6 +109,7 @@ class CoverageContract:
                 call=finding.call,
                 confidence=finding.confidence.value,
                 instrumented=finding.instrumented,
+                framework=framework,
             ))
 
         return cls(
@@ -149,6 +168,7 @@ class CoverageContract:
                 call=s["call"],
                 confidence=s["confidence"],
                 instrumented=s["instrumented"],
+                framework=s.get("framework", ""),
             )
             for s in data.get("call_sites", [])
         ]

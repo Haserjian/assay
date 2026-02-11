@@ -659,12 +659,13 @@ class TestGoldenFixture:
 
         # Finding keys (schema contract)
         f0 = d["findings"][0]
-        assert set(f0.keys()) == {"path", "line", "call", "confidence", "instrumented", "fix"}
+        assert set(f0.keys()) == {"path", "line", "call", "confidence", "instrumented", "fix", "framework"}
         assert f0["path"] == "app.py"
         assert f0["confidence"] == "high"
         assert f0["instrumented"] is False
         assert "openai" in f0["fix"]
         assert f0["call"] == "client.chat.completions.create"
+        assert f0["framework"] == "openai"
 
         # next_command present for openai findings
         assert d["next_command"] is not None

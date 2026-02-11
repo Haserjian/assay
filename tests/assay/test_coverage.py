@@ -52,10 +52,11 @@ def _make_scan_result(*findings):
     return ScanResult(findings=list(findings))
 
 
-def _site(path, line, call, confidence, instrumented=False):
+def _site(path, line, call, confidence, instrumented=False, framework=""):
     return CallSite(
         path=path, line=line, call=call,
         confidence=confidence, instrumented=instrumented,
+        framework=framework,
     )
 
 
@@ -97,6 +98,47 @@ class TestCoverageContractFromScan:
         result = _make_scan_result()
         contract = CoverageContract.from_scan_result(result)
         assert len(contract.call_sites) == 0
+
+    def test_excludes_langchain_by_default(self):
+        result = _make_scan_result(
+            _site("a.py", 1, "client.create()", Confidence.HIGH, framework="openai"),
+            _site("b.py", 2, "chain.invoke()", Confidence.MEDIUM, framework="langchain"),
+        )
+        contract = CoverageContract.from_scan_result(result)
+        assert len(contract.call_sites) == 1
+        assert contract.call_sites[0].path == "a.py"
+
+    def test_excludes_litellm_by_default(self):
+        result = _make_scan_result(
+            _site("a.py", 1, "litellm.completion()", Confidence.MEDIUM, framework="litellm"),
+        )
+        contract = CoverageContract.from_scan_result(result)
+        assert len(contract.call_sites) == 0
+
+    def test_includes_langchain_with_flag(self):
+        result = _make_scan_result(
+            _site("a.py", 1, "client.create()", Confidence.HIGH, framework="openai"),
+            _site("b.py", 2, "chain.invoke()", Confidence.MEDIUM, framework="langchain"),
+        )
+        contract = CoverageContract.from_scan_result(result, include_all_frameworks=True)
+        assert len(contract.call_sites) == 2
+
+    def test_framework_preserved_in_contract_site(self):
+        result = _make_scan_result(
+            _site("a.py", 1, "client.create()", Confidence.HIGH, framework="openai"),
+        )
+        contract = CoverageContract.from_scan_result(result)
+        assert contract.call_sites[0].framework == "openai"
+
+    def test_framework_roundtrips_through_json(self, tmp_path):
+        result = _make_scan_result(
+            _site("a.py", 1, "client.create()", Confidence.HIGH, framework="openai"),
+        )
+        original = CoverageContract.from_scan_result(result)
+        path = tmp_path / "contract.json"
+        original.write(path)
+        loaded = CoverageContract.load(path)
+        assert loaded.call_sites[0].framework == "openai"
 
 
 # ---------------------------------------------------------------------------

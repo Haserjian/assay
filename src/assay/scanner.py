@@ -35,6 +35,7 @@ class CallSite:
     confidence: Confidence
     instrumented: bool
     fix: Optional[str] = None
+    framework: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
         d: Dict[str, Any] = {
@@ -46,6 +47,8 @@ class CallSite:
         }
         if self.fix:
             d["fix"] = self.fix
+        if self.framework:
+            d["framework"] = self.framework
         return d
 
 
@@ -218,18 +221,18 @@ class _LLMCallVisitor(ast.NodeVisitor):
     """AST visitor that finds LLM call sites and instrumentation evidence."""
 
     def __init__(self) -> None:
-        self.call_sites: List[tuple[int, str, Confidence]] = []
+        self.call_sites: List[tuple[int, str, Confidence, str]] = []  # (line, call, confidence, framework)
         self.has_instrumentation = False
         self.has_framework_imports = False
         self._imports: Set[str] = set()
         self._calls: Set[str] = set()
-        self._deferred_medium: List[tuple[int, str]] = []
+        self._deferred_medium: List[tuple[int, str, str]] = []  # (line, call, framework)
 
     def resolve_deferred(self) -> None:
         """Promote deferred guarded patterns based on collected import evidence."""
         if self.has_framework_imports:
-            for line, call in self._deferred_medium:
-                self.call_sites.append((line, call, Confidence.MEDIUM))
+            for line, call, framework in self._deferred_medium:
+                self.call_sites.append((line, call, Confidence.MEDIUM, framework))
         # If no framework imports, guarded patterns are silently dropped
 
     def visit_Import(self, node: ast.Import) -> None:
@@ -265,30 +268,30 @@ class _LLMCallVisitor(ast.NodeVisitor):
                 self._calls.add(call_str)
 
             # Check high-confidence patterns
-            for pattern, _framework in _HIGH_PATTERNS:
+            for pattern, framework in _HIGH_PATTERNS:
                 if pattern in call_str:
-                    self.call_sites.append((node.lineno, call_str, Confidence.HIGH))
+                    self.call_sites.append((node.lineno, call_str, Confidence.HIGH, framework))
                     break
             else:
                 # Check medium-confidence patterns (always match)
-                for pattern, _framework in _MEDIUM_PATTERNS:
+                for pattern, framework in _MEDIUM_PATTERNS:
                     pat = pattern.rstrip("(")
                     if pat in call_str:
-                        self.call_sites.append((node.lineno, call_str, Confidence.MEDIUM))
+                        self.call_sites.append((node.lineno, call_str, Confidence.MEDIUM, framework))
                         break
                 else:
                     # Check guarded medium patterns (need framework imports)
                     # Store as deferred -- resolved after full tree walk
-                    for pattern, _framework in _MEDIUM_GUARDED_PATTERNS:
+                    for pattern, framework in _MEDIUM_GUARDED_PATTERNS:
                         pat = pattern.rstrip("(")
                         if pat in call_str:
-                            self._deferred_medium.append((node.lineno, call_str))
+                            self._deferred_medium.append((node.lineno, call_str, framework))
                             break
                     else:
                         # Check low-confidence heuristics
                         func_name = name_parts[-1].lower()
                         if func_name in _LOW_HEURISTIC_NAMES:
-                            self.call_sites.append((node.lineno, call_str, Confidence.LOW))
+                            self.call_sites.append((node.lineno, call_str, Confidence.LOW, ""))
 
         self.generic_visit(node)
 
@@ -365,7 +368,7 @@ def scan_file(filepath: Path) -> tuple[List[CallSite], bool]:
 
     rel_path = str(filepath)
     sites = []
-    for line, call, confidence in visitor.call_sites:
+    for line, call, confidence, framework in visitor.call_sites:
         sites.append(CallSite(
             path=rel_path,
             line=line,
@@ -373,6 +376,7 @@ def scan_file(filepath: Path) -> tuple[List[CallSite], bool]:
             confidence=confidence,
             instrumented=visitor.has_instrumentation,
             fix=None if visitor.has_instrumentation else _suggest_fix(call),
+            framework=framework,
         ))
 
     return sites, visitor.has_instrumentation
