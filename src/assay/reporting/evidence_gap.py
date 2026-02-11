@@ -1069,8 +1069,8 @@ tr:hover { background: rgba(255,255,255,0.02); }
        "from assay.integrations.openai import patch\npatch()  # every SDK call now emits a signed receipt"],
       ["2. Run under proof", "Wrap your app (or tests) to collect receipts and sign a proof pack.",
        "assay run -- python your_app.py\nassay run -- pytest"],
-      ["3. Verify", "Check the proof pack. Exit code 0 = authentic. Exit code 2 = tampered.",
-       "assay verify-pack proof_pack_*/"],
+      ["3. Verify", "Check the proof pack. Exit code 0 = authentic, 2 = tampered, 1 = claim gate failed (with --require-claim-pass).",
+       "assay verify-pack proof_pack_*/\nassay verify-pack proof_pack_*/ --require-claim-pass"],
       ["4. Lock it in CI", "Add to your pipeline so every merge produces a verified proof pack.",
        "assay ci init github   # generates a GitHub Actions workflow"],
     ];

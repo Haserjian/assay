@@ -32,7 +32,7 @@ resp = client.chat.completions.create(model="gpt-4", messages=[...])
 # business logic unchanged. receipt goes into the proof pack.
 ```
 
-Then `assay run -- python your_app.py` wraps the execution, collects receipts, signs the pack with Ed25519. Exit code 0 = integrity + claims pass, 1 = honest failure, 2 = tampered. Drop it in CI and every merge produces a verified proof pack.
+Then `assay run -- python your_app.py` wraps execution, collects receipts, and signs the pack with Ed25519. CI checks happen in `assay verify-pack`: exit 0 = integrity PASS, exit 2 = tampered, and exit 1 = claim gate failed when using `--require-claim-pass`.
 
 **See tamper detection in 5 seconds:**
 
@@ -49,7 +49,7 @@ assay scan . --report   # generates a self-contained HTML gap report
 ```
 
 Full report with per-repo breakdown and method limits:
-https://github.com/Haserjian/assay/blob/9641c7c/scripts/scan_study/results/report.md
+https://github.com/Haserjian/assay/blob/main/scripts/scan_study/results/report.md
 
 If I missed your instrumentation or if a finding is a false positive, post a commit link and I'll update the dataset.
 

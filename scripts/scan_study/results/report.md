@@ -5,7 +5,7 @@
 ## TL;DR
 
 - Scanned **30** open-source AI/LLM projects on GitHub
-- Found **202** high-confidence LLM SDK call sites (direct `openai`/`anthropic` calls) across 28 projects
+- Found **202** high-confidence LLM SDK call sites (direct `openai`/`anthropic` calls) across 21 projects
 - **None** had tamper-evident evidence emission at any call site
 - Including heuristic matches: **903** total detected call sites, **0** with Assay-compatible instrumentation
 - These projects may have logging or observability elsewhere -- this scan specifically measures cryptographic receipt coverage

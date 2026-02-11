@@ -28,7 +28,7 @@ Results: 202 high-confidence direct SDK call sites (`client.chat.completions.cre
     resp = client.chat.completions.create(model="gpt-4", messages=[...])
     # business logic unchanged. receipt goes into the proof pack.
 
-Then `assay run -- python your_app.py` wraps the execution, collects receipts, signs the pack, and exits with code 0 (pass), 1 (honest failure), or 2 (tampered). CI-ready.
+Then `assay run -- python your_app.py` wraps the execution, collects receipts, and signs the pack. CI verification happens in `assay verify-pack`: exit 0 = integrity PASS, exit 2 = tampered, and exit 1 = claim gate failed (when using `--require-claim-pass`).
 
 Want to see tamper detection in 5 seconds?
 
@@ -40,9 +40,9 @@ Want to see tamper detection in 5 seconds?
 
 **Data:**
 
-- Full report: https://github.com/Haserjian/assay/blob/9641c7c/scripts/scan_study/results/report.md
-- Dataset (CSV with commit SHAs): https://github.com/Haserjian/assay/blob/9641c7c/scripts/scan_study/results/results.csv
-- Rerun script: https://github.com/Haserjian/assay/blob/9641c7c/scripts/scan_study/run_study.sh
+- Full report: https://github.com/Haserjian/assay/blob/main/scripts/scan_study/results/report.md
+- Dataset (CSV with commit SHAs): https://github.com/Haserjian/assay/blob/main/scripts/scan_study/results/results.csv
+- Rerun script: https://github.com/Haserjian/assay/blob/main/scripts/scan_study/run_study.sh
 
 If you think your project does have tamper-evident evidence emission and this scan missed it, drop a commit link and the instrumentation approach and I'll update the dataset. The goal is accuracy, not a gotcha.
 
