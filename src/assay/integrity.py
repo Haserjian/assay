@@ -1,21 +1,4 @@
-"""
-Core Integrity Verifier for Assay Proof Packs.
-
-Design constraints (from spec):
-  - < 500 LOC
-  - < 5 dependencies (hashlib, json, dataclasses, pathlib, typing)
-  - Never shells out
-  - No business logic, no policy interpretation
-  - Deterministic error codes
-
-Verifies:
-  - Receipt field presence and format
-  - JCS canonicalization stability
-  - Pack manifest file hashes
-  - Pack manifest signature
-  - Receipt count (omission resistance)
-  - Attestation hash binding
-"""
+"""Core integrity verifier for Assay Proof Packs."""
 from __future__ import annotations
 
 import hashlib
@@ -29,10 +12,6 @@ from typing import Any, Dict, List, Optional
 from nacl.signing import VerifyKey
 
 from assay._receipts.canonicalize import to_jcs_bytes
-
-# ---------------------------------------------------------------------------
-# Error taxonomy
-# ---------------------------------------------------------------------------
 
 E_CANON_MISMATCH = "E_CANON_MISMATCH"
 E_SCHEMA_UNKNOWN = "E_SCHEMA_UNKNOWN"
@@ -62,8 +41,6 @@ class VerifyError:
         if self.field is not None:
             d["field"] = self.field
         return d
-
-
 @dataclass
 class VerifyResult:
     """Aggregate verification result."""
@@ -82,12 +59,6 @@ class VerifyResult:
             "receipt_count": self.receipt_count,
             "head_hash": self.head_hash,
         }
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
 def _sha256_hex(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
@@ -98,12 +69,6 @@ def _parse_timestamp(ts: str) -> Optional[datetime]:
         return datetime.fromisoformat(ts.replace("Z", "+00:00"))
     except (ValueError, AttributeError):
         return None
-
-
-# ---------------------------------------------------------------------------
-# Receipt-level verification
-# ---------------------------------------------------------------------------
-
 REQUIRED_RECEIPT_FIELDS = ("receipt_id", "type", "timestamp")
 
 
@@ -195,12 +160,6 @@ def verify_receipt(
         ))
 
     return errors
-
-
-# ---------------------------------------------------------------------------
-# Receipt-pack-level verification
-# ---------------------------------------------------------------------------
-
 def verify_receipt_pack(
     receipts: List[Dict[str, Any]],
     *,
@@ -248,12 +207,6 @@ def verify_receipt_pack(
         receipt_count=len(receipts),
         head_hash=head_hash,
     )
-
-
-# ---------------------------------------------------------------------------
-# Pack manifest verification
-# ---------------------------------------------------------------------------
-
 def verify_pack_manifest(
     manifest: Dict[str, Any],
     pack_dir: Path,
@@ -314,16 +267,54 @@ def verify_pack_manifest(
     # 2. Parse receipt_pack.jsonl, recompute integrity, cross-check attestation
     receipt_pack_path = pack_dir / "receipt_pack.jsonl"
     parsed: List[Dict[str, Any]] = []
+    parse_failed = False
     if receipt_pack_path.exists():
-        parsed = [json.loads(ln) for ln in receipt_pack_path.read_text().splitlines() if ln.strip()]
+        try:
+            lines = receipt_pack_path.read_text(encoding="utf-8").splitlines()
+        except (OSError, UnicodeDecodeError) as exc:
+            parse_failed = True
+            errors.append(VerifyError(
+                code=E_MANIFEST_TAMPER,
+                message=f"Cannot parse receipt_pack.jsonl: {exc}",
+                field="receipt_pack.jsonl",
+            ))
+            lines = []
+        if not parse_failed:
+            for line_no, ln in enumerate(lines, start=1):
+                if not ln.strip():
+                    continue
+                try:
+                    parsed.append(json.loads(ln))
+                except json.JSONDecodeError as exc:
+                    parse_failed = True
+                    errors.append(VerifyError(
+                        code=E_MANIFEST_TAMPER,
+                        message=f"Invalid JSON in receipt_pack.jsonl at line {line_no}: {exc.msg}",
+                        field="receipt_pack.jsonl",
+                    ))
+                    break
     receipt_count_expected = manifest.get("receipt_count_expected")
-    if receipt_count_expected is not None and len(parsed) != receipt_count_expected:
+    if (
+        receipt_count_expected is not None
+        and not parse_failed
+        and len(parsed) != receipt_count_expected
+    ):
         errors.append(VerifyError(
             code=E_PACK_OMISSION_DETECTED,
             message=f"Receipt count mismatch: manifest says {receipt_count_expected}, "
                     f"file has {len(parsed)}",
         ))
-    recomputed = verify_receipt_pack(parsed)
+    recomputed = (
+        verify_receipt_pack(parsed)
+        if not parse_failed
+        else VerifyResult(
+            passed=False,
+            errors=[],
+            warnings=["receipt_pack.jsonl parse failed"],
+            receipt_count=len(parsed),
+            head_hash=None,
+        )
+    )
     attestation = manifest.get("attestation") or {}
     claimed_integrity = attestation.get("receipt_integrity")
     if claimed_integrity and ("PASS" if recomputed.passed else "FAIL") != claimed_integrity:

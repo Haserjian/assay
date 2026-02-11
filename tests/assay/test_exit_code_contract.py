@@ -150,6 +150,18 @@ class TestExitCode2:
         result = runner.invoke(assay_app, ["verify-pack", str(pack_dir)])
         assert result.exit_code == 2, f"Expected 2, got {result.exit_code}\n{result.output}"
 
+    def test_invalid_receipt_json_exits_2(self, tmp_path):
+        """Corrupt receipt_pack.jsonl parsing must be classified as tamper (exit 2)."""
+        pack_dir, ks = _build_pack(tmp_path)
+        receipt_path = pack_dir / "receipt_pack.jsonl"
+        # Valid UTF-8 but invalid JSON on line 1.
+        receipt_path.write_text("{\"receipt_id\":\n", encoding="utf-8")
+        result = runner.invoke(assay_app, ["verify-pack", str(pack_dir)])
+        assert result.exit_code == 2, (
+            f"Invalid receipt JSON should be integrity failure (2), got {result.exit_code}\n"
+            f"{result.output}"
+        )
+
 
 # ---------------------------------------------------------------------------
 # Exit code 1: claim gate failure
