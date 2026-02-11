@@ -35,7 +35,7 @@ assay demo-pack         # build + verify from scratch
 assay onboard .
 
 # 1. Find uninstrumented LLM calls
-assay scan .
+assay scan . --report   # generates a self-contained HTML gap report
 
 # 2. Instrument (one line)
 #    from assay.integrations.openai import patch; patch()
@@ -78,7 +78,7 @@ more trustworthy than systems that always claim to pass.
 | `assay demo-incident` | Two-act scenario: passing run vs failing run |
 | `assay demo-challenge` | CTF-style good + tampered pack pair |
 | `assay onboard` | Guided setup: doctor -> scan -> first run plan |
-| `assay scan` | Find uninstrumented LLM call sites |
+| `assay scan` | Find uninstrumented LLM call sites (`--report` for HTML) |
 | `assay run` | Wrap command, collect receipts, build signed pack |
 | `assay verify-pack` | Verify a Proof Pack (integrity + claims) |
 | `assay explain` | Plain-English summary of a proof pack |
@@ -97,7 +97,7 @@ more trustworthy than systems that always claim to pass.
 ## Scan Study
 
 We scanned 30 popular open-source AI projects for tamper-evident audit
-trails. Found 202 high-confidence LLM SDK call sites across 28 projects.
+trails. Found 202 high-confidence LLM SDK call sites across 21 projects.
 Zero had evidence emission at any call site.
 [Full results](scripts/scan_study/results/report.md).
 

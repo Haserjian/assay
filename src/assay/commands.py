@@ -1561,16 +1561,15 @@ def show_version(
         })
 
     console.print(f"[bold]Assay {__version__}[/]")
-    console.print("Receipt-native AI safety toolkit")
+    console.print("Tamper-evident audit trails for AI systems")
     console.print()
-    console.print("Components:")
-    console.print("  - Guardian rules: no_coherence_by_dignity_debt")
-    console.print("  - Health checks: grace_window (with hysteresis)")
-    console.print("  - Blockage receipts: incompleteness, contradiction, paradox")
+    console.print("Capabilities:")
+    console.print("  - Scan: find uninstrumented LLM call sites")
+    console.print("  - Instrument: OpenAI, Anthropic, LangChain (2 lines)")
+    console.print("  - Proof packs: receipts + manifest + Ed25519 signature")
+    console.print("  - Verify: exit 0 = authentic, exit 2 = tampered")
     console.print()
     console.print(f"Storage: {store.base_dir}")
-    console.print()
-    console.print("Part of the CCIO/Loom ecosystem")
 
 
 @assay_app.command("proof-pack")

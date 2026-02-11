@@ -1,16 +1,13 @@
 """
-Assay: Receipt-native AI safety toolkit.
+Assay: Tamper-evident audit trails for AI systems.
 
-Thin wrapper (~400 lines) over CCIO infrastructure for:
-- Validating tool calls against policy
-- Emitting structured receipts (not just logs)
-- Surfacing blockages (incompleteness, contradiction, paradox)
-- Health checks (grace window detection)
-
-Ship first, refine later.
+- Scan codebases for uninstrumented LLM call sites
+- Instrument SDKs (OpenAI, Anthropic, LangChain) with 2-line patches
+- Produce signed proof packs (receipts, manifest, Ed25519 signature)
+- Verify evidence integrity (exit 0 = authentic, exit 2 = tampered)
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.2"
 
 from .guardian import GuardianVerdict, no_coherence_by_dignity_debt
 from .health import GraceConfig, is_grace_window
