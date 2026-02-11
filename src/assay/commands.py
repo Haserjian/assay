@@ -2558,6 +2558,14 @@ def scan_cmd(
         None, "--exclude",
         help="Comma-separated glob patterns to exclude (e.g. 'tests/**')",
     ),
+    report: bool = typer.Option(
+        False, "--report",
+        help="Generate a self-contained HTML evidence gap report",
+    ),
+    report_path: Optional[str] = typer.Option(
+        None, "--report-path",
+        help="Output path for HTML report (default: evidence_gap_report.html)",
+    ),
 ):
     """Scan a project for uninstrumented LLM call sites.
 
@@ -2568,6 +2576,7 @@ def scan_cmd(
     Examples:
       assay scan .
       assay scan . --json
+      assay scan . --report
       assay scan . --ci --fail-on high
       assay scan src/ --exclude "tests/**"
     """
@@ -2586,6 +2595,35 @@ def scan_cmd(
         else:
             console.print(f"[red]Scan error:[/] {e}")
         raise typer.Exit(2)
+
+    # Generate HTML report if requested
+    if report:
+        from assay.reporting.evidence_gap import (
+            build_report,
+            render_html,
+            write_json,
+            write_report,
+        )
+
+        html_path = P(report_path) if report_path else P("evidence_gap_report.html")
+        json_path = html_path.with_suffix(".json")
+
+        try:
+            gap_report = build_report(result.to_dict(), P(path))
+            html = render_html(gap_report)
+            write_report(html, html_path)
+            write_json(gap_report, json_path)
+        except Exception as e:
+            if output_json:
+                _output_json({"tool": "assay-scan", "status": "error", "error": f"report generation failed: {e}"}, exit_code=2)
+            else:
+                console.print(f"[red]Report generation error:[/] {e}")
+            raise typer.Exit(2)
+
+        if not output_json:
+            console.print(f"  [bold green]Report written:[/] {html_path}")
+            console.print(f"  [dim]JSON sidecar:[/]  {json_path}")
+            console.print()
 
     if output_json:
         # Determine exit code

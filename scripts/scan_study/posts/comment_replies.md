@@ -36,7 +36,7 @@ The goal is courtroom-grade replayability: show what happened, when, under which
 
 ## 6. "Where's the money? / Is this a product?"
 
-The CLI is free and open source (Apache-2.0). The scan creates a quantified gap; the paid product is a fixed-scope integration sprint (instrument a codebase + lock it in CI so every merge produces a verified proof pack). I'm taking 3 pilot integrations this month -- if your team has LLM calls in production and needs audit-ready evidence, reach out.
+The CLI is free and open source (Apache-2.0). The scan creates a quantified gap; the paid product is a fixed-scope integration sprint (instrument a codebase + lock it in CI so every merge produces a verified proof pack). The integration itself is 2 lines per SDK -- the sprint is about coverage, lockfile configuration, and CI wiring. I'm taking 3 pilot integrations this month -- if your team has LLM calls in production and needs audit-ready evidence, reach out.
 
 ---
 
@@ -58,6 +58,23 @@ You don't have to. The verifier is open source -- `assay verify-pack` is ~200 li
 
 ---
 
-## 10. "Can you help us integrate this?" (pilot CTA -- use as a reply, not in post body)
+## 10. "How hard is this to integrate?" / "How many lines of code?"
+
+Two lines per SDK. For OpenAI:
+
+```python
+from assay.integrations.openai import patch
+patch()
+```
+
+That monkey-patches the SDK -- every `client.chat.completions.create()` call now emits a signed receipt into the active proof pack. Same pattern for Anthropic and LangChain. Your business logic doesn't change at all.
+
+Then wrap your app with `assay run -- python your_app.py` (or `assay run -- pytest`) and you get a proof pack: receipts, manifest, Ed25519 signature, verification report. Exit code 0 means integrity + claims pass, exit code 2 means someone tampered with the evidence. That's the CI contract.
+
+`assay scan . --report` generates an HTML report showing which call sites have receipts and which don't, so you know exactly where the gaps are.
+
+---
+
+## 11. "Can you help us integrate this?" (pilot CTA -- use as a reply, not in post body)
 
 I'm taking 3 pilot integrations this month -- 1-week sprint to instrument a codebase and lock it in CI so every merge produces a verified proof pack. If your team has LLM calls in production and needs audit-ready evidence, DM me.

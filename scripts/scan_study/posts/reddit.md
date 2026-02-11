@@ -20,10 +20,32 @@ Ran it on 30 popular repos: LangChain, LlamaIndex, CrewAI, Browser-Use, Aider, p
 
 **What this is not:** a claim that these projects have no logging. Many have extensive observability (callbacks, OpenTelemetry, LangSmith). This specifically measures cryptographically signed, independently verifiable evidence -- the difference between "we can see what happened" and "we can prove what happened."
 
+**What the fix looks like -- 2 lines added:**
+
+```python
+import openai
+from assay.integrations.openai import patch
+patch()  # this is the only change
+
+client = openai.OpenAI()
+resp = client.chat.completions.create(model="gpt-4", messages=[...])
+# business logic unchanged. receipt goes into the proof pack.
+```
+
+Then `assay run -- python your_app.py` wraps the execution, collects receipts, signs the pack with Ed25519. Exit code 0 = integrity + claims pass, 1 = honest failure, 2 = tampered. Drop it in CI and every merge produces a verified proof pack.
+
+**See tamper detection in 5 seconds:**
+
+```bash
+pip install assay-ai && assay demo-challenge
+assay verify-pack challenge_pack/good/       # PASS
+assay verify-pack challenge_pack/tampered/   # FAIL -- one byte changed
+```
+
 **Check your repo:**
 
 ```bash
-pip install assay-ai && assay scan .
+assay scan . --report   # generates a self-contained HTML gap report
 ```
 
 Full report with per-repo breakdown and method limits:

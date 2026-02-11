@@ -13,9 +13,20 @@ Found **202** high-confidence direct SDK call sites, **903** total including fra
 
 This doesn't measure logging/monitoring -- just cryptographic evidence. Many of these projects have great observability. The gap is between "we can see" and "we can prove."
 
-One command to check your repo:
+The fix is 2 lines:
+```python
+from assay.integrations.openai import patch
+patch()  # every SDK call now emits a signed receipt
 ```
-pip install assay-ai && assay scan .
+
+Check your repo (generates an HTML gap report):
+```
+pip install assay-ai && assay scan . --report
+```
+
+See tamper detection in 5 seconds:
+```
+assay demo-challenge && assay verify-pack challenge_pack/tampered/
 ```
 
 Full report + dataset: https://github.com/Haserjian/assay/blob/9641c7c/scripts/scan_study/results/report.md
