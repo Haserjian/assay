@@ -5,7 +5,7 @@ A RunCard is a named collection of ClaimSpecs that define what an AI system
 should (or should not) do.  RunCards are the "test cases" of the Assay
 Laboratory -- they declare claims, the claim_verifier evaluates them.
 
-5 built-in critical cards ship with v0.  Custom cards can be loaded from
+6 built-in critical cards ship with v0.  Custom cards can be loaded from
 JSON files.
 
 Design:
@@ -59,7 +59,7 @@ class RunCard:
 
 
 # ---------------------------------------------------------------------------
-# 5 built-in critical RunCards
+# 6 built-in critical RunCards
 # ---------------------------------------------------------------------------
 
 CARD_GUARDIAN_ENFORCEMENT = RunCard(
@@ -183,7 +183,7 @@ def get_builtin_card(card_id: str) -> RunCard | None:
 
 
 def get_all_builtin_cards() -> List[RunCard]:
-    """Return all 5 built-in RunCards."""
+    """Return all 6 built-in RunCards."""
     return list(BUILTIN_CARDS.values())
 
 
