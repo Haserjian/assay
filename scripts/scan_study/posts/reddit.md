@@ -49,7 +49,7 @@ assay scan . --report   # generates a self-contained HTML gap report
 ```
 
 Full report with per-repo breakdown and method limits:
-https://github.com/Haserjian/assay/blob/main/scripts/scan_study/results/report.md
+https://github.com/Haserjian/assay/blob/launch-2026-02-11/scripts/scan_study/results/report.md
 
 If I missed your instrumentation or if a finding is a false positive, post a commit link and I'll update the dataset.
 
