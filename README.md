@@ -90,9 +90,8 @@ more trustworthy than systems that always claim to pass.
 ## Documentation
 
 - [Quickstart](docs/README_quickstart.md) -- install, golden path, command reference
-- [Deep Dive](docs/ASSAY_DEEP_DIVE_2026Q1.md) -- architecture, trust model, honest failure
-- [Decision Log](docs/ASSAY_DECISION_LOG.md) -- every locked decision and why
-- [Semantic Simulation Matrix](docs/SEMANTIC_SIMULATION_MATRIX.md) -- 7 drills for UX and comprehension
+- [Repo Map](docs/REPO_MAP.md) -- what lives where across the Assay ecosystem
+- [Pilot Program](docs/PILOT_PROGRAM.md) -- early adopter program details
 
 ## Scan Study
 

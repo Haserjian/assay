@@ -255,6 +255,5 @@ trust faster than bugs.
 
 ## Read Next
 
-- [Deep Dive](ASSAY_DEEP_DIVE_2026Q1.md) -- architecture, trust model, implementation details
-- [Decision Log](ASSAY_DECISION_LOG.md) -- every locked decision and why
-- [Semantic Simulation Matrix](SEMANTIC_SIMULATION_MATRIX.md) -- operator drills and pass/fail criteria
+- [Repo Map](REPO_MAP.md) -- what lives where across the Assay ecosystem
+- [Pilot Program](PILOT_PROGRAM.md) -- early adopter program details
