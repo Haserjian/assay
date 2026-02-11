@@ -2639,7 +2639,8 @@ def scan_cmd(
     ),
     emit_contract: Optional[str] = typer.Option(
         None, "--emit-contract",
-        help="Write a coverage contract JSON file from scan results",
+        help="Write a coverage contract JSON file from scan results. "
+             "LangChain/LiteLLM sites are excluded by default (no runtime callsite_id support).",
     ),
     include_low: bool = typer.Option(
         False, "--include-low",
@@ -2683,13 +2684,21 @@ def scan_cmd(
             contract = CoverageContract.from_scan_result(
                 result, include_low=include_low, project_root=str(P(path).resolve()),
             )
+            # Count excluded framework sites for user visibility
+            full_contract = CoverageContract.from_scan_result(
+                result, include_low=include_low, include_all_frameworks=True,
+                project_root=str(P(path).resolve()),
+            )
+            n_excluded = len(full_contract.call_sites) - len(contract.call_sites)
+
             contract_path = P(emit_contract)
             contract.write(contract_path)
             if not output_json:
                 n = len(contract.call_sites)
+                exc_note = f", {n_excluded} excluded (LangChain/LiteLLM)" if n_excluded else ""
                 console.print(
                     f"  [bold green]Coverage contract written:[/] {contract_path} "
-                    f"({n} site{'s' if n != 1 else ''})"
+                    f"({n} site{'s' if n != 1 else ''}{exc_note})"
                 )
                 console.print()
         except Exception as e:
