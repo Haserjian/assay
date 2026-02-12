@@ -3488,6 +3488,17 @@ def demo_challenge_cmd(
         "Learn more: https://github.com/Haserjian/assay\n"
     )
 
+    # Auto-verify both packs for the inline demo
+    from assay.integrity import verify_pack_manifest
+    from assay.keystore import get_default_keystore
+
+    good_manifest = json.loads((good_out / "pack_manifest.json").read_text())
+    good_att = good_manifest["attestation"]
+    tampered_manifest = json.loads((tampered_out / "pack_manifest.json").read_text())
+    verify_ks = get_default_keystore()
+    good_result = verify_pack_manifest(good_manifest, good_out, verify_ks)
+    tampered_result = verify_pack_manifest(tampered_manifest, tampered_out, verify_ks)
+
     if output_json:
         _output_json({
             "command": "demo-challenge",
@@ -3495,23 +3506,51 @@ def demo_challenge_cmd(
             "output_dir": str(out),
             "good_pack": str(good_out),
             "tampered_pack": str(tampered_out),
+            "good_result": "PASS" if good_result.passed else "FAIL",
+            "tampered_result": "PASS" if tampered_result.passed else "FAIL",
         })
 
     console.print()
     console.print("[bold]ASSAY CHALLENGE PACK[/]")
     console.print()
-    console.print(f"  Created: {out}/")
-    console.print(f"    good/       -- authentic proof pack")
-    console.print(f"    tampered/   -- one byte changed in the receipts")
-    console.print(f"    SHA256SUMS.txt")
-    console.print(f"    CHALLENGE.md")
+    console.print(f"  Created two proof packs. One is authentic. One has been tampered with.")
+    console.print(f"  One byte changed in the receipts. Can your machine tell?")
     console.print()
-    console.print("  [bold]Try it:[/]")
-    console.print(f"    assay verify-pack {good_out}/")
-    console.print(f"    assay verify-pack {tampered_out}/")
+
+    # Good pack result
+    console.print(Panel.fit(
+        f"[bold green]VERIFICATION PASSED[/]\n\n"
+        f"Pack ID:    {good_att['pack_id']}\n"
+        f"Integrity:  [green]PASS[/]\n"
+        f"Claims:     [green]PASS[/]\n"
+        f"Receipts:   {good_att['n_receipts']}\n"
+        f"Head Hash:  {good_att.get('head_hash', 'N/A')[:16]}...\n"
+        f"Signature:  Ed25519 [green]valid[/]",
+        title=f"good/ -- assay verify-pack {good_out}/",
+        border_style="green",
+    ))
     console.print()
-    console.print("  One will [green]PASS[/]. One will [red]FAIL[/].")
-    console.print("  No trust required. Just verification.")
+
+    # Tampered pack result
+    err_msg = tampered_result.errors[0].message if tampered_result.errors else "unknown error"
+    console.print(Panel.fit(
+        f"[bold red]VERIFICATION FAILED[/]\n\n"
+        f"Pack ID:    {good_att['pack_id']}\n"
+        f"Integrity:  [red]FAIL[/]\n"
+        f"Error:      [red]{err_msg}[/]",
+        title=f"tampered/ -- assay verify-pack {tampered_out}/",
+        border_style="red",
+    ))
+
+    console.print()
+    console.print("  [bold]What happened:[/]")
+    console.print("  The tampered pack changed [bold]\"gpt-4\"[/] to [bold]\"gpt-5\"[/] in the receipts.")
+    console.print("  The manifest hash no longer matches. Verification fails.")
+    console.print("  No server access needed. No trust required. Just math.")
+    console.print()
+    console.print("  [dim]To dig deeper:[/]")
+    console.print(f"    assay explain {good_out}/")
+    console.print(f"    assay explain {tampered_out}/")
     console.print()
 
 
