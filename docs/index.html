@@ -550,6 +550,9 @@
 </section>
 
 <div class="container">
+  <p style="text-align:center; margin-bottom:12px;">
+    <a href="https://github.com/Haserjian/assay/tree/launch-2026-02-11/scripts/scan_study/results" target="_blank" style="color:var(--text2); font-size:13px; text-decoration:none;">Scan study data as of Feb 11, 2026 &#8599;</a>
+  </p>
   <div class="stats-bar">
     <div class="stat">
       <div class="num">30</div>
@@ -795,6 +798,10 @@ assay lock write --cards receipt_completeness,coverage_contract</span></pre>
   <div class="container">
     <h2>Ready to prove what your AI does?</h2>
     <p>Open source. Apache-2.0. Works with OpenAI, Anthropic, and LangChain today.</p>
+    <div class="install" onclick="copyScan(this)" style="margin-bottom: 28px;">
+      <span class="dollar">$ </span>pip install assay-ai && assay scan . --report
+      <span class="copied">Copied!</span>
+    </div>
     <div class="cta-buttons">
       <a href="https://github.com/Haserjian/assay" class="btn btn-primary" target="_blank">View on GitHub</a>
       <a href="https://github.com/Haserjian/assay/issues/new?template=pilot-inquiry.md" class="btn btn-secondary" target="_blank">Request a Pilot</a>
@@ -907,6 +914,13 @@ function filterGapTable() {
 
 function copyInstall(el) {
   navigator.clipboard.writeText('pip install assay-ai && assay demo-incident');
+  const tip = el.querySelector('.copied');
+  tip.classList.add('show');
+  setTimeout(() => tip.classList.remove('show'), 1500);
+}
+
+function copyScan(el) {
+  navigator.clipboard.writeText('pip install assay-ai && assay scan . --report');
   const tip = el.querySelector('.copied');
   tip.classList.add('show');
   setTimeout(() => tip.classList.remove('show'), 1500);
