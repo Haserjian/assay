@@ -84,36 +84,84 @@ class ScanResult:
         return "pass"
 
     @property
-    def next_command(self) -> Optional[str]:
+    def next_steps(self) -> List[Dict[str, Any]]:
         if not self.findings:
-            return None
+            return []
 
         patch_line = _recommended_patch_line(self.findings)
-        if patch_line:
-            return (
-                "1) Add instrumentation in your entrypoint:\n"
-                f"   {patch_line}\n"
-                "\n"
-                "2) Generate a proof pack:\n"
-                "   assay run -c receipt_completeness -- python your_app.py\n"
-                "\n"
-                "3) Verify and lock your baseline:\n"
-                "   assay verify-pack ./proof_pack_*/\n"
-                "   assay lock write --cards receipt_completeness,guardian_enforcement -o assay.lock"
-            )
+        if patch_line == "assay patch .":
+            return [
+                {
+                    "title": "Auto-instrument your entrypoint based on scan findings",
+                    "commands": ["assay patch ."],
+                },
+                {
+                    "title": "Generate a proof pack",
+                    "commands": ["assay run -c receipt_completeness -- python your_app.py"],
+                },
+                {
+                    "title": "Verify and lock your baseline",
+                    "commands": [
+                        "assay verify-pack ./proof_pack_*/",
+                        "assay lock write --cards receipt_completeness,guardian_enforcement -o assay.lock",
+                    ],
+                },
+            ]
 
-        return (
-            "1) Add receipt emission near your LLM wrapper:\n"
-            "   from assay import emit_receipt\n"
-            "   emit_receipt('model_call', {'provider': '...', 'model_id': '...'})\n"
-            "\n"
-            "2) Generate a proof pack:\n"
-            "   assay run -c receipt_completeness -- python your_app.py\n"
-            "\n"
-            "3) Verify and lock your baseline:\n"
-            "   assay verify-pack ./proof_pack_*/\n"
-            "   assay lock write --cards receipt_completeness,guardian_enforcement -o assay.lock"
-        )
+        if patch_line:
+            return [
+                {
+                    "title": "Add instrumentation in your entrypoint",
+                    "commands": [patch_line],
+                },
+                {
+                    "title": "Generate a proof pack",
+                    "commands": ["assay run -c receipt_completeness -- python your_app.py"],
+                },
+                {
+                    "title": "Verify and lock your baseline",
+                    "commands": [
+                        "assay verify-pack ./proof_pack_*/",
+                        "assay lock write --cards receipt_completeness,guardian_enforcement -o assay.lock",
+                    ],
+                },
+            ]
+
+        return [
+            {
+                "title": "Add receipt emission near your LLM wrapper",
+                "commands": [
+                    "from assay import emit_receipt",
+                    "emit_receipt('model_call', {'provider': '...', 'model_id': '...'})",
+                ],
+            },
+            {
+                "title": "Generate a proof pack",
+                "commands": ["assay run -c receipt_completeness -- python your_app.py"],
+            },
+            {
+                "title": "Verify and lock your baseline",
+                "commands": [
+                    "assay verify-pack ./proof_pack_*/",
+                    "assay lock write --cards receipt_completeness,guardian_enforcement -o assay.lock",
+                ],
+            },
+        ]
+
+    @property
+    def next_command(self) -> Optional[str]:
+        steps = self.next_steps
+        if not steps:
+            return None
+
+        lines: List[str] = []
+        for idx, step in enumerate(steps, 1):
+            lines.append(f"{idx}) {step['title']}:")
+            for command in step["commands"]:
+                lines.append(f"   {command}")
+            if idx < len(steps):
+                lines.append("")
+        return "\n".join(lines)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -122,6 +170,7 @@ class ScanResult:
             "summary": self.summary,
             "findings": [f.to_dict() for f in self.findings],
             "next_command": self.next_command,
+            "next_steps": self.next_steps,
         }
 
 
@@ -129,6 +178,9 @@ def _detect_frameworks(findings: List[CallSite]) -> Set[str]:
     """Detect which frameworks are present from call signatures."""
     frameworks: Set[str] = set()
     for f in findings:
+        if f.framework:
+            frameworks.add(f.framework)
+            continue
         call_lower = f.call.lower()
         if "openai" in call_lower or "chat.completions" in call_lower:
             frameworks.add("openai")
@@ -141,12 +193,19 @@ def _detect_frameworks(findings: List[CallSite]) -> Set[str]:
 
 def _recommended_patch_line(findings: List[CallSite]) -> Optional[str]:
     frameworks = _detect_frameworks(findings)
-    if "openai" in frameworks:
+    patchable = frameworks & {"openai", "anthropic"}
+
+    # Mixed framework projects are easiest with auto-patching.
+    if len(frameworks) > 1 and patchable:
+        return "assay patch ."
+    if "openai" in patchable:
         return "from assay.integrations.openai import patch; patch()"
-    if "anthropic" in frameworks:
+    if "anthropic" in patchable:
         return "from assay.integrations.anthropic import patch; patch()"
     if "langchain" in frameworks:
-        return "from assay.integrations.langchain import patch; patch()"
+        return "from assay.integrations.langchain import AssayCallbackHandler  # pass callbacks=[AssayCallbackHandler()]"
+    if "litellm" in frameworks:
+        return "from assay import emit_receipt  # instrument upstream SDK or emit manual receipts"
     return None
 
 
@@ -320,7 +379,7 @@ def _suggest_fix(call: str) -> str:
     call_lower = call.lower()
     # LangChain wrappers first (ChatOpenAI contains "openai", ChatAnthropic contains "anthropic")
     if "langchain" in call_lower or call_lower.startswith("chatopen") or call_lower.startswith("chatanthropic"):
-        return "from assay.integrations.langchain import patch; patch()"
+        return "from assay.integrations.langchain import AssayCallbackHandler  # pass callbacks=[AssayCallbackHandler()]"
     if "openai" in call_lower or "chat.completions" in call_lower or "completions.create" in call_lower:
         return "from assay.integrations.openai import patch; patch()"
     if "anthropic" in call_lower or "messages.create" in call_lower:

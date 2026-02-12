@@ -49,6 +49,16 @@ class TestQuickstart:
         assert result.exit_code == 0, result.output
         assert "0 call site" in result.output or "No AI call sites" in result.output or "0 uninstrumented" in result.output
 
+    def test_json_mode_no_report_side_effect(self, tmp_path):
+        (tmp_path / "app.py").write_text(
+            "import openai\n"
+            "client = openai.OpenAI()\n"
+            "client.chat.completions.create(model='gpt-4', messages=[])\n"
+        )
+        result = runner.invoke(assay_app, ["quickstart", str(tmp_path), "--json"])
+        assert result.exit_code == 0, result.output
+        assert not (tmp_path / "assay_quickstart_report.html").exists()
+
     def test_generates_report(self, tmp_path):
         (tmp_path / "app.py").write_text(
             "import openai\n"

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Assay - Tamper-Evident Audit Trails for AI Systems</title>
-<meta name="description" content="Cryptographically signed proof packs for AI systems. When someone asks 'prove what your AI did,' logs aren't enough.">
+<meta name="description" content="Tamper-evident audit trails for AI systems. Make the record independently verifiable -- not just server logs.">
 <style>
   :root {
     --bg: #0d1117;
@@ -591,6 +591,48 @@
   }
   .reg-note strong { color: var(--text); }
 
+  /* Threat model */
+  .threat-model-section { border-top: 1px solid var(--border); }
+  .threat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    margin-top: 24px;
+  }
+  .threat-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+  }
+  .threat-card h3 {
+    font-size: 16px;
+    margin-bottom: 12px;
+    font-weight: 600;
+  }
+  .threat-card ul {
+    list-style: none;
+    padding: 0;
+  }
+  .threat-card li {
+    font-size: 14px;
+    color: var(--text2);
+    padding: 4px 0;
+    padding-left: 20px;
+    position: relative;
+  }
+  .threat-card li::before {
+    position: absolute;
+    left: 0;
+    font-weight: bold;
+  }
+  .threat-detects h3 { color: var(--green); }
+  .threat-detects li::before { content: "+"; color: var(--green); }
+  .threat-does-not h3 { color: var(--red); }
+  .threat-does-not li::before { content: "\00d7"; color: var(--red); }
+  .threat-upgrade h3 { color: var(--accent); }
+  .threat-upgrade li::before { content: "\2191"; color: var(--accent); }
+
   /* Footer */
   footer {
     border-top: 1px solid var(--border);
@@ -623,6 +665,7 @@
       <a href="#completeness">Coverage</a>
       <a href="#gap-map">Gap Map</a>
       <a href="#faq">FAQ</a>
+      <a href="#threat-model">Threat Model</a>
       <a href="https://github.com/Haserjian/assay" target="_blank">GitHub</a>
       <a href="https://pypi.org/project/assay-ai/" target="_blank">PyPI</a>
       <a href="https://github.com/Haserjian/assay/issues/new?template=pilot-inquiry.md" class="cta" target="_blank">Get a Pilot</a>
@@ -632,18 +675,18 @@
 
 <section class="hero">
   <div class="container">
-    <h1>Prove what your AI did.<br><span>Cryptographically.</span></h1>
+    <h1>Tamper-evident audit trails<br><span>for AI systems.</span></h1>
     <p class="subtitle">
-      Logs say what happened. Assay <em>proves</em> it. Tamper-evident proof packs
-      with Ed25519 signatures, Merkle trees, and claims verification.
+      Logs record what you say happened. Assay makes the record
+      tamper-evident, completeness-checkable, and independently verifiable.
       Two lines of code. Four exit codes. Done.
     </p>
     <p style="color: var(--text2); font-size: 14px; margin-bottom: 28px;">
       For teams shipping AI agents, RAG pipelines, and autonomous workflows
-      that need verifiable evidence -- not just logs.
+      that need evidence an auditor can verify offline -- not just server logs.
     </p>
     <div class="install" onclick="copyInstall(this)">
-      <span class="dollar">$ </span>pip install assay-ai && assay demo-incident
+      <span class="dollar">$ </span>pip install assay-ai && assay quickstart
       <span class="copied" id="copied">Copied!</span>
     </div>
   </div>
@@ -697,9 +740,10 @@
     </div>
 
     <p style="color: var(--text2); font-size: 14px; margin-top: 20px; max-width: 640px;">
-      Assay fixes this. Every LLM call gets a cryptographically signed receipt
-      bundled into a portable proof pack. The verifier doesn't need access to your
-      server, your database, or your trust.
+      Assay makes this harder to fake. Every LLM call gets a cryptographically signed receipt
+      bundled into a portable proof pack. Edit one byte and verification fails.
+      Skip a contracted call site (for supported frameworks) and completeness checks catch it.
+      The verifier doesn't need access to your server, your database, or your trust.
     </p>
   </div>
 </section>
@@ -898,7 +942,7 @@
 
     <div class="gap-controls">
       <input type="text" id="gap-search" placeholder="Filter repos..." oninput="filterGapTable()">
-      <span class="count" id="gap-count">27 repos</span>
+      <span class="count" id="gap-count">30 repos</span>
     </div>
 
     <div class="gap-table-wrap">
@@ -1013,9 +1057,54 @@ assay lock write --cards receipt_completeness,coverage_contract</span></pre>
   </div>
 </section>
 
+<section class="threat-model-section" id="threat-model">
+  <div class="container">
+    <h2>Threat model</h2>
+    <p class="section-sub">
+      Assay is an evidence integrity and completeness layer, not a lie detector.
+      Here's exactly what it catches and what it doesn't.
+    </p>
+
+    <div class="threat-grid">
+      <div class="threat-card threat-detects">
+        <h3>Assay detects</h3>
+        <ul>
+          <li>Retroactive tampering (edit, append, truncate, replace)</li>
+          <li>Selective omission of call sites under a completeness contract</li>
+          <li>Claiming checks passed that were never run</li>
+          <li>Policy drift between locked baseline and current run</li>
+        </ul>
+      </div>
+
+      <div class="threat-card threat-does-not">
+        <h3>Assay does not prevent</h3>
+        <ul>
+          <li>A malicious operator fabricating a complete false run from scratch</li>
+          <li>Receipts that misrepresent what actually happened at the SDK level</li>
+          <li>Timestamp fraud (local clock, no external anchor in base tier)</li>
+        </ul>
+      </div>
+
+      <div class="threat-card threat-upgrade">
+        <h3>To strengthen guarantees</h3>
+        <ul>
+          <li>Transparency log -- external append-only timestamp anchor (<a href="https://github.com/Haserjian/assay-ledger" style="color: var(--accent);">assay-ledger</a>)</li>
+          <li>CI-held org key + branch protection -- separates signer from developer</li>
+          <li>External timestamping (RFC 3161) -- proves "before this date"</li>
+        </ul>
+      </div>
+    </div>
+
+    <p style="color: var(--text2); font-size: 14px; margin-top: 24px;">
+      The cost of cheating scales with the complexity of the lie.
+      Assay doesn't make fraud impossible -- it makes fraud expensive.
+    </p>
+  </div>
+</section>
+
 <section class="cta-section">
   <div class="container">
-    <h2>Ready to prove what your AI does?</h2>
+    <h2>Ready to make your AI auditable?</h2>
     <p>Open source. Apache-2.0. Works with OpenAI, Anthropic, and LangChain today.</p>
     <div class="install" onclick="copyScan(this)" style="margin-bottom: 28px;">
       <span class="dollar">$ </span>pip install assay-ai && assay scan . --report
@@ -1140,7 +1229,7 @@ function filterGapTable() {
 }
 
 function copyInstall(el) {
-  navigator.clipboard.writeText('pip install assay-ai && assay demo-incident');
+  navigator.clipboard.writeText('pip install assay-ai && assay quickstart');
   const tip = el.querySelector('.copied');
   tip.classList.add('show');
   setTimeout(() => tip.classList.remove('show'), 1500);

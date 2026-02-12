@@ -1,16 +1,15 @@
 # Assay
 
-Tamper-evident audit trails for AI systems. When someone asks "prove
-what your AI did," logs are not enough: whoever controls the server
-controls the story. Assay gives you a signed evidence bundle that
-anyone can verify independently, including someone who does not trust
+Tamper-evident audit trails for AI systems. Logs record what you say
+happened. Assay makes the record tamper-evident, completeness-checkable,
+and independently verifiable -- including by someone who does not trust
 you. Integrity PASS + claims FAIL is an **honest failure**: authentic
-evidence that controls were violated. Assay does not prove model
-correctness; it proves evidence integrity and control conformance.
+evidence that controls were violated. Assay does not prove external truth;
+it proves evidence integrity and makes omission detectable.
 Easier than a spreadsheet, harder to bullshit.
 
 ```bash
-pip install assay-ai && assay demo-incident
+pip install assay-ai && assay quickstart
 ```
 
 ## 60-Second Demo
@@ -24,31 +23,35 @@ That second result is an **honest failure** -- authentic evidence proving the
 run violated its declared standards. Not a cover-up. Not theater. Exit code 1.
 
 ```bash
-assay demo-challenge    # CTF-style: spot the tampered pack
-assay demo-pack         # build + verify from scratch
+assay demo-incident     # two-act scenario: honest PASS vs honest FAIL
+assay demo-challenge    # optional CTF: spot the tampered pack
+assay demo-pack         # optional: build + verify from scratch
 ```
 
 ## The Golden Path
 
 ```bash
-# 0. Guided path (recommended)
-assay onboard .
+# 0. See Assay in action (recommended first step)
+assay quickstart
+# Or: assay onboard .  (guided project setup with doctor + CI guidance)
 
 # 1. Find uninstrumented LLM calls
 assay scan . --report   # generates a self-contained HTML gap report
 
-# 2. Instrument (one line)
+# 2. Instrument (one line per SDK, or auto-patch)
+assay patch .
 #    from assay.integrations.openai import patch; patch()
 
 # 3. Produce a signed proof pack
-assay run -c receipt_completeness -c guardian_enforcement -- python my_app.py
+assay run -c receipt_completeness -- python my_app.py
+# Add -c guardian_enforcement when you have a policy gate
 
 # 4. Verify + explain
 assay verify-pack ./proof_pack_*/
 assay explain ./proof_pack_*/
 
 # 5. Lock the verification contract
-assay lock write --cards receipt_completeness,guardian_enforcement -o assay.lock
+assay lock write --cards receipt_completeness -o assay.lock
 assay verify-pack ./proof_pack_*/ --lock assay.lock --require-claim-pass
 ```
 
@@ -66,6 +69,7 @@ Assay separates two questions on purpose:
 | PASS | PASS | 0 | Evidence checks out, behavior meets standards |
 | PASS | FAIL | 1 | Honest failure: authentic evidence of standards violation |
 | FAIL | -- | 2 | Evidence has been tampered with |
+| -- | -- | 3 | Bad input (invalid arguments, missing files) |
 
 The split is the point. Systems that can prove they failed honestly are
 more trustworthy than systems that always claim to pass.
@@ -74,9 +78,10 @@ more trustworthy than systems that always claim to pass.
 
 | Command | Purpose |
 |---------|---------|
-| `assay demo-pack` | Generate demo packs (no config needed) |
+| `assay quickstart` | One command: demo + scan + next steps |
 | `assay demo-incident` | Two-act scenario: passing run vs failing run |
 | `assay demo-challenge` | CTF-style good + tampered pack pair |
+| `assay demo-pack` | Generate demo packs (no config needed) |
 | `assay onboard` | Guided setup: doctor -> scan -> first run plan |
 | `assay scan` | Find uninstrumented LLM call sites (`--report` for HTML) |
 | `assay patch` | Auto-insert SDK integration patches into your entrypoint |
@@ -91,6 +96,7 @@ more trustworthy than systems that always claim to pass.
 ## Documentation
 
 - [Quickstart](docs/README_quickstart.md) -- install, golden path, command reference
+- [For Compliance Teams](docs/for-compliance.md) -- what auditors see, evidence artifacts, framework alignment
 - [Repo Map](docs/REPO_MAP.md) -- what lives where across the Assay ecosystem
 - [Pilot Program](docs/PILOT_PROGRAM.md) -- early adopter program details
 
@@ -103,7 +109,7 @@ Zero had evidence emission at any call site.
 
 ## Get Involved
 
-- **Try it**: `pip install assay-ai && assay demo-incident`
+- **Try it**: `pip install assay-ai && assay quickstart`
 - **Questions / feedback**: [GitHub Discussions](https://github.com/Haserjian/assay/discussions)
 - **Bug reports**: [Issues](https://github.com/Haserjian/assay/issues)
 - **Pilot integration**: Want help instrumenting your AI stack?

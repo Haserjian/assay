@@ -2563,7 +2563,10 @@ def onboard_cmd(
     skip_doctor: bool = typer.Option(False, "--skip-doctor", help="Skip assay doctor preflight"),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
-    """Guided onboarding: doctor -> scan -> patch suggestion -> first run commands."""
+    """Guided project setup: doctor -> scan -> patch suggestion -> first run commands.
+
+    Use `assay quickstart` for a faster demo-first walkthrough.
+    """
     from collections import Counter as _Counter
     from pathlib import Path as P
 
@@ -2905,7 +2908,10 @@ def scan_cmd(
                 exit_code = 1
             elif threshold == Confidence.LOW and s["uninstrumented"] > 0:
                 exit_code = 1
-        _output_json(result.to_dict(), exit_code=exit_code)
+        payload = result.to_dict()
+        payload["scan_status"] = payload["status"]
+        payload["status"] = "blocked" if (ci and exit_code != 0) else "ok"
+        _output_json(payload, exit_code=exit_code)
         return
 
     # Human output
@@ -2915,7 +2921,7 @@ def scan_cmd(
     if not result.findings:
         console.print("  [dim]No LLM call sites detected.[/]")
         console.print()
-        console.print("  [bold]Next 3 moves:[/]")
+        console.print("  [bold]Next steps:[/]")
         console.print("    1. If you use wrappers, add manual receipt emission near your model call:")
         console.print("       from assay import emit_receipt")
         console.print("       emit_receipt('model_call', {'provider': '...', 'model_id': '...'})")
@@ -2955,7 +2961,7 @@ def scan_cmd(
 
     if result.next_command:
         console.print()
-        console.print("  [bold]Next 3 moves:[/]")
+        console.print("  [bold]Next steps:[/]")
         for line in result.next_command.split("\n"):
             console.print(f"    {line}")
 
@@ -3418,6 +3424,7 @@ def quickstart_cmd(
 
     Creates a demo challenge pack, scans your project for uninstrumented
     AI call sites, and prints actionable next steps.
+    Use `assay onboard` for full setup with doctor + CI guidance.
 
     \b
     Examples:
@@ -3530,8 +3537,8 @@ def quickstart_cmd(
             "uninstrumented": uninstrumented,
         })
 
-        # Generate report if there are findings
-        if scan_result.findings:
+        # Generate report if there are findings (skip in JSON mode)
+        if scan_result.findings and not output_json:
             from assay.reporting.evidence_gap import build_report, render_html, write_report
             report_file = root / "assay_quickstart_report.html"
             gap_report = build_report(scan_result.to_dict(), root)

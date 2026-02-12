@@ -100,8 +100,6 @@ class DoctorReport:
         s = self.summary
         if s["fail"] > 0:
             return 2
-        if s["warn"] > 0:
-            return 1
         return 0
 
     def exit_code_strict(self) -> int:

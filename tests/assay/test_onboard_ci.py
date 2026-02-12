@@ -75,7 +75,7 @@ def test_scan_no_findings_shows_next_moves() -> None:
         Path("empty.py").write_text("x = 1\n", encoding="utf-8")
         result = runner.invoke(assay_commands.assay_app, ["scan", "."])
         assert result.exit_code == 0
-        assert "Next 3 moves" in result.output
+        assert "Next steps" in result.output
         assert "--allow-empty" in result.output
 
 
@@ -90,6 +90,5 @@ def test_scan_findings_shows_next_moves() -> None:
         )
         result = runner.invoke(assay_commands.assay_app, ["scan", "."])
         assert result.exit_code == 0
-        assert "Next 3 moves" in result.output
+        assert "Next steps" in result.output
         assert "assay run -c receipt_completeness" in result.output
-

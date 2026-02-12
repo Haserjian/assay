@@ -91,7 +91,7 @@ class TestDoctorReport:
             DoctorCheckResult("B", CheckStatus.WARN, Severity.MEDIUM, "warn"),
         ]
         assert report.overall_status == "warn"
-        assert report.exit_code == 1
+        assert report.exit_code == 0
 
     def test_overall_status_pass(self):
         report = DoctorReport(profile=Profile.LOCAL, version="1.0.0")
@@ -106,7 +106,7 @@ class TestDoctorReport:
         report.checks = [
             DoctorCheckResult("A", CheckStatus.WARN, Severity.MEDIUM, "warn"),
         ]
-        assert report.exit_code == 1
+        assert report.exit_code == 0
         assert report.exit_code_strict() == 2
 
     def test_to_dict_json_schema(self):

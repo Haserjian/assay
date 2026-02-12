@@ -337,7 +337,7 @@ class TestFixSuggestions:
 
     def test_langchain_fix(self):
         fix = _suggest_fix("ChatOpenAI")
-        assert "assay.integrations.langchain" in fix
+        assert "AssayCallbackHandler" in fix
 
     def test_generic_fix(self):
         fix = _suggest_fix("call_llm")
@@ -407,6 +407,13 @@ class TestScanResult:
         ])
         assert "anthropic" in r.next_command
 
+    def test_next_command_multi_framework_prefers_patch_command(self):
+        r = ScanResult(findings=[
+            CallSite("f.py", 1, "client.chat.completions.create", Confidence.HIGH, False, framework="openai"),
+            CallSite("f.py", 2, "client.messages.create", Confidence.HIGH, False, framework="anthropic"),
+        ])
+        assert "assay patch ." in r.next_command
+
     def test_to_dict_schema(self):
         r = ScanResult(findings=[
             CallSite("f.py", 1, "client.chat.completions.create", Confidence.HIGH, False, fix="do this"),
@@ -420,6 +427,7 @@ class TestScanResult:
         assert d["findings"][0]["confidence"] == "high"
         assert d["findings"][0]["fix"] == "do this"
         assert d["next_command"] is not None
+        assert isinstance(d["next_steps"], list)
 
 
 # ---------------------------------------------------------------------------
@@ -602,7 +610,7 @@ class TestJSONContract:
             CallSite("f.py", 1, "client.chat.completions.create", Confidence.HIGH, False, fix="do this"),
         ])
         d = r.to_dict()
-        assert set(d.keys()) == {"tool", "status", "summary", "findings", "next_command"}
+        assert set(d.keys()) == {"tool", "status", "summary", "findings", "next_command", "next_steps"}
         assert set(d["summary"].keys()) == {
             "sites_total", "instrumented", "uninstrumented", "high", "medium", "low",
         }
@@ -645,7 +653,7 @@ class TestGoldenFixture:
         d = result.to_dict()
 
         # Top-level keys (schema contract)
-        assert set(d.keys()) == {"tool", "status", "summary", "findings", "next_command"}
+        assert set(d.keys()) == {"tool", "status", "summary", "findings", "next_command", "next_steps"}
         assert d["tool"] == "assay-scan"
         assert d["status"] == "fail"
 
