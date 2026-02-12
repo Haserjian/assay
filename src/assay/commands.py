@@ -6,6 +6,7 @@ Commands:
   assay verify-pack   - Verify a Proof Pack's integrity
   assay explain       - Plain-English summary of a proof pack
   assay scan          - Find uninstrumented LLM call sites
+  assay patch         - Auto-insert SDK integration patches
   assay doctor        - Preflight checks
   assay onboard       - Guided setup
   assay demo-incident - Two-act scenario (honest failure demo)
@@ -2610,6 +2611,94 @@ def onboard_cmd(
     for i, step in enumerate(next_steps, 1):
         console.print(f"  {i}. {step}")
     console.print()
+
+
+@assay_app.command("patch")
+def patch_cmd(
+    path: str = typer.Argument(".", help="Directory to scan and patch"),
+    entrypoint: Optional[str] = typer.Option(
+        None, "--entrypoint", help="File to patch (auto-detected if omitted)",
+    ),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Show diff without writing"),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Apply without confirmation"),
+    output_json: bool = typer.Option(False, "--json", help="Machine-readable output"),
+):
+    """Auto-insert SDK integration patches into your entrypoint."""
+    from pathlib import Path as P
+
+    from assay.patcher import apply_patch, generate_diff, plan_patch
+    from assay.scanner import scan_directory
+
+    root = P(path).resolve()
+    if not root.exists() or not root.is_dir():
+        if output_json:
+            _output_json({"command": "patch", "status": "error", "error": f"Directory not found: {path}"})
+        console.print(f"[red]Error:[/] Directory not found: {path}")
+        raise typer.Exit(3)
+
+    scan_result = scan_directory(root)
+    uninstrumented = [f for f in scan_result.findings if not f.instrumented]
+
+    if not uninstrumented:
+        if output_json:
+            _output_json({"command": "patch", "status": "ok", "message": "No uninstrumented call sites found"})
+        console.print("[green]No uninstrumented call sites found.[/] Nothing to patch.")
+        raise typer.Exit(0)
+
+    try:
+        plan = plan_patch(scan_result, root, entrypoint=entrypoint)
+    except FileNotFoundError as e:
+        if output_json:
+            _output_json({"command": "patch", "status": "error", "error": str(e)})
+        console.print(f"[red]Error:[/] {e}")
+        raise typer.Exit(3)
+
+    if not plan.has_work:
+        msg = f"Already patched: {', '.join(plan.already_patched)}" if plan.already_patched else "Nothing to patch"
+        if output_json:
+            _output_json({"command": "patch", "status": "ok", "message": msg, **plan.to_dict()})
+        console.print(f"[green]{msg}[/]")
+        if plan.langchain_note:
+            console.print(f"\n[yellow]Note:[/] {plan.langchain_note}")
+        raise typer.Exit(0)
+
+    # Show diff
+    diff = generate_diff(plan, root)
+    if output_json:
+        _output_json({
+            "command": "patch",
+            "status": "ok" if dry_run else "applied",
+            "diff": diff,
+            **plan.to_dict(),
+        })
+        if dry_run:
+            return
+
+    console.print(f"\n[bold]Scanning...[/] found {len(uninstrumented)} uninstrumented call sites")
+    console.print(f"[bold]Detected frameworks:[/] {', '.join(plan.frameworks)}")
+    console.print(f"[bold]Entrypoint:[/] {plan.entrypoint}")
+    if plan.already_patched:
+        console.print(f"[dim]Already patched:[/] {', '.join(plan.already_patched)}")
+    console.print()
+    console.print(diff)
+    console.print()
+
+    if plan.langchain_note:
+        console.print(f"[yellow]Note:[/] {plan.langchain_note}\n")
+
+    if dry_run:
+        console.print("[dim]Dry run -- no files changed.[/]")
+        return
+
+    if not yes:
+        confirm = typer.confirm("Apply patch?")
+        if not confirm:
+            console.print("[dim]Cancelled.[/]")
+            raise typer.Exit(0)
+
+    apply_patch(plan, root)
+    console.print(f"[green]Patched {plan.entrypoint}[/] with {len(plan.lines_to_insert)} integration line(s).")
+    console.print(f"\nNext: [bold]assay run -c receipt_completeness -- python {plan.entrypoint}[/]")
 
 
 @assay_app.command("scan")

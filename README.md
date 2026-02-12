@@ -79,6 +79,7 @@ more trustworthy than systems that always claim to pass.
 | `assay demo-challenge` | CTF-style good + tampered pack pair |
 | `assay onboard` | Guided setup: doctor -> scan -> first run plan |
 | `assay scan` | Find uninstrumented LLM call sites (`--report` for HTML) |
+| `assay patch` | Auto-insert SDK integration patches into your entrypoint |
 | `assay run` | Wrap command, collect receipts, build signed pack |
 | `assay verify-pack` | Verify a Proof Pack (integrity + claims) |
 | `assay explain` | Plain-English summary of a proof pack |
