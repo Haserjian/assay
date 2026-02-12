@@ -496,6 +496,101 @@
   }
   .btn-secondary:hover { border-color: var(--text2); }
 
+  /* Threat scenario */
+  .threat-section { border-top: 1px solid var(--border); }
+
+  /* FAQ */
+  .faq-section { border-top: 1px solid var(--border); }
+  .faq-section details {
+    border-bottom: 1px solid var(--border);
+    padding: 16px 0;
+  }
+  .faq-section summary {
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+    list-style: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .faq-section summary::-webkit-details-marker { display: none; }
+  .faq-section summary::after {
+    content: '+';
+    font-family: var(--mono);
+    font-size: 18px;
+    color: var(--text2);
+    transition: transform 0.2s;
+  }
+  .faq-section details[open] summary::after {
+    content: '\2212';
+  }
+  .faq-section .faq-answer {
+    color: var(--text2);
+    font-size: 14px;
+    margin-top: 12px;
+    line-height: 1.6;
+    max-width: 640px;
+  }
+  .faq-section .faq-answer code {
+    font-family: var(--mono);
+    font-size: 13px;
+    background: var(--bg2);
+    padding: 2px 6px;
+    border-radius: 3px;
+    color: var(--green);
+  }
+
+  /* Flow diagram */
+  .flow-diagram {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin: 32px 0 24px;
+  }
+  .flow-step {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    text-align: center;
+    min-width: 120px;
+  }
+  .flow-step .flow-label {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .flow-step .flow-desc {
+    color: var(--text2);
+    font-size: 12px;
+  }
+  .flow-arrow {
+    color: var(--border);
+    font-size: 20px;
+    padding: 0 8px;
+  }
+  @media (max-width: 640px) {
+    .flow-diagram { flex-direction: column; }
+    .flow-arrow { transform: rotate(90deg); padding: 4px 0; }
+  }
+
+  /* Regulatory note */
+  .reg-note {
+    color: var(--text2);
+    font-size: 13px;
+    margin-top: 24px;
+    max-width: 560px;
+    margin-left: auto;
+    margin-right: auto;
+    line-height: 1.6;
+  }
+  .reg-note strong { color: var(--text); }
+
   /* Footer */
   footer {
     border-top: 1px solid var(--border);
@@ -527,6 +622,7 @@
       <a href="#how-it-works">How It Works</a>
       <a href="#completeness">Coverage</a>
       <a href="#gap-map">Gap Map</a>
+      <a href="#faq">FAQ</a>
       <a href="https://github.com/Haserjian/assay" target="_blank">GitHub</a>
       <a href="https://pypi.org/project/assay-ai/" target="_blank">PyPI</a>
       <a href="https://github.com/Haserjian/assay/issues/new?template=pilot-inquiry.md" class="cta" target="_blank">Get a Pilot</a>
@@ -542,6 +638,10 @@
       with Ed25519 signatures, Merkle trees, and claims verification.
       Two lines of code. Four exit codes. Done.
     </p>
+    <p style="color: var(--text2); font-size: 14px; margin-bottom: 28px;">
+      For teams shipping AI agents, RAG pipelines, and autonomous workflows
+      that need verifiable evidence -- not just logs.
+    </p>
     <div class="install" onclick="copyInstall(this)">
       <span class="dollar">$ </span>pip install assay-ai && assay demo-incident
       <span class="copied" id="copied">Copied!</span>
@@ -551,7 +651,7 @@
 
 <div class="container">
   <p style="text-align:center; margin-bottom:12px;">
-    <a href="https://github.com/Haserjian/assay/tree/launch-2026-02-11/scripts/scan_study/results" target="_blank" style="color:var(--text2); font-size:13px; text-decoration:none;">Scan study data as of Feb 11, 2026 &#8599;</a>
+    <a href="https://github.com/Haserjian/assay/tree/launch-2026-02-11/scripts/scan_study/results" target="_blank" style="color:var(--text2); font-size:13px; text-decoration:none;">Scan study data (Feb 2026) &#8599;</a>
   </p>
   <div class="stats-bar">
     <div class="stat">
@@ -572,6 +672,37 @@
     </div>
   </div>
 </div>
+
+<section class="threat-section">
+  <div class="container">
+    <h2>The problem with AI logs</h2>
+    <p class="section-sub">
+      Your agent runs. Something goes wrong. You check the logs.
+      But the logs are on your server.
+    </p>
+
+    <div class="diff-block" style="max-width: 720px;">
+      <div class="diff-header">what happens today</div>
+      <div class="diff-body">
+<span class="diff-line diff-context">1. Your agent calls gpt-4 with customer data</span>
+<span class="diff-line diff-context">2. Agent gets a response, takes an action</span>
+<span class="diff-line diff-context">3. Customer complains: "your AI did something wrong"</span>
+<span class="diff-line diff-context">4. You check your logs -- everything looks fine</span>
+<span class="diff-line diff-context">5. Customer: "prove it"</span>
+<span class="diff-line diff-context">6. You show your logs</span>
+<span class="diff-line diff-context">7. Customer: "those are YOUR logs on YOUR server"</span>
+<span class="diff-line diff-context"></span>
+<span class="diff-line" style="color: var(--red);">   You can't prove it. Whoever controls the server controls the story.</span>
+      </div>
+    </div>
+
+    <p style="color: var(--text2); font-size: 14px; margin-top: 20px; max-width: 640px;">
+      Assay fixes this. Every LLM call gets a cryptographically signed receipt
+      bundled into a portable proof pack. The verifier doesn't need access to your
+      server, your database, or your trust.
+    </p>
+  </div>
+</section>
 
 <section class="diff-section" id="how-it-works">
   <div class="container">
@@ -626,6 +757,37 @@
 <span class="diff-line" style="color: var(--green);">Integrity: PASS</span>
 <span class="diff-line" style="color: var(--green);">Claims:    PASS</span>
 <span class="diff-line" style="color: var(--green);">Exit code: 0</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top: 48px;">
+      <h3 style="font-size: 20px; margin-bottom: 8px;">What's in the proof pack</h3>
+      <p style="color: var(--text2); font-size: 14px; margin-bottom: 8px;">Five files. One signature. Independently verifiable.</p>
+      <div class="flow-diagram">
+        <div class="flow-step">
+          <div class="flow-label" style="color: var(--accent);">LLM Call</div>
+          <div class="flow-desc">SDK method fires</div>
+        </div>
+        <div class="flow-arrow">&#8594;</div>
+        <div class="flow-step">
+          <div class="flow-label" style="color: var(--green);">Receipt</div>
+          <div class="flow-desc">Signed JSON record</div>
+        </div>
+        <div class="flow-arrow">&#8594;</div>
+        <div class="flow-step">
+          <div class="flow-label" style="color: var(--accent);">Merkle Tree</div>
+          <div class="flow-desc">Hash chain of receipts</div>
+        </div>
+        <div class="flow-arrow">&#8594;</div>
+        <div class="flow-step">
+          <div class="flow-label" style="color: var(--accent);">Proof Pack</div>
+          <div class="flow-desc">5 files, Ed25519 signed</div>
+        </div>
+        <div class="flow-arrow">&#8594;</div>
+        <div class="flow-step">
+          <div class="flow-label" style="color: var(--green);">Verifier</div>
+          <div class="flow-desc">Anyone, anywhere</div>
         </div>
       </div>
     </div>
@@ -794,6 +956,63 @@ assay lock write --cards receipt_completeness,coverage_contract</span></pre>
   </div>
 </section>
 
+<section class="faq-section" id="faq">
+  <div class="container">
+    <h2>FAQ</h2>
+
+    <div style="max-width: 720px; margin-top: 32px;">
+      <details>
+        <summary>Is this just logging?</summary>
+        <p class="faq-answer">
+          No. Logs record what you say happened. Receipts prove what happened
+          with cryptographic signatures that can be verified independently.
+          Logs live on your server and you can edit them. Proof packs are
+          portable and tamper-evident -- change one byte and verification fails.
+        </p>
+      </details>
+
+      <details>
+        <summary>What's the performance cost?</summary>
+        <p class="faq-answer">
+          Negligible. Ed25519 signing takes microseconds. Receipt emission
+          happens after the LLM call returns, so it adds no latency to your
+          application. The proof pack is assembled at the end of the run.
+        </p>
+      </details>
+
+      <details>
+        <summary>What data do receipts contain?</summary>
+        <p class="faq-answer">
+          Each receipt records: model name, provider, timestamp, prompt hash,
+          response hash, and token counts. Full prompt/response content is
+          optional and off by default. You control what goes into the
+          evidence bundle.
+        </p>
+      </details>
+
+      <details>
+        <summary>How do I verify a proof pack?</summary>
+        <p class="faq-answer">
+          <code>assay verify-pack ./proof_pack_*/</code>.
+          Exit 0 = pass, exit 2 = tampered. No server, no account, no internet
+          connection required. The verifier checks Ed25519 signatures, Merkle
+          tree consistency, manifest completeness, and any declared claims.
+        </p>
+      </details>
+
+      <details>
+        <summary>What SDKs and frameworks are supported?</summary>
+        <p class="faq-answer">
+          OpenAI, Anthropic, and LangChain today. Each integration is a
+          one-line monkey-patch that wraps SDK methods transparently. Your
+          application code doesn't change. The scanner also detects LiteLLM
+          and LlamaIndex call sites.
+        </p>
+      </details>
+    </div>
+  </div>
+</section>
+
 <section class="cta-section">
   <div class="container">
     <h2>Ready to prove what your AI does?</h2>
@@ -807,6 +1026,14 @@ assay lock write --cards receipt_completeness,coverage_contract</span></pre>
       <a href="https://github.com/Haserjian/assay/issues/new?template=pilot-inquiry.md" class="btn btn-secondary" target="_blank">Request a Pilot</a>
       <a href="https://github.com/Haserjian/assay/discussions" class="btn btn-secondary" target="_blank">Join the Discussion</a>
     </div>
+    <p class="reg-note">
+      <strong>Regulatory context:</strong>
+      The EU AI Act (Regulation 2024/1689, Articles 12 &amp; 19) requires
+      tamper-resistant logging and retention for high-risk AI systems.
+      These obligations take effect August 2, 2026 under the current timeline.
+      Assay provides one building block for these requirements -- it does not
+      constitute full compliance on its own.
+    </p>
   </div>
 </section>
 
