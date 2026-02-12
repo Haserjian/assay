@@ -994,7 +994,7 @@ assay lock write --cards receipt_completeness,coverage_contract</span></pre>
         <summary>How do I verify a proof pack?</summary>
         <p class="faq-answer">
           <code>assay verify-pack ./proof_pack_*/</code>.
-          Exit 0 = pass, exit 2 = tampered. No server, no account, no internet
+          Exit 0 = pass, 1 = claims failed, 2 = tampered, 3 = bad input. No server, no account, no internet
           connection required. The verifier checks Ed25519 signatures, Merkle
           tree consistency, manifest completeness, and any declared claims.
         </p>

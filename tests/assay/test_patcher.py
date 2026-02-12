@@ -10,11 +10,14 @@ from typer.testing import CliRunner
 from assay.commands import assay_app
 from assay.patcher import (
     PatchPlan,
+    _PATCH_MARKER,
     _check_already_patched,
     _find_insertion_point,
     apply_patch,
+    backup_file,
     generate_diff,
     plan_patch,
+    undo_patch,
 )
 from assay.scanner import CallSite, Confidence, ScanResult
 
@@ -286,7 +289,7 @@ class TestApplyPatch:
         diff = apply_patch(plan, tmp_path)
 
         content = (tmp_path / "app.py").read_text()
-        assert content.startswith("from assay.integrations.openai import patch; patch()\n")
+        assert content.startswith("from assay.integrations.openai import patch; patch()" + _PATCH_MARKER + "\n")
         assert "import openai" in content
         assert "--- a/app.py" in diff
 
@@ -384,4 +387,102 @@ class TestPatchCommandJSON:
 
         # Apply mode must mutate the file.
         content = app_file.read_text()
-        assert content.startswith("from assay.integrations.openai import patch; patch()\n")
+        assert "from assay.integrations.openai import patch; patch()" in content
+
+
+# ---------------------------------------------------------------------------
+# backup / undo / marker
+# ---------------------------------------------------------------------------
+
+class TestBackupFile:
+    def test_creates_bak(self, tmp_path):
+        f = tmp_path / "app.py"
+        f.write_text("import openai\n")
+        bak = backup_file(f)
+        assert bak.exists()
+        assert bak.suffix == ".bak"
+        assert bak.name == "app.py.assay.bak"
+        assert bak.read_text() == "import openai\n"
+
+    def test_overwrites_existing_bak(self, tmp_path):
+        f = tmp_path / "app.py"
+        f.write_text("v1\n")
+        backup_file(f)
+        f.write_text("v2\n")
+        bak = backup_file(f)
+        assert bak.read_text() == "v2\n"
+
+
+class TestUndoPatch:
+    def test_restores_from_bak(self, tmp_path):
+        (tmp_path / "app.py").write_text("original\n")
+        scan = _make_scan_result([_openai_finding()])
+        plan = plan_patch(scan, tmp_path)
+        apply_patch(plan, tmp_path, backup=True)
+
+        patched = (tmp_path / "app.py").read_text()
+        assert "assay" in patched
+
+        success = undo_patch(tmp_path, "app.py")
+        assert success
+        assert (tmp_path / "app.py").read_text() == "original\n"
+        assert not (tmp_path / "app.py.assay.bak").exists()
+
+    def test_no_bak_returns_false(self, tmp_path):
+        (tmp_path / "app.py").write_text("original\n")
+        assert undo_patch(tmp_path, "app.py") is False
+
+
+class TestApplyPatchBackup:
+    def test_default_creates_backup(self, tmp_path):
+        (tmp_path / "app.py").write_text("import openai\n")
+        scan = _make_scan_result([_openai_finding()])
+        plan = plan_patch(scan, tmp_path)
+        apply_patch(plan, tmp_path)
+        assert (tmp_path / "app.py.assay.bak").exists()
+
+    def test_no_backup_flag(self, tmp_path):
+        (tmp_path / "app.py").write_text("import openai\n")
+        scan = _make_scan_result([_openai_finding()])
+        plan = plan_patch(scan, tmp_path)
+        apply_patch(plan, tmp_path, backup=False)
+        assert not (tmp_path / "app.py.assay.bak").exists()
+
+
+class TestPatchMarker:
+    def test_inserted_lines_have_marker(self, tmp_path):
+        (tmp_path / "app.py").write_text("import openai\n")
+        scan = _make_scan_result([_openai_finding()])
+        plan = plan_patch(scan, tmp_path)
+        apply_patch(plan, tmp_path, backup=False)
+        content = (tmp_path / "app.py").read_text()
+        assert _PATCH_MARKER in content
+
+    def test_marker_in_diff(self, tmp_path):
+        (tmp_path / "app.py").write_text("import openai\n")
+        scan = _make_scan_result([_openai_finding()])
+        plan = plan_patch(scan, tmp_path)
+        diff = generate_diff(plan, tmp_path)
+        assert "# assay:patched" in diff
+
+
+class TestPatchCmdUndo:
+    def test_cli_undo_restores(self, tmp_path):
+        app = tmp_path / "app.py"
+        original = (
+            "import openai\n"
+            "client = openai.OpenAI()\n"
+            "client.chat.completions.create(model='gpt-4', messages=[])\n"
+        )
+        app.write_text(original)
+
+        runner = CliRunner()
+        # Apply first
+        runner.invoke(assay_app, ["patch", str(tmp_path), "--yes"])
+        assert "assay" in app.read_text()
+
+        # Undo
+        result = runner.invoke(assay_app, ["patch", str(tmp_path), "--undo"])
+        assert result.exit_code == 0, result.output
+        assert app.read_text() == original
+        assert "Restored" in result.output

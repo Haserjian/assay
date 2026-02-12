@@ -236,6 +236,16 @@ class TestLandingPage:
             "Landing page exit code table missing exit code 3"
         )
 
+    def test_faq_mentions_all_four_exit_codes(self):
+        text = _read(LANDING_PAGE)
+        # The FAQ answer about verify-pack should mention all 4 exit codes
+        assert "1 = claims failed" in text, (
+            "FAQ verify-pack answer missing exit code 1"
+        )
+        assert "3 = bad input" in text, (
+            "FAQ verify-pack answer missing exit code 3"
+        )
+
     def test_completeness_contract_section_exists(self):
         text = _read(LANDING_PAGE)
         assert "Completeness Contract" in text, (

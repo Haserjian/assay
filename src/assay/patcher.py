@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import difflib
 import re
+import shutil
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -35,6 +36,9 @@ _LANGCHAIN_NOTE = (
 
 # Frameworks that support auto-patching (global monkey-patch)
 _PATCHABLE = {"openai", "anthropic"}
+
+# Marker comment appended to auto-inserted lines
+_PATCH_MARKER = "  # assay:patched"
 
 
 # ---------------------------------------------------------------------------
@@ -201,6 +205,14 @@ def plan_patch(
     )
 
 
+def _build_modified(original: List[str], plan: PatchPlan) -> List[str]:
+    """Build the modified file content from a patch plan."""
+    modified = list(original)
+    for i, line in enumerate(plan.lines_to_insert):
+        modified.insert(plan.insertion_line + i, line + _PATCH_MARKER + "\n")
+    return modified
+
+
 def generate_diff(plan: PatchPlan, root: Path) -> str:
     """Generate a unified diff showing what would change."""
     if not plan.has_work:
@@ -208,11 +220,7 @@ def generate_diff(plan: PatchPlan, root: Path) -> str:
 
     ep_path = root / plan.entrypoint
     original = ep_path.read_text(encoding="utf-8").splitlines(keepends=True)
-
-    # Build modified version
-    modified = list(original)
-    for i, line in enumerate(plan.lines_to_insert):
-        modified.insert(plan.insertion_line + i, line + "\n")
+    modified = _build_modified(original, plan)
 
     diff = difflib.unified_diff(
         original,
@@ -224,7 +232,25 @@ def generate_diff(plan: PatchPlan, root: Path) -> str:
     return "\n".join(l.rstrip() for l in diff)
 
 
-def apply_patch(plan: PatchPlan, root: Path) -> str:
+def backup_file(path: Path) -> Path:
+    """Copy file to .assay.bak before patching. Returns path to backup."""
+    bak = path.with_suffix(path.suffix + ".assay.bak")
+    shutil.copy2(path, bak)
+    return bak
+
+
+def undo_patch(root: Path, entrypoint: str) -> bool:
+    """Restore entrypoint from .assay.bak. Returns True if restored."""
+    ep_path = root / entrypoint
+    bak = ep_path.with_suffix(ep_path.suffix + ".assay.bak")
+    if not bak.exists():
+        return False
+    shutil.copy2(bak, ep_path)
+    bak.unlink()
+    return True
+
+
+def apply_patch(plan: PatchPlan, root: Path, *, backup: bool = True) -> str:
     """Apply the patch plan. Returns the unified diff string."""
     if not plan.has_work:
         return ""
@@ -232,11 +258,11 @@ def apply_patch(plan: PatchPlan, root: Path) -> str:
     diff = generate_diff(plan, root)
 
     ep_path = root / plan.entrypoint
-    original = ep_path.read_text(encoding="utf-8").splitlines(keepends=True)
+    if backup:
+        backup_file(ep_path)
 
-    modified = list(original)
-    for i, line in enumerate(plan.lines_to_insert):
-        modified.insert(plan.insertion_line + i, line + "\n")
+    original = ep_path.read_text(encoding="utf-8").splitlines(keepends=True)
+    modified = _build_modified(original, plan)
 
     ep_path.write_text("".join(modified), encoding="utf-8")
     return diff

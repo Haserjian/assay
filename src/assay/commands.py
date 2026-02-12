@@ -53,6 +53,7 @@ def _output_json(data: Dict[str, Any], exit_code: Optional[int] = None) -> None:
     - 0: success (status == "ok")
     - 1: error (status == "error" or "blocked")
     - 2: verification failed (status == "failed")
+    - 3: bad input (invalid arguments, missing files)
 
     Can be overridden with explicit exit_code parameter.
     """
@@ -2519,6 +2520,33 @@ jobs:
     console.print()
 
 
+@ci_app.command("doctor")
+def ci_doctor_cmd(
+    lock: Optional[str] = typer.Option(None, "--lock", help="Path to lockfile"),
+    strict: bool = typer.Option(False, "--strict", help="Treat warnings as failures"),
+    output_json: bool = typer.Option(False, "--json", help="Machine-readable JSON output"),
+):
+    """Run doctor checks with the CI profile.
+
+    Validates lockfile integrity, workflow wiring, exit code contract,
+    and all standard CI prerequisites.
+
+    Equivalent to: assay doctor --profile ci
+    """
+    from pathlib import Path as P
+
+    from assay.doctor import Profile, run_doctor
+
+    lock_path = P(lock) if lock else None
+    report = run_doctor(Profile.CI, lock_path=lock_path, strict=strict)
+
+    if output_json:
+        _output_json(report.to_dict(), exit_code=report.exit_code_strict() if strict else report.exit_code)
+        return
+
+    _render_doctor_report(report, strict)
+
+
 @assay_app.command("onboard")
 def onboard_cmd(
     path: str = typer.Argument(".", help="Project directory to onboard"),
@@ -2621,12 +2649,14 @@ def patch_cmd(
     ),
     dry_run: bool = typer.Option(False, "--dry-run", help="Show diff without writing"),
     yes: bool = typer.Option(False, "--yes", "-y", help="Apply without confirmation"),
+    backup: bool = typer.Option(True, "--backup/--no-backup", help="Back up original file before patching"),
+    undo: bool = typer.Option(False, "--undo", help="Restore from backup (reverses a previous patch)"),
     output_json: bool = typer.Option(False, "--json", help="Machine-readable output"),
 ):
     """Auto-insert SDK integration patches into your entrypoint."""
     from pathlib import Path as P
 
-    from assay.patcher import apply_patch, generate_diff, plan_patch
+    from assay.patcher import apply_patch, generate_diff, plan_patch, undo_patch
     from assay.scanner import scan_directory
 
     root = P(path).resolve()
@@ -2635,6 +2665,32 @@ def patch_cmd(
             _output_json({"command": "patch", "status": "error", "error": f"Directory not found: {path}"})
         console.print(f"[red]Error:[/] Directory not found: {path}")
         raise typer.Exit(3)
+
+    # Undo mode: restore from backup
+    if undo:
+        if entrypoint is None:
+            bak_files = list(root.glob("**/*.assay.bak"))
+            if not bak_files:
+                if output_json:
+                    _output_json({"command": "patch", "status": "error", "error": "No .assay.bak files found"})
+                console.print("[red]No .assay.bak files found.[/] Nothing to undo.")
+                raise typer.Exit(1)
+            # Derive entrypoint from first .bak file
+            bak = bak_files[0]
+            entrypoint = str(bak.relative_to(root)).replace(".assay.bak", "")
+        success = undo_patch(root, entrypoint)
+        if output_json:
+            _output_json({
+                "command": "patch", "action": "undo",
+                "status": "ok" if success else "error",
+                "entrypoint": entrypoint,
+            }, exit_code=0 if success else 1)
+        if success:
+            console.print(f"[green]Restored {entrypoint}[/] from backup.")
+        else:
+            console.print(f"[red]No backup found for {entrypoint}[/]")
+            raise typer.Exit(1)
+        return
 
     scan_result = scan_directory(root)
     uninstrumented = [f for f in scan_result.findings if not f.instrumented]
@@ -2676,7 +2732,7 @@ def patch_cmd(
 
     if output_json:
         # Apply first, then report
-        apply_patch(plan, root)
+        apply_patch(plan, root, backup=backup)
         _output_json({
             "command": "patch",
             "status": "applied",
@@ -2707,7 +2763,7 @@ def patch_cmd(
             console.print("[dim]Cancelled.[/]")
             raise typer.Exit(0)
 
-    apply_patch(plan, root)
+    apply_patch(plan, root, backup=backup)
     console.print(f"[green]Patched {plan.entrypoint}[/] with {len(plan.lines_to_insert)} integration line(s).")
     console.print(f"\nNext: [bold]assay run -c receipt_completeness -- python {plan.entrypoint}[/]")
 
@@ -3019,9 +3075,15 @@ def doctor_cmd(
         _output_json(report.to_dict(), exit_code=report.exit_code_strict() if strict else report.exit_code)
         return
 
-    # Human output
+    _render_doctor_report(report, strict)
+
+
+def _render_doctor_report(report, strict: bool = False) -> None:
+    """Render a doctor report to console and exit with appropriate code."""
+    from assay.doctor import CheckStatus
+
     console.print()
-    console.print(f"[bold]assay doctor[/] (profile={prof.value})")
+    console.print(f"[bold]assay doctor[/] (profile={report.profile.value})")
     console.print()
 
     status_styles = {
@@ -3344,6 +3406,167 @@ def demo_incident_cmd(
         console.print("[dim]To see the full explanation of each pack:[/]")
         console.print("  assay explain <pack_dir>")
         console.print()
+
+
+@assay_app.command("quickstart")
+def quickstart_cmd(
+    path: str = typer.Argument(".", help="Project directory to explore"),
+    skip_demo: bool = typer.Option(False, "--skip-demo", help="Skip demo-challenge generation"),
+    output_json: bool = typer.Option(False, "--json", help="Machine-readable output"),
+):
+    """One command to see Assay in action.
+
+    Creates a demo challenge pack, scans your project for uninstrumented
+    AI call sites, and prints actionable next steps.
+
+    \b
+    Examples:
+      assay quickstart
+      assay quickstart ./my_project
+      assay quickstart --skip-demo
+    """
+    import shutil
+    import tempfile
+    from pathlib import Path as P
+
+    from assay.scanner import scan_directory
+
+    root = P(path).resolve()
+    if not root.exists() or not root.is_dir():
+        if output_json:
+            _output_json({"command": "quickstart", "status": "error", "error": f"Directory not found: {path}"})
+        console.print(f"[red]Error:[/] Directory not found: {path}")
+        raise typer.Exit(3)
+
+    def _print(*args, **kwargs):
+        if not output_json:
+            console.print(*args, **kwargs)
+
+    results: dict = {"command": "quickstart", "steps": []}
+    demo_dir = root / "challenge_pack"
+    next_steps: list = []
+
+    # Step 1: Demo challenge
+    if not skip_demo:
+        _print()
+        _print("[bold]Step 1:[/] Creating demo challenge pack...")
+        try:
+            from assay.claim_verifier import ClaimSpec
+            from assay.keystore import AssayKeyStore
+            from assay.proof_pack import ProofPack
+
+            with tempfile.TemporaryDirectory() as tmpdir:
+                td = P(tmpdir)
+                ks = AssayKeyStore(keys_dir=td / "keys")
+                ks.generate_key("challenge")
+
+                ts_base = "2026-02-10T12:00:0"
+                receipts = [
+                    {"receipt_id": "r_chal_001", "type": "model_call",
+                     "timestamp": f"{ts_base}0Z", "schema_version": "3.0", "seq": 0,
+                     "model_id": "gpt-4", "provider": "openai",
+                     "total_tokens": 2500, "input_tokens": 1800, "output_tokens": 700,
+                     "latency_ms": 1100, "finish_reason": "stop"},
+                    {"receipt_id": "r_chal_002", "type": "guardian_verdict",
+                     "timestamp": f"{ts_base}1Z", "schema_version": "3.0", "seq": 1,
+                     "verdict": "allow", "action": "generate_summary",
+                     "reason": "Content is within policy bounds"},
+                ]
+                claims = [
+                    ClaimSpec(claim_id="has_model_calls", description="At least one model_call receipt",
+                              check="receipt_type_present", params={"receipt_type": "model_call"}),
+                ]
+
+                pack = ProofPack(run_id="quickstart-run", entries=receipts,
+                                 signer_id="challenge", claims=claims, mode="shadow")
+                good_dir = pack.build(td / "good", keystore=ks)
+
+                demo_dir.mkdir(parents=True, exist_ok=True)
+                good_out = demo_dir / "good"
+                tampered_out = demo_dir / "tampered"
+
+                if good_out.exists():
+                    shutil.rmtree(good_out)
+                shutil.copytree(good_dir, good_out)
+
+                if tampered_out.exists():
+                    shutil.rmtree(tampered_out)
+                shutil.copytree(good_dir, tampered_out)
+                receipt_file = tampered_out / "receipt_pack.jsonl"
+                data = bytearray(receipt_file.read_bytes())
+                target = b'"gpt-4"'
+                idx = data.find(target)
+                if idx >= 0:
+                    data[idx + 1:idx + 6] = b"gpt-5"
+                receipt_file.write_bytes(bytes(data))
+
+            _print(f"  [green]Created[/] {demo_dir}/ (good + tampered packs)")
+            results["steps"].append({"step": "demo", "status": "ok", "dir": str(demo_dir)})
+            next_steps.append(f"Verify good pack:     assay verify-pack {demo_dir}/good/")
+            next_steps.append(f"Verify tampered pack: assay verify-pack {demo_dir}/tampered/")
+        except Exception as e:
+            _print(f"  [yellow]Skipped:[/] {e}")
+            results["steps"].append({"step": "demo", "status": "skipped", "error": str(e)})
+    else:
+        _print()
+        _print("[dim]Step 1: Skipped (--skip-demo)[/]")
+        results["steps"].append({"step": "demo", "status": "skipped"})
+
+    # Step 2: Scan
+    _print()
+    _print("[bold]Step 2:[/] Scanning for AI call sites...")
+    try:
+        scan_result = scan_directory(root, exclude=["challenge_pack/**"])
+        s = scan_result.summary
+        uninstrumented = s["uninstrumented"]
+        _print(f"  Found {s['sites_total']} call site(s): "
+               f"[green]{s['instrumented']} instrumented[/], "
+               f"[{'red' if uninstrumented else 'green'}]{uninstrumented} uninstrumented[/]")
+
+        results["steps"].append({
+            "step": "scan", "status": "ok",
+            "sites_total": s["sites_total"],
+            "instrumented": s["instrumented"],
+            "uninstrumented": uninstrumented,
+        })
+
+        # Generate report if there are findings
+        if scan_result.findings:
+            from assay.reporting.evidence_gap import build_report, render_html, write_report
+            report_file = root / "assay_quickstart_report.html"
+            gap_report = build_report(scan_result.to_dict(), root)
+            html = render_html(gap_report)
+            write_report(html, report_file)
+            _print(f"  [green]Report:[/] {report_file}")
+            results["steps"][-1]["report"] = str(report_file)
+
+        if uninstrumented > 0:
+            next_steps.append(f"Patch entrypoint:     assay patch {path}")
+        next_steps.append(f"Run with receipts:    assay run -c receipt_completeness -- python your_app.py")
+        next_steps.append(f"Lock baseline:        assay lock write -o assay.lock")
+        next_steps.append(f"Enable CI:            assay ci init github")
+
+    except Exception as e:
+        _print(f"  [yellow]Scan error:[/] {e}")
+        results["steps"].append({"step": "scan", "status": "error", "error": str(e)})
+
+    # Step 3: Next steps
+    _print()
+    if not next_steps:
+        _print("[dim]No AI call sites found.[/] Add SDK integrations first:")
+        _print("  pip install assay-ai[openai]")
+        _print("  # Then add: from assay.integrations.openai import patch; patch()")
+        results["next_steps"] = []
+    else:
+        _print("[bold]Next steps:[/]")
+        for i, step in enumerate(next_steps, 1):
+            _print(f"  {i}. {step}")
+        results["next_steps"] = next_steps
+    _print()
+
+    if output_json:
+        results["status"] = "ok"
+        _output_json(results, exit_code=0)
 
 
 @assay_app.command("demo-challenge")

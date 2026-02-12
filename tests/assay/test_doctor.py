@@ -24,6 +24,8 @@ from assay.doctor import (
     _check_pack_002,
     _check_exit_001,
     _check_ci_001,
+    _check_ci_002,
+    _check_ci_003,
     _check_ledger_001,
     _check_witness_001,
 )
@@ -282,6 +284,12 @@ class TestCheckExit001:
         assert r.status == CheckStatus.PASS
         assert "exit_codes" in r.evidence
 
+    def test_exit_contract_includes_code_3(self):
+        r = _check_exit_001()
+        assert "3" in r.evidence["exit_codes"], (
+            "exit code 3 (bad input) missing from DOCTOR_EXIT_001 evidence"
+        )
+
 
 class TestCheckCI001:
     def test_no_workflows_dir(self, tmp_path, monkeypatch):
@@ -304,6 +312,53 @@ class TestCheckCI001:
         monkeypatch.chdir(tmp_path)
         r = _check_ci_001()
         assert r.status == CheckStatus.WARN
+
+
+class TestCheckCI002:
+    def test_no_lockfile_skips(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        r = _check_ci_002()
+        assert r.status == CheckStatus.SKIP
+
+    def test_valid_contract_passes(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        lock = {"exit_contract": {"0": "pass", "1": "claim_fail", "2": "integrity_fail"}}
+        (tmp_path / "assay.lock").write_text(json.dumps(lock))
+        r = _check_ci_002()
+        assert r.status == CheckStatus.PASS
+
+    def test_missing_code_fails(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        lock = {"exit_contract": {"0": "pass", "2": "integrity_fail"}}
+        (tmp_path / "assay.lock").write_text(json.dumps(lock))
+        r = _check_ci_002()
+        assert r.status == CheckStatus.FAIL
+        assert "1" in r.evidence["missing_codes"]
+
+
+class TestCheckCI003:
+    def test_no_workflows_skips(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        r = _check_ci_003()
+        assert r.status == CheckStatus.SKIP
+
+    def test_continue_on_error_warns(self, tmp_path, monkeypatch):
+        wf_dir = tmp_path / ".github" / "workflows"
+        wf_dir.mkdir(parents=True)
+        (wf_dir / "ci.yml").write_text(
+            "steps:\n  - run: assay verify-pack ./pack/\n    continue-on-error: true\n"
+        )
+        monkeypatch.chdir(tmp_path)
+        r = _check_ci_003()
+        assert r.status == CheckStatus.WARN
+
+    def test_clean_workflow_passes(self, tmp_path, monkeypatch):
+        wf_dir = tmp_path / ".github" / "workflows"
+        wf_dir.mkdir(parents=True)
+        (wf_dir / "ci.yml").write_text("steps:\n  - run: assay verify-pack ./pack/\n")
+        monkeypatch.chdir(tmp_path)
+        r = _check_ci_003()
+        assert r.status == CheckStatus.PASS
 
 
 class TestCheckWitness001:
@@ -331,6 +386,8 @@ class TestRunDoctor:
         report = run_doctor(Profile.CI)
         assert report.profile == Profile.CI
         assert any(c.id == "DOCTOR_CI_001" for c in report.checks)
+        assert any(c.id == "DOCTOR_CI_002" for c in report.checks)
+        assert any(c.id == "DOCTOR_CI_003" for c in report.checks)
         assert any(c.id == "DOCTOR_LOCK_003" for c in report.checks)
 
     def test_ledger_profile_runs(self):

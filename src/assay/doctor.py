@@ -149,6 +149,8 @@ _PROFILE_CHECKS: Dict[Profile, List[str]] = {
         "DOCTOR_LOCK_002",
         "DOCTOR_LOCK_003",
         "DOCTOR_CI_001",
+        "DOCTOR_CI_002",
+        "DOCTOR_CI_003",
     ],
     Profile.RELEASE: [
         "DOCTOR_CORE_001",
@@ -547,8 +549,8 @@ def _check_exit_001() -> DoctorCheckResult:
             id="DOCTOR_EXIT_001",
             status=CheckStatus.PASS,
             severity=Severity.INFO,
-            message="Exit code contract: 0=pass, 1=claim-fail, 2=integrity-fail",
-            evidence={"exit_codes": {"0": "pass", "1": "claim_fail", "2": "integrity_fail"}},
+            message="Exit code contract: 0=pass, 1=claim-fail, 2=integrity-fail, 3=bad-input",
+            evidence={"exit_codes": {"0": "pass", "1": "claim_fail", "2": "integrity_fail", "3": "bad_input"}},
         )
     except ImportError:
         return DoctorCheckResult(
@@ -609,6 +611,82 @@ def _check_ci_001() -> DoctorCheckResult:
         message="No workflow found using assay verify step",
         evidence={"searched": str(workflow_dir)},
         fix="# Add to your CI workflow:\n#   assay verify-pack ./proof_pack_*/ --require-claim-pass",
+    )
+
+
+def _check_ci_002(lock_path: Optional[Path] = None) -> DoctorCheckResult:
+    """exit_contract in lockfile includes all documented exit codes."""
+    lp = lock_path or Path("assay.lock")
+    if not lp.exists():
+        return DoctorCheckResult(
+            id="DOCTOR_CI_002",
+            status=CheckStatus.SKIP,
+            severity=Severity.INFO,
+            message="Skipped (no lockfile found)",
+        )
+    try:
+        import json as _json
+        lock = _json.loads(lp.read_text())
+        contract = lock.get("exit_contract", {})
+        missing = [c for c in ("0", "1", "2") if c not in contract]
+        if missing:
+            return DoctorCheckResult(
+                id="DOCTOR_CI_002",
+                status=CheckStatus.FAIL,
+                severity=Severity.HIGH,
+                message=f"exit_contract missing codes: {', '.join(missing)}",
+                evidence={"missing_codes": missing, "found": list(contract.keys())},
+                fix="assay lock write --cards receipt_completeness,guardian_enforcement -o assay.lock",
+            )
+        return DoctorCheckResult(
+            id="DOCTOR_CI_002",
+            status=CheckStatus.PASS,
+            severity=Severity.INFO,
+            message="exit_contract covers all 3 outcome codes (0, 1, 2)",
+            evidence={"codes": list(contract.keys())},
+        )
+    except Exception as e:
+        return DoctorCheckResult(
+            id="DOCTOR_CI_002",
+            status=CheckStatus.SKIP,
+            severity=Severity.INFO,
+            message=f"Skipped (parse error: {e})",
+        )
+
+
+def _check_ci_003() -> DoctorCheckResult:
+    """Workflow does not swallow assay failures with continue-on-error."""
+    workflow_dir = Path(".github/workflows")
+    if not workflow_dir.exists():
+        return DoctorCheckResult(
+            id="DOCTOR_CI_003",
+            status=CheckStatus.SKIP,
+            severity=Severity.INFO,
+            message="Skipped (no .github/workflows directory)",
+        )
+    issues: List[str] = []
+    for pattern in ("*.yml", "*.yaml"):
+        for yml in workflow_dir.glob(pattern):
+            try:
+                content = yml.read_text()
+                if "assay" in content.lower() and "continue-on-error: true" in content:
+                    issues.append(yml.name)
+            except OSError:
+                continue
+    if issues:
+        return DoctorCheckResult(
+            id="DOCTOR_CI_003",
+            status=CheckStatus.WARN,
+            severity=Severity.MEDIUM,
+            message=f"continue-on-error may swallow assay failures: {', '.join(issues)}",
+            evidence={"files": issues},
+            fix="# Remove continue-on-error: true from assay verify steps",
+        )
+    return DoctorCheckResult(
+        id="DOCTOR_CI_003",
+        status=CheckStatus.PASS,
+        severity=Severity.INFO,
+        message="No continue-on-error detected on assay workflow steps",
     )
 
 
@@ -679,6 +757,8 @@ _CHECK_FUNCTIONS = {
     "DOCTOR_PACK_002": lambda **kw: _check_pack_002(kw.get("pack_dir")),
     "DOCTOR_EXIT_001": lambda **kw: _check_exit_001(),
     "DOCTOR_CI_001": lambda **kw: _check_ci_001(),
+    "DOCTOR_CI_002": lambda **kw: _check_ci_002(kw.get("lock_path")),
+    "DOCTOR_CI_003": lambda **kw: _check_ci_003(),
     "DOCTOR_LEDGER_001": lambda **kw: _check_ledger_001(),
     "DOCTOR_WITNESS_001": lambda **kw: _check_witness_001(kw.get("strict", False)),
 }

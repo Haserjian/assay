@@ -40,6 +40,7 @@ class ReportSummary:
     prod_uninstrumented: int = 0
     test_total: int = 0
     test_uninstrumented: int = 0
+    excluded_frameworks: Dict[str, int] = field(default_factory=dict)
 
 
 def _detect_provider(call: str) -> str:
@@ -159,14 +160,26 @@ def build_report(scan_result_dict: Dict[str, Any], repo_root: Path) -> EvidenceG
 
     # Coverage = instrumented / (total HIGH + MEDIUM sites) * 100
     # LOW excluded from denominator.
+    # LangChain/LiteLLM excluded from denominator (no runtime callsite_id support).
+    _EXCLUDED_FRAMEWORKS = {"langchain", "litellm"}
     findings_raw = scan_result_dict.get("findings", [])
+
+    # Count excluded framework findings (HIGH+MEDIUM only)
+    excluded_frameworks: Dict[str, int] = {}
+    for f in findings_raw:
+        fw = f.get("framework", "")
+        if fw in _EXCLUDED_FRAMEWORKS and f["confidence"] in ("high", "medium"):
+            excluded_frameworks[fw] = excluded_frameworks.get(fw, 0) + 1
+
     high_medium_total = sum(
         1 for f in findings_raw
         if f["confidence"] in ("high", "medium")
+        and f.get("framework", "") not in _EXCLUDED_FRAMEWORKS
     )
     instrumented_hm = sum(
         1 for f in findings_raw
         if f["confidence"] in ("high", "medium") and f["instrumented"]
+        and f.get("framework", "") not in _EXCLUDED_FRAMEWORKS
     )
     if high_medium_total > 0:
         coverage_pct = round(instrumented_hm / high_medium_total * 100, 1)
@@ -214,6 +227,7 @@ def build_report(scan_result_dict: Dict[str, Any], repo_root: Path) -> EvidenceG
     summary.prod_uninstrumented = sum(1 for f in prod if not f.instrumented)
     summary.test_total = len(tests)
     summary.test_uninstrumented = sum(1 for f in tests if not f.instrumented)
+    summary.excluded_frameworks = excluded_frameworks
 
     return EvidenceGapReport(meta=meta, summary=summary, findings=findings)
 
@@ -779,6 +793,19 @@ tr:hover { background: rgba(255,255,255,0.02); }
   if (summary.low > 0) {
     hero.appendChild(el("div", {className: "count-note",
       textContent: summary.low + " LOW-confidence finding" + (summary.low !== 1 ? "s" : "") + " excluded from coverage"}));
+  }
+
+  var excl = summary.excluded_frameworks || {};
+  var exclKeys = Object.keys(excl);
+  if (exclKeys.length > 0) {
+    var reasons = {
+      "langchain": "uses callbacks, not global patching",
+      "litellm": "wraps upstream SDK; instrument the SDK directly"
+    };
+    var parts = exclKeys.map(function(k) { return excl[k] + " " + k; });
+    var reasonParts = exclKeys.map(function(k) { return k + ": " + (reasons[k] || "framework-level wrapping"); });
+    hero.appendChild(el("div", {className: "count-note",
+      textContent: parts.join(" + ") + " finding(s) excluded from denominator (" + reasonParts.join("; ") + ")"}));
   }
 
   app.appendChild(hero);

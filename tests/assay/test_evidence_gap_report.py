@@ -305,6 +305,62 @@ class TestToDict:
         assert "test_total" in parsed["summary"]
 
 
+class TestExcludedFrameworks:
+    def test_excluded_frameworks_in_summary(self, tmp_path):
+        """LangChain/LiteLLM HIGH/MEDIUM findings should appear in excluded_frameworks."""
+        findings = [
+            CallSite("a.py", 1, "client.chat.completions.create", Confidence.HIGH, False, "p", framework="openai"),
+            CallSite("b.py", 2, "chain.invoke()", Confidence.MEDIUM, False, "p", framework="langchain"),
+            CallSite("c.py", 3, "chain.invoke()", Confidence.HIGH, False, "p", framework="langchain"),
+            CallSite("d.py", 4, "litellm.completion()", Confidence.MEDIUM, False, "p", framework="litellm"),
+        ]
+        scan = ScanResult(findings=findings).to_dict()
+        report = build_report(scan, tmp_path)
+        assert report.summary.excluded_frameworks == {"langchain": 2, "litellm": 1}
+
+    def test_excluded_frameworks_empty_when_none(self, tmp_path):
+        """No LangChain/LiteLLM findings -> empty excluded_frameworks."""
+        findings = [
+            CallSite("a.py", 1, "client.chat.completions.create", Confidence.HIGH, False, "p", framework="openai"),
+        ]
+        scan = ScanResult(findings=findings).to_dict()
+        report = build_report(scan, tmp_path)
+        assert report.summary.excluded_frameworks == {}
+
+    def test_excluded_frameworks_affect_coverage(self, tmp_path):
+        """Excluded frameworks should be subtracted from denominator."""
+        findings = [
+            CallSite("a.py", 1, "client.chat.completions.create", Confidence.HIGH, True, None, framework="openai"),
+            CallSite("b.py", 2, "chain.invoke()", Confidence.HIGH, False, "p", framework="langchain"),
+        ]
+        scan = ScanResult(findings=findings).to_dict()
+        report = build_report(scan, tmp_path)
+        # Denominator = 1 (openai only), instrumented = 1 -> 100%
+        assert report.summary.coverage_pct == 100.0
+
+    def test_excluded_frameworks_in_html(self, tmp_path):
+        """HTML should contain exclusion note when LangChain/LiteLLM present."""
+        findings = [
+            CallSite("a.py", 1, "client.chat.completions.create", Confidence.HIGH, False, "p", framework="openai"),
+            CallSite("b.py", 2, "chain.invoke()", Confidence.HIGH, False, "p", framework="langchain"),
+        ]
+        scan = ScanResult(findings=findings).to_dict()
+        report = build_report(scan, tmp_path)
+        html = render_html(report)
+        assert "excluded from denominator" in html
+        assert "langchain" in html
+
+    def test_excluded_frameworks_empty_in_json_when_none(self, tmp_path):
+        """Embedded JSON should have empty excluded_frameworks when none present."""
+        findings = [
+            CallSite("a.py", 1, "client.chat.completions.create", Confidence.HIGH, False, "p", framework="openai"),
+        ]
+        scan = ScanResult(findings=findings).to_dict()
+        report = build_report(scan, tmp_path)
+        d = report.to_dict()
+        assert d["summary"]["excluded_frameworks"] == {}
+
+
 class TestScanCLIReport:
     def test_report_does_not_pollute_json_output(self, tmp_path: Path):
         (tmp_path / "app.py").write_text(
