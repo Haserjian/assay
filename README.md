@@ -91,6 +91,8 @@ more trustworthy than systems that always claim to pass.
 | `assay ci init github` | Generate a GitHub Actions workflow |
 | `assay lock write` | Freeze verification contract to lockfile |
 | `assay lock check` | Validate lockfile against current card definitions |
+| `assay cards list` | List built-in run cards and their claims |
+| `assay cards show` | Show card details, claims, and parameters |
 | `assay doctor` | Preflight check: is Assay ready here? |
 
 ## Documentation

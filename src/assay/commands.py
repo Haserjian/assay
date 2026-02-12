@@ -16,6 +16,8 @@ Commands:
   assay lock write    - Write a verifier lockfile (assay.lock)
   assay lock check    - Validate an existing lockfile
   assay ci init       - Generate CI workflow
+  assay cards list    - List built-in run cards
+  assay cards show    - Show card details and claims
   assay version       - Show version info
 """
 
@@ -2385,6 +2387,107 @@ ci_app = typer.Typer(
     no_args_is_help=True,
 )
 assay_app.add_typer(ci_app, name="ci")
+
+
+# ---------------------------------------------------------------------------
+# cards subcommands
+# ---------------------------------------------------------------------------
+
+cards_app = typer.Typer(
+    name="cards",
+    help="Inspect built-in and custom run cards",
+    no_args_is_help=True,
+)
+assay_app.add_typer(cards_app, name="cards")
+
+
+@cards_app.command("list")
+def cards_list_cmd(
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """List all built-in run cards."""
+    from assay.run_cards import get_all_builtin_cards
+
+    cards = get_all_builtin_cards()
+
+    if output_json:
+        _output_json({
+            "command": "cards list",
+            "status": "ok",
+            "cards": [
+                {
+                    "card_id": c.card_id,
+                    "name": c.name,
+                    "description": c.description,
+                    "claims": len(c.claims),
+                }
+                for c in cards
+            ],
+        })
+
+    table = Table(show_header=True, header_style="bold")
+    table.add_column("Card ID", style="cyan")
+    table.add_column("Name")
+    table.add_column("Claims", justify="right")
+    table.add_column("Description")
+
+    for c in cards:
+        table.add_row(c.card_id, c.name, str(len(c.claims)), c.description)
+
+    console.print(table)
+
+
+@cards_app.command("show")
+def cards_show_cmd(
+    card_id: str = typer.Argument(help="Card ID to display (e.g. receipt_completeness)"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Show details of a specific run card, including its claims."""
+    from assay.run_cards import get_builtin_card
+
+    card = get_builtin_card(card_id)
+    if card is None:
+        from assay.run_cards import BUILTIN_CARDS
+        valid = ", ".join(sorted(BUILTIN_CARDS.keys()))
+        if output_json:
+            _output_json({"command": "cards show", "status": "error",
+                          "error": f"Unknown card: {card_id}", "valid_cards": valid},
+                         exit_code=3)
+        console.print(f"[red]Unknown card:[/] {card_id}")
+        console.print(f"[dim]Valid cards: {valid}[/]")
+        raise typer.Exit(3)
+
+    if output_json:
+        _output_json({
+            "command": "cards show",
+            "status": "ok",
+            **card.to_dict(),
+            "claim_set_hash": card.claim_set_hash(),
+        })
+
+    console.print(f"[bold]{card.name}[/]  [dim]({card.card_id})[/]")
+    console.print(f"  {card.description}")
+    console.print()
+
+    table = Table(show_header=True, header_style="bold")
+    table.add_column("Claim ID", style="cyan")
+    table.add_column("Check")
+    table.add_column("Severity")
+    table.add_column("Description")
+
+    for cl in card.claims:
+        sev_style = "red" if cl.severity == "critical" else "yellow"
+        table.add_row(cl.claim_id, cl.check, f"[{sev_style}]{cl.severity}[/]", cl.description)
+
+    console.print(table)
+
+    if any(cl.params for cl in card.claims):
+        console.print()
+        for cl in card.claims:
+            if cl.params:
+                console.print(f"  [dim]{cl.claim_id} params:[/] {cl.params}")
+
+    console.print(f"\n  [dim]Claim set hash: {card.claim_set_hash()}[/]")
 
 
 @ci_app.command("init")
