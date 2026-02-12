@@ -4,7 +4,7 @@ Assay: Tamper-evident audit trails for AI systems.
 - Scan codebases for uninstrumented LLM call sites
 - Instrument SDKs (OpenAI, Anthropic, LangChain) with 2-line patches
 - Produce signed proof packs (receipts, manifest, Ed25519 signature)
-- Verify evidence integrity (exit 0 = authentic, exit 2 = tampered)
+- Verify evidence integrity (exit 0/1/2/3: pass / honest failure / tampered / bad input)
 """
 
 __version__ = "1.2.2"

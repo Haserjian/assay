@@ -1567,7 +1567,7 @@ def show_version(
     console.print("  - Scan: find uninstrumented LLM call sites")
     console.print("  - Instrument: OpenAI, Anthropic, LangChain (2 lines)")
     console.print("  - Proof packs: receipts + manifest + Ed25519 signature")
-    console.print("  - Verify: exit 0 = authentic, exit 2 = tampered")
+    console.print("  - Verify: exit 0/1/2/3 (pass / honest failure / tampered / bad input)")
     console.print()
     console.print(f"Storage: {store.base_dir}")
 
