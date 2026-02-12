@@ -13,10 +13,9 @@ Found **202** high-confidence direct SDK call sites, **903** total including fra
 
 This doesn't measure logging/monitoring -- just cryptographic evidence. Many of these projects have great observability. The gap is between "we can see" and "we can prove."
 
-The fix is 2 lines:
-```python
-from assay.integrations.openai import patch
-patch()  # every SDK call now emits a signed receipt
+The fix is one command:
+```
+assay patch .  # auto-inserts the integration into your entrypoint
 ```
 
 Check your repo (generates an HTML gap report):

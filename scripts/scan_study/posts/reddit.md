@@ -20,7 +20,13 @@ Ran it on 30 popular repos: LangChain, LlamaIndex, CrewAI, Browser-Use, Aider, p
 
 **What this is not:** a claim that these projects have no logging. Many have extensive observability (callbacks, OpenTelemetry, LangSmith). This specifically measures cryptographically signed, independently verifiable evidence -- the difference between "we can see what happened" and "we can prove what happened."
 
-**What the fix looks like -- 2 lines added:**
+**What the fix looks like -- one command or 2 lines:**
+
+```bash
+assay patch .  # auto-inserts the integration into your entrypoint
+```
+
+Or manually:
 
 ```python
 import openai

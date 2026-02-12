@@ -18,7 +18,11 @@ Results: 202 high-confidence direct SDK call sites (`client.chat.completions.cre
 
 **Why this matters:** Most of these projects have extensive logging -- callbacks, OpenTelemetry, LangSmith. That's observability: "we can see what happened." What none of them have is verifiability: "we can cryptographically prove what happened, and you can independently check it." When a regulator or auditor asks "prove your AI system did what you said it did," logs under your control aren't sufficient. Signed receipts bundled into a portable proof pack are.
 
-**What the fix looks like -- 2 lines:**
+**What the fix looks like -- one command or 2 lines:**
+
+    assay patch .  # auto-inserts the integration into your entrypoint
+
+Or manually:
 
     import openai
     from assay.integrations.openai import patch
