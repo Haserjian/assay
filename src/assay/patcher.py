@@ -153,7 +153,8 @@ def plan_patch(
     entrypoint: Optional[str] = None,
 ) -> PatchPlan:
     """Analyze scan results and produce a patch plan."""
-    frameworks_detected = _detect_frameworks(scan_result.findings)
+    uninstrumented = [f for f in scan_result.findings if not f.instrumented]
+    frameworks_detected = _detect_frameworks(uninstrumented)
     patchable = sorted(frameworks_detected & _PATCHABLE)
 
     # Pick entrypoint

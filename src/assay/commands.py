@@ -2664,15 +2664,26 @@ def patch_cmd(
 
     # Show diff
     diff = generate_diff(plan, root)
-    if output_json:
+
+    if output_json and dry_run:
         _output_json({
             "command": "patch",
-            "status": "ok" if dry_run else "applied",
+            "status": "dry_run",
             "diff": diff,
             **plan.to_dict(),
         })
-        if dry_run:
-            return
+        # _output_json raises typer.Exit(0)
+
+    if output_json:
+        # Apply first, then report
+        apply_patch(plan, root)
+        _output_json({
+            "command": "patch",
+            "status": "applied",
+            "diff": diff,
+            **plan.to_dict(),
+        })
+        # _output_json raises typer.Exit(0)
 
     console.print(f"\n[bold]Scanning...[/] found {len(uninstrumented)} uninstrumented call sites")
     console.print(f"[bold]Detected frameworks:[/] {', '.join(plan.frameworks)}")

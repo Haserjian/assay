@@ -1003,10 +1003,10 @@ assay lock write --cards receipt_completeness,coverage_contract</span></pre>
       <details>
         <summary>What SDKs and frameworks are supported?</summary>
         <p class="faq-answer">
-          OpenAI, Anthropic, and LangChain today. Each integration is a
-          one-line monkey-patch that wraps SDK methods transparently. Your
-          application code doesn't change. The scanner also detects LiteLLM
-          and LlamaIndex call sites.
+          OpenAI and Anthropic use a one-line monkey-patch that wraps SDK
+          methods transparently. LangChain uses a callback handler you pass
+          to your LLM. Your application code doesn't change. The scanner
+          also detects LiteLLM and LlamaIndex call sites.
         </p>
       </details>
     </div>
@@ -1084,7 +1084,7 @@ const GAP_DATA = [
 ];
 
 const maxTotal = Math.max(...GAP_DATA.map(d => d.total));
-let currentSort = {col: 'high', dir: 'desc'};
+let currentSort = {col: 'high', dir: 'asc'};
 
 function formatStars(n) {
   return n >= 1000 ? (n/1000).toFixed(n >= 10000 ? 0 : 1) + 'k' : n.toString();

@@ -204,6 +204,22 @@ class TestPlanPatch:
         assert "openai" in plan.lines_to_insert[0]
         assert plan.langchain_note is not None
 
+    def test_instrumented_framework_not_patched(self, tmp_path):
+        """P2 regression: don't patch frameworks that are already instrumented elsewhere."""
+        (tmp_path / "chain.py").write_text("from langchain.llms import ChatOpenAI\n")
+        instrumented_openai = CallSite(
+            path="chain.py", line=5,
+            call="client.chat.completions.create",
+            confidence=Confidence.HIGH,
+            instrumented=True,  # already instrumented
+            framework="openai",
+        )
+        scan = _make_scan_result([instrumented_openai, _langchain_finding()])
+        plan = plan_patch(scan, tmp_path)
+        # OpenAI is instrumented, LangChain can't be auto-patched -> no work
+        assert not plan.has_work
+        assert plan.langchain_note is not None
+
     def test_no_findings(self, tmp_path):
         scan = _make_scan_result([])
         plan = plan_patch(scan, tmp_path)
