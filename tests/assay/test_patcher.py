@@ -1,10 +1,13 @@
 """Tests for assay patch -- auto-insert SDK integration patches."""
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
+from typer.testing import CliRunner
 
+from assay.commands import assay_app
 from assay.patcher import (
     PatchPlan,
     _check_already_patched,
@@ -335,3 +338,50 @@ class TestApplyPatch:
         )
         result = apply_patch(plan, tmp_path)
         assert result == ""
+
+
+# ---------------------------------------------------------------------------
+# patch command JSON mode regression tests
+# ---------------------------------------------------------------------------
+
+class TestPatchCommandJSON:
+    def test_json_dry_run_exits_0_and_does_not_write(self, tmp_path):
+        app_file = tmp_path / "app.py"
+        original = (
+            "import openai\n"
+            "client = openai.OpenAI()\n"
+            "resp = client.chat.completions.create(model='gpt-4', messages=[])\n"
+        )
+        app_file.write_text(original)
+
+        runner = CliRunner()
+        result = runner.invoke(assay_app, ["patch", str(tmp_path), "--json", "--dry-run"])
+        assert result.exit_code == 0, result.output
+
+        payload = json.loads(result.output)
+        assert payload["command"] == "patch"
+        assert payload["status"] == "dry_run"
+        assert "+from assay.integrations.openai import patch; patch()" in payload["diff"]
+
+        # Dry run must not mutate the file.
+        assert app_file.read_text() == original
+
+    def test_json_apply_exits_0_and_writes_file(self, tmp_path):
+        app_file = tmp_path / "app.py"
+        app_file.write_text(
+            "import openai\n"
+            "client = openai.OpenAI()\n"
+            "resp = client.chat.completions.create(model='gpt-4', messages=[])\n"
+        )
+
+        runner = CliRunner()
+        result = runner.invoke(assay_app, ["patch", str(tmp_path), "--json", "--yes"])
+        assert result.exit_code == 0, result.output
+
+        payload = json.loads(result.output)
+        assert payload["command"] == "patch"
+        assert payload["status"] == "applied"
+
+        # Apply mode must mutate the file.
+        content = app_file.read_text()
+        assert content.startswith("from assay.integrations.openai import patch; patch()\n")

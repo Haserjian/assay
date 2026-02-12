@@ -2671,8 +2671,8 @@ def patch_cmd(
             "status": "dry_run",
             "diff": diff,
             **plan.to_dict(),
-        })
-        # _output_json raises typer.Exit(0)
+        }, exit_code=0)
+        # _output_json raises typer.Exit(exit_code)
 
     if output_json:
         # Apply first, then report
@@ -2682,8 +2682,8 @@ def patch_cmd(
             "status": "applied",
             "diff": diff,
             **plan.to_dict(),
-        })
-        # _output_json raises typer.Exit(0)
+        }, exit_code=0)
+        # _output_json raises typer.Exit(exit_code)
 
     console.print(f"\n[bold]Scanning...[/] found {len(uninstrumented)} uninstrumented call sites")
     console.print(f"[bold]Detected frameworks:[/] {', '.join(plan.frameworks)}")
