@@ -44,9 +44,9 @@ Want to see tamper detection in 5 seconds?
 
 **Data:**
 
-- Full report: https://github.com/Haserjian/assay/blob/launch-2026-02-11/scripts/scan_study/results/report.md
-- Dataset (CSV with commit SHAs): https://github.com/Haserjian/assay/blob/launch-2026-02-11/scripts/scan_study/results/results.csv
-- Rerun script: https://github.com/Haserjian/assay/blob/launch-2026-02-11/scripts/scan_study/run_study.sh
+- Full report: https://github.com/Haserjian/assay/blob/launch-2026-02-18/scripts/scan_study/results/report.md
+- Dataset (CSV with commit SHAs): https://github.com/Haserjian/assay/blob/launch-2026-02-18/scripts/scan_study/results/results.csv
+- Rerun script: https://github.com/Haserjian/assay/blob/launch-2026-02-18/scripts/scan_study/run_study.sh
 
 If you think your project does have tamper-evident evidence emission and this scan missed it, drop a commit link and the instrumentation approach and I'll update the dataset. The goal is accuracy, not a gotcha.
 

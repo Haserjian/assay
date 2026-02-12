@@ -28,6 +28,6 @@ See tamper detection in 5 seconds:
 assay demo-challenge && assay verify-pack challenge_pack/tampered/
 ```
 
-Full report + dataset: https://github.com/Haserjian/assay/blob/launch-2026-02-11/scripts/scan_study/results/report.md
+Full report + dataset: https://github.com/Haserjian/assay/blob/launch-2026-02-18/scripts/scan_study/results/report.md
 
 If I missed your setup, drop a commit link and I'll update the dataset.
