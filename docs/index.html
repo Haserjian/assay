@@ -237,6 +237,74 @@
   .exit-0 { color: var(--green); }
   .exit-1 { color: var(--yellow); }
   .exit-2 { color: var(--red); }
+  .exit-3 { color: var(--orange); }
+
+  /* Contract flow */
+  .contract-section { border-top: 1px solid var(--border); }
+  .contract-flow {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr auto 1fr;
+    gap: 0;
+    align-items: center;
+    margin-top: 32px;
+    margin-bottom: 24px;
+  }
+  .contract-step {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+  }
+  .contract-step .step-num {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent);
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .contract-step h4 {
+    font-size: 15px;
+    margin-bottom: 6px;
+  }
+  .contract-step p {
+    color: var(--text2);
+    font-size: 13px;
+    line-height: 1.4;
+  }
+  .contract-step code {
+    font-family: var(--mono);
+    font-size: 12px;
+    background: var(--bg);
+    padding: 2px 6px;
+    border-radius: 3px;
+    color: var(--green);
+  }
+  .contract-arrow {
+    color: var(--border);
+    font-size: 24px;
+    text-align: center;
+    padding: 0 4px;
+  }
+  .contract-result {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    max-width: 720px;
+    margin-top: 8px;
+  }
+  .contract-result .diff-body { padding: 12px; }
+  @media (max-width: 640px) {
+    .contract-flow {
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+    .contract-arrow {
+      transform: rotate(90deg);
+      padding: 4px 0;
+    }
+  }
 
   /* Gap map */
   .gap-section { border-top: 1px solid var(--border); }
@@ -457,6 +525,7 @@
     <a href="#" class="logo">assay</a>
     <div class="links">
       <a href="#how-it-works">How It Works</a>
+      <a href="#completeness">Coverage</a>
       <a href="#gap-map">Gap Map</a>
       <a href="https://github.com/Haserjian/assay" target="_blank">GitHub</a>
       <a href="https://pypi.org/project/assay-ai/" target="_blank">PyPI</a>
@@ -471,7 +540,7 @@
     <p class="subtitle">
       Logs say what happened. Assay <em>proves</em> it. Tamper-evident proof packs
       with Ed25519 signatures, Merkle trees, and claims verification.
-      Two lines of code. Exit code 0, 1, or 2. Done.
+      Two lines of code. Four exit codes. Done.
     </p>
     <div class="install" onclick="copyInstall(this)">
       <span class="dollar">$ </span>pip install assay-ai && assay demo-incident
@@ -559,7 +628,7 @@
     </div>
 
     <div style="margin-top: 48px;">
-      <h3 style="font-size: 20px; margin-bottom: 12px;">Three exit codes. That's the whole API.</h3>
+      <h3 style="font-size: 20px; margin-bottom: 12px;">Four exit codes. That's the whole API.</h3>
       <table class="exit-table">
         <thead>
           <tr>
@@ -588,6 +657,11 @@
             <td><span class="exit-code exit-2">2</span></td>
             <td>Evidence has been tampered with</td>
           </tr>
+          <tr>
+            <td colspan="2"><span class="badge badge-skip">--</span></td>
+            <td><span class="exit-code exit-3">3</span></td>
+            <td>Input validation error (bad arguments, missing files)</td>
+          </tr>
         </tbody>
       </table>
       <p style="color: var(--text2); font-size: 14px; margin-top: 16px;">
@@ -595,6 +669,57 @@
         trustworthy than systems that always claim to pass.
       </p>
     </div>
+  </div>
+</section>
+
+<section class="contract-section" id="completeness">
+  <div class="container">
+    <h2>The Completeness Contract</h2>
+    <p class="section-sub">
+      Scanning tells you where the gaps are. The completeness contract closes the loop:
+      it bridges static analysis to runtime evidence, so you can prove
+      what percentage of your LLM call sites actually emitted receipts.
+    </p>
+
+    <div class="contract-flow">
+      <div class="contract-step">
+        <div class="step-num">1. SCAN</div>
+        <h4>Find call sites</h4>
+        <p>AST scan writes a contract file listing every LLM call site with a stable ID</p>
+        <code>assay scan --emit-contract coverage.json</code>
+      </div>
+      <div class="contract-arrow">&#8594;</div>
+      <div class="contract-step">
+        <div class="step-num">2. RUN</div>
+        <h4>Collect receipts</h4>
+        <p>Integration patches tag each receipt with its callsite_id at runtime</p>
+        <code>assay run -- python app.py</code>
+      </div>
+      <div class="contract-arrow">&#8594;</div>
+      <div class="contract-step">
+        <div class="step-num">3. VERIFY</div>
+        <h4>Check coverage</h4>
+        <p>Match receipt IDs against the contract. Fail if below threshold.</p>
+        <code>assay verify-pack --coverage-contract coverage.json --min-coverage 0.8</code>
+      </div>
+    </div>
+
+    <div class="contract-result">
+      <div class="diff-body">
+<span class="diff-line" style="color: var(--text2);">$ </span><span style="color: var(--green);">assay verify-pack ./proof_pack_*/ --coverage-contract coverage.json --min-coverage 0.8</span>
+<span class="diff-line diff-context"></span>
+<span class="diff-line" style="color: var(--green);">Integrity:  PASS</span>
+<span class="diff-line" style="color: var(--green);">Claims:     PASS</span>
+<span class="diff-line" style="color: var(--green);">Coverage:   14/17 call sites covered (82%)</span>
+<span class="diff-line" style="color: var(--green);">Exit code:  0</span>
+      </div>
+    </div>
+
+    <p style="color: var(--text2); font-size: 14px; margin-top: 20px;">
+      No other tool connects static scan results to runtime proof.
+      The contract turns "we think we instrumented everything" into
+      "we can prove 82% of call sites emitted signed evidence."
+    </p>
   </div>
 </section>
 
@@ -660,7 +785,7 @@ assay demo-incident</span></pre>
         <p>Freeze the verification contract. Block merges when evidence degrades.</p>
         <pre><span class="comment"># Generate GitHub Actions workflow</span>
 <span class="cmd">assay ci init github
-assay lock write --cards receipt_completeness</span></pre>
+assay lock write --cards receipt_completeness,coverage_contract</span></pre>
       </div>
     </div>
   </div>
@@ -719,7 +844,9 @@ const GAP_DATA = [
   {repo:"shroominic/codeinterpreter-api",stars:3865,high:0,medium:12,low:1,total:13},
   {repo:"explosion/spacy-llm",stars:1362,high:0,medium:1,low:0,total:1},
   {repo:"TaskingAI/TaskingAI",stars:5367,high:0,medium:0,low:10,total:10},
-  {repo:"LearningCircuit/local-deep-research",stars:3978,high:0,medium:89,low:0,total:89}
+  {repo:"LearningCircuit/local-deep-research",stars:3978,high:0,medium:89,low:0,total:89},
+  {repo:"Chainlit/chainlit",stars:11535,high:0,medium:0,low:0,total:0},
+  {repo:"e2b-dev/open-computer-use",stars:1787,high:0,medium:0,low:0,total:0}
 ];
 
 const maxTotal = Math.max(...GAP_DATA.map(d => d.total));
@@ -739,7 +866,7 @@ function renderGapTable(data) {
       <td class="num">${d.medium || '-'}</td>
       <td class="num">${d.low || '-'}</td>
       <td class="num" style="font-weight:600">${d.total}</td>
-      <td><span class="coverage-zero">0%</span></td>
+      <td>${d.total > 0 ? '<span class="coverage-zero">0%</span>' : '<span style="color:var(--text2)">-</span>'}</td>
     </tr>
   `).join('');
   document.getElementById('gap-count').textContent = data.length + ' repos';
