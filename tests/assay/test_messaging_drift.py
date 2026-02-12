@@ -12,6 +12,7 @@ Checked artifacts:
   - scripts/scan_study/results/report.md
   - src/assay/__init__.py
   - pyproject.toml
+  - docs/index.html (landing page)
 """
 from __future__ import annotations
 
@@ -27,6 +28,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 # ---------------------------------------------------------------------------
 
 README = REPO_ROOT / "README.md"
+LANDING_PAGE = REPO_ROOT / "docs" / "index.html"
 HN_POST = REPO_ROOT / "scripts" / "scan_study" / "posts" / "hn.md"
 REDDIT_POST = REPO_ROOT / "scripts" / "scan_study" / "posts" / "reddit.md"
 DISCORD_POST = REPO_ROOT / "scripts" / "scan_study" / "posts" / "discord.md"
@@ -213,3 +215,49 @@ class TestLinkConsistency:
                     assert org == "Haserjian", (
                         f"{path.name} links to {org}/{repo}, expected Haserjian/"
                     )
+
+
+# ---------------------------------------------------------------------------
+# Landing page drift guard
+# ---------------------------------------------------------------------------
+
+class TestLandingPage:
+    """Landing page must stay consistent with runtime behavior."""
+
+    def test_exit_code_table_has_four_rows(self):
+        text = _read(LANDING_PAGE)
+        assert "Four exit codes" in text, (
+            "Landing page heading should say 'Four exit codes'"
+        )
+
+    def test_exit_code_3_present(self):
+        text = _read(LANDING_PAGE)
+        assert "exit-3" in text or "exit-code exit-3" in text, (
+            "Landing page exit code table missing exit code 3"
+        )
+
+    def test_completeness_contract_section_exists(self):
+        text = _read(LANDING_PAGE)
+        assert "Completeness Contract" in text, (
+            "Landing page missing Completeness Contract section"
+        )
+
+    def test_coverage_contract_in_ci_card(self):
+        text = _read(LANDING_PAGE)
+        assert "coverage_contract" in text, (
+            "Landing page CI card should reference coverage_contract"
+        )
+
+    def test_gap_map_has_30_repos(self):
+        text = _read(LANDING_PAGE)
+        # GAP_DATA array entries
+        repo_count = text.count("{repo:")
+        assert repo_count == 30, (
+            f"Landing page Gap Map has {repo_count} repos, expected 30"
+        )
+
+    def test_stats_bar_says_30(self):
+        text = _read(LANDING_PAGE)
+        assert "30" in text and "AI projects scanned" in text, (
+            "Landing page stats bar should show 30 AI projects scanned"
+        )
