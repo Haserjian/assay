@@ -6,6 +6,7 @@ Commands:
   assay verify-pack   - Verify a Proof Pack's integrity
   assay explain       - Plain-English summary of a proof pack
   assay analyze       - Cost, latency, and error analysis of receipts
+  assay diff          - Compare two proof packs (claims, cost, latency, models)
   assay scan          - Find uninstrumented LLM call sites
   assay patch         - Auto-insert SDK integration patches
   assay doctor        - Preflight checks
@@ -4074,6 +4075,216 @@ def _render_analysis(result) -> None:
 
     console.print()
     raise typer.Exit(0)
+
+
+@assay_app.command("diff")
+def diff_cmd(
+    pack_a: str = typer.Argument(..., help="Baseline pack directory"),
+    pack_b: str = typer.Argument(..., help="Current pack directory"),
+    no_verify: bool = typer.Option(False, "--no-verify", help="Skip integrity verification"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Diff two proof packs: claims, cost, latency, model mix.
+
+    Pack A is the baseline, Pack B is the current run.
+    Verifies integrity of both packs before comparing.
+
+    Exit codes:
+      0  No regression
+      1  Claim regression or threshold exceeded
+      2  Integrity failure (tampered pack)
+      3  Bad input
+
+    Examples:
+      assay diff ./proof_pack_old/ ./proof_pack_new/
+      assay diff ./baseline/ ./current/ --json
+      assay diff ./a/ ./b/ --no-verify
+    """
+    from pathlib import Path
+
+    from assay.diff import diff_packs
+
+    pa = Path(pack_a)
+    pb = Path(pack_b)
+
+    if not pa.is_dir():
+        console.print(f"[red]Error:[/] {pack_a} is not a directory")
+        raise typer.Exit(3)
+    if not pb.is_dir():
+        console.print(f"[red]Error:[/] {pack_b} is not a directory")
+        raise typer.Exit(3)
+
+    result = diff_packs(pa, pb, verify=not no_verify)
+
+    if output_json:
+        _output_json({"command": "diff", "status": "ok", **result.to_dict()}, exit_code=result.exit_code)
+        return
+
+    _render_diff(result)
+
+
+def _fmt_delta(a_val, b_val, fmt: str = "d", prefix: str = "", suffix: str = "") -> str:
+    """Format a delta value with +/- and optional percentage."""
+    delta = b_val - a_val
+    if fmt == "d":
+        delta_str = f"+{delta:,}" if delta >= 0 else f"{delta:,}"
+    elif fmt == "cost":
+        delta_str = f"+${delta:.4f}" if delta >= 0 else f"-${abs(delta):.4f}"
+    elif fmt == "ms":
+        delta_str = f"+{delta}ms" if delta >= 0 else f"{delta}ms"
+    else:
+        delta_str = f"+{delta}" if delta >= 0 else str(delta)
+
+    pct = ""
+    if a_val and a_val != 0:
+        pct_val = (delta / a_val) * 100
+        pct = f" ({pct_val:+.0f}%)"
+
+    color = ""
+    if "cost" in fmt or fmt == "d":
+        # Higher cost/errors = red, lower = green
+        if delta > 0 and suffix in ("", " errors"):
+            color = "[red]"
+        elif delta < 0:
+            color = "[green]"
+    elif fmt == "ms":
+        # Higher latency = red
+        if delta > 0:
+            color = "[red]"
+        elif delta < 0:
+            color = "[green]"
+
+    end = "[/]" if color else ""
+    return f"{color}{prefix}{delta_str}{pct}{end}"
+
+
+def _render_diff(result) -> None:
+    """Render diff result to console with Rich panels."""
+    from assay.diff import DiffResult
+
+    console.print()
+
+    # Integrity failure -- stop here
+    if not result.both_valid:
+        console.print("[bold red]INTEGRITY CHECK FAILED[/]")
+        console.print()
+        for err in result.integrity_errors:
+            console.print(f"  [red]{err}[/]")
+        console.print()
+        console.print("  Cannot diff packs with integrity failures.")
+        console.print("  Run [bold]assay verify-pack[/] on each pack to investigate.")
+        console.print()
+        raise typer.Exit(2)
+
+    # Header
+    a = result.pack_a
+    b = result.pack_b
+    console.print(f"[bold]assay diff[/]")
+    console.print()
+    console.print(f"  Pack A: {a.path}  ({a.n_receipts} receipts, {a.timestamp_start[:10] if a.timestamp_start else '?'})")
+    console.print(f"  Pack B: {b.path}  ({b.n_receipts} receipts, {b.timestamp_start[:10] if b.timestamp_start else '?'})")
+
+    # Warnings
+    if result.signer_changed:
+        console.print(f"  [yellow]Signer changed:[/] {a.signer_id} -> {b.signer_id}")
+    if result.version_changed:
+        console.print(f"  [yellow]Verifier version changed:[/] {a.verifier_version} -> {b.verifier_version}")
+    if not result.same_claim_set:
+        console.print(f"  [yellow]Claim sets differ[/] (different cards or card versions)")
+    console.print()
+
+    # Claims
+    if result.claim_deltas:
+        claims_table = Table(show_header=False, box=None, padding=(0, 2))
+        claims_table.add_column("claim")
+        claims_table.add_column("change")
+        for cd in result.claim_deltas:
+            a_str = "[green]PASS[/]" if cd.a_passed else ("[red]FAIL[/]" if cd.a_passed is False else "[dim]--[/]")
+            b_str = "[green]PASS[/]" if cd.b_passed else ("[red]FAIL[/]" if cd.b_passed is False else "[dim]--[/]")
+            status_str = ""
+            if cd.regressed:
+                status_str = "  [bold red]REGRESSED[/]"
+            elif cd.status == "improved":
+                status_str = "  [green]improved[/]"
+            elif cd.status == "new":
+                status_str = "  [cyan]new[/]"
+            elif cd.status == "removed":
+                status_str = "  [dim]removed[/]"
+            claims_table.add_row(cd.claim_id, f"{a_str} -> {b_str}{status_str}")
+
+        border = "red" if result.has_regression else "green"
+        title = "Claims (REGRESSION DETECTED)" if result.has_regression else "Claims"
+        console.print(Panel(claims_table, title=title, border_style=border))
+
+    # Summary deltas
+    aa = result.a_analysis
+    ba = result.b_analysis
+    if aa and ba:
+        summary = Table(show_header=False, box=None, padding=(0, 2))
+        summary.add_column("key", style="dim")
+        summary.add_column("a", justify="right")
+        summary.add_column("arrow", justify="center")
+        summary.add_column("b", justify="right")
+        summary.add_column("delta")
+
+        summary.add_row("Model calls", str(aa.model_calls), "->", str(ba.model_calls),
+                         _fmt_delta(aa.model_calls, ba.model_calls))
+        summary.add_row("Total tokens", f"{aa.total_tokens:,}", "->", f"{ba.total_tokens:,}",
+                         _fmt_delta(aa.total_tokens, ba.total_tokens))
+        summary.add_row("Est. cost", f"${aa.cost_usd:.4f}", "->", f"${ba.cost_usd:.4f}",
+                         _fmt_delta(aa.cost_usd, ba.cost_usd, fmt="cost"))
+
+        err_color_a = "[red]" if aa.errors else ""
+        err_color_b = "[red]" if ba.errors else ""
+        err_end_a = "[/]" if aa.errors else ""
+        err_end_b = "[/]" if ba.errors else ""
+        summary.add_row("Errors",
+                         f"{err_color_a}{aa.errors}{err_end_a}", "->",
+                         f"{err_color_b}{ba.errors}{err_end_b}",
+                         _fmt_delta(aa.errors, ba.errors))
+
+        if aa.latencies and ba.latencies:
+            summary.add_row("Latency p50", f"{aa.latency_p50}ms", "->", f"{ba.latency_p50}ms",
+                             _fmt_delta(aa.latency_p50 or 0, ba.latency_p50 or 0, fmt="ms"))
+            summary.add_row("Latency p95", f"{aa.latency_p95}ms", "->", f"{ba.latency_p95}ms",
+                             _fmt_delta(aa.latency_p95 or 0, ba.latency_p95 or 0, fmt="ms"))
+
+        console.print(Panel(summary, title="Summary", border_style="blue"))
+
+    # Model churn
+    if result.model_deltas:
+        model_table = Table(box=None, padding=(0, 1))
+        model_table.add_column("Model", style="bold")
+        model_table.add_column("A calls", justify="right")
+        model_table.add_column("B calls", justify="right")
+        model_table.add_column("Delta", justify="right")
+        model_table.add_column("Status")
+
+        for md in result.model_deltas:
+            if md.status == "added":
+                status = "[cyan]new[/]"
+            elif md.status == "removed":
+                status = "[yellow]removed[/]"
+            else:
+                status = _fmt_delta(md.a_calls, md.b_calls)
+
+            model_table.add_row(
+                md.model_id,
+                str(md.a_calls) if md.a_calls else "--",
+                str(md.b_calls) if md.b_calls else "--",
+                _fmt_delta(md.a_calls, md.b_calls) if md.status == "changed" else "",
+                status if md.status != "changed" else "",
+            )
+        console.print(Panel(model_table, title="Models", border_style="green"))
+
+    console.print()
+    if result.has_regression:
+        console.print("  [bold red]Result: REGRESSION DETECTED[/]")
+    else:
+        console.print("  [bold green]Result: No regression[/]")
+    console.print()
+
+    raise typer.Exit(result.exit_code)
 
 
 def main():
