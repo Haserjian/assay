@@ -5,6 +5,7 @@ Commands:
   assay run           - Run a command and build a Proof Pack from receipts
   assay verify-pack   - Verify a Proof Pack's integrity
   assay explain       - Plain-English summary of a proof pack
+  assay analyze       - Cost, latency, and error analysis of receipts
   assay scan          - Find uninstrumented LLM call sites
   assay patch         - Auto-insert SDK integration patches
   assay doctor        - Preflight checks
@@ -3909,6 +3910,169 @@ def demo_challenge_cmd(
     console.print(f"    assay explain {good_out}/")
     console.print(f"    assay explain {tampered_out}/")
     console.print()
+
+
+@assay_app.command("analyze")
+def analyze_cmd(
+    pack_dir: Optional[str] = typer.Argument(None, help="Path to proof pack directory"),
+    history: bool = typer.Option(False, "--history", help="Analyze local trace history instead of a pack"),
+    since: int = typer.Option(7, "--since", help="Days of history to analyze (with --history)"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Analyze receipts for cost, latency, and error breakdowns.
+
+    Reads model_call receipts from a proof pack or local trace history
+    and computes token usage, estimated cost, latency percentiles,
+    error rates, and per-model/per-provider breakdowns.
+
+    Pricing estimates are approximate.
+
+    Examples:
+      assay analyze ./proof_pack_*/
+      assay analyze --history
+      assay analyze --history --since 30
+      assay analyze ./proof_pack_*/ --json
+    """
+    from pathlib import Path
+
+    from assay.analyze import (
+        AnalysisResult,
+        analyze_receipts,
+        load_history_receipts,
+        load_pack_receipts,
+    )
+
+    if not pack_dir and not history:
+        console.print("[red]Error:[/] Provide a pack directory or use --history")
+        raise typer.Exit(3)
+
+    if pack_dir and history:
+        console.print("[red]Error:[/] Provide either a pack directory or --history, not both")
+        raise typer.Exit(3)
+
+    try:
+        if pack_dir:
+            pd = Path(pack_dir)
+            if not pd.is_dir():
+                console.print(f"[red]Error:[/] {pack_dir} is not a directory")
+                raise typer.Exit(3)
+            receipts = load_pack_receipts(pd)
+            result = analyze_receipts(receipts)
+            result.source_type = "pack"
+            result.source_path = str(pd)
+
+            # Check if pack was verified
+            manifest_path = pd / "pack_manifest.json"
+            if manifest_path.exists():
+                import json as _json
+                manifest = _json.loads(manifest_path.read_text())
+                att = manifest.get("attestation", {})
+                integrity = str(att.get("receipt_integrity") or att.get("integrity") or "").upper()
+                result.verified = integrity == "PASS"
+        else:
+            receipts, trace_count = load_history_receipts(since_days=since)
+            result = analyze_receipts(receipts)
+            result.source_type = "history"
+            result.source_path = str(Path.home() / ".loom" / "assay")
+            result.trace_count = trace_count
+            result.history_days = since
+
+    except FileNotFoundError as e:
+        console.print(f"[red]Error:[/] {e}")
+        raise typer.Exit(3)
+
+    if output_json:
+        _output_json({"command": "analyze", "status": "ok", **result.to_dict()}, exit_code=0)
+        return
+
+    # Rich table output
+    _render_analysis(result)
+
+
+def _render_analysis(result) -> None:
+    """Render analysis result to console with Rich tables."""
+    console.print()
+
+    if result.model_calls == 0:
+        console.print("[yellow]No model_call receipts found.[/]")
+        if result.total_receipts > 0:
+            console.print(f"  ({result.total_receipts} total receipts, but none were model_call type)")
+        console.print()
+        raise typer.Exit(0)
+
+    # Header
+    if result.source_type == "pack":
+        source_label = f"pack: {result.source_path}"
+    elif result.history_days is not None:
+        source_label = f"history: last {result.history_days} days"
+    else:
+        source_label = "history"
+    console.print(f"[bold]assay analyze[/]  ({source_label})")
+    console.print()
+
+    # Summary table
+    summary = Table(show_header=False, box=None, padding=(0, 2))
+    summary.add_column("key", style="dim")
+    summary.add_column("value")
+    summary.add_row("Model calls", str(result.model_calls))
+    summary.add_row("Total receipts", str(result.total_receipts))
+    summary.add_row("Input tokens", f"{result.input_tokens:,}")
+    summary.add_row("Output tokens", f"{result.output_tokens:,}")
+    summary.add_row("Total tokens", f"{result.total_tokens:,}")
+    summary.add_row("Est. cost", f"${result.cost_usd:.4f}")
+    if result.errors:
+        summary.add_row("Errors", f"[red]{result.errors}[/] ({result.error_rate:.1%})")
+    else:
+        summary.add_row("Errors", "0")
+    if result.time_start and result.time_end:
+        summary.add_row("Time span", f"{result.time_start} .. {result.time_end}")
+    if result.source_type == "history" and result.trace_count:
+        summary.add_row("Traces", str(result.trace_count))
+    console.print(Panel(summary, title="Summary", border_style="blue"))
+
+    # Latency
+    if result.latencies:
+        lat = Table(show_header=False, box=None, padding=(0, 2))
+        lat.add_column("key", style="dim")
+        lat.add_column("value")
+        lat.add_row("p50", f"{result.latency_p50} ms")
+        lat.add_row("p95", f"{result.latency_p95} ms")
+        lat.add_row("p99", f"{result.latency_p99} ms")
+        lat.add_row("mean", f"{result.latency_mean} ms")
+        lat.add_row("max", f"{result.latency_max} ms")
+        console.print(Panel(lat, title="Latency", border_style="cyan"))
+
+    # By model
+    if result.by_model:
+        model_table = Table(box=None, padding=(0, 1))
+        model_table.add_column("Model", style="bold")
+        model_table.add_column("Calls", justify="right")
+        model_table.add_column("Tokens", justify="right")
+        model_table.add_column("Cost", justify="right")
+        model_table.add_column("Errors", justify="right")
+        for model_id, b in sorted(result.by_model.items()):
+            err_str = f"[red]{b['errors']}[/]" if b["errors"] else "0"
+            model_table.add_row(model_id, str(b["calls"]), f"{b['total_tokens']:,}", f"${b['cost_usd']:.4f}", err_str)
+        console.print(Panel(model_table, title="By Model", border_style="green"))
+
+    # By provider
+    if len(result.by_provider) > 1:
+        prov_table = Table(box=None, padding=(0, 1))
+        prov_table.add_column("Provider", style="bold")
+        prov_table.add_column("Calls", justify="right")
+        prov_table.add_column("Tokens", justify="right")
+        prov_table.add_column("Cost", justify="right")
+        for prov, b in sorted(result.by_provider.items()):
+            prov_table.add_row(prov, str(b["calls"]), f"{b['total_tokens']:,}", f"${b['cost_usd']:.4f}")
+        console.print(Panel(prov_table, title="By Provider", border_style="magenta"))
+
+    # Finish reasons
+    if result.finish_reasons:
+        fr_parts = [f"{reason}: {count}" for reason, count in sorted(result.finish_reasons.items(), key=lambda x: str(x[0]))]
+        console.print(f"  [dim]Finish reasons:[/] {', '.join(fr_parts)}")
+
+    console.print()
+    raise typer.Exit(0)
 
 
 def main():
