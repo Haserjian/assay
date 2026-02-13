@@ -55,6 +55,19 @@ assay lock write --cards receipt_completeness -o assay.lock
 assay verify-pack ./proof_pack_*/ --lock assay.lock --require-claim-pass
 ```
 
+### CI Gate (three commands, three exit codes)
+
+```bash
+assay run -c receipt_completeness -- python my_app.py
+assay verify-pack ./proof_pack_*/ --lock assay.lock
+assay diff ./baseline_pack/ ./proof_pack_*/ --gate-cost-pct 25 --gate-errors 0 --gate-strict
+```
+
+The lockfile catches config drift. Verify-pack catches tampering. Diff
+catches regressions and budget overruns. See
+[Decision Escrow](docs/decision-escrow.md) for the protocol model behind
+this workflow.
+
 ## How It Works
 
 Assay separates two questions on purpose:
@@ -93,11 +106,14 @@ more trustworthy than systems that always claim to pass.
 | `assay lock check` | Validate lockfile against current card definitions |
 | `assay cards list` | List built-in run cards and their claims |
 | `assay cards show` | Show card details, claims, and parameters |
+| `assay diff` | Compare two packs: claims, cost, latency, model churn (`--gate-*` for CI thresholds) |
+| `assay analyze` | Receipt-level time-series analysis |
 | `assay doctor` | Preflight check: is Assay ready here? |
 
 ## Documentation
 
 - [Quickstart](docs/README_quickstart.md) -- install, golden path, command reference
+- [Decision Escrow](docs/decision-escrow.md) -- protocol model: agent actions don't settle until verified
 - [For Compliance Teams](docs/for-compliance.md) -- what auditors see, evidence artifacts, framework alignment
 - [Repo Map](docs/REPO_MAP.md) -- what lives where across the Assay ecosystem
 - [Pilot Program](docs/PILOT_PROGRAM.md) -- early adopter program details

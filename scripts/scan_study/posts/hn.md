@@ -32,7 +32,13 @@ Or manually:
     resp = client.chat.completions.create(model="gpt-4", messages=[...])
     # business logic unchanged. receipt goes into the proof pack.
 
-Then `assay run -- python your_app.py` wraps the execution, collects receipts, and signs the pack. CI verification happens in `assay verify-pack`: exit 0 = integrity PASS, exit 2 = tampered, and exit 1 = claim gate failed (when using `--require-claim-pass`).
+Then `assay run -- python your_app.py` wraps the execution, collects receipts, and signs the pack. The full CI gate is three commands:
+
+    assay run -c receipt_completeness -- python your_app.py
+    assay verify-pack ./proof_pack_*/ --lock assay.lock
+    assay diff ./baseline_pack/ ./proof_pack_*/ --gate-cost-pct 25 --gate-errors 0 --gate-strict
+
+The lockfile catches config drift. Verify-pack catches tampering (exit 2). Diff catches claim regressions and budget overruns (exit 1). Exit 0 = clean.
 
 Want to see tamper detection in 5 seconds?
 

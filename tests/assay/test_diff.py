@@ -594,6 +594,30 @@ class TestEvaluateGates:
         # Roundtrip through json.dumps must not raise
         json.dumps(d)
 
+    # -- strict mode --
+
+    def test_strict_skipped_gate_fails(self) -> None:
+        """In strict mode, missing data causes gate failure."""
+        result = DiffResult(
+            pack_a=PackInfo(path="a"),
+            pack_b=PackInfo(path="b"),
+        )
+        ge = evaluate_gates(result, cost_pct=20.0, errors=0, strict=True)
+        assert all(g.skipped for g in ge.results)
+        assert all(not g.passed for g in ge.results)
+        assert ge.any_failed is True
+
+    def test_non_strict_skipped_gate_passes(self) -> None:
+        """Default (non-strict): missing data = skip = pass."""
+        result = DiffResult(
+            pack_a=PackInfo(path="a"),
+            pack_b=PackInfo(path="b"),
+        )
+        ge = evaluate_gates(result, cost_pct=20.0, errors=0, strict=False)
+        assert all(g.skipped for g in ge.results)
+        assert all(g.passed for g in ge.results)
+        assert ge.all_passed is True
+
 
 # ---------------------------------------------------------------------------
 # CLI gate integration
@@ -666,3 +690,82 @@ class TestDiffGateCLI:
             result = runner.invoke(assay_commands.assay_app,
                                    ["diff", "a", "b", "--gate-errors", "0"])
             assert result.exit_code == 2
+
+    def test_gate_strict_cli_missing_data_fails(self) -> None:
+        """--gate-strict makes missing analysis data fail the gate."""
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            # Packs with no receipt file at all -> no analysis data
+            for name in ("a", "b"):
+                Path(name).mkdir()
+                (Path(name) / "pack_manifest.json").write_text("{}")
+
+            result = runner.invoke(assay_commands.assay_app,
+                                   ["diff", "a", "b", "--no-verify", "--json",
+                                    "--gate-errors", "0", "--gate-strict"])
+            assert result.exit_code == 1
+            data = json.loads(result.output)
+            assert data["gates"]["all_passed"] is False
+            assert data["gates_failed"] is True
+
+    def test_json_separate_booleans(self) -> None:
+        """JSON output includes integrity_failed, claims_regressed, gates_failed."""
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            _write_pack(Path("a"), [_make_receipt()], {"rc": True})
+            _write_pack(Path("b"), [_make_receipt()], {"rc": True})
+
+            result = runner.invoke(assay_commands.assay_app,
+                                   ["diff", "a", "b", "--no-verify", "--json",
+                                    "--gate-cost-pct", "50"])
+            assert result.exit_code == 0, result.output
+            data = json.loads(result.output)
+            assert data["integrity_failed"] is False
+            assert data["claims_regressed"] is False
+            assert data["gates_failed"] is False
+            assert data["has_regression"] is False
+
+    def test_json_separate_booleans_regression(self) -> None:
+        """claims_regressed is True but gates_failed is False when only claims regress."""
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            _write_pack(Path("a"), [_make_receipt()], {"rc": True})
+            _write_pack(Path("b"), [_make_receipt()], {"rc": False}, claim_check="FAIL")
+
+            result = runner.invoke(assay_commands.assay_app,
+                                   ["diff", "a", "b", "--no-verify", "--json",
+                                    "--gate-cost-pct", "50"])
+            assert result.exit_code == 1
+            data = json.loads(result.output)
+            assert data["claims_regressed"] is True
+            assert data["gates_failed"] is False
+            assert data["has_regression"] is True
+
+    def test_gate_summary_line_in_table(self) -> None:
+        """Table output includes a summary line with pass/fail/skip counts."""
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            _write_pack(Path("a"), [_make_receipt()], {"rc": True})
+            _write_pack(Path("b"), [_make_receipt()], {"rc": True})
+
+            result = runner.invoke(assay_commands.assay_app,
+                                   ["diff", "a", "b", "--no-verify",
+                                    "--gate-cost-pct", "50", "--gate-errors", "5"])
+            assert result.exit_code == 0, result.output
+            assert "2 passed" in result.output
+            assert "0 failed" in result.output
+            assert "0 skipped" in result.output
+
+    def test_gate_strict_table_shows_strict_label(self) -> None:
+        """Strict mode shows 'missing data (strict mode)' instead of 'skipped'."""
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            for name in ("a", "b"):
+                Path(name).mkdir()
+                (Path(name) / "pack_manifest.json").write_text("{}")
+
+            result = runner.invoke(assay_commands.assay_app,
+                                   ["diff", "a", "b", "--no-verify",
+                                    "--gate-errors", "0", "--gate-strict"])
+            assert result.exit_code == 1
+            assert "strict mode" in result.output

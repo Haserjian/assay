@@ -30,7 +30,7 @@ Those secure artifacts and builds (the software supply chain). Assay targets *ru
 
 ## 5. "This seems like compliance theater"
 
-The goal is courtroom-grade replayability: show what happened, when, under which policy hash, with cryptographic integrity. In `assay verify-pack`, exit code 0 means integrity pass, exit code 2 means tampering detected, and exit code 1 is claim-gate failure when using `--require-claim-pass`. That's a concrete, falsifiable contract, not a checkbox. Whether regulators require it yet is a timing question -- the evidence primitive needs to exist before they can mandate it.
+The goal is courtroom-grade replayability: show what happened, when, under which policy hash, with cryptographic integrity. The CI gate is three commands: `assay run -c receipt_completeness -- python your_app.py` (produce evidence), `assay verify-pack ./proof_pack_*/ --lock assay.lock` (check integrity + contract), `assay diff ./baseline_pack/ ./proof_pack_*/ --gate-cost-pct 25 --gate-errors 0 --gate-strict` (enforce budget thresholds). Exit 0 = clean, exit 1 = regression or threshold exceeded, exit 2 = tampered. That's a concrete, falsifiable contract, not a checkbox.
 
 ---
 
@@ -69,9 +69,15 @@ patch()
 
 That monkey-patches the SDK -- every `client.chat.completions.create()` call now emits a signed receipt into the active proof pack. Same pattern for Anthropic and LangChain. Your business logic doesn't change at all.
 
-Then wrap your app with `assay run -- python your_app.py` (or `assay run -- pytest`) and you get a proof pack: receipts, manifest, Ed25519 signature, verification report. CI checks are from `assay verify-pack`: exit code 0 means integrity pass, exit code 2 means someone tampered with the evidence, and exit code 1 is claim gate failure when `--require-claim-pass` is set.
+Then wrap your app with `assay run -- python your_app.py` (or `assay run -- pytest`) and you get a proof pack: receipts, manifest, Ed25519 signature, verification report. The full CI gate is three commands:
 
-`assay scan . --report` generates an HTML report showing which call sites have receipts and which don't, so you know exactly where the gaps are.
+```bash
+assay run -c receipt_completeness -- python your_app.py
+assay verify-pack ./proof_pack_*/ --lock assay.lock
+assay diff ./baseline_pack/ ./proof_pack_*/ --gate-cost-pct 25 --gate-errors 0 --gate-strict
+```
+
+Lockfile catches config drift. Verify-pack catches tampering (exit 2). Diff catches regressions and budget overruns (exit 1). `assay scan . --report` generates an HTML report showing which call sites have receipts and which don't.
 
 ---
 

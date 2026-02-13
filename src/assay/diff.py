@@ -215,11 +215,11 @@ class GateEvaluation:
 
     @property
     def all_passed(self) -> bool:
-        return all(g.passed for g in self.results if not g.skipped)
+        return all(g.passed for g in self.results)
 
     @property
     def any_failed(self) -> bool:
-        return any(not g.passed for g in self.results if not g.skipped)
+        return any(not g.passed for g in self.results)
 
     @staticmethod
     def _json_safe(v: Optional[float]) -> Optional[float]:
@@ -260,23 +260,37 @@ def evaluate_gates(
     cost_pct: Optional[float] = None,
     p95_pct: Optional[float] = None,
     errors: Optional[int] = None,
+    strict: bool = False,
 ) -> GateEvaluation:
     """Evaluate threshold gates against a diff result.
 
     Each gate is only checked if a threshold is provided. When analysis
-    data is unavailable the gate is marked as skipped (passes by default).
+    data is unavailable the gate is marked as skipped.
 
     Args:
         result: The diff result to evaluate.
         cost_pct: Max allowed cost increase in percent (e.g. 20 = 20%).
         p95_pct: Max allowed p95 latency increase in percent.
         errors: Max allowed error count in pack B.
+        strict: If True, missing data causes gate failure instead of skip.
 
     Returns:
         GateEvaluation with per-gate results.
     """
     evaluation = GateEvaluation()
     has_analysis = result.a_analysis is not None and result.b_analysis is not None
+
+    def _skip_result(name: str, threshold: float, unit: str) -> GateResult:
+        """A gate that cannot be evaluated due to missing data."""
+        if strict:
+            return GateResult(
+                name=name, threshold=threshold, passed=False,
+                unit=unit, skipped=True,
+            )
+        return GateResult(
+            name=name, threshold=threshold, passed=True,
+            unit=unit, skipped=True,
+        )
 
     if cost_pct is not None:
         if has_analysis:
@@ -291,10 +305,7 @@ def evaluate_gates(
                 passed=passed, unit="pct",
             ))
         else:
-            evaluation.results.append(GateResult(
-                name="cost_pct", threshold=cost_pct, passed=True,
-                unit="pct", skipped=True,
-            ))
+            evaluation.results.append(_skip_result("cost_pct", cost_pct, "pct"))
 
     if p95_pct is not None:
         has_latency = (
@@ -317,10 +328,7 @@ def evaluate_gates(
                 passed=passed, unit="pct",
             ))
         else:
-            evaluation.results.append(GateResult(
-                name="p95_pct", threshold=p95_pct, passed=True,
-                unit="pct", skipped=True,
-            ))
+            evaluation.results.append(_skip_result("p95_pct", p95_pct, "pct"))
 
     if errors is not None:
         if result.b_analysis is not None:
@@ -331,10 +339,7 @@ def evaluate_gates(
                 passed=b_errors <= errors, unit="count",
             ))
         else:
-            evaluation.results.append(GateResult(
-                name="errors", threshold=float(errors), passed=True,
-                unit="count", skipped=True,
-            ))
+            evaluation.results.append(_skip_result("errors", float(errors), "count"))
 
     return evaluation
 

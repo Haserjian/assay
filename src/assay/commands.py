@@ -4086,6 +4086,7 @@ def diff_cmd(
     gate_cost_pct: float = typer.Option(None, "--gate-cost-pct", help="Max allowed cost increase (percent, e.g. 20)"),
     gate_p95_pct: float = typer.Option(None, "--gate-p95-pct", help="Max allowed p95 latency increase (percent)"),
     gate_errors: int = typer.Option(None, "--gate-errors", help="Max allowed error count in pack B"),
+    gate_strict: bool = typer.Option(False, "--gate-strict", help="Fail gates when data is missing (instead of skip)"),
 ):
     """Diff two proof packs: claims, cost, latency, model mix.
 
@@ -4102,11 +4103,15 @@ def diff_cmd(
     the diff.  A gate failure sets exit code 1 (same as claim regression).
     Gates are only evaluated when explicitly requested.
 
+    Use --gate-strict in CI to fail when gate data is missing (prevents
+    bypass via empty or partial packs).
+
     Examples:
       assay diff ./proof_pack_old/ ./proof_pack_new/
       assay diff ./baseline/ ./current/ --json
       assay diff ./a/ ./b/ --no-verify
       assay diff ./a/ ./b/ --gate-cost-pct 20 --gate-errors 0
+      assay diff ./a/ ./b/ --gate-cost-pct 20 --gate-strict
     """
     from pathlib import Path
 
@@ -4133,6 +4138,7 @@ def diff_cmd(
             cost_pct=gate_cost_pct,
             p95_pct=gate_p95_pct,
             errors=gate_errors,
+            strict=gate_strict,
         )
 
     # Determine final exit code: integrity (2) > regression/gate (1) > clean (0)
@@ -4144,7 +4150,11 @@ def diff_cmd(
         payload = {"command": "diff", "status": "ok", **result.to_dict()}
         if gate_eval is not None:
             payload["gates"] = gate_eval.to_dict()
-        payload["has_regression"] = result.has_regression or (gate_eval is not None and gate_eval.any_failed)
+        gates_failed = gate_eval is not None and gate_eval.any_failed
+        payload["integrity_failed"] = not result.both_valid
+        payload["claims_regressed"] = result.has_regression
+        payload["gates_failed"] = gates_failed
+        payload["has_regression"] = result.has_regression or gates_failed
         _output_json(payload, exit_code=exit_code)
         return
 
@@ -4318,13 +4328,22 @@ def _render_diff(result, *, gate_eval=None, exit_code: int | None = None) -> Non
 
         for g in gate_eval.results:
             if g.skipped:
-                gate_table.add_row(g.name, "[dim]skipped (no data)[/]")
+                if g.passed:
+                    gate_table.add_row(g.name, "[dim]skipped (no data)[/]")
+                else:
+                    gate_table.add_row(g.name, "[red]FAIL[/]  [dim]missing data (strict mode)[/]")
             elif g.passed:
                 actual_str = f"{g.actual:.1f}%" if g.unit == "pct" and g.actual is not None else str(int(g.actual)) if g.actual is not None else "?"
                 gate_table.add_row(g.name, f"[green]PASS[/]  {actual_str} <= {_fmt_threshold(g.threshold, g.unit)}")
             else:
                 actual_str = f"{g.actual:.1f}%" if g.unit == "pct" and g.actual is not None else str(int(g.actual)) if g.actual is not None else "inf"
                 gate_table.add_row(g.name, f"[red]FAIL[/]  {actual_str} > {_fmt_threshold(g.threshold, g.unit)}")
+
+        n_passed = sum(1 for g in gate_eval.results if g.passed and not g.skipped)
+        n_failed = sum(1 for g in gate_eval.results if not g.passed)
+        n_skipped = sum(1 for g in gate_eval.results if g.passed and g.skipped)
+        gate_table.add_row("", f"[dim]{n_passed} passed, {n_failed} failed, {n_skipped} skipped[/]")
+
         border = "red" if gate_eval.any_failed else "green"
         title = "Gates (THRESHOLD EXCEEDED)" if gate_eval.any_failed else "Gates"
         console.print(Panel(gate_table, title=title, border_style=border))

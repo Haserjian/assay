@@ -666,6 +666,7 @@
       <a href="#gap-map">Gap Map</a>
       <a href="#faq">FAQ</a>
       <a href="#threat-model">Threat Model</a>
+      <a href="decision-escrow.md">Decision Escrow</a>
       <a href="https://github.com/Haserjian/assay" target="_blank">GitHub</a>
       <a href="https://pypi.org/project/assay-ai/" target="_blank">PyPI</a>
       <a href="https://github.com/Haserjian/assay/issues/new?template=pilot-inquiry.md" class="cta" target="_blank">Get a Pilot</a>
@@ -803,6 +804,26 @@
 <span class="diff-line" style="color: var(--green);">Exit code: 0</span>
         </div>
       </div>
+    </div>
+
+    <div style="margin-top: 40px;">
+      <h3 style="font-size: 20px; margin-bottom: 16px;">CI gate: three commands, three exit codes</h3>
+      <p style="color: var(--text2); font-size: 14px; margin-bottom: 12px;">
+        Drop this into your pipeline. The lockfile catches config drift. Verify-pack catches
+        tampering. Diff catches regressions and budget overruns.
+      </p>
+      <div class="diff-block">
+        <div class="diff-header">ci.yml</div>
+        <div class="diff-body">
+<span class="diff-line" style="color: var(--text2);">$ </span><span class="diff-line" style="color: var(--green);">assay run -c receipt_completeness -- python app.py</span>
+<span class="diff-line" style="color: var(--text2);">$ </span><span class="diff-line" style="color: var(--green);">assay verify-pack ./proof_pack_*/ --lock assay.lock</span>
+<span class="diff-line" style="color: var(--text2);">$ </span><span class="diff-line" style="color: var(--green);">assay diff ./baseline_pack/ ./proof_pack_*/ --gate-cost-pct 25 --gate-errors 0 --gate-strict</span>
+        </div>
+      </div>
+      <p style="color: var(--text2); font-size: 13px; margin-top: 8px;">
+        <a href="decision-escrow.md" style="color: var(--accent);">Decision Escrow</a> &#8212;
+        the protocol model behind this workflow.
+      </p>
     </div>
 
     <div style="margin-top: 48px;">
@@ -1132,7 +1153,9 @@ assay lock write --cards receipt_completeness,coverage_contract</span></pre>
       <a href="https://github.com/Haserjian/assay">assay</a> &middot;
       <a href="https://github.com/Haserjian/assay-verify-action">assay-verify-action</a> &middot;
       <a href="https://github.com/Haserjian/assay-ledger">assay-ledger</a> &middot;
-      <a href="https://pypi.org/project/assay-ai/">PyPI</a>
+      <a href="https://pypi.org/project/assay-ai/">PyPI</a> &middot;
+      <a href="decision-escrow.md">Decision Escrow</a> &middot;
+      <a href="for-compliance.md">For Compliance</a>
     </p>
     <p style="margin-top: 8px;">Apache-2.0 License</p>
   </div>
