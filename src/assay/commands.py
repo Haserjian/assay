@@ -4083,6 +4083,9 @@ def diff_cmd(
     pack_b: str = typer.Argument(..., help="Current pack directory"),
     no_verify: bool = typer.Option(False, "--no-verify", help="Skip integrity verification"),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+    gate_cost_pct: float = typer.Option(None, "--gate-cost-pct", help="Max allowed cost increase (percent, e.g. 20)"),
+    gate_p95_pct: float = typer.Option(None, "--gate-p95-pct", help="Max allowed p95 latency increase (percent)"),
+    gate_errors: int = typer.Option(None, "--gate-errors", help="Max allowed error count in pack B"),
 ):
     """Diff two proof packs: claims, cost, latency, model mix.
 
@@ -4095,14 +4098,19 @@ def diff_cmd(
       2  Integrity failure (tampered pack)
       3  Bad input
 
+    Threshold gates (--gate-*) add CI-friendly budget checks on top of
+    the diff.  A gate failure sets exit code 1 (same as claim regression).
+    Gates are only evaluated when explicitly requested.
+
     Examples:
       assay diff ./proof_pack_old/ ./proof_pack_new/
       assay diff ./baseline/ ./current/ --json
       assay diff ./a/ ./b/ --no-verify
+      assay diff ./a/ ./b/ --gate-cost-pct 20 --gate-errors 0
     """
     from pathlib import Path
 
-    from assay.diff import diff_packs
+    from assay.diff import diff_packs, evaluate_gates
 
     pa = Path(pack_a)
     pb = Path(pack_b)
@@ -4116,11 +4124,31 @@ def diff_cmd(
 
     result = diff_packs(pa, pb, verify=not no_verify)
 
+    # Evaluate threshold gates if any were requested
+    has_gates = gate_cost_pct is not None or gate_p95_pct is not None or gate_errors is not None
+    gate_eval = None
+    if has_gates:
+        gate_eval = evaluate_gates(
+            result,
+            cost_pct=gate_cost_pct,
+            p95_pct=gate_p95_pct,
+            errors=gate_errors,
+        )
+
+    # Determine final exit code: integrity (2) > regression/gate (1) > clean (0)
+    exit_code = result.exit_code
+    if exit_code == 0 and gate_eval is not None and gate_eval.any_failed:
+        exit_code = 1
+
     if output_json:
-        _output_json({"command": "diff", "status": "ok", **result.to_dict()}, exit_code=result.exit_code)
+        payload = {"command": "diff", "status": "ok", **result.to_dict()}
+        if gate_eval is not None:
+            payload["gates"] = gate_eval.to_dict()
+        payload["has_regression"] = result.has_regression or (gate_eval is not None and gate_eval.any_failed)
+        _output_json(payload, exit_code=exit_code)
         return
 
-    _render_diff(result)
+    _render_diff(result, gate_eval=gate_eval, exit_code=exit_code)
 
 
 def _fmt_delta(a_val, b_val, fmt: str = "d", prefix: str = "", suffix: str = "") -> str:
@@ -4158,7 +4186,7 @@ def _fmt_delta(a_val, b_val, fmt: str = "d", prefix: str = "", suffix: str = "")
     return f"{color}{prefix}{delta_str}{pct}{end}"
 
 
-def _render_diff(result) -> None:
+def _render_diff(result, *, gate_eval=None, exit_code: int | None = None) -> None:
     """Render diff result to console with Rich panels."""
     from assay.diff import DiffResult
 
@@ -4277,14 +4305,41 @@ def _render_diff(result) -> None:
             )
         console.print(Panel(model_table, title="Models", border_style="green"))
 
+    # Threshold gates
+    if gate_eval is not None and gate_eval.results:
+        gate_table = Table(show_header=False, box=None, padding=(0, 2))
+        gate_table.add_column("gate")
+        gate_table.add_column("result")
+        def _fmt_threshold(val: float, unit: str) -> str:
+            s = f"{val:g}"
+            if unit == "pct":
+                s += "%"
+            return s
+
+        for g in gate_eval.results:
+            if g.skipped:
+                gate_table.add_row(g.name, "[dim]skipped (no data)[/]")
+            elif g.passed:
+                actual_str = f"{g.actual:.1f}%" if g.unit == "pct" and g.actual is not None else str(int(g.actual)) if g.actual is not None else "?"
+                gate_table.add_row(g.name, f"[green]PASS[/]  {actual_str} <= {_fmt_threshold(g.threshold, g.unit)}")
+            else:
+                actual_str = f"{g.actual:.1f}%" if g.unit == "pct" and g.actual is not None else str(int(g.actual)) if g.actual is not None else "inf"
+                gate_table.add_row(g.name, f"[red]FAIL[/]  {actual_str} > {_fmt_threshold(g.threshold, g.unit)}")
+        border = "red" if gate_eval.any_failed else "green"
+        title = "Gates (THRESHOLD EXCEEDED)" if gate_eval.any_failed else "Gates"
+        console.print(Panel(gate_table, title=title, border_style=border))
+
+    final_exit = exit_code if exit_code is not None else result.exit_code
     console.print()
-    if result.has_regression:
-        console.print("  [bold red]Result: REGRESSION DETECTED[/]")
+    gate_failed = gate_eval is not None and gate_eval.any_failed
+    if result.has_regression or gate_failed:
+        label = "REGRESSION DETECTED" if result.has_regression else "THRESHOLD EXCEEDED"
+        console.print(f"  [bold red]Result: {label}[/]")
     else:
         console.print("  [bold green]Result: No regression[/]")
     console.print()
 
-    raise typer.Exit(result.exit_code)
+    raise typer.Exit(final_exit)
 
 
 def main():

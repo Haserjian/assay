@@ -11,10 +11,14 @@ from typer.testing import CliRunner
 from assay.diff import (
     ClaimDelta,
     DiffResult,
+    GateEvaluation,
+    GateResult,
     ModelDelta,
     PackInfo,
     _load_pack_info,
+    _pct_change,
     diff_packs,
+    evaluate_gates,
 )
 from assay import commands as assay_commands
 
@@ -402,3 +406,263 @@ class TestDiffCLI:
                                    ["diff", "a", "b", "--no-verify"])
             assert result.exit_code == 1
             assert "REGRESSION" in result.output
+
+
+# ---------------------------------------------------------------------------
+# _pct_change
+# ---------------------------------------------------------------------------
+
+class TestPctChange:
+    def test_normal(self) -> None:
+        assert _pct_change(100, 120) == pytest.approx(20.0)
+
+    def test_decrease(self) -> None:
+        assert _pct_change(100, 80) == pytest.approx(-20.0)
+
+    def test_zero_baseline_positive(self) -> None:
+        assert _pct_change(0, 10) == float("inf")
+
+    def test_zero_baseline_zero(self) -> None:
+        assert _pct_change(0, 0) == 0.0
+
+    def test_no_change(self) -> None:
+        assert _pct_change(50, 50) == 0.0
+
+
+# ---------------------------------------------------------------------------
+# GateResult / GateEvaluation
+# ---------------------------------------------------------------------------
+
+class TestGateResult:
+    def test_defaults(self) -> None:
+        g = GateResult(name="cost_pct", threshold=20.0)
+        assert g.passed is True
+        assert g.skipped is False
+
+    def test_to_dict(self) -> None:
+        ge = GateEvaluation(results=[
+            GateResult(name="cost_pct", threshold=20.0, actual=15.0, passed=True, unit="pct"),
+        ])
+        d = ge.to_dict()
+        assert d["all_passed"] is True
+        assert len(d["results"]) == 1
+
+    def test_all_passed_skips_skipped(self) -> None:
+        ge = GateEvaluation(results=[
+            GateResult(name="cost_pct", threshold=20.0, passed=True, skipped=True),
+            GateResult(name="errors", threshold=0.0, actual=0.0, passed=True, unit="count"),
+        ])
+        assert ge.all_passed is True
+
+    def test_any_failed(self) -> None:
+        ge = GateEvaluation(results=[
+            GateResult(name="cost_pct", threshold=20.0, actual=30.0, passed=False, unit="pct"),
+        ])
+        assert ge.any_failed is True
+
+
+# ---------------------------------------------------------------------------
+# evaluate_gates
+# ---------------------------------------------------------------------------
+
+class TestEvaluateGates:
+    def _make_diff_result_with_analysis(self, tmp_path: Path,
+                                         a_receipts=None, b_receipts=None) -> "DiffResult":
+        """Build a DiffResult with analysis populated."""
+        if a_receipts is None:
+            a_receipts = [_make_receipt(input_tokens=1000, output_tokens=500, latency_ms=800)]
+        if b_receipts is None:
+            b_receipts = [_make_receipt(input_tokens=1000, output_tokens=500, latency_ms=800)]
+        pack_a = _write_pack(tmp_path / "a", a_receipts)
+        pack_b = _write_pack(tmp_path / "b", b_receipts)
+        return diff_packs(pack_a, pack_b, verify=False)
+
+    def test_no_gates_empty(self, tmp_path: Path) -> None:
+        result = self._make_diff_result_with_analysis(tmp_path)
+        ge = evaluate_gates(result)
+        assert ge.results == []
+        assert ge.all_passed is True
+
+    def test_cost_gate_pass(self, tmp_path: Path) -> None:
+        result = self._make_diff_result_with_analysis(tmp_path)
+        ge = evaluate_gates(result, cost_pct=50.0)
+        assert len(ge.results) == 1
+        assert ge.results[0].passed is True
+
+    def test_cost_gate_fail(self, tmp_path: Path) -> None:
+        result = self._make_diff_result_with_analysis(
+            tmp_path,
+            a_receipts=[_make_receipt(input_tokens=100, output_tokens=50)],
+            b_receipts=[_make_receipt(input_tokens=1000, output_tokens=500)],
+        )
+        ge = evaluate_gates(result, cost_pct=10.0)
+        assert ge.results[0].passed is False
+        assert ge.any_failed is True
+
+    def test_cost_gate_zero_baseline(self, tmp_path: Path) -> None:
+        """A=0 cost, B>0 cost -> infinite increase -> fail finite threshold."""
+        result = self._make_diff_result_with_analysis(
+            tmp_path,
+            a_receipts=[_make_receipt(input_tokens=0, output_tokens=0)],
+            b_receipts=[_make_receipt(input_tokens=1000, output_tokens=500)],
+        )
+        ge = evaluate_gates(result, cost_pct=50.0)
+        assert ge.results[0].passed is False
+
+    def test_p95_gate_pass(self, tmp_path: Path) -> None:
+        result = self._make_diff_result_with_analysis(
+            tmp_path,
+            a_receipts=[_make_receipt(latency_ms=100)],
+            b_receipts=[_make_receipt(latency_ms=110)],
+        )
+        ge = evaluate_gates(result, p95_pct=20.0)
+        assert ge.results[0].passed is True
+
+    def test_p95_gate_fail(self, tmp_path: Path) -> None:
+        result = self._make_diff_result_with_analysis(
+            tmp_path,
+            a_receipts=[_make_receipt(latency_ms=100)],
+            b_receipts=[_make_receipt(latency_ms=200)],
+        )
+        ge = evaluate_gates(result, p95_pct=20.0)
+        assert ge.results[0].passed is False
+
+    def test_errors_gate_pass(self, tmp_path: Path) -> None:
+        result = self._make_diff_result_with_analysis(
+            tmp_path,
+            b_receipts=[_make_receipt(error=False)],
+        )
+        ge = evaluate_gates(result, errors=0)
+        assert ge.results[0].passed is True
+
+    def test_errors_gate_fail(self, tmp_path: Path) -> None:
+        result = self._make_diff_result_with_analysis(
+            tmp_path,
+            b_receipts=[_make_receipt(error=True)],
+        )
+        ge = evaluate_gates(result, errors=0)
+        assert ge.results[0].passed is False
+
+    def test_multiple_gates(self, tmp_path: Path) -> None:
+        result = self._make_diff_result_with_analysis(tmp_path)
+        ge = evaluate_gates(result, cost_pct=50.0, p95_pct=50.0, errors=5)
+        assert len(ge.results) == 3
+        assert ge.all_passed is True
+
+    def test_gate_skipped_no_analysis(self) -> None:
+        """Gates skip gracefully when analysis is unavailable."""
+        result = DiffResult(
+            pack_a=PackInfo(path="a"),
+            pack_b=PackInfo(path="b"),
+        )
+        ge = evaluate_gates(result, cost_pct=20.0, p95_pct=20.0, errors=0)
+        assert len(ge.results) == 3
+        assert all(g.skipped for g in ge.results)
+        assert ge.all_passed is True
+
+    def test_cost_gate_inf_threshold_passes_infinite_increase(self, tmp_path: Path) -> None:
+        """--gate-cost-pct inf should pass even when increase is infinite."""
+        result = self._make_diff_result_with_analysis(
+            tmp_path,
+            a_receipts=[_make_receipt(input_tokens=0, output_tokens=0)],
+            b_receipts=[_make_receipt(input_tokens=1000, output_tokens=500)],
+        )
+        ge = evaluate_gates(result, cost_pct=float("inf"))
+        assert ge.results[0].passed is True
+
+    def test_p95_gate_inf_threshold_passes_infinite_increase(self, tmp_path: Path) -> None:
+        """--gate-p95-pct inf should pass even when increase is infinite."""
+        result = self._make_diff_result_with_analysis(
+            tmp_path,
+            a_receipts=[_make_receipt(latency_ms=0)],
+            b_receipts=[_make_receipt(latency_ms=500)],
+        )
+        ge = evaluate_gates(result, p95_pct=float("inf"))
+        assert ge.results[0].passed is True
+
+    def test_gate_to_dict_json_safe(self, tmp_path: Path) -> None:
+        """to_dict must not emit inf/nan -- must be valid JSON."""
+        result = self._make_diff_result_with_analysis(
+            tmp_path,
+            a_receipts=[_make_receipt(input_tokens=0, output_tokens=0)],
+            b_receipts=[_make_receipt(input_tokens=1000, output_tokens=500)],
+        )
+        ge = evaluate_gates(result, cost_pct=float("inf"))
+        d = ge.to_dict()
+        # threshold=inf should serialize as None
+        assert d["results"][0]["threshold"] is None
+        # Roundtrip through json.dumps must not raise
+        json.dumps(d)
+
+
+# ---------------------------------------------------------------------------
+# CLI gate integration
+# ---------------------------------------------------------------------------
+
+class TestDiffGateCLI:
+    def test_gate_pass_json(self) -> None:
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            _write_pack(Path("a"), [_make_receipt()], {"rc": True})
+            _write_pack(Path("b"), [_make_receipt()], {"rc": True})
+
+            result = runner.invoke(assay_commands.assay_app,
+                                   ["diff", "a", "b", "--no-verify", "--json",
+                                    "--gate-cost-pct", "50"])
+            assert result.exit_code == 0, result.output
+            data = json.loads(result.output)
+            assert "gates" in data
+            assert data["gates"]["all_passed"] is True
+
+    def test_gate_fail_exit_code(self) -> None:
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            _write_pack(Path("a"), [_make_receipt(input_tokens=100, output_tokens=50)])
+            _write_pack(Path("b"), [_make_receipt(input_tokens=1000, output_tokens=500)])
+
+            result = runner.invoke(assay_commands.assay_app,
+                                   ["diff", "a", "b", "--no-verify", "--json",
+                                    "--gate-cost-pct", "10"])
+            assert result.exit_code == 1
+            data = json.loads(result.output)
+            assert data["gates"]["all_passed"] is False
+
+    def test_gate_table_output(self) -> None:
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            _write_pack(Path("a"), [_make_receipt()], {"rc": True})
+            _write_pack(Path("b"), [_make_receipt()], {"rc": True})
+
+            result = runner.invoke(assay_commands.assay_app,
+                                   ["diff", "a", "b", "--no-verify",
+                                    "--gate-cost-pct", "50"])
+            assert result.exit_code == 0, result.output
+            assert "Gates" in result.output
+            assert "PASS" in result.output
+
+    def test_gate_fail_table_output(self) -> None:
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            _write_pack(Path("a"), [_make_receipt(input_tokens=100, output_tokens=50)])
+            _write_pack(Path("b"), [_make_receipt(input_tokens=1000, output_tokens=500)])
+
+            result = runner.invoke(assay_commands.assay_app,
+                                   ["diff", "a", "b", "--no-verify",
+                                    "--gate-cost-pct", "10"])
+            assert result.exit_code == 1
+            assert "THRESHOLD EXCEEDED" in result.output
+
+    def test_integrity_failure_overrides_gate(self) -> None:
+        """Integrity failure (exit 2) must take precedence over gate fail (exit 1)."""
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            # Pack A: valid manifest. Pack B: empty manifest (will fail integrity).
+            _write_pack(Path("a"), [_make_receipt()])
+            Path("b").mkdir()
+            (Path("b") / "pack_manifest.json").write_text("{}")
+            (Path("b") / "receipt_pack.jsonl").write_text("")
+
+            # Verify=True (default) will fail integrity before gates matter.
+            result = runner.invoke(assay_commands.assay_app,
+                                   ["diff", "a", "b", "--gate-errors", "0"])
+            assert result.exit_code == 2

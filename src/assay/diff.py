@@ -12,6 +12,7 @@ Exit codes:
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -188,6 +189,154 @@ class DiffResult:
         if self.has_regression:
             return 1
         return 0
+
+
+# ---------------------------------------------------------------------------
+# Threshold gates
+# ---------------------------------------------------------------------------
+
+@dataclass
+class GateResult:
+    """Result of a single threshold gate check."""
+
+    name: str
+    threshold: float
+    actual: Optional[float] = None
+    passed: bool = True
+    unit: str = ""       # "pct" or "count"
+    skipped: bool = False  # True when data was unavailable
+
+
+@dataclass
+class GateEvaluation:
+    """Combined results from all threshold gates."""
+
+    results: List[GateResult] = field(default_factory=list)
+
+    @property
+    def all_passed(self) -> bool:
+        return all(g.passed for g in self.results if not g.skipped)
+
+    @property
+    def any_failed(self) -> bool:
+        return any(not g.passed for g in self.results if not g.skipped)
+
+    @staticmethod
+    def _json_safe(v: Optional[float]) -> Optional[float]:
+        """Convert inf/nan to None for RFC-compliant JSON."""
+        if v is None:
+            return None
+        if math.isinf(v) or math.isnan(v):
+            return None
+        return v
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "all_passed": self.all_passed,
+            "results": [
+                {
+                    "name": g.name,
+                    "threshold": self._json_safe(g.threshold),
+                    "actual": self._json_safe(g.actual),
+                    "passed": g.passed,
+                    "unit": g.unit,
+                    "skipped": g.skipped,
+                }
+                for g in self.results
+            ],
+        }
+
+
+def _pct_change(a_val: float, b_val: float) -> float:
+    """Percentage change from a to b. Returns inf when a is 0 and b > 0."""
+    if a_val == 0:
+        return float("inf") if b_val > 0 else 0.0
+    return ((b_val - a_val) / a_val) * 100
+
+
+def evaluate_gates(
+    result: DiffResult,
+    *,
+    cost_pct: Optional[float] = None,
+    p95_pct: Optional[float] = None,
+    errors: Optional[int] = None,
+) -> GateEvaluation:
+    """Evaluate threshold gates against a diff result.
+
+    Each gate is only checked if a threshold is provided. When analysis
+    data is unavailable the gate is marked as skipped (passes by default).
+
+    Args:
+        result: The diff result to evaluate.
+        cost_pct: Max allowed cost increase in percent (e.g. 20 = 20%).
+        p95_pct: Max allowed p95 latency increase in percent.
+        errors: Max allowed error count in pack B.
+
+    Returns:
+        GateEvaluation with per-gate results.
+    """
+    evaluation = GateEvaluation()
+    has_analysis = result.a_analysis is not None and result.b_analysis is not None
+
+    if cost_pct is not None:
+        if has_analysis:
+            pct = _pct_change(result.a_analysis.cost_usd, result.b_analysis.cost_usd)
+            if math.isinf(pct):
+                passed = math.isinf(cost_pct)
+            else:
+                passed = pct <= cost_pct
+            evaluation.results.append(GateResult(
+                name="cost_pct", threshold=cost_pct,
+                actual=round(pct, 1) if not math.isinf(pct) else None,
+                passed=passed, unit="pct",
+            ))
+        else:
+            evaluation.results.append(GateResult(
+                name="cost_pct", threshold=cost_pct, passed=True,
+                unit="pct", skipped=True,
+            ))
+
+    if p95_pct is not None:
+        has_latency = (
+            has_analysis
+            and result.a_analysis.latency_p95 is not None
+            and result.b_analysis.latency_p95 is not None
+        )
+        if has_latency:
+            pct = _pct_change(
+                float(result.a_analysis.latency_p95),
+                float(result.b_analysis.latency_p95),
+            )
+            if math.isinf(pct):
+                passed = math.isinf(p95_pct)
+            else:
+                passed = pct <= p95_pct
+            evaluation.results.append(GateResult(
+                name="p95_pct", threshold=p95_pct,
+                actual=round(pct, 1) if not math.isinf(pct) else None,
+                passed=passed, unit="pct",
+            ))
+        else:
+            evaluation.results.append(GateResult(
+                name="p95_pct", threshold=p95_pct, passed=True,
+                unit="pct", skipped=True,
+            ))
+
+    if errors is not None:
+        if result.b_analysis is not None:
+            b_errors = result.b_analysis.errors
+            evaluation.results.append(GateResult(
+                name="errors", threshold=float(errors),
+                actual=float(b_errors),
+                passed=b_errors <= errors, unit="count",
+            ))
+        else:
+            evaluation.results.append(GateResult(
+                name="errors", threshold=float(errors), passed=True,
+                unit="count", skipped=True,
+            ))
+
+    return evaluation
 
 
 # ---------------------------------------------------------------------------
