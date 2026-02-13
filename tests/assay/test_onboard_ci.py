@@ -28,7 +28,7 @@ def test_ci_init_github_writes_workflow() -> None:
         assert workflow.exists()
         text = workflow.read_text(encoding="utf-8")
         assert "Haserjian/assay-verify-action@v1" in text
-        assert "assay run -c receipt_completeness -c guardian_enforcement -- python app.py" in text
+        assert "assay run -c receipt_completeness -- python app.py" in text
 
 
 def test_ci_init_existing_without_force_fails() -> None:

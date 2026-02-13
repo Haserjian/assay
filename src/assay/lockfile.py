@@ -10,7 +10,7 @@ verification produce identical results. The lockfile records:
 - Minimum Assay version required to verify
 
 Usage:
-  assay lock write --cards receipt_completeness,guardian_enforcement
+  assay lock write --cards receipt_completeness
   assay verify-pack ./proof_pack_*/ --lock assay.lock --require-claim-pass
   assay lock check
 """

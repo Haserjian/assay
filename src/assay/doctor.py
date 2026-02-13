@@ -317,7 +317,7 @@ def _check_lock_001(lock_path: Optional[Path] = None) -> DoctorCheckResult:
             severity=Severity.MEDIUM,
             message=f"No lockfile found at {lock_path}",
             evidence={"path": str(lock_path)},
-            fix="assay lock write --cards receipt_completeness,guardian_enforcement -o assay.lock",
+            fix="assay lock write --cards receipt_completeness -o assay.lock",
         )
 
     try:
@@ -341,7 +341,7 @@ def _check_lock_001(lock_path: Optional[Path] = None) -> DoctorCheckResult:
             severity=Severity.HIGH,
             message=f"Lockfile invalid: {e}",
             evidence={"path": str(lock_path), "error": str(e)},
-            fix="assay lock write --cards receipt_completeness,guardian_enforcement -o assay.lock",
+            fix="assay lock write --cards receipt_completeness -o assay.lock",
         )
 
 
@@ -368,7 +368,7 @@ def _check_lock_002(lock_path: Optional[Path] = None) -> DoctorCheckResult:
                 severity=Severity.HIGH,
                 message=f"Lock hash drift: {errors[0]}",
                 evidence={"errors": errors},
-                fix="assay lock write --cards receipt_completeness,guardian_enforcement -o assay.lock",
+                fix="assay lock write --cards receipt_completeness -o assay.lock",
             )
         return DoctorCheckResult(
             id="DOCTOR_LOCK_002",
@@ -634,7 +634,7 @@ def _check_ci_002(lock_path: Optional[Path] = None) -> DoctorCheckResult:
                 severity=Severity.HIGH,
                 message=f"exit_contract missing codes: {', '.join(missing)}",
                 evidence={"missing_codes": missing, "found": list(contract.keys())},
-                fix="assay lock write --cards receipt_completeness,guardian_enforcement -o assay.lock",
+                fix="assay lock write --cards receipt_completeness -o assay.lock",
             )
         return DoctorCheckResult(
             id="DOCTOR_CI_002",

@@ -2499,7 +2499,7 @@ def ci_init_cmd(
         help="Command Assay should wrap in CI",
     ),
     cards: str = typer.Option(
-        "receipt_completeness,guardian_enforcement",
+        "receipt_completeness",
         "--cards",
         help="Comma-separated run cards for assay run",
     ),
@@ -2534,6 +2534,8 @@ def ci_init_cmd(
             _output_json({"command": "ci init", "status": "error", "error": "run_command cannot be empty"})
         console.print("[red]Error:[/] --run-command cannot be empty")
         raise typer.Exit(1)
+
+    is_placeholder = run_command == "python my_app.py"
 
     card_args = []
     for card in [c.strip() for c in cards.split(",") if c.strip()]:
@@ -2583,7 +2585,7 @@ jobs:
       # Install your project dependencies before this step if needed.
       - name: Generate Proof Pack
         run: |
-          assay run {card_flags} -- {run_command}
+          assay run {card_flags} -- {run_command}{"  # TODO: replace with your actual run command" if is_placeholder else ""}
 
       - name: Verify Proof Pack
         uses: Haserjian/assay-verify-action@v1
@@ -2615,7 +2617,11 @@ jobs:
         f"RunCards:   {cards}",
         title="assay ci init github",
     ))
-    console.print()
+    if is_placeholder:
+        console.print("[yellow]Warning:[/] Using placeholder command 'python my_app.py'.")
+        console.print(f"  Edit [bold]{workflow_path}[/] and replace with your actual run command.")
+        console.print(f"  Or re-run: assay ci init github --run-command \"python your_app.py\" --force")
+        console.print()
     console.print("Next:")
     console.print(f"  1. Review [bold]{workflow_path}[/]")
     console.print("  2. Commit and push")
@@ -2704,10 +2710,10 @@ def onboard_cmd(
     else:
         next_steps.append("No SDK patterns detected; add manual emission: from assay import emit_receipt")
     next_steps.append(
-        f"Generate first Proof Pack: assay run -c receipt_completeness -c guardian_enforcement -- {selected_run}"
+        f"Generate first Proof Pack: assay run -c receipt_completeness -- {selected_run}"
     )
     next_steps.append("Verify + explain: assay verify-pack ./proof_pack_*/ && assay explain ./proof_pack_*/ --format md")
-    next_steps.append("Lock baseline: assay lock write --cards receipt_completeness,guardian_enforcement -o assay.lock")
+    next_steps.append("Lock baseline: assay lock write --cards receipt_completeness -o assay.lock")
     next_steps.append("Enable CI: assay ci init github --run-command \"" + selected_run + "\"")
 
     if output_json:
@@ -2871,6 +2877,13 @@ def patch_cmd(
 
     apply_patch(plan, root, backup=backup)
     console.print(f"[green]Patched {plan.entrypoint}[/] with {len(plan.lines_to_insert)} integration line(s).")
+
+    # Check if other files still have uninstrumented call sites
+    other_files = {f.path for f in uninstrumented if f.path != plan.entrypoint}
+    if other_files:
+        console.print(f"\n[dim]Note: {len(other_files)} other file(s) have uninstrumented call sites.")
+        console.print("  If your app has multiple entrypoints/processes, run assay patch again.[/]")
+
     console.print(f"\nNext: [bold]assay run -c receipt_completeness -- python {plan.entrypoint}[/]")
 
 
@@ -3154,7 +3167,7 @@ def doctor_cmd(
                         from assay.lockfile import write_lockfile
                         target = lock_path or Path("assay.lock")
                         write_lockfile(
-                            ["receipt_completeness", "guardian_enforcement"],
+                            ["receipt_completeness"],
                             output_path=target,
                         )
                         check.status = CheckStatus.PASS
