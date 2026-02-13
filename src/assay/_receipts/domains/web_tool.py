@@ -8,7 +8,7 @@ Tracks OpenClaw and similar gateway web operations with:
 - Allow/deny verdict with policy reference
 
 This provides audit trail integration between OpenClaw gateway
-and the CCIO receipt system.
+and the Assay receipt system.
 """
 from __future__ import annotations
 

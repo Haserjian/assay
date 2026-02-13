@@ -205,7 +205,8 @@ def _check_core_001() -> DoctorCheckResult:
 
 def _check_fs_001() -> DoctorCheckResult:
     """Writable Assay home path."""
-    home = Path.home() / ".loom" / "assay"
+    from assay.store import assay_home
+    home = assay_home()
     if home.exists():
         # Check writable
         test_file = home / ".doctor_probe"

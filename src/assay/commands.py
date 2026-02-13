@@ -95,7 +95,7 @@ def validate_action(
     1. No coherence gain by dignity debt
     2. Receipt will be emitted (auditability)
 
-    Receipts are persisted to ~/.loom/assay/<date>/<trace_id>.jsonl
+    Receipts are persisted to ~/.assay/<date>/<trace_id>.jsonl
 
     Examples:
         assay validate "shell:pytest" --coherence 0.1 --dignity 0.0
@@ -417,7 +417,7 @@ def run_demo(
     """
     Run demonstration showing receipts + blockages.
 
-    All receipts are persisted to ~/.loom/assay/ with a trace ID.
+    All receipts are persisted to ~/.assay/ with a trace ID.
 
     Scenarios:
     - all: Run all demos
@@ -1287,7 +1287,7 @@ def launch_check(
         artifact_path = Path.home() / ".assay" / "artifacts" / "launch-check" / timestamp
     artifact_path.mkdir(parents=True, exist_ok=True)
 
-    # Get working directory (ccio root)
+    # Get working directory (assay repo root)
     cwd = str(Path(__file__).parent.parent.parent)
 
     # Import receipt types
@@ -3973,7 +3973,8 @@ def analyze_cmd(
             receipts, trace_count = load_history_receipts(since_days=since)
             result = analyze_receipts(receipts)
             result.source_type = "history"
-            result.source_path = str(Path.home() / ".loom" / "assay")
+            from assay.store import assay_home
+            result.source_path = str(assay_home())
             result.trace_count = trace_count
             result.history_days = since
 

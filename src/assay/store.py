@@ -2,7 +2,7 @@
 Assay receipt storage.
 
 Persists receipts to disk with trace IDs for auditability.
-Default location: ~/.loom/assay/
+Default location: ~/.assay/
 """
 from __future__ import annotations
 
@@ -13,6 +13,25 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from assay._receipts.compat.pyd import BaseModel
+
+
+_LEGACY_HOME = ".loom/assay"
+_NEW_HOME = ".assay"
+
+
+def assay_home() -> Path:
+    """Return the Assay data directory.
+
+    Uses ~/.assay/ by default. Falls back to ~/.loom/assay/ if the legacy
+    path exists and the new one does not (backward compatibility).
+    """
+    new = Path.home() / _NEW_HOME
+    if new.exists():
+        return new
+    legacy = Path.home() / _LEGACY_HOME
+    if legacy.exists():
+        return legacy
+    return new
 
 
 def generate_trace_id() -> str:
@@ -26,12 +45,12 @@ class AssayStore:
     Persistent storage for Assay receipts.
 
     Receipts are stored as JSONL files organized by date:
-        ~/.loom/assay/2025-02-05/trace_xxx.jsonl
+        ~/.assay/2025-02-05/trace_xxx.jsonl
     """
 
     def __init__(self, base_dir: Optional[Path] = None):
         if base_dir is None:
-            base_dir = Path.home() / ".loom" / "assay"
+            base_dir = assay_home()
         self.base_dir = Path(base_dir)
         self._current_trace_id: Optional[str] = None
         self._current_file: Optional[Path] = None
@@ -237,6 +256,7 @@ def emit_receipt(
 
 
 __all__ = [
+    "assay_home",
     "generate_trace_id",
     "AssayStore",
     "get_default_store",

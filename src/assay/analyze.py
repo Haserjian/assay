@@ -281,7 +281,8 @@ def load_history_receipts(
     Returns (receipts, trace_count).
     """
     if store_dir is None:
-        store_dir = Path.home() / ".loom" / "assay"
+        from assay.store import assay_home
+        store_dir = assay_home()
     if not store_dir.exists():
         return [], 0
 

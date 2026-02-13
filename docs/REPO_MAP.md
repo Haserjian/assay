@@ -14,7 +14,7 @@ Canonical reference for what lives where, what's public, and what ships from eac
 
 | Repo | Purpose | Notes |
 |------|---------|-------|
-| ccio-internal | Monorepo: organism, agents, receipts, governance, experiments | Assay originated here; public surface extracted to Haserjian/assay |
+| (private monorepo) | Internal: agents, receipts, governance, experiments | Assay originated here; public surface extracted to Haserjian/assay |
 | assay-cloud (future) | Hosted verification, team/org management, billing | Not yet created |
 
 ## What Ships From Where

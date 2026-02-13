@@ -409,7 +409,7 @@ def build_proof_pack(
     Args:
         trace_id: The trace to package.
         output_dir: Where to write the 5 files (default: proof_pack_{trace_id}/).
-        keystore: Optional key store (default: ~/.loom/assay/keys/).
+        keystore: Optional key store (default: ~/.assay/keys/).
         mode: shadow | enforced | breakglass.
         claims: Optional list of ClaimSpecs for semantic verification.
 

@@ -211,7 +211,7 @@ except Exception:
     create_kill_switch_receipt = None
     create_key_revocation_receipt = None
 
-# Policy recommendation receipts (Quintet → CCIO loop)
+# Policy recommendation receipts
 try:
     from .policy import (  # noqa: F401
         PolicyRecommendationReceipt,

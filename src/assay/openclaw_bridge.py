@@ -53,7 +53,7 @@ class BrowserVerdict:
 @dataclass
 class OpenClawBridge:
     """
-    Bridge between OpenClaw gateway operations and CCIO receipt system.
+    Bridge between OpenClaw gateway operations and Assay receipt system.
 
     Enforces domain allowlist policy for browser tool and emits
     WebToolReceipts for all operations.

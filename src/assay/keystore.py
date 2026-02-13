@@ -1,8 +1,7 @@
 """
 Standalone Ed25519 key management for Assay Proof Packs.
 
-Keys are stored at ~/.loom/assay/keys/{signer_id}.key
-No dependency on api.keys or any CCIO-internal module.
+Keys are stored at ~/.assay/keys/{signer_id}.key
 """
 from __future__ import annotations
 
@@ -21,7 +20,8 @@ class AssayKeyStore:
 
     def __init__(self, keys_dir: Optional[Path] = None):
         if keys_dir is None:
-            keys_dir = Path.home() / ".loom" / "assay" / "keys"
+            from assay.store import assay_home
+            keys_dir = assay_home() / "keys"
         self.keys_dir = Path(keys_dir)
 
     def _key_path(self, signer_id: str) -> Path:

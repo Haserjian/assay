@@ -133,7 +133,7 @@ def get_build_metadata() -> Dict[str, Any]:
         "generator": "assay evidence-pack",
         "canonicalization": "jcs-rfc8785",
         "hash_algorithm": "sha256",
-        "ccio_root": str(Path(__file__).parent.parent.parent),
+        "assay_root": str(Path(__file__).parent.parent.parent),
     }
 
 
@@ -359,7 +359,7 @@ class EvidencePack:
 
             # Optionally include source files
             if include_source:
-                ccio_root = Path(__file__).parent.parent.parent
+                assay_root = Path(__file__).parent.parent.parent
                 source_files = [
                     "src/receipts/domains/model_call.py",
                     "src/receipts/domains/capability_use.py",
@@ -372,7 +372,7 @@ class EvidencePack:
                     "tests/receipts/test_patent_receipts.py",
                 ]
                 for src_file in source_files:
-                    src_path = ccio_root / src_file
+                    src_path = assay_root / src_file
                     if src_path.exists():
                         zf.write(src_path, f"source/{src_file}")
 

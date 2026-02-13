@@ -3,7 +3,7 @@ Minimal base receipt types vendored for assay-ai standalone use.
 
 This is a stripped-down version of receipts.base that provides only the
 types needed by the vendored domain receipt modules (blockages, web_tool,
-launch_readiness). The full receipts.base lives in the CCIO monorepo.
+launch_readiness).
 """
 from __future__ import annotations
 

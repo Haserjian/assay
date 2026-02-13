@@ -11,7 +11,7 @@ Usage:
     llm = ChatOpenAI(callbacks=[handler])
 
     response = llm.invoke("Hello!")
-    # Receipt automatically emitted to ~/.loom/assay/
+    # Receipt automatically emitted to ~/.assay/
 
 Configuration:
     handler = AssayCallbackHandler(

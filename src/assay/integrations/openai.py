@@ -10,7 +10,7 @@ Usage:
     # Now every OpenAI call emits a receipt
     client = OpenAI()
     response = client.chat.completions.create(...)
-    # Receipt automatically emitted to ~/.loom/assay/
+    # Receipt automatically emitted to ~/.assay/
 
 Configuration:
     patch(

@@ -6,7 +6,7 @@ Runs `assay verify-pack` against each corpus entry and asserts the exit code
 matches expected_outcomes.json. This is the ABI test for the Assay verifier.
 
 Usage:
-    cd ~/ccio
+    cd ~/assay
     python conformance/run_corpus.py
 
 Exit codes:

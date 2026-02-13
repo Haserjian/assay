@@ -8,7 +8,7 @@ Creates 6 canonical Proof Packs with known verification outcomes:
   - 2 tampered packs (exit 2)
 
 Run from the repo root:
-    cd ~/ccio
+    cd ~/assay
     python conformance/generate_corpus.py
 
 Output: conformance/corpus_v1/packs/<name>/  (5 files each)

@@ -10,7 +10,7 @@ Usage:
     # Now every Anthropic call emits a receipt
     client = Anthropic()
     response = client.messages.create(...)
-    # Receipt automatically emitted to ~/.loom/assay/
+    # Receipt automatically emitted to ~/.assay/
 
 Configuration:
     patch(
