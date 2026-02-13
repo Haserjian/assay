@@ -740,3 +740,287 @@ class TestLangChainIntegration:
             with mock_patch("assay.store.get_default_store", return_value=store):
                 result = get_trace_id()
                 assert result == trace_id
+
+
+class TestStorePromptsResponses:
+    """Tests for store_prompts / store_responses opt-in content capture."""
+
+    def _make_openai_response(self, content="Hello!"):
+        mock_response = MagicMock()
+        mock_response.usage.prompt_tokens = 10
+        mock_response.usage.completion_tokens = 20
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].finish_reason = "stop"
+        mock_response.choices[0].message.content = content
+        return mock_response
+
+    def _make_anthropic_response(self, content="Hello!"):
+        mock_response = MagicMock()
+        mock_response.usage.input_tokens = 15
+        mock_response.usage.output_tokens = 25
+        mock_response.stop_reason = "end_turn"
+        mock_content_block = MagicMock()
+        mock_content_block.text = content
+        mock_response.content = [mock_content_block]
+        return mock_response
+
+    def test_openai_store_prompts_true(self):
+        """When store_prompts=True, receipt includes input_content."""
+        from assay.integrations.openai import _create_model_call_receipt, _patch_config
+        from assay.store import AssayStore
+
+        _patch_config.clear()
+        _patch_config["store_prompts"] = True
+        _patch_config["store_responses"] = False
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = AssayStore(base_dir=Path(tmpdir))
+            store.start_trace()
+
+            with mock_patch("assay.store.get_default_store", return_value=store), \
+                 mock_patch.object(store_mod, "_seq_counter", 0):
+                receipt = _create_model_call_receipt(
+                    model="gpt-4",
+                    messages=[{"role": "user", "content": "What is 2+2?"}],
+                    response=self._make_openai_response(),
+                    latency_ms=100,
+                )
+
+                assert "input_content" in receipt
+                assert receipt["input_content"][0]["content"] == "What is 2+2?"
+                assert "input_hash" in receipt  # hash always present
+                assert "output_content" not in receipt  # not opted in
+
+        _patch_config.clear()
+
+    def test_openai_store_responses_true(self):
+        """When store_responses=True, receipt includes output_content."""
+        from assay.integrations.openai import _create_model_call_receipt, _patch_config
+        from assay.store import AssayStore
+
+        _patch_config.clear()
+        _patch_config["store_prompts"] = False
+        _patch_config["store_responses"] = True
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = AssayStore(base_dir=Path(tmpdir))
+            store.start_trace()
+
+            with mock_patch("assay.store.get_default_store", return_value=store), \
+                 mock_patch.object(store_mod, "_seq_counter", 0):
+                receipt = _create_model_call_receipt(
+                    model="gpt-4",
+                    messages=[{"role": "user", "content": "Hi"}],
+                    response=self._make_openai_response("The answer is 4"),
+                    latency_ms=100,
+                )
+
+                assert "output_content" in receipt
+                assert receipt["output_content"] == "The answer is 4"
+                assert "output_hash" in receipt
+                assert "input_content" not in receipt
+
+        _patch_config.clear()
+
+    def test_openai_default_no_content(self):
+        """Default config: no cleartext content in receipt."""
+        from assay.integrations.openai import _create_model_call_receipt, _patch_config
+        from assay.store import AssayStore
+
+        _patch_config.clear()
+        _patch_config["store_prompts"] = False
+        _patch_config["store_responses"] = False
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = AssayStore(base_dir=Path(tmpdir))
+            store.start_trace()
+
+            with mock_patch("assay.store.get_default_store", return_value=store), \
+                 mock_patch.object(store_mod, "_seq_counter", 0):
+                receipt = _create_model_call_receipt(
+                    model="gpt-4",
+                    messages=[{"role": "user", "content": "Secret stuff"}],
+                    response=self._make_openai_response("Secret response"),
+                    latency_ms=100,
+                )
+
+                assert "input_content" not in receipt
+                assert "output_content" not in receipt
+                assert "Secret" not in json.dumps(receipt)
+
+        _patch_config.clear()
+
+    def test_anthropic_store_prompts_true(self):
+        """When store_prompts=True, Anthropic receipt includes input_content."""
+        from assay.integrations.anthropic import _create_model_call_receipt, _patch_config
+        from assay.store import AssayStore
+
+        _patch_config.clear()
+        _patch_config["store_prompts"] = True
+        _patch_config["store_responses"] = False
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = AssayStore(base_dir=Path(tmpdir))
+            store.start_trace()
+
+            with mock_patch("assay.store.get_default_store", return_value=store), \
+                 mock_patch.object(store_mod, "_seq_counter", 0):
+                receipt = _create_model_call_receipt(
+                    model="claude-sonnet-4-20250514",
+                    messages=[{"role": "user", "content": "Explain quantum computing"}],
+                    system="You are a physicist.",
+                    response=self._make_anthropic_response(),
+                    latency_ms=200,
+                )
+
+                assert "input_content" in receipt
+                assert receipt["input_content"][0]["content"] == "Explain quantum computing"
+                assert receipt["system_content"] == "You are a physicist."
+                assert "output_content" not in receipt
+
+        _patch_config.clear()
+
+    def test_anthropic_store_responses_true(self):
+        """When store_responses=True, Anthropic receipt includes output_content."""
+        from assay.integrations.anthropic import _create_model_call_receipt, _patch_config
+        from assay.store import AssayStore
+
+        _patch_config.clear()
+        _patch_config["store_prompts"] = False
+        _patch_config["store_responses"] = True
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = AssayStore(base_dir=Path(tmpdir))
+            store.start_trace()
+
+            with mock_patch("assay.store.get_default_store", return_value=store), \
+                 mock_patch.object(store_mod, "_seq_counter", 0):
+                receipt = _create_model_call_receipt(
+                    model="claude-sonnet-4-20250514",
+                    messages=[{"role": "user", "content": "Hi"}],
+                    system=None,
+                    response=self._make_anthropic_response("Quantum is weird"),
+                    latency_ms=200,
+                )
+
+                assert "output_content" in receipt
+                assert receipt["output_content"] == "Quantum is weird"
+                assert "input_content" not in receipt
+
+        _patch_config.clear()
+
+    def test_langchain_store_prompts_true(self):
+        """When store_prompts=True, LangChain receipt includes input_content."""
+        import uuid as uuid_module
+        from assay.integrations.langchain import AssayCallbackHandler
+        from assay.store import AssayStore
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = AssayStore(base_dir=Path(tmpdir))
+
+            with mock_patch("assay.store.get_default_store", return_value=store):
+                with mock_patch("assay.integrations.langchain._check_langchain", return_value=True):
+                    handler = AssayCallbackHandler(store_prompts=True, store_responses=False)
+
+                    run_id = uuid_module.uuid4()
+                    handler.on_chat_model_start(
+                        serialized={"id": ["openai"], "kwargs": {"model_name": "gpt-4"}},
+                        messages=[[MagicMock(content="What is AI?")]],
+                        run_id=run_id,
+                    )
+
+                    mock_response = MagicMock()
+                    mock_response.llm_output = {"token_usage": {"prompt_tokens": 5, "completion_tokens": 10}}
+                    mock_gen = MagicMock()
+                    mock_gen.text = "AI is..."
+                    mock_gen.generation_info = {"finish_reason": "stop"}
+                    mock_response.generations = [[mock_gen]]
+
+                    handler.on_llm_end(response=mock_response, run_id=run_id)
+
+                    entries = store.read_trace(store.trace_id)
+                    receipt = entries[0]
+                    assert "input_content" in receipt
+                    assert "output_content" not in receipt
+
+    def test_langchain_store_responses_true(self):
+        """When store_responses=True, LangChain receipt includes output_content."""
+        import uuid as uuid_module
+        from assay.integrations.langchain import AssayCallbackHandler
+        from assay.store import AssayStore
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = AssayStore(base_dir=Path(tmpdir))
+
+            with mock_patch("assay.store.get_default_store", return_value=store):
+                with mock_patch("assay.integrations.langchain._check_langchain", return_value=True):
+                    handler = AssayCallbackHandler(store_prompts=False, store_responses=True)
+
+                    run_id = uuid_module.uuid4()
+                    handler.on_chat_model_start(
+                        serialized={"id": ["openai"], "kwargs": {"model_name": "gpt-4"}},
+                        messages=[[MagicMock(content="Hello")]],
+                        run_id=run_id,
+                    )
+
+                    mock_response = MagicMock()
+                    mock_response.llm_output = {"token_usage": {"prompt_tokens": 5, "completion_tokens": 10}}
+                    mock_gen = MagicMock()
+                    mock_gen.text = "The stored response"
+                    mock_gen.generation_info = {"finish_reason": "stop"}
+                    mock_response.generations = [[mock_gen]]
+
+                    handler.on_llm_end(response=mock_response, run_id=run_id)
+
+                    entries = store.read_trace(store.trace_id)
+                    receipt = entries[0]
+                    assert "output_content" in receipt
+                    assert receipt["output_content"] == "The stored response"
+                    assert "input_content" not in receipt
+
+    def test_store_content_receipts_pass_integrity(self):
+        """Receipts with cleartext content still pass proof pack integrity."""
+        from assay.integrations.openai import _create_model_call_receipt, _patch_config
+        from assay.integrity import verify_pack_manifest
+        from assay.keystore import AssayKeyStore
+        from assay.proof_pack import ProofPack
+        from assay.store import AssayStore
+
+        _patch_config.clear()
+        _patch_config["store_prompts"] = True
+        _patch_config["store_responses"] = True
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            store = AssayStore(base_dir=base / "store")
+            trace_id = store.start_trace("trace_content_integrity")
+
+            with mock_patch("assay.store.get_default_store", return_value=store), \
+                 mock_patch.object(store_mod, "_seq_counter", 0):
+                _create_model_call_receipt(
+                    model="gpt-4",
+                    messages=[{"role": "user", "content": "Stored prompt"}],
+                    response=self._make_openai_response("Stored response"),
+                    latency_ms=50,
+                )
+
+            entries = store.read_trace(trace_id)
+            assert "input_content" in entries[0]
+            assert "output_content" in entries[0]
+
+            ks = AssayKeyStore(keys_dir=base / "keys")
+            ks.generate_key("test-signer")
+
+            out_dir = base / "pack"
+            pack = ProofPack(
+                run_id=trace_id,
+                entries=entries,
+                signer_id="test-signer",
+            )
+            pack.build(out_dir, keystore=ks)
+
+            manifest = json.loads((out_dir / "pack_manifest.json").read_text())
+            verify = verify_pack_manifest(manifest, out_dir, ks)
+            assert verify.passed
+
+        _patch_config.clear()

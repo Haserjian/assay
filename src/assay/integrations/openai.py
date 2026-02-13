@@ -80,12 +80,13 @@ def _create_model_call_receipt(
             input_tokens = getattr(usage, "prompt_tokens", 0) or 0
             output_tokens = getattr(usage, "completion_tokens", 0) or 0
 
+    response_text = None
     if response and hasattr(response, "choices") and response.choices:
         choice = response.choices[0]
         finish_reason = getattr(choice, "finish_reason", None) or "stop"
         if hasattr(choice, "message") and choice.message:
-            content = getattr(choice.message, "content", "") or ""
-            response_hash = _hash_content(content)
+            response_text = getattr(choice.message, "content", "") or ""
+            response_hash = _hash_content(response_text)
 
     data: Dict[str, Any] = {
         "provider": "openai",
@@ -101,6 +102,17 @@ def _create_model_call_receipt(
         "message_count": len(messages),
         "integration_source": "assay.integrations.openai",
     }
+
+    # Store cleartext content when opted in
+    if _patch_config.get("store_prompts"):
+        data["input_content"] = [
+            {"role": m.get("role", ""), "content": m.get("content", "")}
+            if isinstance(m, dict)
+            else {"role": getattr(m, "role", ""), "content": getattr(m, "content", "")}
+            for m in messages
+        ]
+    if _patch_config.get("store_responses") and response_text is not None:
+        data["output_content"] = response_text
 
     if callsite_file is not None:
         data["callsite_file"] = callsite_file

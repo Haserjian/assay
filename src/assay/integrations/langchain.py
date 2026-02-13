@@ -262,6 +262,7 @@ class AssayCallbackHandler:
         output_tokens = 0
         finish_reason = "error" if error else "stop"
         output_hash = None
+        response_text = None
 
         if response:
             # LangChain LLMResult has llm_output with token counts
@@ -283,6 +284,7 @@ class AssayCallbackHandler:
                 if not text and hasattr(gen, "message"):
                     text = str(getattr(gen.message, "content", ""))
                 if text:
+                    response_text = text
                     output_hash = _hash_content(text)
 
         # Calculate input hash
@@ -295,22 +297,33 @@ class AssayCallbackHandler:
             input_hash = _hash_content("".join(prompts))
             message_count = len(prompts)
 
+        data: Dict[str, Any] = {
+            "provider": call_data.get("provider", "unknown"),
+            "model_id": call_data.get("model", "unknown"),
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "total_tokens": input_tokens + output_tokens,
+            "latency_ms": latency_ms,
+            "finish_reason": finish_reason,
+            "error": error,
+            "input_hash": input_hash,
+            "output_hash": output_hash,
+            "message_count": message_count,
+            "integration_source": "assay.integrations.langchain",
+        }
+
+        # Store cleartext content when opted in
+        if self.store_prompts:
+            if "messages" in call_data:
+                data["input_content"] = [str(getattr(m, "content", m)) for m in call_data["messages"]]
+            else:
+                data["input_content"] = call_data.get("prompts", [])
+        if self.store_responses and response_text is not None:
+            data["output_content"] = response_text
+
         emit_receipt(
             "model_call",
-            {
-                "provider": call_data.get("provider", "unknown"),
-                "model_id": call_data.get("model", "unknown"),
-                "input_tokens": input_tokens,
-                "output_tokens": output_tokens,
-                "total_tokens": input_tokens + output_tokens,
-                "latency_ms": latency_ms,
-                "finish_reason": finish_reason,
-                "error": error,
-                "input_hash": input_hash,
-                "output_hash": output_hash,
-                "message_count": message_count,
-                "integration_source": "assay.integrations.langchain",
-            },
+            data,
             receipt_id=f"mcr_{uuid.uuid4().hex[:16]}",
         )
 

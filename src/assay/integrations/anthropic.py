@@ -84,6 +84,7 @@ def _create_model_call_receipt(
     stop_reason = "error" if error else "end_turn"
     response_hash = None
 
+    response_text = None
     if response:
         if hasattr(response, "usage"):
             usage = response.usage
@@ -91,14 +92,14 @@ def _create_model_call_receipt(
             output_tokens = getattr(usage, "output_tokens", 0) or 0
 
         stop_reason = getattr(response, "stop_reason", None) or "end_turn"
-
         if hasattr(response, "content") and response.content:
             text_parts = []
             for block in response.content:
                 if hasattr(block, "text"):
                     text_parts.append(block.text)
             if text_parts:
-                response_hash = _hash_content("".join(text_parts))
+                response_text = "".join(text_parts)
+                response_hash = _hash_content(response_text)
 
     # Include system prompt in hash if present
     input_hash = _extract_messages_hash(messages)
@@ -119,6 +120,20 @@ def _create_model_call_receipt(
         "message_count": len(messages),
         "integration_source": "assay.integrations.anthropic",
     }
+
+    # Store cleartext content when opted in
+    if _patch_config.get("store_prompts"):
+        input_content = []
+        for m in messages:
+            if isinstance(m, dict):
+                input_content.append({"role": m.get("role", ""), "content": m.get("content", "")})
+            else:
+                input_content.append({"role": getattr(m, "role", ""), "content": str(getattr(m, "content", ""))})
+        if system:
+            data["system_content"] = system
+        data["input_content"] = input_content
+    if _patch_config.get("store_responses") and response_text is not None:
+        data["output_content"] = response_text
 
     if callsite_file is not None:
         data["callsite_file"] = callsite_file
