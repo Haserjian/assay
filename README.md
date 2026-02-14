@@ -107,6 +107,9 @@ more trustworthy than systems that always claim to pass.
 | `assay cards list` | List built-in run cards and their claims |
 | `assay cards show` | Show card details, claims, and parameters |
 | `assay diff` | Compare two packs: claims, cost, latency, model churn (`--gate-*`, `--against-previous`, `--why`) |
+| `assay key list` | List local signing keys and active signer |
+| `assay key rotate` | Generate a new signer key and switch active signer |
+| `assay key set-active` | Set active signing key for future runs |
 | `assay analyze` | Receipt-level time-series analysis |
 | `assay doctor` | Preflight check: is Assay ready here? |
 

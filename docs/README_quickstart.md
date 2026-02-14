@@ -258,7 +258,10 @@ trust faster than bugs.
 | `assay verify-pack` | Verify a Proof Pack (integrity + claims) |
 | `assay explain` | Plain-English summary of a proof pack |
 | `assay analyze` | Cost/latency/error analysis from a pack or history |
-| `assay diff` | Compare two packs and apply regression gates |
+| `assay diff` | Compare two packs and apply regression gates (`--against-previous`, `--why`) |
+| `assay key list` | List local signing keys and active signer |
+| `assay key rotate` | Generate a new signer key and switch active signer |
+| `assay key set-active` | Set active signing key for future runs |
 | `assay cards list` | List built-in RunCards |
 | `assay cards show <id>` | Show claim details for a RunCard |
 | `assay ci init github` | Generate a GitHub Actions workflow |
