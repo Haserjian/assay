@@ -125,6 +125,24 @@ trails. Found 202 high-confidence LLM SDK call sites across 21 projects.
 Zero had evidence emission at any call site.
 [Full results](scripts/scan_study/results/report.md).
 
+## Common Issues
+
+- **"No receipts emitted" after `assay run`**: The most common cause is
+  `patch()` not executing before the first LLM call. Check: (1) Is `# assay:patched`
+  in the file you passed to `assay run`? (2) Did you install the SDK extra
+  (`pip install assay-ai[openai]`)? (3) Did you use `--` before your command
+  (`assay run -- python app.py`, not `assay run python app.py`)?
+  Run `assay doctor` for a full diagnostic.
+
+- **LangChain projects**: `assay patch` auto-instruments OpenAI and Anthropic
+  SDKs but not LangChain (which uses callbacks, not monkey-patching). For
+  LangChain, add `AssayCallbackHandler()` to your chain's `callbacks` parameter
+  manually. See `src/assay/integrations/langchain.py` for the handler.
+
+- **`assay run python app.py` gives "No command provided"**: You need the `--`
+  separator: `assay run -c receipt_completeness -- python app.py`. Everything
+  after `--` is passed to the subprocess.
+
 ## Get Involved
 
 - **Try it**: `pip install assay-ai && assay quickstart`

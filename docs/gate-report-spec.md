@@ -20,13 +20,13 @@ everyone who needs to see them, without requiring CLI access.
 
 ```bash
 # Generate report alongside normal output
-assay diff ./baseline/ ./current/ \
-  --gate-cost-pct 20 --gate-errors 0 --gate-strict \
+assay diff ./baseline_pack/ ./proof_pack_*/ \
+  --gate-cost-pct 25 --gate-errors 0 --gate-strict \
   --report gate_report.html
 
 # JSON + report (both)
-assay diff ./baseline/ ./current/ \
-  --gate-cost-pct 20 --json \
+assay diff ./baseline_pack/ ./proof_pack_*/ \
+  --gate-cost-pct 25 --json \
   --report gate_report.html
 ```
 

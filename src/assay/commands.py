@@ -2201,9 +2201,18 @@ def run_cmd(
     if not entries and not allow_empty:
         console.print(
             "[red]Error:[/] No receipts emitted during run.\n"
-            "The subprocess did not write any receipts to the trace.\n"
-            "Use --allow-empty to build a pack anyway, or ensure your\n"
-            "command emits receipts via the Assay SDK."
+            "\n"
+            "[bold]Common causes:[/]\n"
+            "  1. patch() must execute before any LLM API calls. Check that\n"
+            "     your script (or a module it imports early) has [bold]# assay:patched[/].\n"
+            "  2. Missing SDK extra: [bold]pip install assay-ai\\[openai][/]\n"
+            "     (or assay-ai\\[anthropic], assay-ai\\[all])\n"
+            "  3. Import order: if patch() is in a module, make sure it runs\n"
+            "     at import time, not inside a function called later.\n"
+            "  4. Missing separator: use [bold]assay run -- python app.py[/] (note the --).\n"
+            "\n"
+            "Run [bold]assay doctor[/] for a full diagnostic.\n"
+            "Use --allow-empty to build an empty pack anyway."
         )
         raise typer.Exit(1)
     if not entries:
@@ -3683,10 +3692,15 @@ def quickstart_cmd(
         _print("  # Then add: from assay.integrations.openai import patch; patch()")
         results["next_steps"] = []
     else:
+        scan_cmd = f"assay scan {path} --report"
         _print("[bold]Next steps:[/]")
+        _print()
+        _print(f"  [bold]{scan_cmd}[/]")
+        _print("  See what's instrumented and what's not (HTML report).")
+        _print()
         for i, step in enumerate(next_steps, 1):
             _print(f"  {i}. {step}")
-        results["next_steps"] = next_steps
+        results["next_steps"] = [f"Scan with report:     {scan_cmd}"] + next_steps
     _print()
 
     if output_json:
