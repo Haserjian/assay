@@ -2202,16 +2202,17 @@ def run_cmd(
         console.print(
             "[red]Error:[/] No receipts emitted during run.\n"
             "\n"
-            "[bold]Common causes:[/]\n"
-            "  1. patch() must execute before any LLM API calls. Check that\n"
-            "     your script (or a module it imports early) has [bold]# assay:patched[/].\n"
-            "  2. Missing SDK extra: [bold]pip install assay-ai\\[openai][/]\n"
+            "[bold]Diagnose:[/]\n"
+            "  1. Check for call sites:  [bold]assay scan .[/]\n"
+            "     If scan finds 0 sites, your code may not use a supported SDK.\n"
+            "  2. Check patch status:    [bold]assay scan . --report[/]\n"
+            "     patch() must execute before any LLM API calls.\n"
+            "     Your script needs [bold]# assay:patched[/] or an early import.\n"
+            "  3. Missing SDK extra:     [bold]pip install assay-ai\\[openai][/]\n"
             "     (or assay-ai\\[anthropic], assay-ai\\[all])\n"
-            "  3. Import order: if patch() is in a module, make sure it runs\n"
-            "     at import time, not inside a function called later.\n"
-            "  4. Missing separator: use [bold]assay run -- python app.py[/] (note the --).\n"
+            "  4. Missing separator:     [bold]assay run -- python app.py[/] (note the --)\n"
+            "  5. Full diagnostic:       [bold]assay doctor[/]\n"
             "\n"
-            "Run [bold]assay doctor[/] for a full diagnostic.\n"
             "Use --allow-empty to build an empty pack anyway."
         )
         raise typer.Exit(1)
@@ -3724,21 +3725,23 @@ def quickstart_cmd(
 
     # Step 3: Next steps
     _print()
+    scan_cmd = f"assay scan {path} --report"
     if not next_steps:
-        _print("[dim]No AI call sites found.[/] Add SDK integrations first:")
-        _print("  pip install assay-ai[openai]")
-        _print("  # Then add: from assay.integrations.openai import patch; patch()")
-        results["next_steps"] = []
-    else:
-        scan_cmd = f"assay scan {path} --report"
-        _print("[bold]Next steps:[/]")
+        _print("[dim]No AI call sites found.[/] Add SDK integrations and re-scan:")
         _print()
-        _print(f"  [bold]{scan_cmd}[/]")
-        _print("  See what's instrumented and what's not (HTML report).")
+        _print(f"  pip install assay-ai[openai]")
+        _print(f"  # Add to your entrypoint:")
+        _print(f"  # from assay.integrations.openai import patch; patch()")
+        _print()
+        _print(f"  Then re-run: [bold]{scan_cmd}[/]")
+        results["next_steps"] = [f"Install SDK: pip install assay-ai[openai]", f"Re-scan: {scan_cmd}"]
+    else:
+        next_steps.insert(0, f"View gap report:      {scan_cmd}")
+        _print("[bold]Next steps:[/]")
         _print()
         for i, step in enumerate(next_steps, 1):
             _print(f"  {i}. {step}")
-        results["next_steps"] = [f"Scan with report:     {scan_cmd}"] + next_steps
+        results["next_steps"] = next_steps
     _print()
 
     if output_json:

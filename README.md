@@ -127,11 +127,12 @@ Zero had evidence emission at any call site.
 
 ## Common Issues
 
-- **"No receipts emitted" after `assay run`**: The most common cause is
-  `patch()` not executing before the first LLM call. Check: (1) Is `# assay:patched`
-  in the file you passed to `assay run`? (2) Did you install the SDK extra
-  (`pip install assay-ai[openai]`)? (3) Did you use `--` before your command
-  (`assay run -- python app.py`, not `assay run python app.py`)?
+- **"No receipts emitted" after `assay run`**: First, check whether your code
+  has call sites: `assay scan .` -- if scan finds 0 sites, you may not be
+  using a supported SDK yet. If scan finds sites, check: (1) Is `# assay:patched`
+  in the file? Run `assay scan . --report` to see patch status per file.
+  (2) Did you install the SDK extra (`pip install assay-ai[openai]`)?
+  (3) Did you use `--` before your command (`assay run -- python app.py`)?
   Run `assay doctor` for a full diagnostic.
 
 - **LangChain projects**: `assay patch` auto-instruments OpenAI and Anthropic
@@ -142,6 +143,10 @@ Zero had evidence emission at any call site.
 - **`assay run python app.py` gives "No command provided"**: You need the `--`
   separator: `assay run -c receipt_completeness -- python app.py`. Everything
   after `--` is passed to the subprocess.
+
+- **Quickstart blocked on large directories**: `assay quickstart` guards against
+  scanning system directories (>10K Python files). Use `--force` to bypass:
+  `assay quickstart --force`.
 
 ## Get Involved
 
