@@ -1066,12 +1066,34 @@ assay lock write --cards receipt_completeness,coverage_contract</span></pre>
       </details>
 
       <details>
+        <summary>I ran assay run and got "No receipts emitted". What now?</summary>
+        <p class="faq-answer">
+          Run these in order:
+          <code>assay scan .</code>,
+          <code>assay scan . --report</code>,
+          <code>assay run -- python app.py</code>,
+          then <code>assay doctor</code>. This checks whether your project has
+          supported call sites, whether those files are instrumented, and whether
+          your run command is wired correctly (including the required <code>--</code> separator).
+        </p>
+      </details>
+
+      <details>
         <summary>What SDKs and frameworks are supported?</summary>
         <p class="faq-answer">
           OpenAI and Anthropic use a one-line monkey-patch that wraps SDK
           methods transparently. LangChain uses a callback handler you pass
           to your LLM. Your application code doesn't change. The scanner
           also detects LiteLLM and LlamaIndex call sites.
+        </p>
+      </details>
+
+      <details>
+        <summary>Quickstart says my directory is too large. Is that expected?</summary>
+        <p class="faq-answer">
+          Yes. <code>assay quickstart</code> guards against scanning home/system-size
+          directories by mistake. Run it from your project root, or bypass the guard
+          when intentional: <code>assay quickstart --force</code>.
         </p>
       </details>
     </div>

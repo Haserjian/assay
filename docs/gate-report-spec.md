@@ -66,7 +66,7 @@ Table with one row per claim:
 | Claim ID | Pack A | Pack B | Status |
 |----------|--------|--------|--------|
 | receipt_completeness | PASS | PASS | unchanged |
-| guardian_enforcement | PASS | FAIL | **REGRESSED** |
+| coverage_contract | PASS | FAIL | **REGRESSED** |
 
 - Row background: green (pass/improved), red (regressed), yellow (new/removed), gray (unchanged)
 - Regression count in section header

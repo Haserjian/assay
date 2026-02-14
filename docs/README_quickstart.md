@@ -83,6 +83,7 @@ These are deliberately independent. Four outcomes:
 | PASS | FAIL | 1 | **Honest failure**: authentic evidence proving the run violated standards |
 | FAIL | -- | 2 | Evidence has been tampered with |
 | PASS | SKIPPED | 0 | Evidence is authentic, no behavioral checks declared |
+| -- | -- | 3 | Input validation error (bad arguments, missing files) |
 
 **Honest failure** (exit 1) is the most important outcome. It proves the
 system is reporting truthfully even when the news is bad. That's the
@@ -106,8 +107,10 @@ Lock mismatch exits with code 2.
 ### 0. Guided onboarding (recommended)
 
 ```bash
-assay onboard .
+assay quickstart
 ```
+
+Use `assay onboard .` when you want the full guided flow (doctor + scan + CI setup).
 
 ### 1. Scan for uninstrumented LLM calls
 
@@ -131,8 +134,9 @@ from assay.integrations.openai import patch; patch()
 # Anthropic
 from assay.integrations.anthropic import patch; patch()
 
-# LangChain
-from assay.integrations.langchain import patch; patch()
+# LangChain (callback-based, not monkey-patched)
+from assay.integrations.langchain import AssayCallbackHandler
+# pass callbacks=[AssayCallbackHandler()] to your LLM constructor
 
 # Manual (any framework)
 from assay import emit_receipt
@@ -142,12 +146,15 @@ emit_receipt("model_call", {"provider": "...", "model_id": "..."})
 ### 3. Run through Assay
 
 ```bash
-assay run -c receipt_completeness -c guardian_enforcement -- python my_agent.py
+assay run -c receipt_completeness -- python my_agent.py
 ```
 
 This runs your command, collects emitted receipts, builds a signed Proof
 Pack, and prints the verdict. Use `--allow-empty` if your command doesn't
 emit receipts yet.
+
+Only add `-c guardian_enforcement` after your runtime emits `guardian_verdict`
+receipts.
 
 ### 4. Verify the pack
 
@@ -167,14 +174,16 @@ what the pack proves, and what it does NOT prove.
 ### 6. Lock your verification contract
 
 ```bash
-assay lock write --cards receipt_completeness,guardian_enforcement -o assay.lock
+assay lock write --cards receipt_completeness -o assay.lock
 assay lock check assay.lock
 ```
 
 ### 7. Gate in CI
 
 ```bash
+assay run -c receipt_completeness -- python app.py
 assay verify-pack ./proof_pack_*/ --lock assay.lock --require-claim-pass
+assay diff ./baseline_pack/ ./proof_pack_*/ --gate-cost-pct 25 --gate-errors 0 --gate-strict
 ```
 
 Exit code 0 = pass the build. Exit code 1 = fail the build (honest
@@ -191,6 +200,29 @@ assay doctor --profile ledger --strict   # prod: treat warnings as failures
 Doctor checks install, keys, run cards, lockfile, and pack integrity.
 It prints the single next command to become "green." Use `--fix` to
 auto-generate missing keys and lockfiles.
+
+## Troubleshooting (first run)
+
+If `assay run` says no receipts were emitted:
+
+```bash
+assay scan .
+assay scan . --report
+assay run -- python app.py
+assay doctor
+```
+
+- `scan` tells you whether call sites were found at all.
+- `scan --report` shows patch status per file in HTML.
+- `run -- ...` requires `--` before your command.
+- `doctor` prints the next command to unblock setup.
+
+If `assay quickstart` blocks on a large directory, run it from your project
+directory or use:
+
+```bash
+assay quickstart --force
+```
 
 ## What This Does NOT Prove
 
@@ -219,11 +251,16 @@ trust faster than bugs.
 | `assay demo-pack` | Generate demo packs (no config needed) |
 | `assay demo-incident` | Two-act scenario: passing run vs failing run |
 | `assay demo-challenge` | CTF-style good + tampered pack pair |
+| `assay quickstart` | One command: demo + scan + actionable next steps |
 | `assay onboard` | Guided setup: doctor -> scan -> first run plan |
 | `assay scan` | Find uninstrumented LLM call sites |
 | `assay run` | Wrap command, collect receipts, build signed pack |
 | `assay verify-pack` | Verify a Proof Pack (integrity + claims) |
 | `assay explain` | Plain-English summary of a proof pack |
+| `assay analyze` | Cost/latency/error analysis from a pack or history |
+| `assay diff` | Compare two packs and apply regression gates |
+| `assay cards list` | List built-in RunCards |
+| `assay cards show <id>` | Show claim details for a RunCard |
 | `assay ci init github` | Generate a GitHub Actions workflow |
 | `assay lock write` | Freeze verification contract to lockfile |
 | `assay lock check` | Validate lockfile against current card definitions |
@@ -250,7 +287,7 @@ trust faster than bugs.
 | **claim check** | Semantic truth: behavioral claims pass or fail against evidence |
 | **honest failure** | Integrity PASS + claims FAIL: authentic evidence proving standards were violated |
 | **lockfile** | Machine-readable governance contract pinning verification semantics |
-| **RunCard** | Named collection of claims (e.g., `guardian_enforcement`) |
+| **RunCard** | Named collection of claims (e.g., `receipt_completeness`) |
 | **pack_root_sha256** | SHA-256 of the attestation -- the immutable pack identifier |
 | **signer_id** | Ed25519 key identity used to sign the pack manifest |
 

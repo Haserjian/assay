@@ -103,14 +103,34 @@ It does not constitute full compliance on its own.
 Proof packs can be generated and verified automatically in CI:
 
 ```bash
-# Generate pack during test run
+# 1) Generate pack during test run
 assay run -c receipt_completeness -- python test_app.py
 
-# Verify and gate the merge
+# 2) Verify integrity + claims against locked policy
 assay verify-pack ./proof_pack_*/ --lock assay.lock --require-claim-pass
+
+# 3) Enforce operational gates (cost/error regression thresholds)
+assay diff ./baseline_pack/ ./proof_pack_*/ --gate-cost-pct 25 --gate-errors 0 --gate-strict
 ```
 
-Exit code 0 = merge allowed. Any other exit code = merge blocked.
+Exit code 0 = merge allowed.
+Exit code 1 = claims/gates failed (honest failure or regression).
+Exit code 2 = tampering/lock drift.
+Exit code 3 = bad input.
 
 Run `assay ci init github` to generate a GitHub Actions workflow that
 does this automatically on every pull request.
+
+## Engineering Handoff Checklist
+
+If engineering reports "no receipts emitted," use this runbook:
+
+```bash
+assay scan .
+assay scan . --report
+assay run -- python app.py
+assay doctor
+```
+
+This distinguishes "no supported call sites," "not instrumented," and
+"run command wiring issue" (`--` separator).
