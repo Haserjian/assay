@@ -3,10 +3,16 @@ Assay receipt storage.
 
 Persists receipts to disk with trace IDs for auditability.
 Default location: ~/.assay/
+
+Thread-safe and process-safe. Uses threading.RLock for in-process
+concurrency and O_APPEND + fcntl.flock for cross-process safety.
 """
 from __future__ import annotations
 
 import json
+import os
+import sys
+import threading
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -14,6 +20,18 @@ from typing import Any, Dict, List, Optional
 
 from assay._receipts.compat.pyd import BaseModel
 
+# ---------------------------------------------------------------------------
+# POSIX atomicity threshold.  O_APPEND writes under this size are atomic
+# on POSIX.  Larger writes get flock protection.
+# ---------------------------------------------------------------------------
+_PIPE_BUF = 4096 if sys.platform != "win32" else 512
+
+# Advisory file locking -- POSIX only, graceful no-op on Windows
+try:
+    import fcntl
+    _HAS_FCNTL = True
+except ImportError:
+    _HAS_FCNTL = False
 
 _LEGACY_HOME = ".loom/assay"
 _NEW_HOME = ".assay"
@@ -44,6 +62,10 @@ class AssayStore:
     """
     Persistent storage for Assay receipts.
 
+    Thread-safe: all mutable operations are protected by a reentrant lock.
+    Process-safe: writes use O_APPEND for POSIX atomicity, with fcntl.flock
+    fallback for oversized writes (> PIPE_BUF).
+
     Receipts are stored as JSONL files organized by date:
         ~/.assay/2025-02-05/trace_xxx.jsonl
     """
@@ -54,6 +76,7 @@ class AssayStore:
         self.base_dir = Path(base_dir)
         self._current_trace_id: Optional[str] = None
         self._current_file: Optional[Path] = None
+        self._lock = threading.RLock()
 
     def start_trace(self, trace_id: Optional[str] = None) -> str:
         """Start a new trace, returning the trace ID.
@@ -62,22 +85,23 @@ class AssayStore:
         (even if it's in a different day's directory). This prevents cross-day
         trace splitting.
         """
-        self._current_trace_id = trace_id or generate_trace_id()
+        with self._lock:
+            self._current_trace_id = trace_id or generate_trace_id()
 
-        # If trace_id provided, try to find existing trace file first
-        if trace_id is not None:
-            existing_file = self._find_trace_file(trace_id)
-            if existing_file:
-                self._current_file = existing_file
-                return self._current_trace_id
+            # If trace_id provided, try to find existing trace file first
+            if trace_id is not None:
+                existing_file = self._find_trace_file(trace_id)
+                if existing_file:
+                    self._current_file = existing_file
+                    return self._current_trace_id
 
-        # Create new trace file in today's directory
-        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        day_dir = self.base_dir / today
-        day_dir.mkdir(parents=True, exist_ok=True)
+            # Create new trace file in today's directory
+            today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            day_dir = self.base_dir / today
+            day_dir.mkdir(parents=True, exist_ok=True)
 
-        self._current_file = day_dir / f"{self._current_trace_id}.jsonl"
-        return self._current_trace_id
+            self._current_file = day_dir / f"{self._current_trace_id}.jsonl"
+            return self._current_trace_id
 
     def _find_trace_file(self, trace_id: str) -> Optional[Path]:
         """Find existing trace file across all date directories."""
@@ -106,37 +130,71 @@ class AssayStore:
         """Current trace file path, if any."""
         return self._current_file
 
+    @staticmethod
+    def _write_all(fd: int, data: bytes) -> None:
+        """Write all bytes, retrying on short writes."""
+        mv = memoryview(data)
+        while mv:
+            n = os.write(fd, mv)
+            mv = mv[n:]
+
+    def _write_line(self, line_bytes: bytes) -> None:
+        """Write a single JSONL line atomically.
+
+        Thread-lock must be held by caller.  For cross-process safety:
+        - Writes < PIPE_BUF: O_APPEND guarantees POSIX atomicity.
+        - Writes >= PIPE_BUF: additionally protected by fcntl.flock.
+        """
+        fd = os.open(
+            str(self._current_file),
+            os.O_WRONLY | os.O_APPEND | os.O_CREAT,
+            0o644,
+        )
+        try:
+            if len(line_bytes) >= _PIPE_BUF and _HAS_FCNTL:
+                fcntl.flock(fd, fcntl.LOCK_EX)
+                try:
+                    self._write_all(fd, line_bytes)
+                finally:
+                    fcntl.flock(fd, fcntl.LOCK_UN)
+            else:
+                self._write_all(fd, line_bytes)
+        finally:
+            os.close(fd)
+
     def append(self, receipt: BaseModel) -> str:
         """
         Append a receipt to the current trace.
 
         Returns the receipt ID.
         """
-        if self._current_file is None:
-            self.start_trace()
+        with self._lock:
+            if self._current_file is None:
+                self.start_trace()
 
-        # Serialize with Pydantic
-        data = receipt.model_dump(mode="json", exclude_none=True)
+            # Serialize with Pydantic
+            data = receipt.model_dump(mode="json", exclude_none=True)
 
-        # Add trace metadata
-        data["_trace_id"] = self._current_trace_id
-        data["_stored_at"] = datetime.now(timezone.utc).isoformat()
+            # Add trace metadata
+            data["_trace_id"] = self._current_trace_id
+            data["_stored_at"] = datetime.now(timezone.utc).isoformat()
 
-        with open(self._current_file, "a") as f:
-            f.write(json.dumps(data, default=str) + "\n")
+            line = json.dumps(data, default=str) + "\n"
+            self._write_line(line.encode("utf-8"))
 
-        return data.get("receipt_id", "unknown")
+            return data.get("receipt_id", "unknown")
 
     def append_dict(self, data: Dict[str, Any]) -> None:
         """Append arbitrary dict to trace (for verdicts, metadata)."""
-        if self._current_file is None:
-            self.start_trace()
+        with self._lock:
+            if self._current_file is None:
+                self.start_trace()
 
-        data["_trace_id"] = self._current_trace_id
-        data["_stored_at"] = datetime.now(timezone.utc).isoformat()
+            data["_trace_id"] = self._current_trace_id
+            data["_stored_at"] = datetime.now(timezone.utc).isoformat()
 
-        with open(self._current_file, "a") as f:
-            f.write(json.dumps(data, default=str) + "\n")
+            line = json.dumps(data, default=str) + "\n"
+            self._write_line(line.encode("utf-8"))
 
     def read_trace(self, trace_id: str) -> List[Dict[str, Any]]:
         """Read all entries from a trace file."""
@@ -180,19 +238,23 @@ class AssayStore:
         return traces
 
 
-# Global default store
-_default_store: Optional[AssayStore] = None
+# ---------------------------------------------------------------------------
+# Module-level globals (protected by _module_lock)
+# ---------------------------------------------------------------------------
 
-# Auto-incrementing sequence counter for emit_receipt
+_module_lock = threading.Lock()
+_default_store: Optional[AssayStore] = None
 _seq_counter: int = 0
+_seq_trace_id: Optional[str] = None
 
 
 def get_default_store() -> AssayStore:
     """Get or create the default AssayStore."""
     global _default_store
-    if _default_store is None:
-        _default_store = AssayStore()
-    return _default_store
+    with _module_lock:
+        if _default_store is None:
+            _default_store = AssayStore()
+        return _default_store
 
 
 def emit_receipt(
@@ -212,6 +274,10 @@ def emit_receipt(
     ``seq`` is auto-assigned (monotonically increasing) if not provided.
     Explicit ``seq`` values bypass the counter but do not reset it.
 
+    Thread-safe: global seq counter and trace setup are protected by
+    _module_lock.  The store write itself is protected by the store's
+    own RLock.
+
     Usage::
 
         from assay.store import emit_receipt
@@ -221,26 +287,29 @@ def emit_receipt(
 
     Returns the full receipt dict that was written.
     """
-    global _seq_counter
-    import os
+    global _seq_counter, _seq_trace_id
 
     store = get_default_store()
 
-    # Pick up trace from environment or start a new one
-    trace_id = os.environ.get("ASSAY_TRACE_ID")
-    if store.trace_id is None:
-        _seq_counter = 0
-        store.start_trace(trace_id)
-    elif trace_id and store.trace_id != trace_id:
-        # Env trace changed -- switch to it, reset counter
-        _seq_counter = 0
-        store.start_trace(trace_id)
+    with _module_lock:
+        # Pick up trace from environment or start a new one
+        trace_id = os.environ.get("ASSAY_TRACE_ID")
+        if store.trace_id is None:
+            _seq_counter = 0
+            _seq_trace_id = trace_id
+            store.start_trace(trace_id)
+        elif trace_id and store.trace_id != trace_id:
+            # Env trace changed -- switch to it, reset counter
+            _seq_counter = 0
+            _seq_trace_id = trace_id
+            store.start_trace(trace_id)
 
-    # Auto-assign seq if not provided
-    if seq is None:
-        seq = _seq_counter
-    _seq_counter = max(_seq_counter, seq) + 1
+        # Auto-assign seq if not provided
+        if seq is None:
+            seq = _seq_counter
+        _seq_counter = max(_seq_counter, seq) + 1
 
+    # Build receipt dict (no module lock needed -- local vars only)
     receipt: Dict[str, Any] = {
         "receipt_id": receipt_id or f"r_{uuid.uuid4().hex[:12]}",
         "type": type,
@@ -251,6 +320,7 @@ def emit_receipt(
     if data:
         receipt.update(data)
 
+    # Write (store has its own RLock)
     store.append_dict(receipt)
     return receipt
 

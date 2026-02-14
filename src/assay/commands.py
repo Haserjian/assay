@@ -3546,6 +3546,7 @@ def quickstart_cmd(
     path: str = typer.Argument(".", help="Project directory to explore"),
     skip_demo: bool = typer.Option(False, "--skip-demo", help="Skip demo-challenge generation"),
     output_json: bool = typer.Option(False, "--json", help="Machine-readable output"),
+    force: bool = typer.Option(False, "--force", help="Bypass the large-directory guard"),
 ):
     """One command to see Assay in action.
 
@@ -3568,9 +3569,46 @@ def quickstart_cmd(
     root = P(path).resolve()
     if not root.exists() or not root.is_dir():
         if output_json:
-            _output_json({"command": "quickstart", "status": "error", "error": f"Directory not found: {path}"})
+            _output_json({"command": "quickstart", "status": "error", "error": f"Directory not found: {path}"}, exit_code=3)
         console.print(f"[red]Error:[/] Directory not found: {path}")
         raise typer.Exit(3)
+
+    # Guard: block scanning from system-wide directories
+    _QUICKSTART_MAX_FILES = 10_000
+    _QUICKSTART_WARN_DIRS = {
+        P.home(),
+        P("/"),
+        P("/Users"),
+        P("/home"),
+    }
+    if root in _QUICKSTART_WARN_DIRS and not force:
+        msg = (
+            f"Scanning {root} may take a long time.\n"
+            "Tip: run from your project directory instead:\n"
+            "  cd your-project && assay quickstart"
+        )
+        if output_json:
+            _output_json({"command": "quickstart", "status": "error", "error": msg}, exit_code=3)
+        console.print(f"[yellow]Warning:[/] {msg}")
+        raise typer.Exit(3)
+
+    # Guard: bail if too many Python files (early exit, doesn't enumerate all)
+    if not force:
+        _py_count = 0
+        for _ in root.rglob("*.py"):
+            _py_count += 1
+            if _py_count > _QUICKSTART_MAX_FILES:
+                break
+        if _py_count > _QUICKSTART_MAX_FILES:
+            msg = (
+                f"Found >{_QUICKSTART_MAX_FILES:,} Python files. "
+                "This looks like a system directory, not a project.\n"
+                "Tip: cd into your project first, or use --force to proceed."
+            )
+            if output_json:
+                _output_json({"command": "quickstart", "status": "error", "error": msg}, exit_code=3)
+            console.print(f"[yellow]Warning:[/] {msg}")
+            raise typer.Exit(3)
 
     def _print(*args, **kwargs):
         if not output_json:
