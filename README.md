@@ -1,91 +1,140 @@
 # Assay
 
-Tamper-evident audit trails for AI systems. Logs record what you say
-happened. Assay makes the record tamper-evident, completeness-checkable,
-and independently verifiable -- including by someone who does not trust
-you. Integrity PASS + claims FAIL is an **honest failure**: authentic
-evidence that controls were violated. Assay does not prove external truth;
-it proves evidence integrity and makes omission detectable.
-Easier than a spreadsheet, harder to bullshit.
+Verifiable evidence for AI systems. Independently verifiable, offline,
+without server access.
+
+Logs record what you say happened. Assay makes the record tamper-evident,
+completeness-checkable, and independently verifiable -- including by
+someone who does not trust you. Two lines of code. Four exit codes.
 
 ```bash
 pip install assay-ai && assay quickstart
 ```
 
-## 60-Second Demo
+> **Not this:** Assay is not a logging framework, an observability dashboard,
+> or a monitoring tool. It produces signed evidence bundles that a third party
+> can verify offline. If you need Datadog, this isn't it.
 
-No API key needed. This runs a two-act scenario with synthetic data:
+## See It -- Then Understand It
 
-- **Act 1**: Agent uses gpt-4 with a guardian check. Result: integrity PASS, claims PASS.
-- **Act 2**: Someone swaps the model and drops the guardian. Result: integrity PASS, claims FAIL.
-
-That second result is an **honest failure** -- authentic evidence proving the
-run violated its declared standards. Not a cover-up. Not theater. Exit code 1.
+No API key needed. Runs on synthetic data:
 
 ```bash
 assay demo-incident     # two-act scenario: honest PASS vs honest FAIL
-assay demo-challenge    # optional CTF: spot the tampered pack
-assay demo-pack         # optional: build + verify from scratch
 ```
 
-## The Golden Path
+**Act 1**: Agent uses gpt-4 with a guardian check. Integrity PASS, claims PASS.
+**Act 2**: Someone swaps the model and drops the guardian. Integrity PASS, claims FAIL.
+
+That second result is an **honest failure** -- authentic evidence proving the
+run violated its declared standards. Not a cover-up. Exit code 1.
+
+### How that works
+
+Assay separates two questions on purpose:
+
+- **Integrity**: "Were these bytes tampered with after creation?" (signatures, hashes, required files)
+- **Claims**: "Does this evidence satisfy our declared governance checks?" (receipt types, counts, field values)
+
+| Integrity | Claims | Exit | Meaning |
+|-----------|--------|------|---------|
+| PASS | PASS | 0 | Evidence checks out, behavior meets standards |
+| PASS | FAIL | 1 | Honest failure: authentic evidence of a standards violation |
+| FAIL | -- | 2 | Tampered evidence |
+| -- | -- | 3 | Bad input (missing files, invalid arguments) |
+
+The split is the point. Systems that can prove they failed honestly are
+more trustworthy than systems that always claim to pass.
+
+## Add to Your Project
 
 ```bash
-# 0. See Assay in action (recommended first step)
-assay quickstart
-# Or: assay onboard .  (guided project setup with doctor + CI guidance)
-
 # 1. Find uninstrumented LLM calls
-assay scan . --report   # generates a self-contained HTML gap report
+assay scan . --report
 
-# 2. Instrument (one line per SDK, or auto-patch)
+# 2. Patch (one line per SDK, or auto-patch all)
 assay patch .
-#    from assay.integrations.openai import patch; patch()
 
-# 3. Produce a signed proof pack
+# 3. Run + build a signed proof pack
 assay run -c receipt_completeness -- python my_app.py
-# Add -c guardian_enforcement when you have a policy gate
 
-# 4. Verify + explain
+# 4. Verify
 assay verify-pack ./proof_pack_*/
-assay explain ./proof_pack_*/
-
-# 5. Lock the verification contract
-assay lock write --cards receipt_completeness -o assay.lock
-assay verify-pack ./proof_pack_*/ --lock assay.lock --require-claim-pass
 ```
 
-### CI Gate (three commands, three exit codes)
+`assay scan . --report` finds every LLM call site (OpenAI, Anthropic, LangChain)
+and generates a self-contained HTML gap report. `assay patch` inserts the
+two-line integration. `assay run` wraps your command, collects receipts, and
+produces a signed 5-file proof pack. `assay verify-pack` checks integrity +
+claims and exits with one of the four codes above. Then run `assay explain`
+on any pack for a plain-English summary.
+
+> **Why now**: EU AI Act Articles 12 and 19 require logging and traceability
+> for high-risk AI systems. SOC 2 CC7.2 requires evidence of monitoring.
+> "We have logs on our server" is not independently verifiable evidence.
+> Assay produces evidence that is.
+
+## CI Gate
+
+Three commands, three exit codes, one lockfile:
 
 ```bash
 assay run -c receipt_completeness -- python my_app.py
-assay verify-pack ./proof_pack_*/ --lock assay.lock
+assay verify-pack ./proof_pack_*/ --lock assay.lock --require-claim-pass
 assay diff ./baseline_pack/ ./proof_pack_*/ --gate-cost-pct 25 --gate-errors 0 --gate-strict
 ```
 
 The lockfile catches config drift. Verify-pack catches tampering. Diff
 catches regressions and budget overruns. See
-[Decision Escrow](docs/decision-escrow.md) for the protocol model behind
-this workflow.
+[Decision Escrow](docs/decision-escrow.md) for the protocol model.
 
-## How It Works
+```bash
+# Lock your verification contract
+assay lock write --cards receipt_completeness -o assay.lock
+```
 
-Assay separates two questions on purpose:
+### Daily use after CI is green
 
-- **Integrity**: "Were these bytes tampered with after creation?"
-  (signatures, hashes, required files)
-- **Claims**: "Does this evidence satisfy our declared governance checks?"
-  (receipt types, counts, field values)
+**Regression forensics**:
 
-| Integrity | Claims | Exit Code | Meaning |
-|-----------|--------|-----------|---------|
-| PASS | PASS | 0 | Evidence checks out, behavior meets standards |
-| PASS | FAIL | 1 | Honest failure: authentic evidence of standards violation |
-| FAIL | -- | 2 | Evidence has been tampered with |
-| -- | -- | 3 | Bad input (invalid arguments, missing files) |
+```bash
+assay diff ./proof_pack_*/ --against-previous --why
+```
 
-The split is the point. Systems that can prove they failed honestly are
-more trustworthy than systems that always claim to pass.
+`--against-previous` auto-discovers the baseline pack.
+`--why` traces receipt chains to explain what regressed and which call sites caused it.
+
+**Cost/latency drift (from receipts)**:
+
+```bash
+assay analyze --history --since 7
+```
+
+Shows cost, latency percentiles, error rates, and per-model breakdowns
+from your local trace history.
+
+## Trust Model
+
+What Assay proves, what it doesn't, and how to strengthen guarantees.
+
+**Assay detects:**
+- Retroactive tampering (edit one byte, verification fails)
+- Selective omission under a completeness contract
+- Claiming checks that were never run
+- Policy drift from a locked baseline
+
+**Assay does not prevent:**
+- A fully fabricated false run (attacker controls the machine)
+- Dishonest receipt content (receipts are self-attested)
+- Timestamp fraud without an external time anchor
+
+**To strengthen guarantees:**
+- [Transparency ledger](https://github.com/Haserjian/assay-ledger) (independent witness)
+- CI-held org key + branch protection (separation of signer and committer)
+- External timestamping (RFC 3161)
+
+The cost of cheating scales with the complexity of the lie. Assay doesn't
+make fraud impossible -- it makes fraud expensive.
 
 ## Commands
 
@@ -101,16 +150,16 @@ more trustworthy than systems that always claim to pass.
 | `assay run` | Wrap command, collect receipts, build signed pack |
 | `assay verify-pack` | Verify a Proof Pack (integrity + claims) |
 | `assay explain` | Plain-English summary of a proof pack |
+| `assay analyze` | Cost, latency, error breakdown from pack or `--history` |
+| `assay diff` | Compare packs: claims, cost, latency (`--against-previous`, `--why`, `--gate-*`) |
+| `assay key list` | List local signing keys and active signer |
+| `assay key rotate` | Generate a new signer key and switch active signer |
+| `assay key set-active` | Set active signing key for future runs |
 | `assay ci init github` | Generate a GitHub Actions workflow |
 | `assay lock write` | Freeze verification contract to lockfile |
 | `assay lock check` | Validate lockfile against current card definitions |
 | `assay cards list` | List built-in run cards and their claims |
 | `assay cards show` | Show card details, claims, and parameters |
-| `assay diff` | Compare two packs: claims, cost, latency, model churn (`--gate-*`, `--against-previous`, `--why`) |
-| `assay key list` | List local signing keys and active signer |
-| `assay key rotate` | Generate a new signer key and switch active signer |
-| `assay key set-active` | Set active signing key for future runs |
-| `assay analyze` | Receipt-level time-series analysis |
 | `assay doctor` | Preflight check: is Assay ready here? |
 
 ## Documentation
