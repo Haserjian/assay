@@ -265,6 +265,7 @@ def emit_receipt(
     timestamp: Optional[str] = None,
     schema_version: str = "3.0",
     seq: Optional[int] = None,
+    parent_receipt_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Emit a receipt to the current trace.
 
@@ -274,6 +275,10 @@ def emit_receipt(
     ``seq`` is auto-assigned (monotonically increasing) if not provided.
     Explicit ``seq`` values bypass the counter but do not reset it.
 
+    ``parent_receipt_id`` links this receipt to a prior receipt, enabling
+    causal chain traversal (e.g. a guardian verdict that references the
+    model call it evaluated).
+
     Thread-safe: global seq counter and trace setup are protected by
     _module_lock.  The store write itself is protected by the store's
     own RLock.
@@ -282,8 +287,9 @@ def emit_receipt(
 
         from assay.store import emit_receipt
 
-        emit_receipt("model_call", {"model": "gpt-4", "tokens": 1200})
-        emit_receipt("guardian_verdict", {"verdict": "allow", "tool": "web_search"})
+        r = emit_receipt("model_call", {"model": "gpt-4", "tokens": 1200})
+        emit_receipt("guardian_verdict", {"verdict": "allow"},
+                     parent_receipt_id=r["receipt_id"])
 
     Returns the full receipt dict that was written.
     """
@@ -317,6 +323,8 @@ def emit_receipt(
         "schema_version": schema_version,
         "seq": seq,
     }
+    if parent_receipt_id is not None:
+        receipt["parent_receipt_id"] = parent_receipt_id
     if data:
         receipt.update(data)
 

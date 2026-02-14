@@ -6,13 +6,15 @@ Keys are stored at ~/.assay/keys/{signer_id}.key
 from __future__ import annotations
 
 import base64
+import hashlib
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 from nacl.signing import SigningKey, VerifyKey
 
 
 DEFAULT_SIGNER_ID = "assay-local"
+ACTIVE_SIGNER_FILE = ".active_signer"
 
 
 class AssayKeyStore:
@@ -30,8 +32,11 @@ class AssayKeyStore:
     def _pub_path(self, signer_id: str) -> Path:
         return self.keys_dir / f"{signer_id}.pub"
 
+    def _active_signer_path(self) -> Path:
+        return self.keys_dir / ACTIVE_SIGNER_FILE
+
     def has_key(self, signer_id: str) -> bool:
-        return self._key_path(signer_id).exists()
+        return self._key_path(signer_id).exists() and self._pub_path(signer_id).exists()
 
     def generate_key(self, signer_id: str = DEFAULT_SIGNER_ID) -> SigningKey:
         """Generate and persist a new Ed25519 signing key."""
@@ -87,6 +92,61 @@ class AssayKeyStore:
         except Exception:
             return False
 
+    def list_signers(self) -> List[str]:
+        """List known signer IDs (sorted) that have both key and pubkey files."""
+        if not self.keys_dir.exists():
+            return []
+        signers: List[str] = []
+        for key_path in sorted(self.keys_dir.glob("*.key")):
+            signer_id = key_path.stem
+            if self.has_key(signer_id):
+                signers.append(signer_id)
+        return signers
+
+    def signer_fingerprint(self, signer_id: str = DEFAULT_SIGNER_ID) -> str:
+        """Return signer public key SHA-256 fingerprint."""
+        pub_bytes = self._pub_path(signer_id).read_bytes()
+        return hashlib.sha256(pub_bytes).hexdigest()
+
+    def get_active_signer(self) -> str:
+        """Return active signer ID with backward-compatible fallback rules."""
+        marker = self._active_signer_path()
+        if marker.exists():
+            signer_id = marker.read_text().strip()
+            if signer_id and self.has_key(signer_id):
+                return signer_id
+
+        if self.has_key(DEFAULT_SIGNER_ID):
+            return DEFAULT_SIGNER_ID
+
+        signers = self.list_signers()
+        if signers:
+            return signers[0]
+        return DEFAULT_SIGNER_ID
+
+    def set_active_signer(self, signer_id: str) -> None:
+        """Set active signer ID. Signer must already exist."""
+        if not self.has_key(signer_id):
+            raise ValueError(f"Signer not found: {signer_id}")
+        self.keys_dir.mkdir(parents=True, exist_ok=True)
+        self._active_signer_path().write_text(f"{signer_id}\n")
+
+    def signer_info(self) -> List[Dict[str, Any]]:
+        """Return signer metadata list for CLI rendering."""
+        active = self.get_active_signer()
+        items: List[Dict[str, Any]] = []
+        for signer_id in self.list_signers():
+            items.append(
+                {
+                    "signer_id": signer_id,
+                    "active": signer_id == active,
+                    "fingerprint": self.signer_fingerprint(signer_id),
+                    "key_path": str(self._key_path(signer_id)),
+                    "pub_path": str(self._pub_path(signer_id)),
+                }
+            )
+        return items
+
 
 def get_default_keystore() -> AssayKeyStore:
     """Return the default keystore."""
@@ -97,4 +157,5 @@ __all__ = [
     "AssayKeyStore",
     "get_default_keystore",
     "DEFAULT_SIGNER_ID",
+    "ACTIVE_SIGNER_FILE",
 ]

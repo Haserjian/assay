@@ -11,6 +11,7 @@ import pytest
 from assay.keystore import AssayKeyStore
 from assay.lockfile import (
     LOCK_VERSION,
+    add_signer_fingerprints,
     check_lockfile,
     load_lockfile,
     validate_against_lock,
@@ -188,6 +189,19 @@ class TestCheckLockfile:
         out.write_text(json.dumps(data) + "\n")
         issues = check_lockfile(out)
         assert any("exit_contract" in i for i in issues)
+
+
+class TestAddSignerFingerprints:
+    def test_adds_and_deduplicates_allowlist(self, tmp_path):
+        out = tmp_path / "assay.lock"
+        write_lockfile(["receipt_completeness"], output_path=out)
+
+        d1 = add_signer_fingerprints(out, ["a" * 64, "b" * 64])
+        assert d1["signer_policy"]["mode"] == "allowlist"
+        assert d1["signer_policy"]["allowed_fingerprints"] == ["a" * 64, "b" * 64]
+
+        d2 = add_signer_fingerprints(out, ["b" * 64, "c" * 64])
+        assert d2["signer_policy"]["allowed_fingerprints"] == ["a" * 64, "b" * 64, "c" * 64]
 
 
 class TestLoadLockfileFailClosed:

@@ -106,7 +106,7 @@ more trustworthy than systems that always claim to pass.
 | `assay lock check` | Validate lockfile against current card definitions |
 | `assay cards list` | List built-in run cards and their claims |
 | `assay cards show` | Show card details, claims, and parameters |
-| `assay diff` | Compare two packs: claims, cost, latency, model churn (`--gate-*` for CI thresholds) |
+| `assay diff` | Compare two packs: claims, cost, latency, model churn (`--gate-*`, `--against-previous`, `--why`) |
 | `assay analyze` | Receipt-level time-series analysis |
 | `assay doctor` | Preflight check: is Assay ready here? |
 

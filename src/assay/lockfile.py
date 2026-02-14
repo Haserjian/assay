@@ -395,6 +395,31 @@ def check_lockfile(path: Path) -> List[str]:
     return issues
 
 
+def add_signer_fingerprints(path: Path, fingerprints: List[str]) -> Dict[str, Any]:
+    """Add signer fingerprints to lockfile allowlist in-place.
+
+    Forces signer_policy.mode to ``allowlist`` and appends any missing
+    fingerprints deterministically (preserving existing order).
+    """
+    data = load_lockfile(path)
+    sp = data.setdefault("signer_policy", {})
+    existing = sp.get("allowed_fingerprints", [])
+    if not isinstance(existing, list):
+        raise ValueError("signer_policy.allowed_fingerprints must be a list")
+
+    for fp in fingerprints:
+        val = (fp or "").strip()
+        if val and val not in existing:
+            existing.append(val)
+
+    sp["mode"] = "allowlist"
+    sp["allowed_fingerprints"] = existing
+    data["locked_at"] = datetime.now(timezone.utc).isoformat()
+    data["locked_by_assay_version"] = _assay_version
+    path.write_text(json.dumps(data, indent=2) + "\n")
+    return data
+
+
 __all__ = [
     "LOCK_VERSION",
     "DEFAULT_LOCK_PATH",
@@ -404,4 +429,5 @@ __all__ = [
     "load_lockfile",
     "validate_against_lock",
     "check_lockfile",
+    "add_signer_fingerprints",
 ]

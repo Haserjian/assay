@@ -20,6 +20,9 @@ Commands:
   assay ci init       - Generate CI workflow
   assay cards list    - List built-in run cards
   assay cards show    - Show card details and claims
+  assay key list      - List local signing keys
+  assay key rotate    - Generate and switch to a new signer key
+  assay key set-active - Set active signer key
   assay version       - Show version info
 """
 
@@ -2166,23 +2169,22 @@ def run_cmd(
     store = get_default_store()
     trace_id = store.start_trace()
 
-    # Resolve signing key before running the command
-    from assay.keystore import DEFAULT_SIGNER_ID
     out = Path(output_dir) if output_dir else Path(f"proof_pack_{trace_id}")
     ks = get_default_keystore()
+    signer_id = ks.get_active_signer()
 
     try:
-        ks.get_verify_key(DEFAULT_SIGNER_ID)
+        ks.get_verify_key(signer_id)
     except Exception:
         if no_generate_key:
             console.print(
-                f"[red]Error:[/] Signing key '{DEFAULT_SIGNER_ID}' not found.\n"
+                f"[red]Error:[/] Signing key '{signer_id}' not found.\n"
                 f"Remove --no-generate-key to auto-generate on first run,\n"
                 f"or run once without --no-generate-key to create the key."
             )
             raise typer.Exit(1)
-        ks.generate_key(DEFAULT_SIGNER_ID)
-        console.print(f"[dim]assay run: generated signing key '{DEFAULT_SIGNER_ID}'[/]")
+        ks.generate_key(signer_id)
+        console.print(f"[dim]assay run: generated signing key '{signer_id}'[/]")
 
     # Run the command with ASSAY_TRACE_ID in environment
     import os
@@ -2223,7 +2225,7 @@ def run_cmd(
     pack = ProofPack(
         run_id=trace_id,
         entries=entries,
-        signer_id=DEFAULT_SIGNER_ID,
+        signer_id=signer_id,
         claims=claims,
         mode=mode,
     )
@@ -2244,6 +2246,7 @@ def run_cmd(
             "exit_code": exit_code,
             "trace_id": trace_id,
             "pack_id": att.get("pack_id"),
+            "signer_id": signer_id,
             "output_dir": str(result_dir),
             "receipt_integrity": att.get("receipt_integrity"),
             "claim_check": att.get("claim_check"),
@@ -2256,6 +2259,7 @@ def run_cmd(
         f"[bold green]Proof Pack Built[/]\n\n"
         f"Trace:      {trace_id}\n"
         f"Pack ID:    {att.get('pack_id')}\n"
+        f"Signer:     {signer_id}\n"
         f"Exit Code:  {exit_code}\n"
         f"Integrity:  {att.get('receipt_integrity')}\n"
         f"{claim_line}"
@@ -2273,6 +2277,217 @@ def run_cmd(
 
     if exit_code != 0:
         raise typer.Exit(exit_code)
+
+
+# ---------------------------------------------------------------------------
+# Key subcommands
+# ---------------------------------------------------------------------------
+
+key_app = typer.Typer(
+    name="key",
+    help="Manage local signing keys",
+    no_args_is_help=True,
+)
+assay_app.add_typer(key_app, name="key")
+
+
+@key_app.command("list")
+def key_list_cmd(
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """List local signer keys and active signer."""
+    from assay.keystore import get_default_keystore
+
+    ks = get_default_keystore()
+    info = ks.signer_info()
+    active = ks.get_active_signer()
+
+    if output_json:
+        _output_json(
+            {
+                "command": "key list",
+                "status": "ok",
+                "active_signer": active,
+                "signers": info,
+            },
+            exit_code=0,
+        )
+
+    if not info:
+        console.print(Panel.fit(
+            "[yellow]No signer keys found.[/]\n\n"
+            "A key is auto-generated on first [bold]assay run[/].\n"
+            "Create one now with:\n"
+            "  [bold]assay run --allow-empty -- python -c \"pass\"[/]",
+            title="assay key list",
+        ))
+        return
+
+    table = Table(show_header=True, header_style="bold magenta")
+    table.add_column("active", style="green", width=7)
+    table.add_column("signer_id", style="cyan")
+    table.add_column("fingerprint", style="dim")
+    table.add_column("key_path", style="dim")
+
+    for item in info:
+        table.add_row(
+            "yes" if item["active"] else "",
+            item["signer_id"],
+            item["fingerprint"][:16] + "...",
+            item["key_path"],
+        )
+
+    console.print()
+    console.print("[bold]assay key list[/]")
+    console.print(table)
+    console.print()
+    console.print(f"[dim]Active signer:[/] {active}")
+
+
+@key_app.command("set-active")
+def key_set_active_cmd(
+    signer_id: str = typer.Argument(..., help="Signer ID to set active"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Set active signer used by assay run/proof-pack."""
+    from assay.keystore import get_default_keystore
+
+    ks = get_default_keystore()
+    try:
+        ks.set_active_signer(signer_id)
+    except ValueError as e:
+        if output_json:
+            _output_json({"command": "key set-active", "status": "error", "error": str(e)}, exit_code=3)
+        console.print(f"[red]Error:[/] {e}")
+        raise typer.Exit(3)
+
+    fp = ks.signer_fingerprint(signer_id)
+    if output_json:
+        _output_json(
+            {
+                "command": "key set-active",
+                "status": "ok",
+                "active_signer": signer_id,
+                "fingerprint": fp,
+            },
+            exit_code=0,
+        )
+
+    console.print()
+    console.print(Panel.fit(
+        f"[bold green]Active signer updated[/]\n\n"
+        f"Signer:      {signer_id}\n"
+        f"Fingerprint: {fp[:16]}...",
+        title="assay key set-active",
+    ))
+    console.print()
+
+
+@key_app.command("rotate")
+def key_rotate_cmd(
+    signer: Optional[str] = typer.Option(
+        None, "--signer",
+        help="Existing signer to rotate from (default: active signer)",
+    ),
+    new_signer: Optional[str] = typer.Option(
+        None, "--new-signer",
+        help="Signer ID for new key (default: <signer>-YYYYMMDDHHMMSS)",
+    ),
+    set_active: bool = typer.Option(
+        True, "--set-active/--no-set-active",
+        help="Set new signer as active after generation",
+    ),
+    lock: Optional[str] = typer.Option(
+        None, "--lock",
+        help="Optional lockfile path to append old/new signer fingerprints",
+    ),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Generate a new signer key and optionally switch active signer."""
+    from datetime import datetime, timezone
+    from pathlib import Path
+
+    from assay.keystore import get_default_keystore
+
+    ks = get_default_keystore()
+    old_signer = signer or ks.get_active_signer()
+
+    if not ks.has_key(old_signer):
+        msg = (
+            f"Signer not found: {old_signer}. "
+            f"Create it first with `assay run --allow-empty -- python -c \"pass\"` "
+            f"or pick an existing signer from `assay key list`."
+        )
+        if output_json:
+            _output_json({"command": "key rotate", "status": "error", "error": msg}, exit_code=3)
+        console.print(f"[red]Error:[/] {msg}")
+        raise typer.Exit(3)
+
+    if new_signer is None:
+        ts = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+        new_signer = f"{old_signer}-{ts}"
+
+    if ks.has_key(new_signer):
+        msg = f"Signer already exists: {new_signer}"
+        if output_json:
+            _output_json({"command": "key rotate", "status": "error", "error": msg}, exit_code=3)
+        console.print(f"[red]Error:[/] {msg}")
+        raise typer.Exit(3)
+
+    lock_path: Optional[Path] = None
+    if lock:
+        lock_path = Path(lock)
+        if not lock_path.exists():
+            msg = f"Lock file not found: {lock_path}"
+            if output_json:
+                _output_json({"command": "key rotate", "status": "error", "error": msg}, exit_code=3)
+            console.print(f"[red]Error:[/] {msg}")
+            raise typer.Exit(3)
+
+    ks.generate_key(new_signer)
+    if set_active:
+        ks.set_active_signer(new_signer)
+
+    old_fp = ks.signer_fingerprint(old_signer)
+    new_fp = ks.signer_fingerprint(new_signer)
+
+    lock_updated = False
+    if lock_path is not None:
+        from assay.lockfile import add_signer_fingerprints
+
+        add_signer_fingerprints(lock_path, [old_fp, new_fp])
+        lock_updated = True
+
+    active = ks.get_active_signer()
+    if output_json:
+        _output_json(
+            {
+                "command": "key rotate",
+                "status": "ok",
+                "old_signer": old_signer,
+                "new_signer": new_signer,
+                "active_signer": active,
+                "old_fingerprint": old_fp,
+                "new_fingerprint": new_fp,
+                "lock_updated": lock_updated,
+                "lock_path": str(lock_path) if lock_path else None,
+            },
+            exit_code=0,
+        )
+
+    body = (
+        f"[bold green]Signer key rotated[/]\n\n"
+        f"Old signer:  {old_signer}\n"
+        f"Old fp:      {old_fp[:16]}...\n"
+        f"New signer:  {new_signer}\n"
+        f"New fp:      {new_fp[:16]}...\n"
+        f"Active:      {active}"
+    )
+    if lock_updated:
+        body += f"\nLockfile:    {lock_path} (allowlist updated)"
+    console.print()
+    console.print(Panel.fit(body, title="assay key rotate"))
+    console.print()
 
 
 # ---------------------------------------------------------------------------
@@ -4134,8 +4349,10 @@ def _render_analysis(result) -> None:
 
 @assay_app.command("diff")
 def diff_cmd(
-    pack_a: str = typer.Argument(..., help="Baseline pack directory"),
-    pack_b: str = typer.Argument(..., help="Current pack directory"),
+    pack_a: str = typer.Argument(..., help="Baseline pack directory (or current pack with --against-previous)"),
+    pack_b: Optional[str] = typer.Argument(None, help="Current pack directory"),
+    against_previous: bool = typer.Option(False, "--against-previous", help="Auto-find baseline pack from same directory"),
+    why: bool = typer.Option(False, "--why", help="Explain regressions with receipt-level detail"),
     no_verify: bool = typer.Option(False, "--no-verify", help="Skip integrity verification"),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
     gate_cost_pct: float = typer.Option(None, "--gate-cost-pct", help="Max allowed cost increase (percent, e.g. 20)"),
@@ -4158,28 +4375,50 @@ def diff_cmd(
     the diff.  A gate failure sets exit code 1 (same as claim regression).
     Gates are only evaluated when explicitly requested.
 
-    Use --gate-strict in CI to fail when gate data is missing (prevents
-    bypass via empty or partial packs).
+    Use --against-previous with a single pack argument to auto-discover
+    the baseline pack from the same directory.
+
+    Use --why to get receipt-level forensics when regressions are detected.
+    Traces parent_receipt_id chains to show causal paths.
 
     Examples:
       assay diff ./proof_pack_old/ ./proof_pack_new/
-      assay diff ./baseline/ ./current/ --json
-      assay diff ./a/ ./b/ --no-verify
+      assay diff ./proof_pack_new/ --against-previous
+      assay diff ./a/ ./b/ --why
+      assay diff ./proof_pack_new/ --against-previous --why
       assay diff ./a/ ./b/ --gate-cost-pct 20 --gate-errors 0
-      assay diff ./a/ ./b/ --gate-cost-pct 20 --gate-strict
     """
     from pathlib import Path
 
-    from assay.diff import diff_packs, evaluate_gates
+    from assay.diff import diff_packs, evaluate_gates, explain_why, find_previous_pack
 
-    pa = Path(pack_a)
-    pb = Path(pack_b)
+    # Resolve pack paths
+    if against_previous:
+        if pack_b is not None:
+            console.print("[red]Error:[/] --against-previous takes one pack argument, not two")
+            raise typer.Exit(3)
+        current = Path(pack_a)
+        if not current.is_dir():
+            console.print(f"[red]Error:[/] {pack_a} is not a directory")
+            raise typer.Exit(3)
+        previous = find_previous_pack(current)
+        if previous is None:
+            console.print(f"[red]Error:[/] No previous proof_pack_* found in {current.parent}")
+            raise typer.Exit(3)
+        pa = previous
+        pb = current
+    else:
+        if pack_b is None:
+            console.print("[red]Error:[/] Two pack arguments required (or use --against-previous)")
+            raise typer.Exit(3)
+        pa = Path(pack_a)
+        pb = Path(pack_b)
 
     if not pa.is_dir():
-        console.print(f"[red]Error:[/] {pack_a} is not a directory")
+        console.print(f"[red]Error:[/] {pa} is not a directory")
         raise typer.Exit(3)
     if not pb.is_dir():
-        console.print(f"[red]Error:[/] {pack_b} is not a directory")
+        console.print(f"[red]Error:[/] {pb} is not a directory")
         raise typer.Exit(3)
 
     result = diff_packs(pa, pb, verify=not no_verify)
@@ -4196,6 +4435,11 @@ def diff_cmd(
             strict=gate_strict,
         )
 
+    # --why: explain regressions
+    why_results = None
+    if why and result.has_regression:
+        why_results = explain_why(result, pb)
+
     # Determine final exit code: integrity (2) > regression/gate (1) > clean (0)
     exit_code = result.exit_code
     if exit_code == 0 and gate_eval is not None and gate_eval.any_failed:
@@ -4205,6 +4449,8 @@ def diff_cmd(
         payload = {"command": "diff", "status": "ok", **result.to_dict()}
         if gate_eval is not None:
             payload["gates"] = gate_eval.to_dict()
+        if why_results is not None:
+            payload["why"] = [w.to_dict() for w in why_results]
         gates_failed = gate_eval is not None and gate_eval.any_failed
         payload["integrity_failed"] = not result.both_valid
         payload["claims_regressed"] = result.has_regression
@@ -4213,7 +4459,7 @@ def diff_cmd(
         _output_json(payload, exit_code=exit_code)
         return
 
-    _render_diff(result, gate_eval=gate_eval, exit_code=exit_code)
+    _render_diff(result, gate_eval=gate_eval, exit_code=exit_code, why_results=why_results)
 
 
 def _fmt_delta(a_val, b_val, fmt: str = "d", prefix: str = "", suffix: str = "") -> str:
@@ -4251,7 +4497,7 @@ def _fmt_delta(a_val, b_val, fmt: str = "d", prefix: str = "", suffix: str = "")
     return f"{color}{prefix}{delta_str}{pct}{end}"
 
 
-def _render_diff(result, *, gate_eval=None, exit_code: int | None = None) -> None:
+def _render_diff(result, *, gate_eval=None, exit_code: int | None = None, why_results=None) -> None:
     """Render diff result to console with Rich panels."""
     from assay.diff import DiffResult
 
@@ -4402,6 +4648,33 @@ def _render_diff(result, *, gate_eval=None, exit_code: int | None = None) -> Non
         border = "red" if gate_eval.any_failed else "green"
         title = "Gates (THRESHOLD EXCEEDED)" if gate_eval.any_failed else "Gates"
         console.print(Panel(gate_table, title=title, border_style=border))
+
+    # --why panel
+    if why_results:
+        why_lines = []
+        for w in why_results:
+            why_lines.append(f"[bold red]{w.claim_id}[/] REGRESSED")
+            if w.expected:
+                why_lines.append(f"  Expected: {w.expected}")
+            if w.actual:
+                why_lines.append(f"  Actual:   {w.actual}")
+            if w.evidence_receipt_ids:
+                ids = ", ".join(w.evidence_receipt_ids[:5])
+                why_lines.append(f"  Evidence: {ids}")
+            for chain in w.causal_chains:
+                parts = []
+                for r in chain:
+                    rid = r.get("receipt_id", "?")[:16]
+                    rtype = r.get("type", "?")
+                    parts.append(f"{rid} ({rtype})")
+                why_lines.append(f"  Chain:    {' <- '.join(parts)}")
+            why_lines.append("")
+
+        console.print(Panel(
+            "\n".join(why_lines).rstrip(),
+            title="Why (receipt-level forensics)",
+            border_style="yellow",
+        ))
 
     final_exit = exit_code if exit_code is not None else result.exit_code
     console.print()

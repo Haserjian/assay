@@ -15,7 +15,7 @@ import json
 import math
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from assay.analyze import AnalysisResult, analyze_receipts, load_pack_receipts
 
@@ -485,3 +485,156 @@ def diff_packs(pack_a: Path, pack_b: Path, *, verify: bool = True) -> DiffResult
         ))
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# --against-previous: auto-discover baseline pack
+# ---------------------------------------------------------------------------
+
+def find_previous_pack(current_pack: Path) -> Optional[Path]:
+    """Find the most recent proof pack before *current_pack* in the same
+    parent directory.
+
+    Scans for ``proof_pack_*`` directories that contain a
+    ``pack_manifest.json``, sorts by modification time, and returns the
+    one immediately preceding *current_pack*.
+    """
+    parent = current_pack.parent
+    if not parent.is_dir():
+        return None
+
+    current_resolved = current_pack.resolve()
+    packs: List[Tuple[float, Path]] = []
+
+    for d in parent.iterdir():
+        if not d.is_dir() or not d.name.startswith("proof_pack"):
+            continue
+        if not (d / "pack_manifest.json").exists():
+            continue
+        packs.append((d.stat().st_mtime, d))
+
+    if len(packs) < 2:
+        return None
+
+    # Sort ascending by mtime
+    packs.sort(key=lambda t: t[0])
+
+    # Find current pack's position
+    for i, (_, p) in enumerate(packs):
+        if p.resolve() == current_resolved:
+            return packs[i - 1][1] if i > 0 else None
+
+    # current_pack not found (shouldn't happen) -- return most recent
+    return packs[-1][1]
+
+
+# ---------------------------------------------------------------------------
+# --why: receipt-level regression explanation
+# ---------------------------------------------------------------------------
+
+@dataclass
+class WhyExplanation:
+    """Causal explanation for a single regressed claim."""
+
+    claim_id: str
+    expected: str
+    actual: str
+    evidence_receipt_ids: List[str] = field(default_factory=list)
+    causal_chains: List[List[Dict[str, Any]]] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "claim_id": self.claim_id,
+            "expected": self.expected,
+            "actual": self.actual,
+            "evidence_receipt_ids": self.evidence_receipt_ids,
+            "causal_chains": [
+                [
+                    {
+                        "receipt_id": r.get("receipt_id"),
+                        "type": r.get("type"),
+                        "parent_receipt_id": r.get("parent_receipt_id"),
+                    }
+                    for r in chain
+                ]
+                for chain in self.causal_chains
+            ],
+        }
+
+
+def _trace_chain(
+    receipt_id: str,
+    index: Dict[str, Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """Walk parent_receipt_id chain backward from a receipt."""
+    chain: List[Dict[str, Any]] = []
+    seen: Set[str] = set()
+    current: Optional[str] = receipt_id
+
+    while current and current not in seen:
+        seen.add(current)
+        receipt = index.get(current)
+        if receipt is None:
+            break
+        chain.append(receipt)
+        current = receipt.get("parent_receipt_id")
+
+    return chain
+
+
+def explain_why(
+    diff_result: DiffResult,
+    pack_b: Path,
+) -> List[WhyExplanation]:
+    """Explain regressed claims using receipt-level forensics.
+
+    For each regressed claim:
+    1. Reads verify_report.json for expected vs actual.
+    2. Identifies evidence receipts (those that caused the mismatch).
+    3. Traces parent_receipt_id chains backward from evidence receipts.
+
+    Returns one WhyExplanation per regressed claim (empty list if none).
+    """
+    regressed = [cd for cd in diff_result.claim_deltas if cd.regressed]
+    if not regressed:
+        return []
+
+    # Load claim details from pack B's verify report
+    claim_details: Dict[str, Dict[str, Any]] = {}
+    report_path = pack_b / "verify_report.json"
+    if report_path.exists():
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        for cr in report.get("claim_verification", {}).get("results", []):
+            claim_details[cr["claim_id"]] = cr
+
+    # Load receipts from pack B and index by ID
+    receipts: List[Dict[str, Any]] = []
+    try:
+        receipts = load_pack_receipts(pack_b)
+    except FileNotFoundError:
+        pass
+    receipt_index = {
+        r["receipt_id"]: r for r in receipts if r.get("receipt_id")
+    }
+
+    explanations: List[WhyExplanation] = []
+    for cd in regressed:
+        detail = claim_details.get(cd.claim_id, {})
+        evidence_ids: List[str] = detail.get("evidence_receipt_ids", [])
+
+        # Trace causal chains for evidence receipts
+        chains: List[List[Dict[str, Any]]] = []
+        for rid in evidence_ids:
+            chain = _trace_chain(rid, receipt_index)
+            if chain:
+                chains.append(chain)
+
+        explanations.append(WhyExplanation(
+            claim_id=cd.claim_id,
+            expected=detail.get("expected", ""),
+            actual=detail.get("actual", ""),
+            evidence_receipt_ids=evidence_ids,
+            causal_chains=chains,
+        ))
+
+    return explanations
