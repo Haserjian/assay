@@ -1,0 +1,48 @@
+name: Activation QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/assay/commands.py'
+      - 'src/assay/mcp_proxy.py'
+      - 'scripts/activation_qa.py'
+      - 'tests/assay/test_start.py'
+      - 'tests/assay/test_status.py'
+      - 'tests/assay/test_template_generators.py'
+      - 'tests/assay/test_failure_remediations.py'
+      - 'tests/assay/test_activation_qa_harness.py'
+      - '.github/workflows/activation-qa.yml'
+  pull_request:
+    paths:
+      - 'src/assay/commands.py'
+      - 'src/assay/mcp_proxy.py'
+      - 'scripts/activation_qa.py'
+      - 'tests/assay/test_start.py'
+      - 'tests/assay/test_status.py'
+      - 'tests/assay/test_template_generators.py'
+      - 'tests/assay/test_failure_remediations.py'
+      - 'tests/assay/test_activation_qa_harness.py'
+      - '.github/workflows/activation-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  activation-qa:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Assay
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run activation QA harness
+        run: |
+          python scripts/activation_qa.py
