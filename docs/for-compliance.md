@@ -6,7 +6,7 @@ access required.
 
 ## What Assay Produces
 
-A **proof pack** is a self-contained evidence bundle for a single AI system run.
+A **evidence pack** is a self-contained evidence bundle for a single AI system run.
 Five files. One Ed25519 signature. Independently verifiable.
 
 | File | What it contains |
@@ -50,7 +50,7 @@ honestly are more trustworthy than systems that always claim to pass.
 
 ## What an Auditor Review Looks Like
 
-1. Receive a proof pack directory from the engineering team
+1. Receive a evidence pack directory from the engineering team
 2. Install Assay: `pip install assay-ai`
 3. Verify independently: `assay verify-pack ./proof_pack_*/`
 4. Read the summary: `assay explain ./proof_pack_*/`
@@ -88,7 +88,7 @@ For stronger guarantees, Assay supports:
 
 ## Framework Alignment
 
-Assay proof packs may support evidence requirements in:
+Assay evidence packs may support evidence requirements in:
 
 - **SOC 2 (CC7.2)** -- monitoring and detection of anomalies in system operations
 - **ISO 42001** -- AI management system documentation and evidence requirements
@@ -97,10 +97,11 @@ Assay proof packs may support evidence requirements in:
 
 Assay is one building block for these requirements.
 It does not constitute full compliance on its own.
+See [compliance-citations.md](compliance-citations.md) for exact regulatory references.
 
 ## CI Integration
 
-Proof packs can be generated and verified automatically in CI:
+Evidence packs can be generated and verified automatically in CI:
 
 ```bash
 # 1) Generate pack during test run

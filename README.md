@@ -1,15 +1,23 @@
 # Assay
 
-Verifiable evidence for AI systems. Independently verifiable, offline,
-without server access.
+Tamper-evident audit trails for AI systems.
 
-Logs record what you say happened. Assay makes the record tamper-evident,
-completeness-checkable, and independently verifiable -- including by
-someone who does not trust you. Two lines of code. Four exit codes.
+We scanned 30 popular AI projects and found 202 high-confidence LLM call
+sites. Zero had tamper-evident audit trails.
+[Full results](scripts/scan_study/results/report.md).
+
+Assay adds independently verifiable execution evidence to AI systems:
+cryptographically signed receipt bundles that a third party can verify
+offline without trusting your server logs. Two lines of code. Four exit codes.
 
 ```bash
 pip install assay-ai && assay quickstart
 ```
+
+> **Boundary:** Assay proves tamper-evident internal consistency and
+> completeness relative to scanned call sites. It does not prevent a fully
+> compromised machine from fabricating a consistent story. That's what
+> [trust tiers](docs/FULL_PICTURE.md#trust-tiers) are for.
 
 > **Not this:** Assay is not a logging framework, an observability dashboard,
 > or a monitoring tool. It produces signed evidence bundles that a third party
@@ -28,6 +36,10 @@ assay demo-incident     # two-act scenario: honest PASS vs honest FAIL
 
 That second result is an **honest failure** -- authentic evidence proving the
 run violated its declared standards. Not a cover-up. Exit code 1.
+
+Exit 1 is **audit gold**: authentic evidence that a control failed, with no
+ability to edit history. Auditors love "controls can fail, but failure is
+detectable and retained."
 
 ### How that works
 
@@ -55,7 +67,7 @@ assay scan . --report
 # 2. Patch (one line per SDK, or auto-patch all)
 assay patch .
 
-# 3. Run + build a signed proof pack
+# 3. Run + build a signed evidence pack
 assay run -c receipt_completeness -- python my_app.py
 
 # 4. Verify
@@ -65,14 +77,18 @@ assay verify-pack ./proof_pack_*/
 `assay scan . --report` finds every LLM call site (OpenAI, Anthropic, LangChain)
 and generates a self-contained HTML gap report. `assay patch` inserts the
 two-line integration. `assay run` wraps your command, collects receipts, and
-produces a signed 5-file proof pack. `assay verify-pack` checks integrity +
+produces a signed 5-file evidence pack. `assay verify-pack` checks integrity +
 claims and exits with one of the four codes above. Then run `assay explain`
 on any pack for a plain-English summary.
 
-> **Why now**: EU AI Act Articles 12 and 19 require logging and traceability
-> for high-risk AI systems. SOC 2 CC7.2 requires evidence of monitoring.
+> **Why now**: EU AI Act Article 12 requires automatic logging for high-risk
+> AI systems; Article 19 requires providers to retain automatically generated
+> logs for at least 6 months. High-risk obligations apply from 2 Aug 2026
+> (Annex III) and 2 Aug 2027 (regulated products). SOC 2 CC7.2 requires
+> monitoring of system components and analysis of anomalies as security events.
 > "We have logs on our server" is not independently verifiable evidence.
 > Assay produces evidence that is.
+> See [compliance citations](docs/compliance-citations.md) for exact references.
 
 ## CI Gate
 
@@ -115,7 +131,7 @@ from your local trace history.
 
 ## Trust Model
 
-What Assay proves, what it doesn't, and how to strengthen guarantees.
+What Assay detects, what it doesn't, and how to strengthen guarantees.
 
 **Assay detects:**
 - Retroactive tampering (edit one byte, verification fails)
@@ -128,6 +144,10 @@ What Assay proves, what it doesn't, and how to strengthen guarantees.
 - Dishonest receipt content (receipts are self-attested)
 - Timestamp fraud without an external time anchor
 
+Completeness is enforced relative to the call sites enumerated by the scanner
+and/or declared by policy. Undetected call sites are a known residual risk,
+reduced via multi-detector scanning and CI gating.
+
 **To strengthen guarantees:**
 - [Transparency ledger](https://github.com/Haserjian/assay-ledger) (independent witness)
 - CI-held org key + branch protection (separation of signer and committer)
@@ -136,53 +156,74 @@ What Assay proves, what it doesn't, and how to strengthen guarantees.
 The cost of cheating scales with the complexity of the lie. Assay doesn't
 make fraud impossible -- it makes fraud expensive.
 
+## The Evidence Compiler
+
+Assay is an **evidence compiler** for AI execution. If you've used a build
+system, you already know the mental model:
+
+| Concept | Build System | Assay |
+|---------|-------------|-------|
+| Source | `.c` / `.ts` files | Receipts (one per LLM call) |
+| Artifact | Binary / bundle | Evidence pack (5 files, 1 signature) |
+| Tests | Unit / integration tests | Verification (integrity + claims) |
+| Lock | `package-lock.json` | `assay.lock` |
+| Gate | CI deploy check | CI evidence gate |
+
 ## Commands
+
+The core path is 6 commands:
+
+```
+assay quickstart          # discover
+assay scan / assay patch  # instrument
+assay run                 # produce evidence
+assay verify-pack         # verify evidence
+assay diff                # catch regressions
+assay mcp-proxy           # audit MCP tool calls
+```
+
+Full command reference:
 
 | Command | Purpose |
 |---------|---------|
 | `assay quickstart` | One command: demo + scan + next steps |
-| `assay demo-incident` | Two-act scenario: passing run vs failing run |
-| `assay demo-challenge` | CTF-style good + tampered pack pair |
-| `assay demo-pack` | Generate demo packs (no config needed) |
-| `assay onboard` | Guided setup: doctor -> scan -> first run plan |
-| `assay scan` | Find uninstrumented LLM call sites (`--report` for HTML) |
-| `assay patch` | Auto-insert SDK integration patches into your entrypoint |
-| `assay run` | Wrap command, collect receipts, build signed pack |
-| `assay verify-pack` | Verify a Proof Pack (integrity + claims) |
-| `assay explain` | Plain-English summary of a proof pack |
-| `assay analyze` | Cost, latency, error breakdown from pack or `--history` |
-| `assay diff` | Compare packs: claims, cost, latency (`--against-previous`, `--why`, `--gate-*`) |
-| `assay key list` | List local signing keys and active signer |
-| `assay key rotate` | Generate a new signer key and switch active signer |
-| `assay key set-active` | Set active signing key for future runs |
-| `assay ci init github` | Generate a GitHub Actions workflow |
-| `assay lock write` | Freeze verification contract to lockfile |
-| `assay lock check` | Validate lockfile against current card definitions |
-| `assay cards list` | List built-in run cards and their claims |
-| `assay cards show` | Show card details, claims, and parameters |
 | `assay status` | One-screen operational dashboard: am I set up? |
 | `assay start demo` | See Assay in action (quickstart flow) |
 | `assay start ci` | Guided CI evidence gate setup (5 steps) |
 | `assay start mcp` | Guided MCP tool call auditing setup (4 steps) |
-| `assay mcp policy init` | Generate a starter MCP policy YAML file |
-| `assay mcp-proxy` | Transparent MCP proxy: intercept tool calls, emit receipts |
+| `assay scan` | Find uninstrumented LLM call sites (`--report` for HTML) |
+| `assay patch` | Auto-insert SDK integration patches into your entrypoint |
+| `assay run` | Wrap command, collect receipts, build signed evidence pack |
+| `assay verify-pack` | Verify an evidence pack (integrity + claims) |
+| `assay explain` | Plain-English summary of an evidence pack |
+| `assay analyze` | Cost, latency, error breakdown from pack or `--history` |
+| `assay diff` | Compare packs: claims, cost, latency (`--against-previous`, `--why`, `--gate-*`) |
 | `assay doctor` | Preflight check: is Assay ready here? |
+| `assay mcp-proxy` | Transparent MCP proxy: intercept tool calls, emit receipts |
+| `assay mcp policy init` | Generate a starter MCP policy YAML file |
+| `assay ci init github` | Generate a GitHub Actions workflow |
+| `assay lock write` | Freeze verification contract to lockfile |
+| `assay lock check` | Validate lockfile against current card definitions |
+| `assay key list` | List local signing keys and active signer |
+| `assay key rotate` | Generate a new signer key and switch active signer |
+| `assay key set-active` | Set active signing key for future runs |
+| `assay cards list` | List built-in run cards and their claims |
+| `assay cards show` | Show card details, claims, and parameters |
+| `assay demo-incident` | Two-act scenario: passing run vs failing run |
+| `assay demo-challenge` | CTF-style good + tampered pack pair |
+| `assay demo-pack` | Generate demo packs (no config needed) |
+| `assay onboard` | Guided setup: doctor -> scan -> first run plan |
 
 ## Documentation
 
+- [Full Picture](docs/FULL_PICTURE.md) -- architecture, trust tiers, repo boundaries, release history
 - [Quickstart](docs/README_quickstart.md) -- install, golden path, command reference
-- [Roadmap](docs/ROADMAP.md) -- phases, product boundary, execution stack
-- [Decision Escrow](docs/decision-escrow.md) -- protocol model: agent actions don't settle until verified
 - [For Compliance Teams](docs/for-compliance.md) -- what auditors see, evidence artifacts, framework alignment
+- [Compliance Citations](docs/compliance-citations.md) -- exact regulatory references (EU AI Act, SOC 2, ISO 42001)
+- [Decision Escrow](docs/decision-escrow.md) -- protocol model: agent actions don't settle until verified
+- [Roadmap](docs/ROADMAP.md) -- phases, product boundary, execution stack
 - [Repo Map](docs/REPO_MAP.md) -- what lives where across the Assay ecosystem
 - [Pilot Program](docs/PILOT_PROGRAM.md) -- early adopter program details
-
-## Scan Study
-
-We scanned 30 popular open-source AI projects for tamper-evident audit
-trails. Found 202 high-confidence LLM SDK call sites across 21 projects.
-Zero had evidence emission at any call site.
-[Full results](scripts/scan_study/results/report.md).
 
 ## Common Issues
 
