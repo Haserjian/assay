@@ -164,6 +164,7 @@ make fraud impossible -- it makes fraud expensive.
 | `assay start demo` | See Assay in action (quickstart flow) |
 | `assay start ci` | Guided CI evidence gate setup (5 steps) |
 | `assay start mcp` | Guided MCP tool call auditing setup (4 steps) |
+| `assay mcp policy init` | Generate a starter MCP policy YAML file |
 | `assay mcp-proxy` | Transparent MCP proxy: intercept tool calls, emit receipts |
 | `assay doctor` | Preflight check: is Assay ready here? |
 
