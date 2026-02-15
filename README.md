@@ -165,6 +165,7 @@ make fraud impossible -- it makes fraud expensive.
 ## Documentation
 
 - [Quickstart](docs/README_quickstart.md) -- install, golden path, command reference
+- [Roadmap](docs/ROADMAP.md) -- phases, product boundary, execution stack
 - [Decision Escrow](docs/decision-escrow.md) -- protocol model: agent actions don't settle until verified
 - [For Compliance Teams](docs/for-compliance.md) -- what auditors see, evidence artifacts, framework alignment
 - [Repo Map](docs/REPO_MAP.md) -- what lives where across the Assay ecosystem

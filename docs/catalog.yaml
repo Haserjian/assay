@@ -1,0 +1,277 @@
+# Assay Ecosystem Catalog
+# Machine-readable module inventory with product boundary enforcement.
+# Status: shipped | designed | open
+# Zone: public | bridge | private
+# Owner: assay | ccio | loom | quintet
+
+version: "2026-02-15"
+
+modules:
+
+  # --- PUBLIC (ships in assay-ai on PyPI) ---
+
+  - id: scan
+    name: Scanner
+    zone: public
+    owner: assay
+    status: shipped
+    source: src/assay/scanner.py
+    tests: tests/assay/test_scanner.py
+    description: AST-based LLM call site detection
+
+  - id: patch
+    name: Patcher
+    zone: public
+    owner: assay
+    status: shipped
+    source: src/assay/patcher.py
+    tests: tests/assay/test_patcher.py
+    description: Auto-insert SDK integration patches
+
+  - id: run
+    name: Runner
+    zone: public
+    owner: assay
+    status: shipped
+    source: src/assay/commands.py
+    tests: tests/assay/test_run_cmd.py
+    description: Wrap command, collect receipts, build signed proof pack
+
+  - id: verify_pack
+    name: Verifier
+    zone: public
+    owner: assay
+    status: shipped
+    source: src/assay/integrity.py
+    tests: tests/assay/test_integrity.py
+    description: Proof pack integrity + claim verification
+
+  - id: diff
+    name: Diff Engine
+    zone: public
+    owner: assay
+    status: shipped
+    source: src/assay/diff.py
+    tests: tests/assay/test_diff.py
+    description: Pack comparison, regression gates, --against-previous, --why forensics
+
+  - id: analyze
+    name: Analyzer
+    zone: public
+    owner: assay
+    status: shipped
+    source: src/assay/commands.py
+    tests: tests/assay/test_analyze_cmd.py
+    description: Cost/latency/error breakdown from pack or --history
+
+  - id: explain
+    name: Explainer
+    zone: public
+    owner: assay
+    status: shipped
+    source: src/assay/explain.py
+    tests: tests/assay/test_explain.py
+    description: Plain-English pack summaries
+
+  - id: lockfile
+    name: Lockfile
+    zone: public
+    owner: assay
+    status: shipped
+    source: src/assay/lockfile.py
+    tests: tests/assay/test_lockfile.py
+    description: Governance contract freeze + drift detection
+
+  - id: key_lifecycle
+    name: Key Lifecycle
+    zone: public
+    owner: assay
+    status: shipped
+    source: src/assay/keystore.py
+    tests: tests/assay/test_key_cli.py
+    description: Ed25519 key list/rotate/set-active + lockfile allowlist update
+
+  - id: schema
+    name: Schema Registry
+    zone: public
+    owner: assay
+    status: shipped
+    source: src/assay/schema.py
+    tests: tests/assay/test_schema.py
+    description: Receipt version registry + parent_receipt_id + field validation
+
+  - id: store
+    name: Receipt Store
+    zone: public
+    owner: assay
+    status: shipped
+    source: src/assay/store.py
+    tests: tests/assay/test_store_hardening.py
+    description: Thread-safe (RLock) + process-safe (flock) receipt store
+
+  - id: doctor
+    name: Doctor
+    zone: public
+    owner: assay
+    status: shipped
+    source: src/assay/doctor.py
+    tests: tests/assay/test_doctor.py
+    description: Preflight check engine, 15 checks, 4 profiles
+
+  - id: conformance
+    name: Conformance Corpus
+    zone: public
+    owner: assay
+    status: shipped
+    source: conformance/
+    tests: tests/assay/test_conformance.py
+    description: 6 deterministic packs with expected outcomes
+
+  # --- BRIDGE (ships in assay-ai, connects to external systems) ---
+
+  - id: mcp_proxy
+    name: MCP Notary Proxy
+    zone: bridge
+    owner: assay
+    status: designed
+    source: null  # src/assay/mcp_proxy.py (Phase 1)
+    tests: null
+    spec: docs/spec-mcp-notary-proxy.md
+    description: Receipting proxy for MCP tool calls (stdio/SSE)
+
+  - id: mcp_policy
+    name: MCP Policy Engine
+    zone: bridge
+    owner: assay
+    status: designed
+    source: null  # src/assay/mcp_policy.py (Phase 2)
+    tests: null
+    spec: docs/spec-mcp-notary-proxy.md
+    description: Guard profile policy enforcement for MCP proxy
+
+  - id: bridge_internal
+    name: Bridge (internal/experimental)
+    zone: bridge
+    owner: assay
+    status: shipped
+    source: src/assay/bridge.py
+    tests: tests/assay/test_bridge.py
+    description: Subprocess bridge with SSRF deny + receipt-always invariant. Not public API.
+
+  - id: regime_detect
+    name: Regime Detection
+    zone: public
+    owner: assay
+    status: designed
+    source: null  # port from ccio/lem/detectors/
+    tests: null
+    description: CUSUM + BOCPD + RegimeGate for analyze --regime-detect
+
+  - id: drift_detect
+    name: Drift Detection
+    zone: public
+    owner: assay
+    status: designed
+    source: null
+    tests: null
+    description: Claim-vector drift scoring for analyze --drift
+
+  # --- PRIVATE (CCIO/Loom/Quintet -- not in assay-ai) ---
+
+  - id: lem_full
+    name: Large Event Model (Full)
+    zone: private
+    owner: ccio
+    status: shipped
+    source: ccio/lem/
+    description: Tri-temporal event spine, causal DAG, 40+ receipt types, proof rails
+
+  - id: coherence_triangulation
+    name: Coherence Triangulation
+    zone: private
+    owner: ccio
+    status: shipped
+    source: ccio/src/core/coherence.py
+    description: 3-estimator drift (IT + geometric + predictive), 2-of-3 voting
+
+  - id: dignity
+    name: Dignity (5-Facet)
+    zone: private
+    owner: ccio
+    status: shipped
+    source: ccio/src/core/dignity.py
+    description: Non-compensatory ethics gate (agency, consent, privacy, safety, truthfulness)
+
+  - id: semantic_mass
+    name: Semantic Mass / Physics
+    zone: private
+    owner: ccio
+    status: shipped
+    source: ccio/src/memorygraph/semantic_mass.py
+    description: Knowledge graph inertia, decay, routing tiers, field solve
+
+  - id: chi_router
+    name: Chi-Router
+    zone: private
+    owner: ccio
+    status: shipped
+    source: ccio/src/memorygraph/chi.py
+    description: Curvature-driven routing (BLOOM/REFLECT/COMPOST)
+
+  - id: memorygraph
+    name: MemoryGraph
+    zone: private
+    owner: ccio
+    status: shipped
+    source: ccio/src/memorygraph/
+    description: Directed graph with temporal attributes, contradiction detection
+
+  - id: organism
+    name: Organism Model
+    zone: private
+    owner: ccio
+    status: shipped
+    source: ccio/src/organism/
+    description: 12-module AGI architecture (30-85% organ health)
+
+  - id: policy_scientist
+    name: Policy Scientist (Quintet)
+    zone: private
+    owner: quintet
+    status: shipped
+    source: puppetlabs/quintet/policies/
+    description: Offline policy evaluation, lever analysis, PROMOTE/HOLD/ROLLBACK
+
+  - id: council
+    name: Council / Debate
+    zone: private
+    owner: quintet
+    status: shipped
+    source: puppetlabs/quintet/core/council.py
+    description: 5-role adversarial debate with Irving-style verdicts
+
+  - id: event_store
+    name: EventStore (Hot/Cold)
+    zone: private
+    owner: loom
+    status: shipped
+    source: loom/receipts/event_store.py
+    description: SQLite WAL hot tier + Parquet cold tier, multi-tenant
+
+  - id: maestro
+    name: Maestro Orchestrator
+    zone: private
+    owner: loom
+    status: shipped
+    source: loom/engine/agent/maestro.py
+    description: Hub-and-spoke multi-agent with guardian veto
+
+# Graduation rules:
+# - A private module may graduate to public ONLY if:
+#   1. It has no dependency on other private modules
+#   2. It has standalone tests (no ccio/loom fixtures)
+#   3. The graduation is documented in ccio/docs/graduation/
+#   4. The boundary rule is satisfied: trust chain = open, cognition = private
+#
+# - A "designed" module must have a spec in docs/ before implementation starts
+# - A "shipped" module must have a tests reference
