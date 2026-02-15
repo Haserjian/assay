@@ -1,9 +1,8 @@
 # Assay Quickstart
 
-When someone asks "prove what your AI did," you need more than logs.
-Logs live on your infrastructure, under your control. They can be edited,
-deleted, or selectively presented. Assay produces **signed evidence bundles**
-that anyone can verify independently -- no access to your systems required.
+Verifiable evidence for AI systems. Logs record what you say happened.
+Assay makes the record tamper-evident, completeness-checkable, and
+independently verifiable -- including by someone who does not trust you.
 
 If you're currently filling out spreadsheets to document AI system behavior
 for compliance reviews, Assay replaces that process with one CI step.
@@ -17,14 +16,11 @@ pip install assay-ai
 ## See It Work (No API Key Required)
 
 ```bash
-assay demo-pack           # build + verify a signed proof pack
-assay demo-incident       # see what an honest failure looks like
-assay demo-challenge      # spot the tampered pack (CTF-style)
+assay quickstart              # demo + scan + next steps (recommended)
+assay demo-incident           # two-act scenario: honest PASS vs honest FAIL
+assay demo-challenge          # spot the tampered pack (CTF-style)
+assay demo-pack               # build + verify a signed proof pack
 ```
-
-`demo-pack` creates synthetic receipts, builds two signed Proof Packs with
-different claims, and verifies them. One passes. One fails on purpose --
-demonstrating that **integrity PASS + claim FAIL = honest failure**.
 
 `demo-incident` runs a two-act scenario: Act 1 uses gpt-4 with a guardian
 (PASS/PASS). Act 2 swaps to gpt-3.5-turbo and drops the guardian
@@ -115,17 +111,24 @@ Use `assay onboard .` when you want the full guided flow (doctor + scan + CI set
 ### 1. Scan for uninstrumented LLM calls
 
 ```bash
-assay scan .
+assay scan . --report
 ```
 
-Finds every LLM call site and checks for evidence emission. Confidence levels:
+Finds every LLM call site and generates a self-contained HTML gap report.
+Confidence levels:
 - **high** -- direct SDK calls (`chat.completions.create`, `messages.create`)
 - **medium** -- framework wrappers (LangChain `.invoke()`, LiteLLM)
 - **low** -- heuristic name matches (`call_llm`, `query_model`)
 
 Each finding includes a fix suggestion and the next command to run.
 
-### 2. Instrument your code (one line)
+### 2. Instrument your code
+
+```bash
+assay patch .
+```
+
+Auto-inserts SDK integration patches. Or manually:
 
 ```python
 # OpenAI
@@ -189,6 +192,28 @@ assay diff ./baseline_pack/ ./proof_pack_*/ --gate-cost-pct 25 --gate-errors 0 -
 Exit code 0 = pass the build. Exit code 1 = fail the build (honest
 failure). Exit code 2 = fail the build (tampering or lock drift).
 
+### 8. Regression forensics (daily use)
+
+```bash
+assay diff ./proof_pack_*/ --against-previous --why
+assay analyze --history --since 7
+```
+
+`--against-previous` auto-discovers the baseline pack. `--why` traces
+receipt chains to explain what regressed. `analyze --history` shows
+cost/latency trends from your local trace history.
+
+## Key Management
+
+```bash
+assay key list                              # list signing keys
+assay key rotate --signer assay-local       # generate new key, set as active
+assay key set-active assay-next             # switch active signer
+```
+
+The active signer is used by `assay run` when signing proof packs.
+`key rotate --lock assay.lock` also updates the lockfile's signer allowlist.
+
 ## Preflight Check
 
 ```bash
@@ -248,17 +273,18 @@ trust faster than bugs.
 
 | Command | Purpose |
 |---------|---------|
-| `assay demo-pack` | Generate demo packs (no config needed) |
+| `assay quickstart` | One command: demo + scan + next steps |
 | `assay demo-incident` | Two-act scenario: passing run vs failing run |
 | `assay demo-challenge` | CTF-style good + tampered pack pair |
-| `assay quickstart` | One command: demo + scan + actionable next steps |
+| `assay demo-pack` | Generate demo packs (no config needed) |
 | `assay onboard` | Guided setup: doctor -> scan -> first run plan |
-| `assay scan` | Find uninstrumented LLM call sites |
+| `assay scan` | Find uninstrumented LLM call sites (`--report` for HTML) |
+| `assay patch` | Auto-insert SDK integration patches into your entrypoint |
 | `assay run` | Wrap command, collect receipts, build signed pack |
 | `assay verify-pack` | Verify a Proof Pack (integrity + claims) |
 | `assay explain` | Plain-English summary of a proof pack |
-| `assay analyze` | Cost/latency/error analysis from a pack or history |
-| `assay diff` | Compare two packs and apply regression gates (`--against-previous`, `--why`) |
+| `assay analyze` | Cost, latency, error breakdown from pack or `--history` |
+| `assay diff` | Compare packs: claims, cost, latency (`--against-previous`, `--why`, `--gate-*`) |
 | `assay key list` | List local signing keys and active signer |
 | `assay key rotate` | Generate a new signer key and switch active signer |
 | `assay key set-active` | Set active signing key for future runs |
@@ -296,5 +322,7 @@ trust faster than bugs.
 
 ## Read Next
 
+- [Decision Escrow](decision-escrow.md) -- protocol model: agent actions don't settle until verified
+- [For Compliance Teams](for-compliance.md) -- what auditors see, evidence artifacts, framework alignment
 - [Repo Map](REPO_MAP.md) -- what lives where across the Assay ecosystem
 - [Pilot Program](PILOT_PROGRAM.md) -- early adopter program details

@@ -2,7 +2,7 @@
 
 When someone asks "show me evidence of what your AI system did," Assay
 produces a portable, independently verifiable evidence bundle. No server
-access required. No trust required.
+access required.
 
 ## What Assay Produces
 

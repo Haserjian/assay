@@ -26,7 +26,7 @@ Everything a user needs to install, scan, instrument, run, verify, and gate:
 - `src/assay/` -- Python package (`pip install assay-ai`)
 - `tests/assay/` -- Full test suite
 - `conformance/` -- Verifier ABI corpus (6 packs, expected outcomes)
-- `docs/` -- Quickstart, deep dive, decision log, master plan
+- `docs/` -- Quickstart, decision escrow, compliance guide, specs, pilot program
 - `examples/` -- Quickstart script, demo pack generator
 
 ### Haserjian/assay-verify-action

@@ -42,15 +42,15 @@ action just happens.
 Each phase produces a signed receipt. The receipts bundle into a proof
 pack. The pack verifies offline. No server access. No trust relationship.
 
-## What Exists Today (Assay Core v1.3)
+## What Exists Today (Assay v1.5.0)
 
-Assay Core implements phases 2 and 3 of Decision Escrow:
+Assay implements phases 2 and 3 of Decision Escrow:
 
 | Phase | Status | How |
 |-------|--------|-----|
 | Preflight Permit | Future | Requires Guardian policy gate (private stack) |
-| **Execution with Evidence** | **Shipping** | `assay patch` + `assay run` emit signed receipts for every LLM call |
-| **Settlement** | **Shipping** | `assay verify-pack` checks integrity + claims; `assay diff --gate` enforces budget thresholds |
+| **Execution with Evidence** | **Shipping** | `assay patch` + `assay run` emit signed receipts for every LLM call. Schema v3.0 with `parent_receipt_id` for causal chains. |
+| **Settlement** | **Shipping** | `assay verify-pack` checks integrity + claims; `assay diff --gate` enforces budget thresholds; `--against-previous --why` traces regressions to root cause. Key rotation via `assay key rotate`. |
 | Reputation Update | Future | Requires trust scoring infrastructure |
 
 The core loop a developer uses today:

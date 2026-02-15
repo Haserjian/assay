@@ -30,7 +30,7 @@ pytest tests/assay/ -q
 
 ## Code Style
 
-- Python 3.11+
+- Python 3.9+ (3.11+ preferred for development)
 - Type hints on public functions
 - Tests for non-trivial logic
 - `ruff` for formatting
