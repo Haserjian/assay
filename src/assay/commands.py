@@ -23,6 +23,7 @@ Commands:
   assay key list      - List local signing keys
   assay key rotate    - Generate and switch to a new signer key
   assay key set-active - Set active signer key
+  assay mcp-proxy     - MCP Notary Proxy (receipt every tool call)
   assay version       - Show version info
 """
 
@@ -4722,6 +4723,55 @@ def _render_diff(result, *, gate_eval=None, exit_code: int | None = None, why_re
     console.print()
 
     raise typer.Exit(final_exit)
+
+
+# ---------------------------------------------------------------------------
+# MCP Proxy
+# ---------------------------------------------------------------------------
+
+
+@assay_app.command("mcp-proxy", context_settings={"allow_extra_args": True, "allow_interspersed_args": False})
+def mcp_proxy_cmd(
+    ctx: typer.Context,
+    audit_dir: str = typer.Option(".assay/mcp", "--audit-dir", help="Directory for receipts and packs"),
+    server_id: Optional[str] = typer.Option(None, "--server-id", help="Server identifier for receipts"),
+    store_args: bool = typer.Option(False, "--store-args", help="Store tool arguments in cleartext (default: hash-only)"),
+    store_results: bool = typer.Option(False, "--store-results", help="Store tool results in cleartext (default: hash-only)"),
+    no_auto_pack: bool = typer.Option(False, "--no-auto-pack", help="Disable auto-pack on session end"),
+    output_json: bool = typer.Option(False, "--json", help="JSON output for status messages"),
+):
+    """MCP Notary Proxy: receipt every tool call.
+
+    Transparent stdio proxy between an MCP client and server.
+    Intercepts tools/call requests, emits MCPToolCallReceipt per
+    invocation, and auto-builds a proof pack on session end.
+
+    Usage:
+
+        assay mcp-proxy -- python my_server.py
+
+    In your MCP client config (e.g. claude_desktop_config.json):
+
+        {"command": "assay", "args": ["mcp-proxy", "--", "python", "my_server.py"]}
+    """
+    from assay.mcp_proxy import run_proxy
+
+    upstream_cmd = ctx.args
+    if not upstream_cmd:
+        console.print("[red]Error:[/] No server command provided.")
+        console.print("Usage: assay mcp-proxy -- python my_server.py")
+        raise typer.Exit(3)
+
+    exit_code = run_proxy(
+        upstream_cmd,
+        audit_dir=audit_dir,
+        server_id=server_id,
+        store_args=store_args,
+        store_results=store_results,
+        auto_pack=not no_auto_pack,
+        json_output=output_json,
+    )
+    raise typer.Exit(exit_code)
 
 
 def main():
