@@ -25,6 +25,9 @@ Commands:
   assay key set-active - Set active signer key
   assay mcp-proxy     - MCP Notary Proxy (receipt every tool call)
   assay status        - One-screen operational dashboard
+  assay start demo    - See Assay in action (quickstart flow)
+  assay start ci      - Set up CI evidence gating
+  assay start mcp     - Set up MCP tool call auditing
   assay version       - Show version info
 """
 
@@ -1743,6 +1746,181 @@ def status_cmd(
         console.print("\n  [green]OPERATIONAL[/]  Ready to produce and verify evidence.\n")
     else:
         console.print("\n  [yellow]SETUP NEEDED[/]  Run: assay quickstart\n")
+
+
+# ---------------------------------------------------------------------------
+# assay start -- guided entrypoints
+# ---------------------------------------------------------------------------
+
+start_app = typer.Typer(
+    name="start",
+    help="Guided setup for your use case",
+    no_args_is_help=True,
+)
+assay_app.add_typer(start_app, name="start")
+
+
+@start_app.command("demo")
+def start_demo_cmd(
+    path: str = typer.Argument(".", help="Project directory"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """See Assay in action: demo pack + scan + next steps.
+
+    Runs the quickstart flow: generates a demo challenge, scans your
+    project for uninstrumented call sites, and shows what to do next.
+    """
+    quickstart_cmd(path=path, skip_demo=False, output_json=output_json, force=False)
+
+
+@start_app.command("ci")
+def start_ci_cmd(
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Set up CI evidence gating in 3 commands.
+
+    Shows the exact commands to add Assay verification to your CI pipeline:
+    run with receipts, verify the pack, lock the contract.
+    """
+    steps = [
+        {
+            "step": 1,
+            "title": "Instrument your entrypoint",
+            "commands": [
+                "assay patch .",
+                "# Or manually: from assay.integrations.openai import patch; patch()",
+            ],
+            "note": "Adds receipt emission to your SDK calls (2 lines per SDK).",
+        },
+        {
+            "step": 2,
+            "title": "Run with receipts and build a signed pack",
+            "commands": [
+                "assay run -c receipt_completeness -- python your_app.py",
+            ],
+            "note": "Wraps your command, collects receipts, builds a 5-file proof pack.",
+        },
+        {
+            "step": 3,
+            "title": "Verify the pack",
+            "commands": [
+                "assay verify-pack ./proof_pack_*/",
+            ],
+            "note": "Checks integrity + claims. Exit 0=pass, 1=honest failure, 2=tampered.",
+        },
+        {
+            "step": 4,
+            "title": "Lock the verification contract",
+            "commands": [
+                "assay lock write --cards receipt_completeness -o assay.lock",
+            ],
+            "note": "Freezes claim set so every CI run uses the same checks.",
+        },
+        {
+            "step": 5,
+            "title": "Add to CI workflow",
+            "commands": [
+                "assay ci init github",
+                "# Or add these steps to your existing workflow:",
+                "#   assay run -c receipt_completeness -- python your_app.py",
+                "#   assay verify-pack ./proof_pack_*/ --lock assay.lock --require-claim-pass",
+                "#   assay diff ./baseline/ ./proof_pack_*/ --gate-cost-pct 25 --gate-errors 0",
+            ],
+            "note": "Three commands, three exit codes, one lockfile.",
+        },
+    ]
+
+    if output_json:
+        _output_json({"command": "start ci", "steps": steps})
+        return
+
+    console.print()
+    console.print("[bold]assay start ci[/]  --  CI evidence gate setup\n")
+
+    for s in steps:
+        console.print(f"  [bold cyan]Step {s['step']}:[/] {s['title']}")
+        for cmd in s["commands"]:
+            if cmd.startswith("#"):
+                console.print(f"    [dim]{cmd}[/]")
+            else:
+                console.print(f"    [green]$ {cmd}[/]")
+        console.print(f"    [dim]{s['note']}[/]")
+        console.print()
+
+    console.print("  [bold]Daily use after CI is green:[/]")
+    console.print("    [green]$ assay diff ./proof_pack_*/ --against-previous --why[/]")
+    console.print("    [dim]Auto-discovers baseline, traces regressions to root cause.[/]\n")
+
+
+@start_app.command("mcp")
+def start_mcp_cmd(
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Set up MCP tool call auditing.
+
+    Shows how to wrap an MCP server with the Assay proxy to get
+    tamper-evident receipts for every tool invocation.
+    """
+    steps = [
+        {
+            "step": 1,
+            "title": "Wrap your MCP server with the proxy",
+            "commands": [
+                "assay mcp-proxy -- python my_server.py",
+                "# Or with server ID for receipt correlation:",
+                "assay mcp-proxy --server-id my-server -- python my_server.py",
+            ],
+            "note": "Sits between client and server. Intercepts tools/call, emits one receipt per invocation.",
+        },
+        {
+            "step": 2,
+            "title": "Check session receipts",
+            "commands": [
+                "ls .assay/mcp/receipts/",
+                "# Each session produces a JSONL trace file",
+            ],
+            "note": "Receipts are privacy-by-default: args and results are SHA-256 hashed, not stored.",
+        },
+        {
+            "step": 3,
+            "title": "Store full args/results (opt-in)",
+            "commands": [
+                "assay mcp-proxy --store-args --store-results -- python my_server.py",
+            ],
+            "note": "Use when you need full audit trail, not just tamper-evidence.",
+        },
+        {
+            "step": 4,
+            "title": "Verify session evidence",
+            "commands": [
+                "assay verify-pack .assay/mcp/packs/proof_pack_*/",
+            ],
+            "note": "Auto-pack builds a signed proof pack at clean session end.",
+        },
+    ]
+
+    if output_json:
+        _output_json({"command": "start mcp", "steps": steps})
+        return
+
+    console.print()
+    console.print("[bold]assay start mcp[/]  --  MCP tool call auditing\n")
+
+    for s in steps:
+        console.print(f"  [bold cyan]Step {s['step']}:[/] {s['title']}")
+        for cmd in s["commands"]:
+            if cmd.startswith("#"):
+                console.print(f"    [dim]{cmd}[/]")
+            else:
+                console.print(f"    [green]$ {cmd}[/]")
+        console.print(f"    [dim]{s['note']}[/]")
+        console.print()
+
+    console.print("  [bold]What you get:[/]")
+    console.print("    - One [cyan]MCPToolCallReceipt[/] per tool invocation")
+    console.print("    - Session trace with [cyan]session_complete[/] flag")
+    console.print("    - Auto-packed proof pack on clean session end")
+    console.print("    - Privacy-by-default (hash-only unless opt-in)\n")
 
 
 @assay_app.command("proof-pack")
