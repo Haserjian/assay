@@ -181,7 +181,8 @@ def analyze_receipts(receipts: List[Dict[str, Any]]) -> AnalysisResult:
             continue
 
         result.model_calls += 1
-        model_id = r.get("model_id", "unknown")
+        # Backward/compat: some receipts use `model` instead of `model_id`.
+        model_id = r.get("model_id") or r.get("model") or "unknown"
         provider = r.get("provider", "unknown")
         in_t = r.get("input_tokens", 0) or 0
         out_t = r.get("output_tokens", 0) or 0

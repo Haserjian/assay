@@ -271,6 +271,14 @@ class TestAnalyzeReceipts:
             cost_str = f"{bucket['cost_usd']:.4f}"
             assert float(cost_str) == bucket["cost_usd"]
 
+    def test_model_field_falls_back_when_model_id_missing(self) -> None:
+        r = _make_receipt(model_id="gpt-4o")
+        r.pop("model_id")
+        r["model"] = "gpt-4o"
+        result = analyze_receipts([r])
+        assert "gpt-4o" in result.by_model
+        assert "unknown" not in result.by_model
+
 
 # ---------------------------------------------------------------------------
 # Loaders
@@ -422,6 +430,22 @@ class TestAnalyzeCLI:
             assert result.exit_code == 0, result.output
             assert "Model calls" in result.output
             assert "gpt-4o" in result.output
+
+    def test_analyze_pack_model_field_fallback(self) -> None:
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            pack = Path("test_pack")
+            pack.mkdir()
+            r = _make_receipt(model_id="gpt-4o")
+            r.pop("model_id")
+            r["model"] = "gpt-4o"
+            (pack / "receipt_pack.jsonl").write_text(json.dumps(r) + "\n")
+
+            result = runner.invoke(assay_commands.assay_app, ["analyze", "test_pack", "--json"])
+            assert result.exit_code == 0, result.output
+            data = json.loads(result.output)
+            assert "gpt-4o" in data["by_model"]
+            assert "unknown" not in data["by_model"]
 
     def test_analyze_empty_pack_no_model_calls(self) -> None:
         runner = CliRunner()

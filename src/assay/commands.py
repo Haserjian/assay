@@ -1,5 +1,5 @@
 """
-Assay CLI commands: Receipt-native AI safety toolkit.
+Assay CLI commands: Tamper-evident audit trails for AI systems.
 
 Commands:
   assay run           - Run a command and build a Proof Pack from receipts
@@ -44,7 +44,7 @@ console = Console()
 
 assay_app = typer.Typer(
     name="assay",
-    help="Receipt-native AI safety toolkit",
+    help="Tamper-evident audit trails for AI systems",
     no_args_is_help=True,
 )
 
@@ -453,7 +453,7 @@ def run_demo(
 
     if not silent:
         console.print(f"[bold cyan]Assay {__version__} Demo[/]")
-        console.print("Receipt-native AI safety toolkit")
+        console.print("Tamper-evident audit trails for AI systems")
         console.print(f"[dim]Trace: {trace_id}[/]\n")
 
     if scenario in ("all", "incomplete"):

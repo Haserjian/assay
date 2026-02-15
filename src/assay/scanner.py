@@ -88,6 +88,26 @@ class ScanResult:
         if not self.findings:
             return []
 
+        # All detected sites are already instrumented: skip patch guidance.
+        if self.summary["uninstrumented"] == 0:
+            return [
+                {
+                    "title": "Generate a fresh proof pack",
+                    "commands": ["assay run -c receipt_completeness -- python your_app.py"],
+                },
+                {
+                    "title": "Verify and lock your baseline",
+                    "commands": [
+                        "assay verify-pack ./proof_pack_*/",
+                        "assay lock write --cards receipt_completeness -o assay.lock",
+                    ],
+                },
+                {
+                    "title": "Enable CI evidence gating",
+                    "commands": ["assay ci init github --run-command \"python your_app.py\""],
+                },
+            ]
+
         patch_line = _recommended_patch_line(self.findings)
         if patch_line == "assay patch .":
             return [

@@ -414,6 +414,25 @@ class TestScanResult:
         ])
         assert "assay patch ." in r.next_command
 
+    def test_next_steps_all_instrumented_skip_patch_guidance(self):
+        r = ScanResult(findings=[
+            CallSite("f.py", 1, "client.chat.completions.create", Confidence.HIGH, True, framework="openai"),
+            CallSite("g.py", 2, "client.messages.create", Confidence.HIGH, True, framework="anthropic"),
+        ])
+        steps = r.next_steps
+        assert len(steps) == 3
+        # Should guide into run/verify/lock/ci, not re-patching.
+        assert steps[0]["commands"] == ["assay run -c receipt_completeness -- python your_app.py"]
+        assert "assay patch" not in " ".join(cmd for step in steps for cmd in step["commands"])
+        assert "assay ci init github" in " ".join(cmd for step in steps for cmd in step["commands"])
+
+    def test_next_command_all_instrumented_mentions_ci(self):
+        r = ScanResult(findings=[
+            CallSite("f.py", 1, "client.chat.completions.create", Confidence.HIGH, True, framework="openai"),
+        ])
+        assert r.next_command is not None
+        assert "assay ci init github" in r.next_command
+
     def test_to_dict_schema(self):
         r = ScanResult(findings=[
             CallSite("f.py", 1, "client.chat.completions.create", Confidence.HIGH, False, fix="do this"),
