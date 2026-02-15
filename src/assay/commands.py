@@ -2085,8 +2085,28 @@ def verify_pack_cmd(
         lock_path = Path(lock)
         if not lock_path.exists():
             if output_json:
-                _output_json({"command": "verify-pack", "status": "error", "error": f"Lock file not found: {lock}"})
-            console.print(f"[red]Error:[/] Lock file not found: {lock}")
+                _output_json(
+                    {
+                        "command": "verify-pack",
+                        "status": "error",
+                        "error": "lock_file_not_found",
+                        "details": str(lock),
+                        "fixes": [
+                            "assay lock write --cards receipt_completeness -o assay.lock",
+                            f"assay verify-pack {pack_dir} --lock path/to/assay.lock",
+                            f"assay verify-pack {pack_dir}",
+                        ],
+                    },
+                    exit_code=2,
+                )
+            console.print(
+                f"[red]Error:[/] Lock file not found: {lock}\n"
+                "\n"
+                "[bold]Fix:[/]\n"
+                "  1. Create lock:          [bold]assay lock write --cards receipt_completeness -o assay.lock[/]\n"
+                f"  2. Use explicit path:    [bold]assay verify-pack {pack_dir} --lock path/to/assay.lock[/]\n"
+                f"  3. Verify without lock:  [bold]assay verify-pack {pack_dir}[/]"
+            )
             raise typer.Exit(2)
 
         # Step 1: Validate lockfile itself (structure, hashes, version)
@@ -2487,7 +2507,28 @@ def run_cmd(
 
     cmd_args = ctx.args
     if not cmd_args:
-        console.print("[red]Error:[/] No command provided. Usage: assay run -- <command>")
+        if output_json:
+            _output_json(
+                {
+                    "command": "run",
+                    "status": "error",
+                    "error": "no_command_provided",
+                    "fixes": [
+                        "assay run -- python app.py",
+                        "assay run -- python app.py --mode fast",
+                        "assay doctor",
+                    ],
+                },
+                exit_code=1,
+            )
+        console.print(
+            "[red]Error:[/] No command provided.\n"
+            "\n"
+            "[bold]Fix:[/]\n"
+            "  1. Basic usage:           [bold]assay run -- python app.py[/]\n"
+            "  2. With command flags:    [bold]assay run -- python app.py --mode fast[/]\n"
+            "  3. Check environment:     [bold]assay doctor[/]"
+        )
         raise typer.Exit(1)
 
     # Resolve run cards to claims
@@ -2543,6 +2584,23 @@ def run_cmd(
     entries = store.read_trace(trace_id)
 
     if not entries and not allow_empty:
+        if output_json:
+            _output_json(
+                {
+                    "command": "run",
+                    "status": "error",
+                    "error": "no_receipts_emitted",
+                    "trace_id": trace_id,
+                    "fixes": [
+                        "assay scan .",
+                        "assay scan . --report",
+                        "pip install assay-ai[openai]",
+                        "assay run -- python app.py",
+                        "assay doctor",
+                    ],
+                },
+                exit_code=1,
+            )
         console.print(
             "[red]Error:[/] No receipts emitted during run.\n"
             "\n"
@@ -2556,6 +2614,7 @@ def run_cmd(
             "     (or assay-ai\\[anthropic], assay-ai\\[all])\n"
             "  4. Missing separator:     [bold]assay run -- python app.py[/] (note the --)\n"
             "  5. Full diagnostic:       [bold]assay doctor[/]\n"
+            "  6. Then re-run:           [bold]assay run -- <your command>[/]\n"
             "\n"
             "Use --allow-empty to build an empty pack anyway."
         )
@@ -4747,7 +4806,14 @@ def diff_cmd(
             raise typer.Exit(3)
         previous = find_previous_pack(current)
         if previous is None:
-            console.print(f"[red]Error:[/] No previous proof_pack_* found in {current.parent}")
+            console.print(
+                f"[red]Error:[/] No previous proof_pack_* found in {current.parent}\n"
+                "\n"
+                "[bold]Fix:[/]\n"
+                "  1. Diff explicit packs:  [bold]assay diff ./proof_pack_old/ ./proof_pack_new/[/]\n"
+                "  2. Create a baseline:    [bold]assay run -- python app.py[/]\n"
+                f"  3. List packs:           [bold]ls -1 {current.parent}/proof_pack_*[/]"
+            )
             raise typer.Exit(3)
         pa = previous
         pb = current
@@ -5099,8 +5165,27 @@ def mcp_proxy_cmd(
 
     upstream_cmd = ctx.args
     if not upstream_cmd:
-        console.print("[red]Error:[/] No server command provided.")
-        console.print("Usage: assay mcp-proxy -- python my_server.py")
+        if output_json:
+            _output_json(
+                {
+                    "command": "mcp-proxy",
+                    "status": "error",
+                    "error": "no_server_command_provided",
+                    "fixes": [
+                        "assay mcp-proxy -- python my_server.py",
+                        '{"command": "assay", "args": ["mcp-proxy", "--", "python", "my_server.py"]}',
+                    ],
+                },
+                exit_code=3,
+            )
+        console.print(
+            "[red]Error:[/] No server command provided.\n"
+            "\n"
+            "[bold]Fix:[/]\n"
+            "  1. Start proxy:           [bold]assay mcp-proxy -- python my_server.py[/]\n"
+            "  2. Claude Desktop config: [bold]{\"command\": \"assay\", \"args\": [\"mcp-proxy\", \"--\", \"python\", \"my_server.py\"]}[/]\n"
+            "  3. Keep the [bold]--[/] separator before the upstream command."
+        )
         raise typer.Exit(3)
 
     exit_code = run_proxy(
