@@ -160,6 +160,7 @@ make fraud impossible -- it makes fraud expensive.
 | `assay lock check` | Validate lockfile against current card definitions |
 | `assay cards list` | List built-in run cards and their claims |
 | `assay cards show` | Show card details, claims, and parameters |
+| `assay mcp-proxy` | Transparent MCP proxy: intercept tool calls, emit receipts |
 | `assay doctor` | Preflight check: is Assay ready here? |
 
 ## Documentation
