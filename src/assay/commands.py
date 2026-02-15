@@ -24,6 +24,7 @@ Commands:
   assay key rotate    - Generate and switch to a new signer key
   assay key set-active - Set active signer key
   assay mcp-proxy     - MCP Notary Proxy (receipt every tool call)
+  assay status        - One-screen operational dashboard
   assay version       - Show version info
 """
 
@@ -1580,6 +1581,168 @@ def show_version(
     console.print("  - Verify: exit 0/1/2/3 (pass / honest failure / tampered / bad input)")
     console.print()
     console.print(f"Storage: {store.base_dir}")
+
+
+@assay_app.command("status")
+def status_cmd(
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """One-screen operational dashboard: is Assay ready here?"""
+    import os
+    from datetime import datetime, timezone
+    from pathlib import Path
+
+    from assay import __version__
+    from assay.keystore import AssayKeyStore
+    from assay.store import get_default_store
+
+    store = get_default_store()
+    ks = AssayKeyStore()
+
+    checks: dict = {}
+
+    # 1. Version
+    checks["version"] = __version__
+
+    # 2. Key status
+    try:
+        signer = ks.get_active_signer()
+        has_key = ks.has_key(signer)
+        fp = ks.signer_fingerprint(signer)[:16] + "..." if has_key else None
+        n_signers = len(ks.list_signers())
+        checks["key"] = {
+            "signer": signer,
+            "has_key": has_key,
+            "fingerprint": fp,
+            "total_signers": n_signers,
+        }
+    except Exception:
+        checks["key"] = {"signer": None, "has_key": False, "fingerprint": None, "total_signers": 0}
+
+    # 3. Store
+    receipt_count = 0
+    trace_count = 0
+    store_dir = store.base_dir
+    if store_dir.exists():
+        for day_dir in store_dir.iterdir():
+            if day_dir.is_dir() and len(day_dir.name) == 10:  # YYYY-MM-DD
+                for f in day_dir.glob("*.jsonl"):
+                    trace_count += 1
+                    try:
+                        receipt_count += sum(1 for _ in open(f))
+                    except Exception:
+                        pass
+    checks["store"] = {
+        "path": str(store_dir),
+        "traces": trace_count,
+        "receipts": receipt_count,
+    }
+
+    # 4. Lockfile
+    lockfile = Path("assay.lock")
+    checks["lockfile"] = {
+        "present": lockfile.exists(),
+        "path": str(lockfile) if lockfile.exists() else None,
+    }
+    if lockfile.exists():
+        try:
+            import json as _json
+            lock_data = _json.loads(lockfile.read_text())
+            checks["lockfile"]["lock_version"] = lock_data.get("lock_version")
+            checks["lockfile"]["cards"] = list(lock_data.get("run_cards", {}).keys())
+        except Exception:
+            checks["lockfile"]["valid"] = False
+
+    # 5. Latest pack
+    cwd_packs = sorted(
+        [d for d in Path(".").iterdir()
+         if d.is_dir() and d.name.startswith("proof_pack") and (d / "pack_manifest.json").exists()],
+        key=lambda d: d.stat().st_mtime,
+        reverse=True,
+    )
+    if cwd_packs:
+        latest = cwd_packs[0]
+        try:
+            import json as _json
+            manifest = _json.loads((latest / "pack_manifest.json").read_text())
+            mtime = datetime.fromtimestamp(latest.stat().st_mtime, tz=timezone.utc)
+            age_secs = (datetime.now(timezone.utc) - mtime).total_seconds()
+            if age_secs < 3600:
+                age_str = f"{int(age_secs // 60)}m ago"
+            elif age_secs < 86400:
+                age_str = f"{int(age_secs // 3600)}h ago"
+            else:
+                age_str = f"{int(age_secs // 86400)}d ago"
+            checks["latest_pack"] = {
+                "path": str(latest),
+                "pack_id": manifest.get("pack_id", "?"),
+                "receipts": manifest.get("receipt_count_expected", "?"),
+                "age": age_str,
+            }
+        except Exception:
+            checks["latest_pack"] = {"path": str(latest), "pack_id": "?", "receipts": "?", "age": "?"}
+    else:
+        checks["latest_pack"] = None
+
+    # 6. MCP proxy
+    checks["mcp_proxy"] = {"available": True}  # command is wired if we got here
+
+    if output_json:
+        _output_json({"command": "status", **checks})
+        return
+
+    # Render dashboard
+    console.print()
+    table = Table(show_header=False, border_style="dim", pad_edge=False, box=None)
+    table.add_column("label", style="bold", width=14)
+    table.add_column("value")
+
+    # Version
+    table.add_row("Version", f"{__version__}")
+
+    # Key
+    key = checks["key"]
+    if key["has_key"]:
+        key_str = f"{key['signer']} ({key['fingerprint']})"
+        if key["total_signers"] > 1:
+            key_str += f"  [{key['total_signers']} keys total]"
+        table.add_row("Signer", key_str)
+    else:
+        table.add_row("Signer", "[yellow]no key found[/]")
+
+    # Store
+    s = checks["store"]
+    if s["receipts"] > 0:
+        table.add_row("Store", f"{s['receipts']} receipts across {s['traces']} traces")
+    else:
+        table.add_row("Store", "[dim]empty[/]")
+
+    # Lockfile
+    lf = checks["lockfile"]
+    if lf["present"]:
+        cards_str = ", ".join(lf.get("cards", []))
+        table.add_row("Lockfile", f"assay.lock ({cards_str})")
+    else:
+        table.add_row("Lockfile", "[dim]none in cwd[/]")
+
+    # Latest pack
+    lp = checks["latest_pack"]
+    if lp:
+        table.add_row("Latest pack", f"{lp['path']}  ({lp['receipts']} receipts, {lp['age']})")
+    else:
+        table.add_row("Latest pack", "[dim]none in cwd[/]")
+
+    # MCP proxy
+    table.add_row("MCP proxy", "ready")
+
+    console.print(Panel(table, title="assay status", border_style="blue"))
+
+    # Overall verdict
+    ok = key["has_key"]
+    if ok:
+        console.print("\n  [green]OPERATIONAL[/]  Ready to produce and verify evidence.\n")
+    else:
+        console.print("\n  [yellow]SETUP NEEDED[/]  Run: assay quickstart\n")
 
 
 @assay_app.command("proof-pack")
