@@ -1,6 +1,6 @@
 # Assay Roadmap
 
-**As of**: v1.5.0 (Feb 2026)
+**As of**: v1.5.3 (Feb 2026)
 **Launch**: Feb 18, 2026
 
 ---
@@ -71,7 +71,7 @@ Use private systems to generate better public artifacts, not public complexity.
 | Docs aligned (quickstart, compliance, decision-escrow, repo map) | Done |
 | MCP Notary Proxy spec (v0) | Done |
 | Bridge de-exported from __init__.py | Done |
-| v1.5.0 on PyPI | Done |
+| v1.5.3 on PyPI | Done |
 | Launch tag (`launch-2026-02-18`) at current main | Done |
 | Post drafts (HN, Reddit, Discord, comment replies) | Done |
 | Issue templates + CONTRIBUTING + Discussions | Done |
@@ -162,7 +162,7 @@ error returned to client, request never reaches server.
 
 | Version | What ships | When |
 |---------|-----------|------|
-| v1.5.0 | Schema registry, diff --why, key lifecycle | Live (PyPI) |
+| v1.5.3 | Schema registry, diff --why, key lifecycle | Live (PyPI) |
 | v1.6.0 | Regime detection + drift | Phase 1 (Mar) |
 | v1.7.0 | MCP Notary Proxy (audit) | Phase 2 (late Mar) |
 | v1.8.0 | MCP Guard profile + policy | Phase 3 (Apr) |
