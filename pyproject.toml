@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "assay-ai"
-version = "1.5.1"
+version = "1.5.2"
 description = "Receipt-native AI safety toolkit"
 authors = [
     { name = "Tim Bhaserjian", email = "tim2208@gmail.com" }
