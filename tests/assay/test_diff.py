@@ -769,3 +769,78 @@ class TestDiffGateCLI:
                                     "--gate-errors", "0", "--gate-strict"])
             assert result.exit_code == 1
             assert "strict mode" in result.output
+
+    def test_report_html_written(self) -> None:
+        """--report writes a self-contained HTML artifact."""
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            _write_pack(Path("a"), [_make_receipt()], {"rc": True})
+            _write_pack(Path("b"), [_make_receipt()], {"rc": True})
+
+            result = runner.invoke(
+                assay_commands.assay_app,
+                ["diff", "a", "b", "--no-verify", "--report", "gate_report.html"],
+            )
+            assert result.exit_code == 0, result.output
+            out = Path("gate_report.html")
+            assert out.exists()
+            html = out.read_text(encoding="utf-8")
+            assert "Assay Diff Gate Report" in html
+            assert "1. Integrity" in html
+            assert "5. Model Churn" in html
+
+    def test_report_json_written(self) -> None:
+        """--report *.json writes structured report JSON."""
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            _write_pack(Path("a"), [_make_receipt()], {"rc": True})
+            _write_pack(Path("b"), [_make_receipt()], {"rc": False}, claim_check="FAIL")
+
+            result = runner.invoke(
+                assay_commands.assay_app,
+                ["diff", "a", "b", "--no-verify", "--report", "gate_report.json"],
+            )
+            assert result.exit_code == 1
+            out = Path("gate_report.json")
+            assert out.exists()
+            payload = json.loads(out.read_text(encoding="utf-8"))
+            assert payload["meta"]["title"] == "Assay Diff Gate Report"
+            assert payload["meta"]["verdict"] == "FAIL"
+            assert payload["claims"]["regression_count"] >= 1
+
+    def test_report_with_json_stdout(self) -> None:
+        """When stdout is JSON, report file is still generated without polluting JSON."""
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            _write_pack(Path("a"), [_make_receipt()], {"rc": True})
+            _write_pack(Path("b"), [_make_receipt()], {"rc": True})
+
+            result = runner.invoke(
+                assay_commands.assay_app,
+                ["diff", "a", "b", "--no-verify", "--json", "--report", "gate_report.html"],
+            )
+            assert result.exit_code == 0, result.output
+            data = json.loads(result.output)
+            assert data["command"] == "diff"
+            assert data["report_path"] == "gate_report.html"
+            assert Path("gate_report.html").exists()
+
+    def test_report_written_when_gate_fails(self) -> None:
+        """Report should still be written when gate threshold is exceeded."""
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            _write_pack(Path("a"), [_make_receipt(input_tokens=100, output_tokens=50)], {"rc": True})
+            _write_pack(Path("b"), [_make_receipt(input_tokens=1000, output_tokens=500)], {"rc": True})
+
+            result = runner.invoke(
+                assay_commands.assay_app,
+                [
+                    "diff", "a", "b", "--no-verify",
+                    "--gate-cost-pct", "10",
+                    "--report", "gate_report.html",
+                ],
+            )
+            assert result.exit_code == 1
+            html = Path("gate_report.html").read_text(encoding="utf-8")
+            assert "FAIL" in html
+            assert "Gates" in html
