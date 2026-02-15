@@ -206,8 +206,9 @@ Zero had evidence emission at any call site.
 - **Try it**: `pip install assay-ai && assay quickstart`
 - **Questions / feedback**: [GitHub Discussions](https://github.com/Haserjian/assay/discussions)
 - **Bug reports**: [Issues](https://github.com/Haserjian/assay/issues)
-- **Pilot integration**: Want help instrumenting your AI stack?
-  [Open a pilot inquiry](https://github.com/Haserjian/assay/issues/new?template=pilot-inquiry.md)
+- **Want this in your stack in 2 weeks?** [Pilot program](docs/PILOT_PROGRAM.md) --
+  we instrument your AI workflows, set up CI gates, and hand you a working
+  evidence pipeline. [Open a pilot inquiry](https://github.com/Haserjian/assay/issues/new?template=pilot-inquiry.md).
 
 ## Related Repos
 
