@@ -1,0 +1,85 @@
+# MCP Conformance Skip Matrix
+#
+# Every skipped test in test_mcp_conformance.py MUST be listed here.
+# Adding a skip without updating this file will fail CI.
+# Removing a skip (implementing a MUST) requires removing the entry here too.
+#
+# Fields:
+#   must_id: Which MUST from MCP_MINIMUM_PROFILE.md
+#   test: Full test function name
+#   reason: Why it's skipped (must match pytest skip reason prefix)
+#   unblock_condition: What needs to happen to un-skip this test
+#   target_version: Earliest version this could ship in (estimate)
+
+expected_skip_count: 11
+
+skips:
+  # --- MUSTs 1-8: Gateway-tier enforcement (not applicable to v0 audit proxy) ---
+
+  - must_id: 1
+    test: TestMCPConformanceMatrix::test_must_1_tool_inventory
+    reason: "v0: audit proxy does not implement MUST 1"
+    unblock_condition: "Implement tool registry + trust classification in mcp_proxy.py or separate gateway module"
+    target_version: "v2.0.0"
+
+  - must_id: 2
+    test: TestMCPConformanceMatrix::test_must_2_authn
+    reason: "v0: audit proxy does not implement MUST 2"
+    unblock_condition: "Add AuthN layer (token validation) to mcp_proxy.py or gateway module"
+    target_version: "v2.0.0"
+
+  - must_id: 3
+    test: TestMCPConformanceMatrix::test_must_3_identity_discovery
+    reason: "v0: audit proxy does not implement MUST 3"
+    unblock_condition: "Add identity-bound tools/list filtering (requires MUST 2 AuthN first)"
+    target_version: "v2.0.0"
+
+  - must_id: 4
+    test: TestMCPConformanceMatrix::test_must_4_runtime_authz
+    reason: "v0: audit proxy does not implement MUST 4"
+    unblock_condition: "Add policy engine for per-invocation AuthZ (requires MUST 2 AuthN first)"
+    target_version: "v2.0.0"
+
+  - must_id: 5
+    test: TestMCPConformanceMatrix::test_must_5_credential_boundary
+    reason: "v0: audit proxy does not implement MUST 5"
+    unblock_condition: "Add credential broker (token exchange / vault retrieval) to gateway"
+    target_version: "v2.0.0"
+
+  - must_id: 6
+    test: TestMCPConformanceMatrix::test_must_6_oauth_proxy
+    reason: "v0: audit proxy does not implement MUST 6"
+    unblock_condition: "Add OAuth proxy with confused deputy protections (only if OAuth proxying is needed)"
+    target_version: "v2.0.0+"
+
+  - must_id: 7
+    test: TestMCPConformanceMatrix::test_must_7_preflight_validation
+    reason: "v0: audit proxy does not implement MUST 7"
+    unblock_condition: "Add preflight validation (schema, size limits, path traversal) to gateway"
+    target_version: "v2.0.0"
+
+  - must_id: 8
+    test: TestMCPConformanceMatrix::test_must_8_execution_sandbox
+    reason: "v0: audit proxy does not implement MUST 8"
+    unblock_condition: "Add sandbox executor with filesystem + network isolation (OS-level enforcement)"
+    target_version: "v2.0.0+"
+
+  # --- MUST 9: Incident mode (partially implemented -- receipts yes, incidents no) ---
+
+  - must_id: 9
+    test: TestMust9IncidentMode::test_incident_kill_switch
+    reason: "v0: audit proxy does not implement incident mode"
+    unblock_condition: "Add kill switch capability (deny specific tools on signal)"
+    target_version: "v1.7.0"
+
+  - must_id: 9
+    test: TestMust9IncidentMode::test_incident_key_revocation
+    reason: "v0: audit proxy does not implement incident mode"
+    unblock_condition: "Add key/token revocation on incident activation"
+    target_version: "v1.7.0"
+
+  - must_id: 9
+    test: TestMust9IncidentMode::test_incident_receipts_flag
+    reason: "v0: audit proxy does not implement incident mode"
+    unblock_condition: "Add incident_mode flag to receipts when incident controller is active"
+    target_version: "v1.7.0"

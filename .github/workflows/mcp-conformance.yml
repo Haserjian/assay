@@ -1,0 +1,232 @@
+name: MCP Conformance
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/assay/mcp_proxy.py'
+      - 'tests/assay/test_mcp_conformance.py'
+      - 'tests/assay/mcp_skip_matrix.yaml'
+      - '.github/workflows/mcp-conformance.yml'
+  pull_request:
+    paths:
+      - 'src/assay/mcp_proxy.py'
+      - 'tests/assay/test_mcp_conformance.py'
+      - 'tests/assay/mcp_skip_matrix.yaml'
+      - '.github/workflows/mcp-conformance.yml'
+  schedule:
+    - cron: '0 9 * * 1'  # Weekly Monday 9am UTC
+  workflow_dispatch:
+
+# Pinned protocol version for blocking conformance.
+# Update this when assay-protocol cuts a new release.
+env:
+  PROTOCOL_REF: v1.0.0-rc1  # tag in Haserjian/assay-protocol
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Tier 1: Reference gateway conformance (pinned protocol version, BLOCKING)
+  # ---------------------------------------------------------------------------
+  reference-conformance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Assay
+        uses: actions/checkout@v4
+
+      - name: Checkout assay-protocol (pinned)
+        uses: actions/checkout@v4
+        with:
+          repository: Haserjian/assay-protocol
+          ref: ${{ env.PROTOCOL_REF }}
+          path: assay-protocol
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install reference gateway
+        run: |
+          pip install pytest
+          pip install -e assay-protocol/reference/python_gateway
+
+      - name: Run spec conformance tests
+        run: pytest assay-protocol/reference/python_gateway/tests/test_conformance.py -v --junit-xml=reference-conformance-results.xml
+
+      - name: Generate reference conformance report
+        if: always()
+        run: |
+          python -c "
+          import json, xml.etree.ElementTree as ET, datetime
+          tree = ET.parse('reference-conformance-results.xml')
+          suite = tree.getroot().find('testsuite')
+          report = {
+              'report_version': '1.0',
+              'generated_at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              'tier': 'reference',
+              'protocol_ref': '${{ env.PROTOCOL_REF }}',
+              'tests': int(suite.get('tests', 0)),
+              'passed': int(suite.get('tests', 0)) - int(suite.get('failures', 0)) - int(suite.get('errors', 0)) - int(suite.get('skipped', 0)),
+              'failures': int(suite.get('failures', 0)),
+              'errors': int(suite.get('errors', 0)),
+              'skipped': int(suite.get('skipped', 0)),
+              'time': float(suite.get('time', 0)),
+          }
+          with open('reference-conformance-report.json', 'w') as f:
+              json.dump(report, f, indent=2)
+          print(json.dumps(report, indent=2))
+          "
+
+      - name: Upload reference conformance artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reference-conformance-report
+          path: reference-conformance-report.json
+
+  # ---------------------------------------------------------------------------
+  # Tier 1 canary: Latest protocol (non-blocking, catches upstream drift)
+  # ---------------------------------------------------------------------------
+  reference-canary:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    continue-on-error: true
+    steps:
+      - name: Checkout Assay
+        uses: actions/checkout@v4
+
+      - name: Checkout assay-protocol (latest main)
+        uses: actions/checkout@v4
+        with:
+          repository: Haserjian/assay-protocol
+          path: assay-protocol
+          # No ref: defaults to latest main
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install reference gateway
+        run: |
+          pip install pytest
+          pip install -e assay-protocol/reference/python_gateway
+
+      - name: Get protocol HEAD SHA
+        id: proto-sha
+        run: echo "sha=$(git -C assay-protocol rev-parse HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Run spec conformance tests (canary)
+        run: pytest assay-protocol/reference/python_gateway/tests/test_conformance.py -v --junit-xml=canary-results.xml
+
+      - name: Generate canary report
+        if: always()
+        run: |
+          python -c "
+          import json, xml.etree.ElementTree as ET, datetime
+          tree = ET.parse('canary-results.xml')
+          suite = tree.getroot().find('testsuite')
+          report = {
+              'report_version': '1.0',
+              'generated_at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              'tier': 'reference-canary',
+              'protocol_ref': 'main',
+              'protocol_sha': '${{ steps.proto-sha.outputs.sha }}',
+              'pinned_ref': '${{ env.PROTOCOL_REF }}',
+              'tests': int(suite.get('tests', 0)),
+              'passed': int(suite.get('tests', 0)) - int(suite.get('failures', 0)) - int(suite.get('errors', 0)) - int(suite.get('skipped', 0)),
+              'failures': int(suite.get('failures', 0)),
+              'errors': int(suite.get('errors', 0)),
+              'skipped': int(suite.get('skipped', 0)),
+              'time': float(suite.get('time', 0)),
+              'is_canary': True,
+          }
+          with open('canary-conformance-report.json', 'w') as f:
+              json.dump(report, f, indent=2)
+          print(json.dumps(report, indent=2))
+          "
+
+      - name: Upload canary artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: canary-conformance-report
+          path: canary-conformance-report.json
+
+  # ---------------------------------------------------------------------------
+  # Tier 2: Proxy conformance (BLOCKING)
+  # ---------------------------------------------------------------------------
+  proxy-conformance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Assay
+        run: pip install -e ".[dev]"
+
+      - name: Run proxy conformance tests
+        run: pytest tests/assay/test_mcp_conformance.py -v --junit-xml=proxy-conformance-results.xml
+
+      - name: Generate proxy conformance report
+        if: always()
+        run: |
+          python -c "
+          import json, xml.etree.ElementTree as ET, datetime, yaml
+
+          tree = ET.parse('proxy-conformance-results.xml')
+          suite = tree.getroot().find('testsuite')
+
+          # Load skip matrix
+          with open('tests/assay/mcp_skip_matrix.yaml') as f:
+              matrix = yaml.safe_load(f)
+
+          tests_total = int(suite.get('tests', 0))
+          failures = int(suite.get('failures', 0))
+          errors = int(suite.get('errors', 0))
+          skipped = int(suite.get('skipped', 0))
+          passed = tests_total - failures - errors - skipped
+
+          report = {
+              'report_version': '1.0',
+              'generated_at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              'tier': 'proxy',
+              'protocol_ref': '${{ env.PROTOCOL_REF }}',
+              'tests': tests_total,
+              'passed': passed,
+              'failures': failures,
+              'errors': errors,
+              'skipped': skipped,
+              'expected_skips': matrix['expected_skip_count'],
+              'skip_matrix': matrix['skips'],
+              'unexpected_skips': skipped != matrix['expected_skip_count'],
+              'time': float(suite.get('time', 0)),
+          }
+          with open('proxy-conformance-report.json', 'w') as f:
+              json.dump(report, f, indent=2)
+          print(json.dumps(report, indent=2))
+          "
+
+      - name: Guard: unexpected skip count
+        run: |
+          python -c "
+          import json
+          with open('proxy-conformance-report.json') as f:
+              report = json.load(f)
+          expected = report['expected_skips']
+          actual = report['skipped']
+          if actual != expected:
+              raise SystemExit(
+                  f'FAIL: unexpected skip count. Expected {expected}, got {actual}. '
+                  f'Update tests/assay/mcp_skip_matrix.yaml if intentional.'
+              )
+          print(f'Skip guard passed: {actual} skips (expected {expected})')
+          "
+
+      - name: Upload proxy conformance artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: proxy-conformance-report
+          path: proxy-conformance-report.json

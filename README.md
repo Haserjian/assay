@@ -179,7 +179,7 @@ assay scan / assay patch  # instrument
 assay run                 # produce evidence
 assay verify-pack         # verify evidence
 assay diff                # catch regressions
-assay mcp-proxy           # audit MCP tool calls
+assay score               # evidence readiness (0-100, A-F)
 ```
 
 Full command reference:
@@ -198,6 +198,7 @@ Full command reference:
 | `assay explain` | Plain-English summary of an evidence pack |
 | `assay analyze` | Cost, latency, error breakdown from pack or `--history` |
 | `assay diff` | Compare packs: claims, cost, latency (`--against-previous`, `--why`, `--gate-*`) |
+| `assay score` | Evidence Readiness Score (0-100, A-F) with anti-gaming caps |
 | `assay doctor` | Preflight check: is Assay ready here? |
 | `assay mcp-proxy` | Transparent MCP proxy: intercept tool calls, emit receipts |
 | `assay mcp policy init` | Generate a starter MCP policy YAML file |

@@ -457,6 +457,7 @@ class MCPProxy:
             # Correlation
             "invocation_id": f"inv_{uuid.uuid4().hex[:16]}",
             "session_id": self.session_id,
+            "trace_id": self.trace_id,
             "parent_receipt_id": None,
 
             # MCP context

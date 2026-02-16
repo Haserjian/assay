@@ -25,6 +25,7 @@ Commands:
   assay key set-active - Set active signer key
   assay mcp-proxy     - MCP Notary Proxy (receipt every tool call)
   assay status        - One-screen operational dashboard
+  assay score         - Evidence Readiness Score for this repository
   assay start demo    - See Assay in action (quickstart flow)
   assay start ci      - Set up CI evidence gating
   assay start mcp     - Set up MCP tool call auditing
@@ -1748,6 +1749,117 @@ def status_cmd(
         console.print("\n  [yellow]SETUP NEEDED[/]  Run: assay quickstart\n")
 
 
+@assay_app.command("score")
+def score_cmd(
+    path: str = typer.Argument(".", help="Repository directory to score"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Compute an Evidence Readiness Score (0-100, A-F) for a repository.
+
+    This is a readiness signal, not a security guarantee.
+    """
+    from pathlib import Path as P
+
+    from assay.score import compute_evidence_readiness_score, gather_score_facts
+
+    root = P(path).resolve()
+    if not root.exists() or not root.is_dir():
+        if output_json:
+            _output_json(
+                {
+                    "command": "score",
+                    "status": "error",
+                    "error": f"Directory not found: {path}",
+                },
+                exit_code=3,
+            )
+        console.print(f"[red]Error:[/] Directory not found: {path}")
+        raise typer.Exit(3)
+
+    try:
+        facts = gather_score_facts(root)
+        score = compute_evidence_readiness_score(facts)
+    except Exception as e:
+        if output_json:
+            _output_json(
+                {
+                    "command": "score",
+                    "status": "error",
+                    "error": str(e),
+                },
+                exit_code=2,
+            )
+        console.print(f"[red]Score error:[/] {e}")
+        raise typer.Exit(2)
+
+    if output_json:
+        _output_json(
+            {
+                "command": "score",
+                "status": "ok",
+                "repo_path": str(root),
+                **score,
+                "facts": {
+                    "scan": facts["scan"],
+                    "lockfile": facts["lockfile"],
+                    "ci": facts["ci"],
+                    "receipts": facts["receipts"],
+                    "keys": facts["keys"],
+                },
+            }
+        )
+        return
+
+    console.print()
+    grade_style = {
+        "A": "green",
+        "B": "green",
+        "C": "yellow",
+        "D": "yellow",
+        "F": "red",
+    }.get(score["grade"], "white")
+
+    header = (
+        f"[bold]Evidence Readiness Score[/]\n\n"
+        f"Repo:    {root}\n"
+        f"Score:   [bold]{score['score']:.1f}[/] / 100\n"
+        f"Grade:   [{grade_style}][bold]{score['grade']}[/]\n"
+        f"Version: {score['score_version']}"
+    )
+    console.print(Panel.fit(header, title="assay score", border_style="blue"))
+
+    table = Table(show_header=True, header_style="bold", box=None)
+    table.add_column("Component")
+    table.add_column("Points", justify="right")
+    table.add_column("Weight", justify="right")
+    table.add_column("Status")
+    table.add_column("Note")
+    for key in ("coverage", "lockfile", "ci_gate", "receipts", "key_setup"):
+        comp = score["breakdown"][key]
+        table.add_row(
+            key,
+            f"{comp['points']:.1f}",
+            str(comp["weight"]),
+            comp["status"],
+            comp["note"],
+        )
+    console.print(table)
+
+    if score["caps_applied"]:
+        caps_lines = []
+        for cap in score["caps_applied"]:
+            caps_lines.append(
+                f"- {cap['id']}: {cap['reason']} ({cap['before']['grade']} -> {cap['after']['grade']})"
+            )
+        console.print(Panel("\n".join(caps_lines), title="Caps Applied", border_style="yellow"))
+
+    console.print("\n[bold]Next actions:[/]")
+    for idx, action in enumerate(score["next_actions"], 1):
+        console.print(f"  {idx}. {action}")
+
+    console.print(f"\n[dim]{score['disclaimer']}[/]\n")
+
+
 # ---------------------------------------------------------------------------
 # assay start -- guided entrypoints
 # ---------------------------------------------------------------------------
@@ -2497,6 +2609,8 @@ def run_cmd(
     The command's receipts are captured and packaged into a signed Proof Pack.
     """
     import subprocess
+    import sys
+    import shutil
     from pathlib import Path
 
     from assay.claim_verifier import ClaimSpec
@@ -2572,10 +2686,45 @@ def run_cmd(
     # Run the command with ASSAY_TRACE_ID in environment
     import os
     env = {**os.environ, "ASSAY_TRACE_ID": trace_id}
-    console.print(f"[dim]assay run: trace={trace_id}[/]")
-    console.print(f"[dim]assay run: executing: {' '.join(cmd_args)}[/]")
+    exec_args = list(cmd_args)
+    if exec_args and exec_args[0] == "python" and not shutil.which("python"):
+        exec_args[0] = sys.executable
+        console.print(
+            "[dim]assay run: 'python' not found on PATH; "
+            f"using current interpreter ({sys.executable})[/]"
+        )
 
-    proc = subprocess.run(cmd_args, capture_output=False, env=env)
+    console.print(f"[dim]assay run: trace={trace_id}[/]")
+    console.print(f"[dim]assay run: executing: {' '.join(exec_args)}[/]")
+
+    try:
+        proc = subprocess.run(exec_args, capture_output=False, env=env)
+    except FileNotFoundError:
+        missing = exec_args[0] if exec_args else "<unknown>"
+        if output_json:
+            _output_json(
+                {
+                    "command": "run",
+                    "status": "error",
+                    "error": "command_not_found",
+                    "missing_command": missing,
+                    "fixes": [
+                        "Use a full command path, e.g. /usr/bin/python3",
+                        "Ensure the command is on PATH",
+                        "assay doctor",
+                    ],
+                },
+                exit_code=1,
+            )
+        console.print(
+            f"[red]Error:[/] Command not found: [bold]{missing}[/]\n"
+            "\n"
+            "[bold]Fix:[/]\n"
+            "  1. Use a full command path (e.g. [bold]/usr/bin/python3[/])\n"
+            "  2. Ensure the command is available on PATH\n"
+            "  3. Run [bold]assay doctor[/] to validate your environment"
+        )
+        raise typer.Exit(1)
     exit_code = proc.returncode
 
     console.print(f"[dim]assay run: command exited with code {exit_code}[/]")

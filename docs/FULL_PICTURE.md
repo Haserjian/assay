@@ -100,28 +100,62 @@ Developers already understand this mental model.
 
 ## Trust tiers
 
-| Tier | What | Status |
-|------|------|--------|
-| T0 | Self-signed (single machine, single key) | Shipped (v1.0+) |
-| T1 | Time-anchored (RFC 3161 external timestamps) | Spec written |
-| T2 | Independent witness ([assay-ledger](https://github.com/Haserjian/assay-ledger), Sigstore/Rekor) | Ledger shipped, Sigstore planned |
-| T3 | Runtime attestation (hardware-backed) | Future |
+| Tier | What | Verifier trust basis | Status |
+|------|------|---------------------|--------|
+| T0 | Self-signed (single machine, single key) | Out-of-band fingerprint comparison | Shipped (v1.0+) |
+| T1 | Repo-committed key (branch-protected) | Git commit authorship + branch protection | Convention ([spec](spec-key-distribution.md)) |
+| T2 | Independent witness ([assay-ledger](https://github.com/Haserjian/assay-ledger), Sigstore/Rekor) | Transparency log lookup | Ledger shipped, Sigstore planned |
+| T3 | Runtime attestation (hardware-backed) | Hardware enclave attestation | Future |
 
 T0 proves internal consistency. Each tier adds an independent constraint
 that makes fabrication progressively harder.
 
 ### Signer identity and key distribution
 
-The evidence pack manifest includes the signer's public key fingerprint.
-For third-party verification:
+The evidence pack manifest includes the signer's public key (`signer_pubkey`,
+base64), its SHA-256 fingerprint (`signer_pubkey_sha256`), and the Ed25519
+signature over the JCS-canonicalized manifest.
 
-- **T0 (self-signed):** The verifier gets the public key out of band (e.g.,
-  committed to the repo, shared via secure channel). Verification proves
-  "this pack was signed by the holder of this key."
-- **T1+ (anchored):** Key identity is bound to an organization or workflow
-  via a transparency log or certificate chain.
+**Manifest `signer_identity` convention** (optional, recommended for T1+):
+
+```json
+{
+  "signer_identity": {
+    "org": "acme-corp",
+    "environment": "ci-prod",
+    "key_provenance": "github-actions",
+    "trust_tier": "T1",
+    "pubkey_committed_at": "https://github.com/acme-corp/app/blob/main/.assay/keys/ci-prod.pub"
+  }
+}
+```
+
+This block is inside the signed manifest (cannot be edited post-signing)
+but is self-declared. External verification (repo lookup, ledger check)
+is what makes it trustworthy.
+
+**Verifier key acquisition by tier:**
+
+- **T0:** Compare `signer_pubkey_sha256` to a fingerprint received out-of-band.
+  Proves: "signed by the holder of this key."
+- **T1:** Compare `signer_pubkey_sha256` to `SHA256(.assay/keys/{signer_id}.pub)`
+  in a branch-protected repo. Proves: "signed by a key committed by [author] on [date]."
+- **T2:** Look up the fingerprint in assay-ledger or Rekor. Proves: "signed by
+  [OIDC identity] at [ledger-attested time]."
+
+**Key lifecycle:**
+
+- **Rotation:** `assay key rotate --lock assay.lock` generates a new key,
+  sets it active, and adds both old and new fingerprints to the lockfile
+  allowlist. Old keys remain valid for old packs.
+- **Revocation (current):** Remove compromised fingerprint from lockfile
+  allowlist. Rotate immediately. Re-sign exposed packs.
+- **Revocation (future):** Signed revocation entry in assay-ledger with
+  time-scoping ("do not trust packs signed after date X").
 
 Current key commands: `assay key list`, `assay key rotate`, `assay key set-active`.
+
+For the full specification, see [spec-key-distribution.md](spec-key-distribution.md).
 
 ## Completeness contract
 
