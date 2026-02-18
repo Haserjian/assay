@@ -215,13 +215,59 @@ src/assay/
   analyze.py         Cost/latency/error analytics
   doctor.py          15 preflight checks across 4 profiles
   mcp_proxy.py       Transparent stdio proxy, dual-format reader (NDJSON + Content-Length)
-  commands.py        CLI (Typer-based, 30 commands)
-  integrations/      OpenAI, Anthropic, LangChain monkey-patching
+  commands.py        CLI (Typer-based, 24 top-level commands)
+  integrations/      OpenAI, Anthropic, LangChain (see "Provider coverage" below)
   _receipts/         Vendored: JCS canonicalization, Merkle tree, domain separation
   reporting/
     evidence_gap.py  Self-contained HTML gap report from scan
     diff_gate.py     HTML/JSON diff report for CI artifacts
 ```
+
+## Provider coverage
+
+Assay has three integration files. The OpenAI integration uses monkey-patching
+on `openai.resources.chat.completions.Completions.create`, which is the same
+class used by `OpenAI(base_url=...)` and `AzureOpenAI(...)`. This means one
+patch covers all OpenAI-compatible providers.
+
+### Direct integrations
+
+| Integration | Mechanism | Patch target |
+|------------|-----------|-------------|
+| OpenAI | Monkey-patch | `Completions.create` + async |
+| Anthropic | Monkey-patch | `Messages.create` + async |
+| LangChain | Callback handler | `on_llm_start` / `on_llm_end` |
+
+### Covered via OpenAI SDK (`base_url` swap)
+
+These providers use the OpenAI-compatible API. When users point the OpenAI
+SDK at them, Assay intercepts the call and captures the model name.
+
+| Provider | Typical `base_url` |
+|----------|--------------------|
+| Azure OpenAI | `AzureOpenAI(azure_endpoint=...)` (same SDK) |
+| DeepSeek | `https://api.deepseek.com` |
+| Groq | `https://api.groq.com/openai/v1` |
+| Together AI | `https://api.together.xyz/v1` |
+| Fireworks AI | `https://api.fireworks.ai/inference/v1` |
+| Mistral AI | `https://api.mistral.ai/v1` |
+| xAI (Grok) | `https://api.x.ai/v1` |
+| Ollama | `http://localhost:11434/v1` |
+| LiteLLM proxy | `http://localhost:4000/v1` |
+
+The receipt `provider` field remains `"openai"` because the SDK is OpenAI;
+the `model_id` field reflects the actual model string passed by the caller.
+
+This coverage is CI-locked: see `TestOpenAICompatibleProviders` in
+`tests/assay/test_integrations.py`.
+
+### Not yet covered (planned)
+
+| Provider | Why separate | Status |
+|----------|-------------|--------|
+| Google Gemini (`google-genai`) | Different API (`generate_content`) | Planned |
+| LiteLLM native (`litellm.completion()`) | Not routed through OpenAI SDK | Planned |
+| Cohere (`cohere`) | Different API (`co.chat()`) | Future |
 
 ## Release history
 
@@ -240,4 +286,4 @@ src/assay/
 | 1.5.2 | Activation Engine: status, start ci/mcp, mcp policy init, template generators, QA harness |
 | 1.5.3 | Bug fixes: model field compatibility, scan guidance, CLI tagline alignment |
 
-940 tests. 30 commands. 3 public repos. Apache-2.0.
+970+ tests. 24 top-level commands. 3 public repos. Apache-2.0.

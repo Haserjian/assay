@@ -202,7 +202,7 @@ def _detect_frameworks(findings: List[CallSite]) -> Set[str]:
             frameworks.add(f.framework)
             continue
         call_lower = f.call.lower()
-        if "openai" in call_lower or "chat.completions" in call_lower:
+        if "openai" in call_lower or "chat.completions" in call_lower or "responses.create" in call_lower:
             frameworks.add("openai")
         elif "anthropic" in call_lower or "messages.create" in call_lower:
             frameworks.add("anthropic")
@@ -235,9 +235,11 @@ def _recommended_patch_line(findings: List[CallSite]) -> Optional[str]:
 
 # High confidence: direct SDK calls
 _HIGH_PATTERNS = [
-    # OpenAI
+    # OpenAI Chat Completions
     ("chat.completions.create", "openai"),
     ("completions.create", "openai"),
+    # OpenAI Responses API
+    ("responses.create", "openai"),
     # Anthropic
     ("messages.create", "anthropic"),
     # Azure OpenAI
@@ -400,7 +402,7 @@ def _suggest_fix(call: str) -> str:
     # LangChain wrappers first (ChatOpenAI contains "openai", ChatAnthropic contains "anthropic")
     if "langchain" in call_lower or call_lower.startswith("chatopen") or call_lower.startswith("chatanthropic"):
         return "from assay.integrations.langchain import AssayCallbackHandler  # pass callbacks=[AssayCallbackHandler()]"
-    if "openai" in call_lower or "chat.completions" in call_lower or "completions.create" in call_lower:
+    if "openai" in call_lower or "chat.completions" in call_lower or "completions.create" in call_lower or "responses.create" in call_lower:
         return "from assay.integrations.openai import patch; patch()"
     if "anthropic" in call_lower or "messages.create" in call_lower:
         return "from assay.integrations.anthropic import patch; patch()"

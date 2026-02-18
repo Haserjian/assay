@@ -25,6 +25,7 @@ _PRICING: Dict[str, Dict[str, float]] = {
     "gpt-3.5-turbo": {"input": 0.50, "output": 1.50},
     "o1": {"input": 15.0, "output": 60.0},
     "o1-mini": {"input": 3.0, "output": 12.0},
+    "o3-mini": {"input": 1.10, "output": 4.40},
     # Anthropic
     "claude-opus-4": {"input": 15.0, "output": 75.0},
     "claude-sonnet-4": {"input": 3.0, "output": 15.0},
@@ -33,6 +34,26 @@ _PRICING: Dict[str, Dict[str, float]] = {
     "claude-3-haiku": {"input": 0.25, "output": 1.25},
     "claude-3-5-sonnet": {"input": 3.0, "output": 15.0},
     "claude-3-5-haiku": {"input": 0.80, "output": 4.0},
+    # DeepSeek (via OpenAI SDK with base_url)
+    "deepseek-chat": {"input": 0.28, "output": 0.42},
+    "deepseek-reasoner": {"input": 0.28, "output": 0.42},
+    # Google Gemini
+    "gemini-2.0-flash": {"input": 0.10, "output": 0.40},
+    "gemini-1.5-pro": {"input": 1.25, "output": 10.0},
+    "gemini-1.5-flash": {"input": 0.30, "output": 2.50},
+    # Mistral (via OpenAI SDK with base_url or native SDK)
+    "mistral-large-latest": {"input": 0.50, "output": 1.50},
+    "mistral-small-latest": {"input": 0.10, "output": 0.30},
+    # Groq-hosted models (via OpenAI SDK with base_url)
+    "llama-3.1-70b-versatile": {"input": 0.59, "output": 0.79},
+    "llama-3.1-8b-instant": {"input": 0.05, "output": 0.08},
+    "llama-3.3-70b-versatile": {"input": 0.59, "output": 0.79},
+    # Together AI (via OpenAI SDK with base_url)
+    "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo": {"input": 3.50, "output": 3.50},
+    "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo": {"input": 0.88, "output": 0.88},
+    # Cohere
+    "command-r-plus": {"input": 2.50, "output": 10.0},
+    "command-r": {"input": 0.50, "output": 1.50},
 }
 
 _DEFAULT_PRICING = {"input": 10.0, "output": 30.0}

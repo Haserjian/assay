@@ -1244,3 +1244,363 @@ class TestStorePromptsResponses:
             assert verify.passed
 
         _patch_config.clear()
+
+
+class TestOpenAIResponsesAPI:
+    """Tests for OpenAI Responses API (client.responses.create) integration."""
+
+    @staticmethod
+    def _make_responses_response(text="Hello!", model="gpt-4o", status="completed"):
+        """Build a mock openai.types.responses.Response."""
+        mock_response = MagicMock()
+        mock_response.model = model
+        mock_response.status = status
+        mock_response.error = None
+
+        # Usage
+        mock_response.usage.input_tokens = 12
+        mock_response.usage.output_tokens = 8
+
+        # Output: list with one message containing one text part
+        output_text = MagicMock()
+        output_text.type = "output_text"
+        output_text.text = text
+
+        output_msg = MagicMock()
+        output_msg.type = "message"
+        output_msg.content = [output_text]
+
+        mock_response.output = [output_msg]
+        return mock_response
+
+    def test_create_responses_receipt_basic(self):
+        """Receipt from Responses API has canonical fields and api='responses'."""
+        from assay.integrations.openai import _create_responses_receipt
+        from assay.store import AssayStore
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = AssayStore(base_dir=Path(tmpdir))
+            store.start_trace()
+
+            with mock_patch("assay.store.get_default_store", return_value=store), \
+                 mock_patch.object(store_mod, "_seq_counter", 0):
+                mock_resp = self._make_responses_response()
+                receipt = _create_responses_receipt(
+                    model="gpt-4o",
+                    input_data="What is 2+2?",
+                    response=mock_resp,
+                    latency_ms=150,
+                )
+
+                assert receipt["type"] == "model_call"
+                assert receipt["provider"] == "openai"
+                assert receipt["model_id"] == "gpt-4o"
+                assert receipt["api"] == "responses"
+                assert receipt["input_tokens"] == 12
+                assert receipt["output_tokens"] == 8
+                assert receipt["total_tokens"] == 20
+                assert receipt["finish_reason"] == "stop"
+                assert receipt["latency_ms"] == 150
+                assert receipt["error"] is None
+                assert receipt["message_count"] == 1  # string input = 1
+                assert len(receipt["input_hash"]) == 16
+                assert len(receipt["output_hash"]) == 16
+                assert "timestamp" in receipt
+                assert "seq" in receipt
+
+    def test_create_responses_receipt_list_input(self):
+        """List-style input hashes and counts correctly."""
+        from assay.integrations.openai import _create_responses_receipt
+        from assay.store import AssayStore
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = AssayStore(base_dir=Path(tmpdir))
+            store.start_trace()
+
+            with mock_patch("assay.store.get_default_store", return_value=store), \
+                 mock_patch.object(store_mod, "_seq_counter", 0):
+                mock_resp = self._make_responses_response()
+                input_items = [
+                    {"role": "user", "content": "Hello"},
+                    {"role": "assistant", "content": "Hi!"},
+                    {"role": "user", "content": "What is 2+2?"},
+                ]
+                receipt = _create_responses_receipt(
+                    model="gpt-4o",
+                    input_data=input_items,
+                    response=mock_resp,
+                    latency_ms=100,
+                )
+
+                assert receipt["message_count"] == 3
+                assert len(receipt["input_hash"]) == 16
+
+    def test_create_responses_receipt_error(self):
+        """Error receipt from Responses API."""
+        from assay.integrations.openai import _create_responses_receipt
+        from assay.store import AssayStore
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = AssayStore(base_dir=Path(tmpdir))
+            store.start_trace()
+
+            with mock_patch("assay.store.get_default_store", return_value=store), \
+                 mock_patch.object(store_mod, "_seq_counter", 0):
+                receipt = _create_responses_receipt(
+                    model="gpt-4o",
+                    input_data="test",
+                    response=None,
+                    latency_ms=50,
+                    error="Rate limit exceeded",
+                )
+
+                assert receipt["error"] == "Rate limit exceeded"
+                assert receipt["finish_reason"] == "error"
+                assert receipt["input_tokens"] == 0
+                assert receipt["api"] == "responses"
+
+    def test_create_responses_receipt_failed_status(self):
+        """Response with status='failed' maps to finish_reason='failed'."""
+        from assay.integrations.openai import _create_responses_receipt
+        from assay.store import AssayStore
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = AssayStore(base_dir=Path(tmpdir))
+            store.start_trace()
+
+            with mock_patch("assay.store.get_default_store", return_value=store), \
+                 mock_patch.object(store_mod, "_seq_counter", 0):
+                mock_resp = self._make_responses_response(status="failed")
+                receipt = _create_responses_receipt(
+                    model="gpt-4o",
+                    input_data="test",
+                    response=mock_resp,
+                    latency_ms=50,
+                )
+
+                assert receipt["finish_reason"] == "failed"
+
+    def test_create_responses_receipt_incomplete_status(self):
+        """Response with status='incomplete' maps to finish_reason='length'."""
+        from assay.integrations.openai import _create_responses_receipt
+        from assay.store import AssayStore
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = AssayStore(base_dir=Path(tmpdir))
+            store.start_trace()
+
+            with mock_patch("assay.store.get_default_store", return_value=store), \
+                 mock_patch.object(store_mod, "_seq_counter", 0):
+                mock_resp = self._make_responses_response(status="incomplete")
+                receipt = _create_responses_receipt(
+                    model="gpt-4o",
+                    input_data="test",
+                    response=mock_resp,
+                    latency_ms=50,
+                )
+
+                assert receipt["finish_reason"] == "length"
+
+    def test_responses_patch_target_exists(self):
+        """Responses.create exists as a patch target in the SDK."""
+        from openai.resources.responses import Responses, AsyncResponses
+
+        assert hasattr(Responses, "create")
+        assert hasattr(AsyncResponses, "create")
+
+    def test_responses_receipt_in_pack(self):
+        """Responses API receipt builds into a valid evidence pack."""
+        from assay.integrations.openai import _create_responses_receipt, _patch_config
+        from assay.keystore import AssayKeyStore
+        from assay.proof_pack import ProofPack
+        from assay.integrity import verify_pack_manifest
+        from assay.store import AssayStore
+
+        _patch_config["store_prompts"] = False
+        _patch_config["store_responses"] = False
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            store = AssayStore(base_dir=base / "store")
+            trace_id = store.start_trace()
+
+            with mock_patch("assay.store.get_default_store", return_value=store), \
+                 mock_patch.object(store_mod, "_seq_counter", 0):
+                # Emit two receipts: one Chat Completions, one Responses API
+                from assay.integrations.openai import _create_model_call_receipt
+
+                mock_chat = MagicMock()
+                mock_chat.usage.prompt_tokens = 10
+                mock_chat.usage.completion_tokens = 20
+                mock_chat.choices = [MagicMock()]
+                mock_chat.choices[0].finish_reason = "stop"
+                mock_chat.choices[0].message.content = "Chat reply"
+                _create_model_call_receipt(
+                    model="gpt-4o",
+                    messages=[{"role": "user", "content": "Hi"}],
+                    response=mock_chat,
+                    latency_ms=100,
+                )
+
+                mock_resp = self._make_responses_response()
+                _create_responses_receipt(
+                    model="gpt-4o",
+                    input_data="Hello via Responses API",
+                    response=mock_resp,
+                    latency_ms=80,
+                )
+
+            entries = store.read_trace(trace_id)
+            assert len(entries) == 2
+            assert entries[0].get("api") is None  # Chat Completions has no api field
+            assert entries[1]["api"] == "responses"
+
+            ks = AssayKeyStore(keys_dir=base / "keys")
+            ks.generate_key("test-signer")
+
+            out_dir = base / "pack"
+            pack = ProofPack(
+                run_id=trace_id,
+                entries=entries,
+                signer_id="test-signer",
+            )
+            pack.build(out_dir, keystore=ks)
+
+            manifest = json.loads((out_dir / "pack_manifest.json").read_text())
+            assert manifest["receipt_count_expected"] == 2
+            verify = verify_pack_manifest(manifest, out_dir, ks)
+            assert verify.passed
+
+        _patch_config.clear()
+
+    def test_extract_responses_input_hash_string(self):
+        """String input produces consistent hash."""
+        from assay.integrations.openai import _extract_responses_input_hash
+
+        h1 = _extract_responses_input_hash("Hello world")
+        h2 = _extract_responses_input_hash("Hello world")
+        h3 = _extract_responses_input_hash("Different input")
+
+        assert h1 == h2
+        assert h1 != h3
+        assert len(h1) == 16
+
+    def test_extract_responses_input_hash_list(self):
+        """List input produces consistent hash."""
+        from assay.integrations.openai import _extract_responses_input_hash
+
+        items = [{"role": "user", "content": "Hello"}]
+        h1 = _extract_responses_input_hash(items)
+        h2 = _extract_responses_input_hash(items)
+        assert h1 == h2
+        assert len(h1) == 16
+
+    def test_extract_responses_output_text(self):
+        """Output text extraction from Response."""
+        from assay.integrations.openai import _extract_responses_output_text
+
+        mock_resp = self._make_responses_response(text="Four")
+        assert _extract_responses_output_text(mock_resp) == "Four"
+
+    def test_extract_responses_output_text_none(self):
+        """Output text extraction returns None for None response."""
+        from assay.integrations.openai import _extract_responses_output_text
+        assert _extract_responses_output_text(None) is None
+
+
+class TestEndpointHint:
+    """Tests for endpoint_hint field in receipts (non-default base_url)."""
+
+    def test_extract_endpoint_hint_default_openai(self):
+        """Default api.openai.com returns None (no hint needed)."""
+        from assay.integrations.openai import _extract_endpoint_hint
+
+        instance = MagicMock()
+        instance._client.base_url = "https://api.openai.com/v1/"
+        assert _extract_endpoint_hint(instance) is None
+
+    def test_extract_endpoint_hint_deepseek(self):
+        """DeepSeek base_url returns api.deepseek.com."""
+        from assay.integrations.openai import _extract_endpoint_hint
+
+        instance = MagicMock()
+        instance._client.base_url = "https://api.deepseek.com/v1/"
+        assert _extract_endpoint_hint(instance) == "api.deepseek.com"
+
+    def test_extract_endpoint_hint_groq(self):
+        """Groq base_url returns api.groq.com."""
+        from assay.integrations.openai import _extract_endpoint_hint
+
+        instance = MagicMock()
+        instance._client.base_url = "https://api.groq.com/openai/v1/"
+        assert _extract_endpoint_hint(instance) == "api.groq.com"
+
+    def test_extract_endpoint_hint_ollama(self):
+        """Ollama localhost returns localhost."""
+        from assay.integrations.openai import _extract_endpoint_hint
+
+        instance = MagicMock()
+        instance._client.base_url = "http://localhost:11434/v1/"
+        assert _extract_endpoint_hint(instance) == "localhost"
+
+    def test_extract_endpoint_hint_no_client(self):
+        """No _client attribute returns None gracefully."""
+        from assay.integrations.openai import _extract_endpoint_hint
+
+        instance = MagicMock(spec=[])  # No attributes
+        assert _extract_endpoint_hint(instance) is None
+
+    def test_endpoint_hint_in_receipt(self):
+        """Receipt includes endpoint_hint when base_url is non-default."""
+        from assay.integrations.openai import _create_model_call_receipt
+        from assay.store import AssayStore
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = AssayStore(base_dir=Path(tmpdir))
+            store.start_trace()
+
+            with mock_patch("assay.store.get_default_store", return_value=store), \
+                 mock_patch.object(store_mod, "_seq_counter", 0):
+                mock_response = MagicMock()
+                mock_response.usage.prompt_tokens = 10
+                mock_response.usage.completion_tokens = 20
+                mock_response.choices = [MagicMock()]
+                mock_response.choices[0].finish_reason = "stop"
+                mock_response.choices[0].message.content = "Hello!"
+
+                receipt = _create_model_call_receipt(
+                    model="deepseek-chat",
+                    messages=[{"role": "user", "content": "Hi"}],
+                    response=mock_response,
+                    latency_ms=100,
+                    endpoint_hint="api.deepseek.com",
+                )
+
+                assert receipt["endpoint_hint"] == "api.deepseek.com"
+
+    def test_no_endpoint_hint_when_default(self):
+        """Receipt omits endpoint_hint for standard OpenAI calls."""
+        from assay.integrations.openai import _create_model_call_receipt
+        from assay.store import AssayStore
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = AssayStore(base_dir=Path(tmpdir))
+            store.start_trace()
+
+            with mock_patch("assay.store.get_default_store", return_value=store), \
+                 mock_patch.object(store_mod, "_seq_counter", 0):
+                mock_response = MagicMock()
+                mock_response.usage.prompt_tokens = 10
+                mock_response.usage.completion_tokens = 20
+                mock_response.choices = [MagicMock()]
+                mock_response.choices[0].finish_reason = "stop"
+                mock_response.choices[0].message.content = "Hello!"
+
+                receipt = _create_model_call_receipt(
+                    model="gpt-4o",
+                    messages=[{"role": "user", "content": "Hi"}],
+                    response=mock_response,
+                    latency_ms=100,
+                )
+
+                assert "endpoint_hint" not in receipt
