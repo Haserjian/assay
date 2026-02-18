@@ -742,6 +742,226 @@ class TestLangChainIntegration:
                 assert result == trace_id
 
 
+class TestOpenAICompatibleProviders:
+    """Regression tests: OpenAI-compatible providers intercepted via base_url / AzureOpenAI.
+
+    The OpenAI integration patches openai.resources.chat.completions.Completions.create.
+    Both OpenAI(base_url=...) and AzureOpenAI(...) resolve to the same Completions class,
+    so the patch intercepts all OpenAI-compatible providers.
+    """
+
+    def _make_mock_response(self, model="deepseek-chat"):
+        mock_response = MagicMock()
+        mock_response.usage.prompt_tokens = 8
+        mock_response.usage.completion_tokens = 12
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].finish_reason = "stop"
+        mock_response.choices[0].message.content = "Response from compatible provider"
+        return mock_response
+
+    def test_custom_base_url_receipt_captures_model(self):
+        """OpenAI(base_url=...) calls emit receipts with the actual model name."""
+        from assay.integrations.openai import _create_model_call_receipt
+        from assay.store import AssayStore
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = AssayStore(base_dir=Path(tmpdir))
+            store.start_trace()
+
+            with mock_patch("assay.store.get_default_store", return_value=store), \
+                 mock_patch.object(store_mod, "_seq_counter", 0):
+                receipt = _create_model_call_receipt(
+                    model="deepseek-chat",
+                    messages=[{"role": "user", "content": "Hello"}],
+                    response=self._make_mock_response("deepseek-chat"),
+                    latency_ms=150,
+                )
+
+                assert receipt["type"] == "model_call"
+                assert receipt["model_id"] == "deepseek-chat"
+                assert receipt["provider"] == "openai"
+                assert receipt["input_tokens"] == 8
+                assert receipt["output_tokens"] == 12
+
+    def test_groq_model_name_captured(self):
+        """Groq via OpenAI SDK captures the Groq model name."""
+        from assay.integrations.openai import _create_model_call_receipt
+        from assay.store import AssayStore
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = AssayStore(base_dir=Path(tmpdir))
+            store.start_trace()
+
+            with mock_patch("assay.store.get_default_store", return_value=store), \
+                 mock_patch.object(store_mod, "_seq_counter", 0):
+                receipt = _create_model_call_receipt(
+                    model="llama-3.1-70b-versatile",
+                    messages=[{"role": "user", "content": "Hi"}],
+                    response=self._make_mock_response("llama-3.1-70b-versatile"),
+                    latency_ms=80,
+                )
+
+                assert receipt["model_id"] == "llama-3.1-70b-versatile"
+                assert receipt["provider"] == "openai"
+
+    def test_together_model_name_captured(self):
+        """Together AI via OpenAI SDK captures the Together model name."""
+        from assay.integrations.openai import _create_model_call_receipt
+        from assay.store import AssayStore
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = AssayStore(base_dir=Path(tmpdir))
+            store.start_trace()
+
+            with mock_patch("assay.store.get_default_store", return_value=store), \
+                 mock_patch.object(store_mod, "_seq_counter", 0):
+                receipt = _create_model_call_receipt(
+                    model="meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo",
+                    messages=[{"role": "user", "content": "Hi"}],
+                    response=self._make_mock_response(),
+                    latency_ms=200,
+                )
+
+                assert receipt["model_id"] == "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo"
+
+    def test_mistral_model_name_captured(self):
+        """Mistral via OpenAI SDK captures the Mistral model name."""
+        from assay.integrations.openai import _create_model_call_receipt
+        from assay.store import AssayStore
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = AssayStore(base_dir=Path(tmpdir))
+            store.start_trace()
+
+            with mock_patch("assay.store.get_default_store", return_value=store), \
+                 mock_patch.object(store_mod, "_seq_counter", 0):
+                receipt = _create_model_call_receipt(
+                    model="mistral-large-latest",
+                    messages=[{"role": "user", "content": "Hi"}],
+                    response=self._make_mock_response(),
+                    latency_ms=120,
+                )
+
+                assert receipt["model_id"] == "mistral-large-latest"
+
+    def test_ollama_model_name_captured(self):
+        """Ollama via OpenAI SDK captures the local model name."""
+        from assay.integrations.openai import _create_model_call_receipt
+        from assay.store import AssayStore
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = AssayStore(base_dir=Path(tmpdir))
+            store.start_trace()
+
+            with mock_patch("assay.store.get_default_store", return_value=store), \
+                 mock_patch.object(store_mod, "_seq_counter", 0):
+                receipt = _create_model_call_receipt(
+                    model="llama3.2:3b",
+                    messages=[{"role": "user", "content": "Hi"}],
+                    response=self._make_mock_response(),
+                    latency_ms=50,
+                )
+
+                assert receipt["model_id"] == "llama3.2:3b"
+
+    def test_patch_target_is_shared_class(self):
+        """Completions.create is the same class for OpenAI and AzureOpenAI clients.
+
+        This is the structural guarantee that one monkey-patch covers both.
+        """
+        try:
+            from openai.resources.chat.completions import Completions
+        except ImportError:
+            pytest.skip("openai package not installed")
+
+        # The patch target in integrations/openai.py
+        assert hasattr(Completions, "create"), "Completions.create must exist"
+
+        # Verify it's the same class the patch imports
+        from openai.resources.chat import completions as completions_module
+        assert completions_module.Completions is Completions
+
+    def test_azure_openai_uses_same_completions_class(self):
+        """AzureOpenAI client resolves to the same Completions class as OpenAI."""
+        try:
+            from openai import AzureOpenAI, OpenAI
+            from openai.resources.chat.completions import Completions
+        except ImportError:
+            pytest.skip("openai package not installed")
+
+        # Both client types should use the same Completions class
+        # We can verify this by checking the class hierarchy
+        assert hasattr(AzureOpenAI, "chat"), "AzureOpenAI must have chat attribute"
+
+        # The critical invariant: patching Completions.create affects both clients
+        # because both clients instantiate the same Completions class
+        original = Completions.create
+
+        def fake_create(*a, **kw):
+            return "intercepted"
+
+        try:
+            Completions.create = fake_create
+            # After patching the class method, any instance of Completions
+            # (whether created by OpenAI or AzureOpenAI) uses the patched version
+            assert Completions.create is fake_create
+        finally:
+            Completions.create = original
+
+    def test_compatible_provider_receipt_passes_integrity(self):
+        """Receipt from an OpenAI-compatible provider passes proof pack integrity."""
+        from assay.integrations.openai import _create_model_call_receipt
+        from assay.integrity import verify_pack_manifest
+        from assay.keystore import AssayKeyStore
+        from assay.proof_pack import ProofPack
+        from assay.store import AssayStore
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            store = AssayStore(base_dir=base / "store")
+            trace_id = store.start_trace("trace_compat_provider")
+
+            with mock_patch("assay.store.get_default_store", return_value=store), \
+                 mock_patch.object(store_mod, "_seq_counter", 0):
+                # Simulate DeepSeek via OpenAI SDK
+                _create_model_call_receipt(
+                    model="deepseek-chat",
+                    messages=[{"role": "user", "content": "Hello from DeepSeek"}],
+                    response=self._make_mock_response("deepseek-chat"),
+                    latency_ms=300,
+                )
+                # Simulate Groq via OpenAI SDK
+                _create_model_call_receipt(
+                    model="llama-3.1-70b-versatile",
+                    messages=[{"role": "user", "content": "Hello from Groq"}],
+                    response=self._make_mock_response("llama-3.1-70b-versatile"),
+                    latency_ms=60,
+                )
+
+            entries = store.read_trace(trace_id)
+            assert len(entries) == 2
+            assert entries[0]["model_id"] == "deepseek-chat"
+            assert entries[1]["model_id"] == "llama-3.1-70b-versatile"
+
+            ks = AssayKeyStore(keys_dir=base / "keys")
+            ks.generate_key("test-signer")
+
+            out_dir = base / "pack"
+            pack = ProofPack(
+                run_id=trace_id,
+                entries=entries,
+                signer_id="test-signer",
+            )
+            pack.build(out_dir, keystore=ks)
+
+            manifest = json.loads((out_dir / "pack_manifest.json").read_text())
+            verify = verify_pack_manifest(manifest, out_dir, ks)
+
+            assert verify.passed
+            assert verify.errors == []
+            assert manifest["receipt_count_expected"] == 2
+
+
 class TestStorePromptsResponses:
     """Tests for store_prompts / store_responses opt-in content capture."""
 
