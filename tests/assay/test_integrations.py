@@ -1507,6 +1507,74 @@ class TestOpenAIResponsesAPI:
         from assay.integrations.openai import _extract_responses_output_text
         assert _extract_responses_output_text(None) is None
 
+    def test_extract_responses_output_text_none_output(self):
+        """Output text extraction returns None when response.output is None."""
+        from assay.integrations.openai import _extract_responses_output_text
+
+        mock_resp = MagicMock()
+        mock_resp.output = None
+        assert _extract_responses_output_text(mock_resp) is None
+
+    def test_create_responses_receipt_dict_input_counts_one_message(self):
+        """Dict-shaped input payload counts as one message, not len(dict keys)."""
+        from assay.integrations.openai import _create_responses_receipt
+        from assay.store import AssayStore
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = AssayStore(base_dir=Path(tmpdir))
+            store.start_trace()
+
+            with mock_patch("assay.store.get_default_store", return_value=store), \
+                 mock_patch.object(store_mod, "_seq_counter", 0):
+                mock_resp = self._make_responses_response()
+                receipt = _create_responses_receipt(
+                    model="gpt-4o",
+                    input_data={"role": "user", "content": "Hello"},
+                    response=mock_resp,
+                    latency_ms=50,
+                )
+
+                assert receipt["message_count"] == 1
+
+    def test_unpatch_restores_async_methods(self):
+        """unpatch() restores both AsyncCompletions.create and AsyncResponses.create."""
+        from assay.integrations import openai as openai_integration
+        try:
+            from openai.resources.chat import completions
+            from openai.resources import responses as responses_mod
+        except ImportError:
+            pytest.skip("openai package not installed")
+
+        if not hasattr(completions, "AsyncCompletions"):
+            pytest.skip("openai AsyncCompletions not available")
+        if not hasattr(responses_mod, "AsyncResponses"):
+            pytest.skip("openai AsyncResponses not available")
+
+        # Ensure clean starting state.
+        openai_integration.unpatch()
+        openai_integration._patched = False
+        openai_integration._original_create = None
+        openai_integration._original_async_create = None
+        openai_integration._original_responses_create = None
+        openai_integration._original_async_responses_create = None
+
+        orig_async_chat = completions.AsyncCompletions.create
+        orig_async_resp = responses_mod.AsyncResponses.create
+
+        mock_store = MagicMock()
+        mock_store.start_trace.return_value = "trace_test"
+
+        with mock_patch("assay.store.get_default_store", return_value=mock_store):
+            openai_integration.patch()
+
+        assert completions.AsyncCompletions.create is not orig_async_chat
+        assert responses_mod.AsyncResponses.create is not orig_async_resp
+
+        openai_integration.unpatch()
+
+        assert completions.AsyncCompletions.create is orig_async_chat
+        assert responses_mod.AsyncResponses.create is orig_async_resp
+
 
 class TestEndpointHint:
     """Tests for endpoint_hint field in receipts (non-default base_url)."""

@@ -33,7 +33,9 @@ from typing import Any, Callable, Dict, Optional
 
 # Global state
 _original_create: Optional[Callable] = None
+_original_async_create: Optional[Callable] = None
 _original_responses_create: Optional[Callable] = None
+_original_async_responses_create: Optional[Callable] = None
 _patch_config: Dict[str, Any] = {}
 _patched = False
 
@@ -282,13 +284,34 @@ def _extract_responses_output_text(response: Any) -> Optional[str]:
     """Extract text content from Responses API output items."""
     if not response or not hasattr(response, "output"):
         return None
+    output_items = getattr(response, "output", None)
+    if not output_items:
+        return None
     texts = []
-    for item in response.output:
+    for item in output_items:
         if getattr(item, "type", None) == "message" and hasattr(item, "content"):
-            for part in item.content:
+            for part in getattr(item, "content", []) or []:
                 if getattr(part, "type", None) == "output_text" and hasattr(part, "text"):
                     texts.append(part.text)
     return "".join(texts) if texts else None
+
+
+def _infer_responses_message_count(input_data: Any) -> int:
+    """Best-effort message count for Responses API input payloads."""
+    if input_data is None:
+        return 0
+    if isinstance(input_data, str):
+        return 1
+    if isinstance(input_data, (list, tuple)):
+        return len(input_data)
+    if isinstance(input_data, dict):
+        msgs = input_data.get("messages")
+        if isinstance(msgs, list):
+            return len(msgs)
+        if "content" in input_data:
+            return 1
+        return 1
+    return 1
 
 
 def _create_responses_receipt(
@@ -327,7 +350,7 @@ def _create_responses_receipt(
     if response_text is not None:
         response_hash = _hash_content(response_text)
 
-    message_count = 1 if isinstance(input_data, str) else len(input_data) if input_data else 0
+    message_count = _infer_responses_message_count(input_data)
 
     data: Dict[str, Any] = {
         "provider": "openai",
@@ -498,7 +521,9 @@ def patch(
         )
         # Receipt automatically emitted
     """
-    global _original_create, _original_responses_create, _patch_config, _patched
+    global _original_create, _original_async_create
+    global _original_responses_create, _original_async_responses_create
+    global _patch_config, _patched
 
     if _patched:
         return  # Already patched
@@ -533,8 +558,8 @@ def patch(
 
     # Patch async create if available
     if hasattr(completions, "AsyncCompletions"):
-        original_async = completions.AsyncCompletions.create
-        completions.AsyncCompletions.create = _wrapped_create_async(original_async)
+        _original_async_create = completions.AsyncCompletions.create
+        completions.AsyncCompletions.create = _wrapped_create_async(_original_async_create)
 
     # Patch Responses API if available (openai >= 1.66)
     try:
@@ -542,8 +567,8 @@ def patch(
         _original_responses_create = _responses_mod.Responses.create
         _responses_mod.Responses.create = _wrapped_responses_create(_original_responses_create)
         if hasattr(_responses_mod, "AsyncResponses"):
-            original_async_resp = _responses_mod.AsyncResponses.create
-            _responses_mod.AsyncResponses.create = _wrapped_responses_create_async(original_async_resp)
+            _original_async_responses_create = _responses_mod.AsyncResponses.create
+            _responses_mod.AsyncResponses.create = _wrapped_responses_create_async(_original_async_responses_create)
     except (ImportError, AttributeError):
         pass  # Older SDK without Responses API
 
@@ -552,7 +577,9 @@ def patch(
 
 def unpatch() -> None:
     """Remove the OpenAI patch."""
-    global _original_create, _original_responses_create, _patched
+    global _original_create, _original_async_create
+    global _original_responses_create, _original_async_responses_create
+    global _patched
 
     if not _patched:
         return
@@ -562,6 +589,8 @@ def unpatch() -> None:
 
         if _original_create:
             completions.Completions.create = _original_create
+        if _original_async_create and hasattr(completions, "AsyncCompletions"):
+            completions.AsyncCompletions.create = _original_async_create
 
     except ImportError:
         pass
@@ -570,12 +599,16 @@ def unpatch() -> None:
         from openai.resources import responses as _responses_mod
         if _original_responses_create:
             _responses_mod.Responses.create = _original_responses_create
+        if _original_async_responses_create and hasattr(_responses_mod, "AsyncResponses"):
+            _responses_mod.AsyncResponses.create = _original_async_responses_create
     except (ImportError, AttributeError):
         pass
 
     _patched = False
     _original_create = None
+    _original_async_create = None
     _original_responses_create = None
+    _original_async_responses_create = None
 
 
 def get_trace_id() -> Optional[str]:

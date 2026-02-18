@@ -56,6 +56,17 @@ class TestHighConfidence:
         assert len(sites) == 1
         assert sites[0].confidence == Confidence.HIGH
 
+    def test_openai_responses_create(self, tmp_path):
+        f = _write(tmp_path, "app.py", """\
+            import openai
+            client = openai.OpenAI()
+            resp = client.responses.create(model="gpt-4o", input="hi")
+        """)
+        sites, _ = scan_file(f)
+        assert len(sites) == 1
+        assert sites[0].confidence == Confidence.HIGH
+        assert "responses.create" in sites[0].call
+
     def test_anthropic_messages_create(self, tmp_path):
         f = _write(tmp_path, "app.py", """\
             import anthropic
@@ -329,6 +340,10 @@ class TestInstrumentationEvidence:
 class TestFixSuggestions:
     def test_openai_fix(self):
         fix = _suggest_fix("client.chat.completions.create")
+        assert "assay.integrations.openai" in fix
+
+    def test_openai_responses_fix(self):
+        fix = _suggest_fix("client.responses.create")
         assert "assay.integrations.openai" in fix
 
     def test_anthropic_fix(self):

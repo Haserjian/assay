@@ -286,4 +286,4 @@ This coverage is CI-locked: see `TestOpenAICompatibleProviders` in
 | 1.5.2 | Activation Engine: status, start ci/mcp, mcp policy init, template generators, QA harness |
 | 1.5.3 | Bug fixes: model field compatibility, scan guidance, CLI tagline alignment |
 
-970+ tests. 24 top-level commands. 3 public repos. Apache-2.0.
+988+ tests. 24 top-level commands. 3 public repos. Apache-2.0.
