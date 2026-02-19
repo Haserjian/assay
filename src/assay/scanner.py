@@ -208,12 +208,14 @@ def _detect_frameworks(findings: List[CallSite]) -> Set[str]:
             frameworks.add("anthropic")
         elif "langchain" in call_lower or "invoke" in call_lower:
             frameworks.add("langchain")
+        elif "generate_content" in call_lower or "genai" in call_lower:
+            frameworks.add("google")
     return frameworks
 
 
 def _recommended_patch_line(findings: List[CallSite]) -> Optional[str]:
     frameworks = _detect_frameworks(findings)
-    patchable = frameworks & {"openai", "anthropic"}
+    patchable = frameworks & {"openai", "anthropic", "google", "litellm"}
 
     # Mixed framework projects are easiest with auto-patching.
     if len(frameworks) > 1 and patchable:
@@ -224,8 +226,12 @@ def _recommended_patch_line(findings: List[CallSite]) -> Optional[str]:
         return "from assay.integrations.anthropic import patch; patch()"
     if "langchain" in frameworks:
         return "from assay.integrations.langchain import AssayCallbackHandler  # pass callbacks=[AssayCallbackHandler()]"
-    if "litellm" in frameworks:
-        return "from assay import emit_receipt  # instrument upstream SDK or emit manual receipts"
+    if "google" in patchable:
+        return "from assay.integrations.google import patch; patch()"
+    if "litellm" in patchable:
+        return "from assay.integrations.litellm import patch; patch()"
+    if "langchain" in frameworks:
+        return "from assay.integrations.langchain import AssayCallbackHandler  # pass callbacks=[AssayCallbackHandler()]"
     return None
 
 
@@ -244,6 +250,9 @@ _HIGH_PATTERNS = [
     ("messages.create", "anthropic"),
     # Azure OpenAI
     ("chat_completions.create", "openai"),
+    # Google Gemini
+    ("generate_content(", "google"),
+    ("generate_content_async(", "google"),
 ]
 
 # Medium confidence: framework calls (always match)
@@ -267,7 +276,7 @@ _MEDIUM_GUARDED_PATTERNS = [
 
 # Imports that qualify a file as "framework-adjacent" for guarded patterns
 _FRAMEWORK_IMPORT_PREFIXES = {
-    "langchain", "langgraph", "llama_index", "litellm",
+    "langchain", "langgraph", "llama_index", "litellm", "google.generativeai",
     "langchain_core", "langchain_community", "langchain_openai",
     "langchain_anthropic", "llama_index.core",
 }
@@ -285,6 +294,8 @@ _INSTRUMENTATION_IMPORTS = {
     "assay.integrations.openai",
     "assay.integrations.anthropic",
     "assay.integrations.langchain",
+    "assay.integrations.google",
+    "assay.integrations.litellm",
 }
 
 _INSTRUMENTATION_CALLS = {

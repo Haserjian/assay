@@ -1672,3 +1672,329 @@ class TestEndpointHint:
                 )
 
                 assert "endpoint_hint" not in receipt
+
+
+class TestGoogleGeminiIntegration:
+    """Tests for Google Gemini integration."""
+
+    def test_hash_content(self):
+        from assay.integrations.google import _hash_content
+
+        r1 = _hash_content("test content")
+        r2 = _hash_content("test content")
+        r3 = _hash_content("different content")
+
+        assert r1 == r2
+        assert r1 != r3
+        assert len(r1) == 16
+
+    def test_extract_input_hash_string(self):
+        from assay.integrations.google import _extract_input_hash
+
+        result = _extract_input_hash("Hello world")
+        assert len(result) == 16
+
+    def test_extract_input_hash_list(self):
+        from assay.integrations.google import _extract_input_hash
+
+        result = _extract_input_hash(["Hello", "World"])
+        assert len(result) == 16
+
+    def test_create_model_call_receipt(self):
+        from assay.integrations.google import _create_model_call_receipt
+        from assay.store import AssayStore
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = AssayStore(base_dir=Path(tmpdir))
+            store.start_trace()
+
+            with mock_patch("assay.store.get_default_store", return_value=store), \
+                 mock_patch.object(store_mod, "_seq_counter", 0):
+                mock_response = MagicMock()
+                mock_response.usage_metadata.prompt_token_count = 12
+                mock_response.usage_metadata.candidates_token_count = 8
+                mock_response.candidates = [MagicMock()]
+                mock_response.candidates[0].finish_reason = "STOP"
+                mock_response.text = "Hello from Gemini!"
+
+                receipt = _create_model_call_receipt(
+                    model="gemini-1.5-flash",
+                    contents="Hi there",
+                    response=mock_response,
+                    latency_ms=200,
+                )
+
+                assert receipt["type"] == "model_call"
+                assert receipt["provider"] == "google"
+                assert receipt["model_id"] == "gemini-1.5-flash"
+                assert receipt["input_tokens"] == 12
+                assert receipt["output_tokens"] == 8
+                assert receipt["total_tokens"] == 20
+                assert receipt["finish_reason"] == "stop"
+                assert receipt["latency_ms"] == 200
+                assert receipt["error"] is None
+                assert receipt["integration_source"] == "assay.integrations.google"
+                assert "timestamp" in receipt
+                assert "seq" in receipt
+
+    def test_create_model_call_receipt_with_error(self):
+        from assay.integrations.google import _create_model_call_receipt
+        from assay.store import AssayStore
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = AssayStore(base_dir=Path(tmpdir))
+            store.start_trace()
+
+            with mock_patch("assay.store.get_default_store", return_value=store), \
+                 mock_patch.object(store_mod, "_seq_counter", 0):
+                receipt = _create_model_call_receipt(
+                    model="gemini-1.5-flash",
+                    contents="Hi",
+                    response=None,
+                    latency_ms=50,
+                    error="Quota exceeded",
+                )
+
+                assert receipt["error"] == "Quota exceeded"
+                assert receipt["input_tokens"] == 0
+                assert receipt["output_tokens"] == 0
+
+    def test_callsite_fields(self):
+        from assay.integrations.google import _create_model_call_receipt
+        from assay.store import AssayStore
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = AssayStore(base_dir=Path(tmpdir))
+            store.start_trace()
+
+            with mock_patch("assay.store.get_default_store", return_value=store), \
+                 mock_patch.object(store_mod, "_seq_counter", 0):
+                mock_response = MagicMock()
+                mock_response.usage_metadata.prompt_token_count = 5
+                mock_response.usage_metadata.candidates_token_count = 3
+                mock_response.candidates = [MagicMock()]
+                mock_response.candidates[0].finish_reason = "STOP"
+                mock_response.text = "Hi!"
+
+                receipt = _create_model_call_receipt(
+                    model="gemini-1.5-flash",
+                    contents="Test",
+                    response=mock_response,
+                    latency_ms=100,
+                    callsite_file="src/bot.py",
+                    callsite_line=77,
+                    callsite_id="aaa111bbb222",
+                )
+
+                assert receipt["callsite_file"] == "src/bot.py"
+                assert receipt["callsite_line"] == 77
+                assert receipt["callsite_id"] == "aaa111bbb222"
+
+    def test_receipt_passes_integrity(self):
+        from assay.integrations.google import _create_model_call_receipt
+        from assay.integrity import verify_pack_manifest
+        from assay.keystore import AssayKeyStore
+        from assay.proof_pack import ProofPack
+        from assay.store import AssayStore
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            store = AssayStore(base_dir=base / "store")
+            trace_id = store.start_trace("trace_gemini_integrity")
+
+            with mock_patch("assay.store.get_default_store", return_value=store), \
+                 mock_patch.object(store_mod, "_seq_counter", 0):
+                mock_response = MagicMock()
+                mock_response.usage_metadata.prompt_token_count = 10
+                mock_response.usage_metadata.candidates_token_count = 5
+                mock_response.candidates = [MagicMock()]
+                mock_response.candidates[0].finish_reason = "STOP"
+                mock_response.text = "Gemini response"
+
+                _create_model_call_receipt(
+                    model="gemini-1.5-flash",
+                    contents="Hello Gemini",
+                    response=mock_response,
+                    latency_ms=150,
+                )
+
+            entries = store.read_trace(trace_id)
+            assert len(entries) == 1
+            assert entries[0]["provider"] == "google"
+
+            ks = AssayKeyStore(keys_dir=base / "keys")
+            ks.generate_key("test-signer")
+
+            out_dir = base / "pack"
+            pack = ProofPack(
+                run_id=trace_id,
+                entries=entries,
+                signer_id="test-signer",
+            )
+            pack.build(out_dir, keystore=ks)
+
+            manifest = json.loads((out_dir / "pack_manifest.json").read_text())
+            verify = verify_pack_manifest(manifest, out_dir, ks)
+            assert verify.passed
+
+
+class TestLiteLLMIntegration:
+    """Tests for LiteLLM integration."""
+
+    def test_hash_content(self):
+        from assay.integrations.litellm import _hash_content
+
+        r1 = _hash_content("test content")
+        r2 = _hash_content("test content")
+        r3 = _hash_content("different content")
+
+        assert r1 == r2
+        assert r1 != r3
+        assert len(r1) == 16
+
+    def test_extract_messages_hash(self):
+        from assay.integrations.litellm import _extract_messages_hash
+
+        messages = [
+            {"role": "user", "content": "Hello"},
+            {"role": "assistant", "content": "Hi there"},
+        ]
+        result = _extract_messages_hash(messages)
+        assert len(result) == 16
+
+    def test_create_model_call_receipt(self):
+        from assay.integrations.litellm import _create_model_call_receipt
+        from assay.store import AssayStore
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = AssayStore(base_dir=Path(tmpdir))
+            store.start_trace()
+
+            with mock_patch("assay.store.get_default_store", return_value=store), \
+                 mock_patch.object(store_mod, "_seq_counter", 0):
+                mock_response = MagicMock()
+                mock_response.usage.prompt_tokens = 15
+                mock_response.usage.completion_tokens = 25
+                mock_response.choices = [MagicMock()]
+                mock_response.choices[0].finish_reason = "stop"
+                mock_response.choices[0].message.content = "LiteLLM response"
+
+                receipt = _create_model_call_receipt(
+                    model="gpt-4",
+                    messages=[{"role": "user", "content": "Hi"}],
+                    response=mock_response,
+                    latency_ms=180,
+                )
+
+                assert receipt["type"] == "model_call"
+                assert receipt["provider"] == "litellm"
+                assert receipt["model_id"] == "gpt-4"
+                assert receipt["input_tokens"] == 15
+                assert receipt["output_tokens"] == 25
+                assert receipt["total_tokens"] == 40
+                assert receipt["finish_reason"] == "stop"
+                assert receipt["latency_ms"] == 180
+                assert receipt["error"] is None
+                assert receipt["integration_source"] == "assay.integrations.litellm"
+                assert "timestamp" in receipt
+                assert "seq" in receipt
+
+    def test_create_model_call_receipt_with_error(self):
+        from assay.integrations.litellm import _create_model_call_receipt
+        from assay.store import AssayStore
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = AssayStore(base_dir=Path(tmpdir))
+            store.start_trace()
+
+            with mock_patch("assay.store.get_default_store", return_value=store), \
+                 mock_patch.object(store_mod, "_seq_counter", 0):
+                receipt = _create_model_call_receipt(
+                    model="gpt-4",
+                    messages=[{"role": "user", "content": "Hi"}],
+                    response=None,
+                    latency_ms=50,
+                    error="Rate limit exceeded",
+                )
+
+                assert receipt["error"] == "Rate limit exceeded"
+                assert receipt["input_tokens"] == 0
+                assert receipt["output_tokens"] == 0
+
+    def test_callsite_fields(self):
+        from assay.integrations.litellm import _create_model_call_receipt
+        from assay.store import AssayStore
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = AssayStore(base_dir=Path(tmpdir))
+            store.start_trace()
+
+            with mock_patch("assay.store.get_default_store", return_value=store), \
+                 mock_patch.object(store_mod, "_seq_counter", 0):
+                mock_response = MagicMock()
+                mock_response.usage.prompt_tokens = 5
+                mock_response.usage.completion_tokens = 3
+                mock_response.choices = [MagicMock()]
+                mock_response.choices[0].finish_reason = "stop"
+                mock_response.choices[0].message.content = "Hi!"
+
+                receipt = _create_model_call_receipt(
+                    model="gpt-4",
+                    messages=[{"role": "user", "content": "Test"}],
+                    response=mock_response,
+                    latency_ms=100,
+                    callsite_file="src/agent.py",
+                    callsite_line=55,
+                    callsite_id="ccc333ddd444",
+                )
+
+                assert receipt["callsite_file"] == "src/agent.py"
+                assert receipt["callsite_line"] == 55
+                assert receipt["callsite_id"] == "ccc333ddd444"
+
+    def test_receipt_passes_integrity(self):
+        from assay.integrations.litellm import _create_model_call_receipt
+        from assay.integrity import verify_pack_manifest
+        from assay.keystore import AssayKeyStore
+        from assay.proof_pack import ProofPack
+        from assay.store import AssayStore
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            store = AssayStore(base_dir=base / "store")
+            trace_id = store.start_trace("trace_litellm_integrity")
+
+            with mock_patch("assay.store.get_default_store", return_value=store), \
+                 mock_patch.object(store_mod, "_seq_counter", 0):
+                mock_response = MagicMock()
+                mock_response.usage.prompt_tokens = 10
+                mock_response.usage.completion_tokens = 5
+                mock_response.choices = [MagicMock()]
+                mock_response.choices[0].finish_reason = "stop"
+                mock_response.choices[0].message.content = "LiteLLM response"
+
+                _create_model_call_receipt(
+                    model="claude-3-haiku",
+                    messages=[{"role": "user", "content": "Hello LiteLLM"}],
+                    response=mock_response,
+                    latency_ms=120,
+                )
+
+            entries = store.read_trace(trace_id)
+            assert len(entries) == 1
+            assert entries[0]["provider"] == "litellm"
+
+            ks = AssayKeyStore(keys_dir=base / "keys")
+            ks.generate_key("test-signer")
+
+            out_dir = base / "pack"
+            pack = ProofPack(
+                run_id=trace_id,
+                entries=entries,
+                signer_id="test-signer",
+            )
+            pack.build(out_dir, keystore=ks)
+
+            manifest = json.loads((out_dir / "pack_manifest.json").read_text())
+            verify = verify_pack_manifest(manifest, out_dir, ks)
+            assert verify.passed

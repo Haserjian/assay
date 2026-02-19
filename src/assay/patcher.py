@@ -19,11 +19,15 @@ from assay.scanner import ScanResult, _detect_frameworks
 _PATCH_LINES: Dict[str, str] = {
     "openai": "from assay.integrations.openai import patch; patch()",
     "anthropic": "from assay.integrations.anthropic import patch; patch()",
+    "google": "from assay.integrations.google import patch; patch()",
+    "litellm": "from assay.integrations.litellm import patch; patch()",
 }
 
 _PATCH_LINES_ALIASED: Dict[str, str] = {
     "openai": "from assay.integrations.openai import patch as patch_openai; patch_openai()",
     "anthropic": "from assay.integrations.anthropic import patch as patch_anthropic; patch_anthropic()",
+    "google": "from assay.integrations.google import patch as patch_google; patch_google()",
+    "litellm": "from assay.integrations.litellm import patch as patch_litellm; patch_litellm()",
 }
 
 _LANGCHAIN_NOTE = (
@@ -35,7 +39,7 @@ _LANGCHAIN_NOTE = (
 )
 
 # Frameworks that support auto-patching (global monkey-patch)
-_PATCHABLE = {"openai", "anthropic"}
+_PATCHABLE = {"openai", "anthropic", "google", "litellm"}
 
 # Marker comment appended to auto-inserted lines
 _PATCH_MARKER = "  # assay:patched"

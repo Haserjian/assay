@@ -10,6 +10,12 @@ Usage:
     from assay.integrations.anthropic import patch
     patch()  # Now every Anthropic call emits a receipt
 
+    from assay.integrations.google import patch
+    patch()  # Now every Gemini call emits a receipt
+
+    from assay.integrations.litellm import patch
+    patch()  # Now every LiteLLM call emits a receipt
+
     from assay.integrations.langchain import AssayCallbackHandler
     llm = ChatOpenAI(callbacks=[AssayCallbackHandler()])
 """
