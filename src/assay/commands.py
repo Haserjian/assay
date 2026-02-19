@@ -4601,7 +4601,7 @@ def patch_cmd(
     other_files = {f.path for f in uninstrumented if f.path != plan.entrypoint}
     if other_files:
         console.print(f"\n[dim]Note: {len(other_files)} other file(s) have uninstrumented call sites.")
-        console.print("  If your app has multiple entrypoints/processes, run assay patch again.[/]")
+        console.print("  If your app has multiple entrypoints/processes, run assay patch again.[/dim]")
 
     console.print(f"\nNext: [bold]assay run -c receipt_completeness -- python {plan.entrypoint}[/]")
 
