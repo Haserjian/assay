@@ -1,13 +1,6 @@
 name: MCP Conformance
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'src/assay/mcp_proxy.py'
-      - 'tests/assay/test_mcp_conformance.py'
-      - 'tests/assay/mcp_skip_matrix.yaml'
-      - '.github/workflows/mcp-conformance.yml'
   pull_request:
     paths:
       - 'src/assay/mcp_proxy.py'

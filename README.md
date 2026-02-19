@@ -29,10 +29,14 @@ No API key needed. Runs on synthetic data:
 
 ```bash
 assay demo-incident     # two-act scenario: honest PASS vs honest FAIL
+assay demo-challenge    # tamper detection: one valid pack, one with a single byte changed
 ```
 
-**Act 1**: Agent uses gpt-4 with a guardian check. Integrity PASS, claims PASS.
+**demo-incident** -- **Act 1**: Agent uses gpt-4 with a guardian check. Integrity PASS, claims PASS.
 **Act 2**: Someone swaps the model and drops the guardian. Integrity PASS, claims FAIL.
+
+**demo-challenge** -- Two packs, one byte changed. Verify the good pack (PASS), verify the
+tampered pack (FAIL). Five seconds to see tamper detection work.
 
 That second result is an **honest failure** -- authentic evidence proving the
 run violated its declared standards. Not a cover-up. Exit code 1.
