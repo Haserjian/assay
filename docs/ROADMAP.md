@@ -1,6 +1,6 @@
 # Assay Roadmap
 
-**As of**: v1.5.3 (Feb 2026)
+**As of**: v1.6.0 (Feb 2026)
 **Launch**: Feb 18, 2026
 
 ---
@@ -32,7 +32,7 @@ Receipting proxy between MCP clients and servers. Zero server changes.
 
 | Surface | Status |
 |---------|--------|
-| `assay mcp-proxy` (stdio, audit profile) | Spec complete, build Phase 1 |
+| `assay mcp-proxy` (stdio, audit profile) | Shipped (v0) |
 | Guard profile + policy enforcement | Spec complete, build Phase 2 |
 | SSE transport | Designed, Phase 3 |
 | Decision Escrow (permit/settle) | Reserved, v2 |
@@ -71,12 +71,13 @@ Use private systems to generate better public artifacts, not public complexity.
 | Docs aligned (quickstart, compliance, decision-escrow, repo map) | Done |
 | MCP Notary Proxy spec (v0) | Done |
 | Bridge de-exported from __init__.py | Done |
-| v1.5.3 on PyPI | Done |
+| v1.6.0 release tag + GitHub release | Done |
+| v1.6.0 on PyPI | Done |
 | Launch tag (`launch-2026-02-18`) at current main | Done |
 | Post drafts (HN, Reddit, Discord, comment replies) | Done |
 | Issue templates + CONTRIBUTING + Discussions | Done |
 
-**Exit criteria**: 826 tests pass. PyPI install works. `quickstart` runs clean.
+**Exit criteria**: 1123 tests pass. PyPI install works. `quickstart` runs clean.
 All posts reference `launch-2026-02-18` tag. No stale version numbers in docs.
 
 **Rule**: No new features. Only doc/onboarding fixes.
@@ -106,37 +107,36 @@ changes with <5% false positive rate. `drift` reports sigma distance from baseli
 
 **What does NOT ship**: Full coherence triangulation, dignity system, semantic mass.
 
-### Phase 2: MCP Notary Proxy v0 (Mar 14 -- Mar 28)
+### Phase 2: MCP Guard Profile + Policy (Mar 14 -- Mar 28)
 
-**Goal**: `assay mcp-proxy` ships as a working stdio proxy with audit profile.
+**Goal**: Extend shipped MCP audit proxy with enforceable guard mode.
 
 | Deliverable | Effort | Risk |
 |-------------|--------|------|
-| `src/assay/mcp_proxy.py` -- stdio forwarding + JSON-RPC parsing | 1 week | Medium: MCP framing edge cases |
-| `MCPToolCallReceipt` emission | 2 days | Low |
-| Auto-pack on session end | 2 days | Low: reuses existing pack builder |
-| Graceful shutdown + partial pack on crash | 2 days | Medium |
-| `assay mcp-proxy` CLI command | 1 day | Low |
-| 30+ tests with mock MCP server | 3 days | Low |
-
-**Exit criteria**: End-to-end test: mock MCP server, proxy, tool call, receipt,
-pack built, `verify-pack` passes. Graceful SIGINT produces valid pack.
-
-**What does NOT ship**: Guard profile, policy enforcement, SSE transport.
-
-### Phase 3: Guard Profile + Policy (Apr)
-
-**Goal**: MCP proxy enforces tool boundaries.
-
-| Deliverable | Source | Effort |
-|-------------|--------|--------|
-| `src/assay/mcp_policy.py` | Fork from `bridge.py` security invariants | 1 week |
-| Policy evaluation (denylist > constraints > allowlist > default) | New | 3 days |
-| Guard mode in proxy (deny + receipt + error to client) | Extend mcp_proxy.py | 3 days |
-| 30+ policy tests | Fork from test_bridge.py | 3 days |
+| `src/assay/mcp_policy.py` | 1 week | Medium: policy semantics |
+| Policy evaluation (denylist > constraints > allowlist > default) | 3 days | Low |
+| Guard mode in proxy (deny + receipt + error to client) | 3 days | Medium |
+| Expanded conformance coverage against protocol MUSTs 1-8 | 3 days | Medium |
+| 30+ policy tests with mock MCP server | 3 days | Low |
 
 **Exit criteria**: Denied tool call produces receipt with `outcome: "denied"`,
 error returned to client, request never reaches server.
+
+**What does NOT ship**: SSE transport, Decision Escrow.
+
+### Phase 3: MCP Transport + Escrow Foundations (Apr)
+
+**Goal**: Expand transport support and prepare permit/settle flows.
+
+| Deliverable | Source | Effort |
+|-------------|--------|--------|
+| SSE transport for proxy | `assay-protocol` alignment | 1 week |
+| Permit/settle scaffolding for Decision Escrow | New | 1 week |
+| Cross-transport session trace consistency tests | New | 3 days |
+| Policy + transport integration tests | Extend mcp tests | 3 days |
+
+**Exit criteria**: Stdio + SSE produce equivalent receipt semantics and pass
+conformance profile gates in CI.
 
 ### Phase 4+: Future (Q2-Q3 2026)
 
@@ -163,9 +163,9 @@ error returned to client, request never reaches server.
 | Version | What ships | When |
 |---------|-----------|------|
 | v1.5.3 | Schema registry, diff --why, key lifecycle | Live (PyPI) |
-| v1.6.0 | Regime detection + drift | Phase 1 (Mar) |
-| v1.7.0 | MCP Notary Proxy (audit) | Phase 2 (late Mar) |
-| v1.8.0 | MCP Guard profile + policy | Phase 3 (Apr) |
+| v1.6.0 | Flow commands, audit bundle, verify-signer, Gemini + LiteLLM, key lifecycle UX, pack lifecycle | Live (PyPI) |
+| v1.7.0 | Regime detection + drift (`analyze --history --regime-detect`) | Phase 1 (Mar) |
+| v1.8.0 | MCP Guard profile + policy enforcement | Phase 2 (late Mar) |
 | v2.0.0 | Decision Escrow (breaking: new receipt types) | Q2-Q3 |
 
 ---
