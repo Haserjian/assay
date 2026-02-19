@@ -68,4 +68,34 @@ echo "--- assay key list ---"
 assay key list || true
 echo ""
 
+# 9. Packs list (v1.6.0)
+echo "--- assay packs list ---"
+assay packs list || true
+echo ""
+
+# 10. Packs show (v1.6.0)
+echo "--- assay packs show ---"
+assay packs show "$PACK" --json || true
+echo ""
+
+# 11. Verify signer (v1.6.0)
+echo "--- assay verify-signer ---"
+assay verify-signer "$PACK" --json || true
+echo ""
+
+# 12. Audit bundle (v1.6.0)
+echo "--- assay audit bundle ---"
+assay audit bundle "$PACK" --json || true
+echo ""
+
+# 13. Flow try dry-run (v1.6.0)
+echo "--- assay flow try ---"
+assay flow try --json || true
+echo ""
+
+# 14. Key info (v1.6.0)
+echo "--- assay key info ---"
+assay key info --json || true
+echo ""
+
 echo "=== Smoke test complete ==="

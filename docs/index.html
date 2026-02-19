@@ -756,6 +756,7 @@
       Run <code>assay patch</code> to auto-insert the integration, or add it manually.
       Then <code>assay run</code>. Every LLM call now produces a signed receipt.
       The proof pack is a 5-file evidence bundle that anyone can verify independently.
+      Works with OpenAI, Anthropic, Google Gemini, LiteLLM, and LangChain.
     </p>
 
     <div class="diff-label">
@@ -1017,6 +1018,20 @@ assay demo-incident</span></pre>
 <span class="cmd">assay ci init github
 assay lock write --cards receipt_completeness,coverage_contract</span></pre>
       </div>
+      <div class="try-card">
+        <h3>Guided workflows</h3>
+        <p>Step-by-step flows for trying, adopting, CI, MCP, and audit handoff.</p>
+        <pre><span class="comment"># See the plan, then --apply to execute</span>
+<span class="cmd">assay flow try
+assay flow ci --apply</span></pre>
+      </div>
+      <div class="try-card">
+        <h3>Auditor handoff</h3>
+        <p>Bundle evidence for an auditor. Self-contained archive with verify instructions.</p>
+        <pre><span class="comment"># Create portable audit bundle</span>
+<span class="cmd">assay audit bundle ./proof_pack_*/
+assay verify-signer ./proof_pack_*/</span></pre>
+      </div>
     </div>
   </div>
 </section>
@@ -1081,10 +1096,12 @@ assay lock write --cards receipt_completeness,coverage_contract</span></pre>
       <details>
         <summary>What SDKs and frameworks are supported?</summary>
         <p class="faq-answer">
-          OpenAI and Anthropic use a one-line monkey-patch that wraps SDK
-          methods transparently. LangChain uses a callback handler you pass
-          to your LLM. Your application code doesn't change. The scanner
-          also detects LiteLLM and LlamaIndex call sites.
+          Five integrations ship built-in: <strong>OpenAI</strong>,
+          <strong>Anthropic</strong>, <strong>Google Gemini</strong>, and
+          <strong>LiteLLM</strong> use a one-line monkey-patch that wraps SDK
+          methods transparently. <strong>LangChain</strong> uses a callback
+          handler you pass to your LLM. Your application code doesn't change.
+          The scanner also detects LlamaIndex call sites.
         </p>
       </details>
 
