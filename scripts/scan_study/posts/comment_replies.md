@@ -67,7 +67,7 @@ from assay.integrations.openai import patch
 patch()
 ```
 
-That monkey-patches the SDK -- every `client.chat.completions.create()` call now emits a signed receipt into the active proof pack. Same pattern for Anthropic and LangChain. Your business logic doesn't change at all.
+That monkey-patches the SDK -- every `client.chat.completions.create()` call now emits a signed receipt into the active proof pack. Same pattern for Anthropic, Google Gemini, LiteLLM, and LangChain. Your business logic doesn't change at all.
 
 Then wrap your app with `assay run -- python your_app.py` (or `assay run -- pytest`) and you get a proof pack: receipts, manifest, Ed25519 signature, verification report. The full CI gate is three commands:
 
