@@ -3764,6 +3764,267 @@ assay_app.add_typer(ci_app, name="ci")
 # baseline subcommands
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Packs subcommands
+# ---------------------------------------------------------------------------
+
+packs_app = typer.Typer(
+    name="packs",
+    help="Browse and manage local proof packs",
+    no_args_is_help=True,
+)
+assay_app.add_typer(packs_app, name="packs")
+
+
+def _discover_packs(search_dir: Optional[str] = None):
+    """Find all proof packs in a directory. Returns list of (path, manifest) sorted by mtime desc."""
+    import json as _json
+    from pathlib import Path
+
+    root = Path(search_dir) if search_dir else Path(".")
+    packs = []
+    for d in root.iterdir():
+        if not d.is_dir() or not d.name.startswith("proof_pack"):
+            continue
+        manifest_path = d / "pack_manifest.json"
+        if not manifest_path.exists():
+            continue
+        try:
+            manifest = _json.loads(manifest_path.read_text(encoding="utf-8"))
+            packs.append((d, manifest))
+        except Exception:
+            continue
+    packs.sort(key=lambda t: t[0].stat().st_mtime, reverse=True)
+    return packs
+
+
+@packs_app.command("list")
+def packs_list_cmd(
+    directory: Optional[str] = typer.Option(
+        None, "-d", "--directory",
+        help="Directory to search (default: cwd)",
+    ),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """List all proof packs in the current directory."""
+    from assay.diff import load_baseline
+
+    packs = _discover_packs(directory)
+    baseline = load_baseline()
+    baseline_resolved = baseline.resolve() if baseline else None
+
+    items = []
+    for pack_dir, manifest in packs:
+        att = manifest.get("attestation", {})
+        is_baseline = baseline_resolved is not None and pack_dir.resolve() == baseline_resolved
+        items.append({
+            "path": str(pack_dir),
+            "pack_id": manifest.get("pack_id", "unknown"),
+            "n_receipts": att.get("n_receipts", 0),
+            "receipt_integrity": att.get("receipt_integrity", "unknown"),
+            "claim_check": att.get("claim_check", "N/A"),
+            "signer_id": manifest.get("signer_id", "unknown"),
+            "timestamp": att.get("timestamp_start", ""),
+            "is_baseline": is_baseline,
+        })
+
+    if output_json:
+        _output_json({
+            "command": "packs list",
+            "status": "ok",
+            "count": len(items),
+            "packs": items,
+        }, exit_code=0)
+
+    if not items:
+        console.print("No proof packs found. Create one with [bold]assay run[/].")
+        return
+
+    table = Table(show_header=True, header_style="bold magenta")
+    table.add_column("", width=3)
+    table.add_column("pack_id", style="cyan")
+    table.add_column("receipts", justify="right")
+    table.add_column("integrity")
+    table.add_column("claims")
+    table.add_column("signer", style="dim")
+    table.add_column("timestamp", style="dim")
+
+    for item in items:
+        marker = "B" if item["is_baseline"] else ""
+        integrity_style = "green" if item["receipt_integrity"] == "PASS" else "red"
+        claim_style = "green" if item["claim_check"] == "PASS" else ("yellow" if item["claim_check"] == "N/A" else "red")
+        table.add_row(
+            marker,
+            item["pack_id"],
+            str(item["n_receipts"]),
+            f"[{integrity_style}]{item['receipt_integrity']}[/]",
+            f"[{claim_style}]{item['claim_check']}[/]",
+            item["signer_id"],
+            item["timestamp"][:19] if item["timestamp"] else "",
+        )
+
+    console.print()
+    console.print("[bold]assay packs list[/]")
+    console.print(table)
+    if any(i["is_baseline"] for i in items):
+        console.print("[dim]B = current diff baseline[/]")
+    console.print()
+
+
+@packs_app.command("show")
+def packs_show_cmd(
+    pack_dir: str = typer.Argument(..., help="Path to proof pack directory"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Show detailed metadata for a proof pack."""
+    import json as _json
+    from pathlib import Path
+
+    p = Path(pack_dir)
+    if not p.is_dir():
+        msg = f"Not a directory: {pack_dir}"
+        if output_json:
+            _output_json({"command": "packs show", "status": "error", "error": msg}, exit_code=3)
+        console.print(f"[red]Error:[/] {msg}")
+        raise typer.Exit(3)
+
+    manifest_path = p / "pack_manifest.json"
+    if not manifest_path.exists():
+        msg = f"No pack_manifest.json in {pack_dir}"
+        if output_json:
+            _output_json({"command": "packs show", "status": "error", "error": msg}, exit_code=3)
+        console.print(f"[red]Error:[/] {msg}")
+        raise typer.Exit(3)
+
+    manifest = _json.loads(manifest_path.read_text(encoding="utf-8"))
+    att = manifest.get("attestation", {})
+
+    # Count actual receipt lines
+    receipt_file = p / "receipt_pack.jsonl"
+    actual_receipts = 0
+    if receipt_file.exists():
+        actual_receipts = sum(1 for line in receipt_file.read_text().splitlines() if line.strip())
+
+    # Check baseline
+    from assay.diff import load_baseline
+    baseline = load_baseline()
+    is_baseline = baseline is not None and p.resolve() == baseline.resolve()
+
+    # File inventory
+    files = []
+    for f_info in manifest.get("files", []):
+        files.append({
+            "path": f_info["path"],
+            "sha256": f_info.get("sha256", "")[:16] + "...",
+            "bytes": f_info.get("bytes", 0),
+        })
+
+    result = {
+        "command": "packs show",
+        "status": "ok",
+        "path": str(p),
+        "pack_id": manifest.get("pack_id", "unknown"),
+        "pack_version": manifest.get("pack_version", "unknown"),
+        "run_id": att.get("run_id", "unknown"),
+        "n_receipts": att.get("n_receipts", 0),
+        "actual_receipt_lines": actual_receipts,
+        "receipt_integrity": att.get("receipt_integrity", "unknown"),
+        "claim_check": att.get("claim_check", "N/A"),
+        "assurance_level": att.get("assurance_level", "unknown"),
+        "mode": att.get("mode", "unknown"),
+        "signer_id": manifest.get("signer_id", "unknown"),
+        "fingerprint": manifest.get("signer_pubkey_sha256", "")[:16] + "...",
+        "signature_alg": manifest.get("signature_alg", "unknown"),
+        "timestamp_start": att.get("timestamp_start", ""),
+        "timestamp_end": att.get("timestamp_end", ""),
+        "verifier_version": att.get("verifier_version", "unknown"),
+        "is_baseline": is_baseline,
+        "files": files,
+    }
+
+    if output_json:
+        _output_json(result, exit_code=0)
+
+    console.print()
+    integrity_style = "green" if att.get("receipt_integrity") == "PASS" else "red"
+    claim_style = "green" if att.get("claim_check") == "PASS" else ("yellow" if att.get("claim_check") == "N/A" else "red")
+
+    body = (
+        f"Pack ID:       {result['pack_id']}\n"
+        f"Path:          {result['path']}\n"
+        f"Run ID:        {result['run_id']}\n"
+        f"Version:       {result['pack_version']}\n"
+        f"Receipts:      {result['n_receipts']} (manifest) / {actual_receipts} (on disk)\n"
+        f"Integrity:     [{integrity_style}]{result['receipt_integrity']}[/]\n"
+        f"Claims:        [{claim_style}]{result['claim_check']}[/]\n"
+        f"Assurance:     {result['assurance_level']}\n"
+        f"Mode:          {result['mode']}\n"
+        f"Signer:        {result['signer_id']} ({result['fingerprint']})\n"
+        f"Algorithm:     {result['signature_alg']}\n"
+        f"Time:          {result['timestamp_start'][:19]} .. {result['timestamp_end'][:19]}\n"
+        f"Assay version: {result['verifier_version']}"
+    )
+    if is_baseline:
+        body += "\nBaseline:      yes (current diff baseline)"
+
+    console.print(Panel.fit(body, title="assay packs show"))
+
+    if files:
+        ft = Table(show_header=True, header_style="bold")
+        ft.add_column("file")
+        ft.add_column("sha256", style="dim")
+        ft.add_column("bytes", justify="right")
+        for f in files:
+            ft.add_row(f["path"], f["sha256"], str(f["bytes"]))
+        console.print(ft)
+    console.print()
+
+
+@packs_app.command("pin-baseline")
+def packs_pin_baseline_cmd(
+    pack_dir: str = typer.Argument(..., help="Path to proof pack directory to pin as baseline"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Pin a proof pack as the diff baseline (alias for baseline set)."""
+    from pathlib import Path
+
+    from assay.diff import save_baseline
+
+    p = Path(pack_dir)
+    if not p.is_dir():
+        msg = f"Not a directory: {pack_dir}"
+        if output_json:
+            _output_json({"command": "packs pin-baseline", "status": "error", "error": msg}, exit_code=3)
+        console.print(f"[red]Error:[/] {msg}")
+        raise typer.Exit(3)
+
+    if not (p / "pack_manifest.json").exists():
+        msg = f"No pack_manifest.json in {pack_dir}"
+        if output_json:
+            _output_json({"command": "packs pin-baseline", "status": "error", "error": msg}, exit_code=3)
+        console.print(f"[red]Error:[/] {msg}")
+        raise typer.Exit(3)
+
+    bf = save_baseline(p)
+    if output_json:
+        _output_json({
+            "command": "packs pin-baseline",
+            "status": "ok",
+            "pack_path": str(p.resolve()),
+            "baseline_file": str(bf),
+        }, exit_code=0)
+
+    console.print()
+    console.print(Panel.fit(
+        f"[bold green]Baseline pinned[/]\n\n"
+        f"Pack:      {p}\n"
+        f"Stored in: {bf}",
+        title="assay packs pin-baseline",
+    ))
+    console.print(f"Next: [bold]assay diff <new_pack> --against-previous[/]")
+    console.print()
+
+
 baseline_app = typer.Typer(
     name="baseline",
     help="Manage the diff baseline pack pointer (.assay/baseline.json)",
