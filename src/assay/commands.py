@@ -20,6 +20,11 @@ Commands:
   assay lock check    - Validate an existing lockfile
   assay baseline set  - Save a pack as the diff baseline
   assay baseline get  - Show current diff baseline
+  assay flow try      - Demo: generate + verify tamper detection
+  assay flow adopt    - Instrument: scan -> patch -> run -> verify -> explain
+  assay flow ci       - CI gate: lock -> ci init -> baseline
+  assay flow mcp      - MCP audit: policy init -> proxy guidance
+  assay flow audit    - Auditor handoff: verify -> explain -> bundle
   assay ci init       - Generate CI workflow
   assay cards list    - List built-in run cards
   assay cards show    - Show card details and claims
@@ -5623,6 +5628,142 @@ def mcp_proxy_cmd(
         json_output=output_json,
     )
     raise typer.Exit(exit_code)
+
+
+# ---------------------------------------------------------------------------
+# flow subcommands -- executable guided workflows
+# ---------------------------------------------------------------------------
+
+flow_app = typer.Typer(
+    name="flow",
+    help="Executable guided workflows (no more copy-paste)",
+    no_args_is_help=True,
+)
+assay_app.add_typer(flow_app, name="flow")
+
+
+@flow_app.command("try")
+def flow_try_cmd(
+    apply: bool = typer.Option(False, "--apply", help="Execute steps (default: dry-run)"),
+    output_json: bool = typer.Option(False, "--json", help="Structured output"),
+):
+    """See Assay in action: demo packs + verify."""
+    from assay.flow import build_flow_try, render_flow_dry_run, render_flow_result, run_flow
+
+    flow = build_flow_try()
+    result = run_flow(flow, apply=apply, json_mode=output_json)
+
+    if output_json:
+        _output_json({"command": "flow try", **result.to_dict()}, exit_code=1 if result.failed_step else 0)
+    elif apply:
+        render_flow_result(result, console)
+    else:
+        render_flow_dry_run(flow, console)
+
+    if result.failed_step is not None:
+        raise typer.Exit(1)
+
+
+@flow_app.command("adopt")
+def flow_adopt_cmd(
+    path: str = typer.Argument(".", help="Project directory"),
+    run_command: str = typer.Option(
+        "python app.py", "--run-command",
+        help="Command to wrap with assay run",
+    ),
+    apply: bool = typer.Option(False, "--apply", help="Execute steps (default: dry-run)"),
+    output_json: bool = typer.Option(False, "--json", help="Structured output"),
+):
+    """Instrument your project: scan -> patch -> run -> verify -> explain."""
+    from assay.flow import build_flow_adopt, render_flow_dry_run, render_flow_result, run_flow
+
+    flow = build_flow_adopt(run_command=run_command, path=path)
+    result = run_flow(flow, apply=apply, json_mode=output_json)
+
+    if output_json:
+        _output_json({"command": "flow adopt", **result.to_dict()}, exit_code=1 if result.failed_step else 0)
+    elif apply:
+        render_flow_result(result, console)
+    else:
+        render_flow_dry_run(flow, console)
+
+    if result.failed_step is not None:
+        raise typer.Exit(1)
+
+
+@flow_app.command("ci")
+def flow_ci_cmd(
+    run_command: str = typer.Option(
+        "python app.py", "--run-command",
+        help="Command Assay should wrap in CI",
+    ),
+    apply: bool = typer.Option(False, "--apply", help="Execute steps (default: dry-run)"),
+    output_json: bool = typer.Option(False, "--json", help="Structured output"),
+):
+    """Set up CI evidence gating: lock -> ci init -> baseline."""
+    from assay.flow import build_flow_ci, render_flow_dry_run, render_flow_result, run_flow
+
+    flow = build_flow_ci(run_command=run_command)
+    result = run_flow(flow, apply=apply, json_mode=output_json)
+
+    if output_json:
+        _output_json({"command": "flow ci", **result.to_dict()}, exit_code=1 if result.failed_step else 0)
+    elif apply:
+        render_flow_result(result, console)
+    else:
+        render_flow_dry_run(flow, console)
+
+    if result.failed_step is not None:
+        raise typer.Exit(1)
+
+
+@flow_app.command("mcp")
+def flow_mcp_cmd(
+    server_command: Optional[str] = typer.Option(
+        None, "--server-command",
+        help="MCP server startup command",
+    ),
+    apply: bool = typer.Option(False, "--apply", help="Execute steps (default: dry-run)"),
+    output_json: bool = typer.Option(False, "--json", help="Structured output"),
+):
+    """Set up MCP tool call auditing: policy init + proxy guidance."""
+    from assay.flow import build_flow_mcp, render_flow_dry_run, render_flow_result, run_flow
+
+    flow = build_flow_mcp(server_command=server_command)
+    result = run_flow(flow, apply=apply, json_mode=output_json)
+
+    if output_json:
+        _output_json({"command": "flow mcp", **result.to_dict()}, exit_code=1 if result.failed_step else 0)
+    elif apply:
+        render_flow_result(result, console)
+    else:
+        render_flow_dry_run(flow, console)
+
+    if result.failed_step is not None:
+        raise typer.Exit(1)
+
+
+@flow_app.command("audit")
+def flow_audit_cmd(
+    pack_dir: str = typer.Argument("./proof_pack_*/", help="Path to proof pack directory"),
+    apply: bool = typer.Option(False, "--apply", help="Execute steps (default: dry-run)"),
+    output_json: bool = typer.Option(False, "--json", help="Structured output"),
+):
+    """Auditor handoff: verify -> explain -> bundle."""
+    from assay.flow import build_flow_audit, render_flow_dry_run, render_flow_result, run_flow
+
+    flow = build_flow_audit(pack_dir=pack_dir)
+    result = run_flow(flow, apply=apply, json_mode=output_json)
+
+    if output_json:
+        _output_json({"command": "flow audit", **result.to_dict()}, exit_code=1 if result.failed_step else 0)
+    elif apply:
+        render_flow_result(result, console)
+    else:
+        render_flow_dry_run(flow, console)
+
+    if result.failed_step is not None:
+        raise typer.Exit(1)
 
 
 def main():
