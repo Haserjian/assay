@@ -92,6 +92,25 @@ class AssayKeyStore:
         except Exception:
             return False
 
+    def delete_key(self, signer_id: str) -> bool:
+        """Delete a signer's key and pubkey files. Returns True if deleted."""
+        key_path = self._key_path(signer_id)
+        pub_path = self._pub_path(signer_id)
+        deleted = False
+        if key_path.exists():
+            key_path.unlink()
+            deleted = True
+        if pub_path.exists():
+            pub_path.unlink()
+            deleted = True
+        # If this was the active signer, remove the marker
+        marker = self._active_signer_path()
+        if marker.exists():
+            active = marker.read_text().strip()
+            if active == signer_id:
+                marker.unlink()
+        return deleted
+
     def list_signers(self) -> List[str]:
         """List known signer IDs (sorted) that have both key and pubkey files."""
         if not self.keys_dir.exists():

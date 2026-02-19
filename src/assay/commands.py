@@ -3005,9 +3005,8 @@ def key_list_cmd(
     if not info:
         console.print(Panel.fit(
             "[yellow]No signer keys found.[/]\n\n"
-            "A key is auto-generated on first [bold]assay run[/].\n"
-            "Create one now with:\n"
-            "  [bold]assay run --allow-empty -- python -c \"pass\"[/]",
+            "Generate one with:\n"
+            "  [bold]assay key generate[/]",
             title="assay key list",
         ))
         return
@@ -3104,7 +3103,7 @@ def key_rotate_cmd(
     if not ks.has_key(old_signer):
         msg = (
             f"Signer not found: {old_signer}. "
-            f"Create it first with `assay run --allow-empty -- python -c \"pass\"` "
+            f"Create it with `assay key generate {old_signer}` "
             f"or pick an existing signer from `assay key list`."
         )
         if output_json:
@@ -3176,6 +3175,407 @@ def key_rotate_cmd(
         body += f"\nLockfile:    {lock_path} (allowlist updated)"
     console.print()
     console.print(Panel.fit(body, title="assay key rotate"))
+    console.print()
+
+
+@key_app.command("generate")
+def key_generate_cmd(
+    signer_id: str = typer.Argument(
+        "assay-local", help="Signer ID for the new key (default: assay-local)",
+    ),
+    set_active: bool = typer.Option(
+        True, "--set-active/--no-set-active",
+        help="Set as active signer after generation",
+    ),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Generate a new signing key pair."""
+    from assay.keystore import get_default_keystore
+
+    ks = get_default_keystore()
+    if ks.has_key(signer_id):
+        msg = f"Signer already exists: {signer_id}. Use `assay key rotate` to create a successor."
+        if output_json:
+            _output_json({"command": "key generate", "status": "error", "error": msg}, exit_code=3)
+        console.print(f"[red]Error:[/] {msg}")
+        raise typer.Exit(3)
+
+    ks.generate_key(signer_id)
+    if set_active:
+        ks.set_active_signer(signer_id)
+
+    fp = ks.signer_fingerprint(signer_id)
+    active = ks.get_active_signer()
+
+    if output_json:
+        _output_json(
+            {
+                "command": "key generate",
+                "status": "ok",
+                "signer_id": signer_id,
+                "fingerprint": fp,
+                "active_signer": active,
+            },
+            exit_code=0,
+        )
+
+    console.print()
+    console.print(Panel.fit(
+        f"[bold green]Key generated[/]\n\n"
+        f"Signer:      {signer_id}\n"
+        f"Fingerprint: {fp[:16]}...\n"
+        f"Active:      {active}",
+        title="assay key generate",
+    ))
+    console.print()
+
+
+@key_app.command("info")
+def key_info_cmd(
+    signer_id: Optional[str] = typer.Argument(
+        None, help="Signer ID to inspect (default: active signer)",
+    ),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Show detailed info about a signer key."""
+    import base64
+
+    from assay.keystore import get_default_keystore
+
+    ks = get_default_keystore()
+    target = signer_id or ks.get_active_signer()
+
+    if not ks.has_key(target):
+        msg = f"Signer not found: {target}"
+        if output_json:
+            _output_json({"command": "key info", "status": "error", "error": msg}, exit_code=3)
+        console.print(f"[red]Error:[/] {msg}")
+        raise typer.Exit(3)
+
+    fp = ks.signer_fingerprint(target)
+    pub_bytes = ks.get_verify_key(target).encode()
+    pub_b64 = base64.b64encode(pub_bytes).decode("ascii")
+    active = ks.get_active_signer()
+    key_path = str(ks._key_path(target))
+    pub_path = str(ks._pub_path(target))
+
+    result = {
+        "command": "key info",
+        "status": "ok",
+        "signer_id": target,
+        "algorithm": "Ed25519",
+        "fingerprint": fp,
+        "pubkey_b64": pub_b64,
+        "is_active": target == active,
+        "key_path": key_path,
+        "pub_path": pub_path,
+    }
+
+    if output_json:
+        _output_json(result, exit_code=0)
+
+    console.print()
+    body = (
+        f"Signer:      {target}\n"
+        f"Algorithm:   Ed25519\n"
+        f"Fingerprint: {fp}\n"
+        f"Public key:  {pub_b64}\n"
+        f"Active:      {'yes' if target == active else 'no'}\n"
+        f"Key file:    {key_path}\n"
+        f"Pub file:    {pub_path}"
+    )
+    console.print(Panel.fit(body, title="assay key info"))
+    console.print()
+
+
+@key_app.command("export")
+def key_export_cmd(
+    signer_id: Optional[str] = typer.Argument(
+        None, help="Signer ID to export (default: active signer)",
+    ),
+    private: bool = typer.Option(
+        False, "--private",
+        help="Include private key (handle with care!)",
+    ),
+    output: Optional[str] = typer.Option(
+        None, "-o", "--output",
+        help="Output directory (default: ./<signer_id>-export/)",
+    ),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Export signer public key (and optionally private key) for backup or CI."""
+    import base64
+    from pathlib import Path
+
+    from assay.keystore import get_default_keystore
+
+    ks = get_default_keystore()
+    target = signer_id or ks.get_active_signer()
+
+    if not ks.has_key(target):
+        msg = f"Signer not found: {target}"
+        if output_json:
+            _output_json({"command": "key export", "status": "error", "error": msg}, exit_code=3)
+        console.print(f"[red]Error:[/] {msg}")
+        raise typer.Exit(3)
+
+    out_dir = Path(output) if output else Path(f"{target}-export")
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Always export public key
+    pub_bytes = ks.get_verify_key(target).encode()
+    pub_b64 = base64.b64encode(pub_bytes).decode("ascii")
+    pub_file = out_dir / f"{target}.pub.b64"
+    pub_file.write_text(pub_b64 + "\n")
+
+    # Fingerprint file
+    fp = ks.signer_fingerprint(target)
+    fp_file = out_dir / f"{target}.fingerprint"
+    fp_file.write_text(fp + "\n")
+
+    files_exported = [str(pub_file), str(fp_file)]
+
+    if private:
+        key_bytes = ks.get_signing_key(target).encode()
+        key_b64 = base64.b64encode(key_bytes).decode("ascii")
+        key_file = out_dir / f"{target}.key.b64"
+        key_file.write_text(key_b64 + "\n")
+        files_exported.append(str(key_file))
+
+    result = {
+        "command": "key export",
+        "status": "ok",
+        "signer_id": target,
+        "fingerprint": fp,
+        "files": files_exported,
+        "includes_private": private,
+    }
+
+    if output_json:
+        _output_json(result, exit_code=0)
+
+    console.print()
+    body = (
+        f"[bold green]Key exported[/]\n\n"
+        f"Signer:      {target}\n"
+        f"Fingerprint: {fp[:16]}...\n"
+        f"Files:\n"
+    )
+    for f in files_exported:
+        body += f"  {f}\n"
+    if private:
+        body += "\n[yellow]Private key included -- store securely![/]"
+    console.print(Panel.fit(body, title="assay key export"))
+    console.print()
+
+
+@key_app.command("import")
+def key_import_cmd(
+    pub_path: str = typer.Argument(..., help="Path to .pub.b64 file"),
+    key_path: Optional[str] = typer.Option(
+        None, "--private",
+        help="Path to .key.b64 file (private key)",
+    ),
+    signer_id: Optional[str] = typer.Option(
+        None, "--signer",
+        help="Signer ID to assign (default: derived from filename)",
+    ),
+    set_active: bool = typer.Option(
+        False, "--set-active",
+        help="Set imported signer as active",
+    ),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Import a signer key from exported .b64 files."""
+    import base64
+    from pathlib import Path
+
+    from nacl.signing import SigningKey, VerifyKey
+
+    from assay.keystore import get_default_keystore
+
+    pub_file = Path(pub_path)
+    if not pub_file.exists():
+        msg = f"Public key file not found: {pub_path}"
+        if output_json:
+            _output_json({"command": "key import", "status": "error", "error": msg}, exit_code=3)
+        console.print(f"[red]Error:[/] {msg}")
+        raise typer.Exit(3)
+
+    # Derive signer_id from filename if not given
+    if signer_id is None:
+        name = pub_file.stem  # e.g. "assay-local.pub" -> "assay-local.pub"
+        # Strip ".pub" suffix if present
+        if name.endswith(".pub"):
+            name = name[:-4]
+        signer_id = name
+
+    ks = get_default_keystore()
+    if ks.has_key(signer_id):
+        msg = f"Signer already exists: {signer_id}. Delete first or use --signer to pick a different ID."
+        if output_json:
+            _output_json({"command": "key import", "status": "error", "error": msg}, exit_code=3)
+        console.print(f"[red]Error:[/] {msg}")
+        raise typer.Exit(3)
+
+    # Read and validate public key
+    try:
+        pub_b64 = pub_file.read_text().strip()
+        pub_bytes = base64.b64decode(pub_b64)
+        VerifyKey(pub_bytes)  # validate
+    except Exception as e:
+        msg = f"Invalid public key file: {e}"
+        if output_json:
+            _output_json({"command": "key import", "status": "error", "error": msg}, exit_code=3)
+        console.print(f"[red]Error:[/] {msg}")
+        raise typer.Exit(3)
+
+    has_private = False
+    key_bytes = None
+    if key_path:
+        kf = Path(key_path)
+        if not kf.exists():
+            msg = f"Private key file not found: {key_path}"
+            if output_json:
+                _output_json({"command": "key import", "status": "error", "error": msg}, exit_code=3)
+            console.print(f"[red]Error:[/] {msg}")
+            raise typer.Exit(3)
+        try:
+            key_b64 = kf.read_text().strip()
+            key_bytes = base64.b64decode(key_b64)
+            SigningKey(key_bytes)  # validate
+            has_private = True
+        except Exception as e:
+            msg = f"Invalid private key file: {e}"
+            if output_json:
+                _output_json({"command": "key import", "status": "error", "error": msg}, exit_code=3)
+            console.print(f"[red]Error:[/] {msg}")
+            raise typer.Exit(3)
+
+    # Write files
+    ks.keys_dir.mkdir(parents=True, exist_ok=True)
+    ks._pub_path(signer_id).write_bytes(pub_bytes)
+    if has_private and key_bytes is not None:
+        ks._key_path(signer_id).write_bytes(key_bytes)
+
+    if set_active and has_private:
+        ks.set_active_signer(signer_id)
+
+    fp = ks.signer_fingerprint(signer_id)
+    active = ks.get_active_signer()
+
+    result = {
+        "command": "key import",
+        "status": "ok",
+        "signer_id": signer_id,
+        "fingerprint": fp,
+        "has_private": has_private,
+        "active_signer": active,
+    }
+
+    if output_json:
+        _output_json(result, exit_code=0)
+
+    console.print()
+    body = (
+        f"[bold green]Key imported[/]\n\n"
+        f"Signer:      {signer_id}\n"
+        f"Fingerprint: {fp[:16]}...\n"
+        f"Has private: {'yes' if has_private else 'no (verify only)'}"
+    )
+    console.print(Panel.fit(body, title="assay key import"))
+    console.print()
+
+
+@key_app.command("revoke")
+def key_revoke_cmd(
+    signer_id: str = typer.Argument(..., help="Signer ID to revoke"),
+    lock: Optional[str] = typer.Option(
+        None, "--lock",
+        help="Lockfile path to remove signer fingerprint from allowlist",
+    ),
+    delete: bool = typer.Option(
+        False, "--delete",
+        help="Also delete key files from disk",
+    ),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Revoke a signer key (remove from lockfile allowlist, optionally delete)."""
+    from pathlib import Path
+
+    from assay.keystore import get_default_keystore
+
+    ks = get_default_keystore()
+    if not ks.has_key(signer_id):
+        msg = f"Signer not found: {signer_id}"
+        if output_json:
+            _output_json({"command": "key revoke", "status": "error", "error": msg}, exit_code=3)
+        console.print(f"[red]Error:[/] {msg}")
+        raise typer.Exit(3)
+
+    fp = ks.signer_fingerprint(signer_id)
+    lock_updated = False
+    removed_from_allowlist = False
+
+    if lock:
+        lock_path = Path(lock)
+        if not lock_path.exists():
+            msg = f"Lock file not found: {lock_path}"
+            if output_json:
+                _output_json({"command": "key revoke", "status": "error", "error": msg}, exit_code=3)
+            console.print(f"[red]Error:[/] {msg}")
+            raise typer.Exit(3)
+
+        from assay.lockfile import load_lockfile
+
+        lock_data = load_lockfile(lock_path)
+        policy = lock_data.get("signer_policy", {})
+        allowed = policy.get("allowed_fingerprints", [])
+        if fp in allowed:
+            allowed.remove(fp)
+            policy["allowed_fingerprints"] = allowed
+            lock_data["signer_policy"] = policy
+            import json
+            lock_path.write_text(json.dumps(lock_data, indent=2) + "\n")
+            removed_from_allowlist = True
+            lock_updated = True
+
+    key_deleted = False
+    if delete:
+        key_deleted = ks.delete_key(signer_id)
+
+    result = {
+        "command": "key revoke",
+        "status": "ok",
+        "signer_id": signer_id,
+        "fingerprint": fp,
+        "lock_updated": lock_updated,
+        "removed_from_allowlist": removed_from_allowlist,
+        "key_deleted": key_deleted,
+    }
+
+    if output_json:
+        _output_json(result, exit_code=0)
+
+    console.print()
+    body = (
+        f"[bold yellow]Signer revoked[/]\n\n"
+        f"Signer:      {signer_id}\n"
+        f"Fingerprint: {fp[:16]}...\n"
+    )
+    if lock_updated:
+        body += "Lockfile:    allowlist updated (fingerprint removed)\n"
+    elif lock:
+        body += "Lockfile:    fingerprint was not in allowlist\n"
+    else:
+        body += "Lockfile:    not specified (use --lock to update allowlist)\n"
+    if key_deleted:
+        body += "Key files:   deleted"
+    elif delete:
+        body += "Key files:   not found (already deleted)"
+    else:
+        body += "Key files:   retained (use --delete to remove)"
+    console.print(Panel.fit(body, title="assay key revoke"))
     console.print()
 
 
