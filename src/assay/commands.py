@@ -2118,7 +2118,7 @@ def proof_pack_cmd(
         console.print(f"  {f.name:30s} {size:>8,} bytes")
 
     console.print()
-    console.print(f"Verify: [bold]assay verify-pack {result_dir}[/]")
+    console.print(f"Next: [bold]assay verify-pack {result_dir}[/]")
 
 
 @assay_app.command("verify-pack")
@@ -2374,6 +2374,10 @@ def verify_pack_cmd(
             console.print(f"  [yellow]Warning:[/] {w}")
 
     console.print()
+
+    if result.passed and not claim_gate_failed and not coverage_failed and not lock:
+        console.print("Next: [bold]assay lock init[/]")
+        console.print()
 
     if not result.passed:
         raise typer.Exit(2)
@@ -2823,7 +2827,7 @@ def run_cmd(
         console.print(f"  {f.name:30s} {size:>8,} bytes")
 
     console.print()
-    console.print(f"Verify: [bold]assay verify-pack {result_dir}[/]")
+    console.print(f"Next: [bold]assay verify-pack {result_dir}[/]")
 
     if exit_code != 0:
         raise typer.Exit(exit_code)
@@ -3109,6 +3113,8 @@ def lock_write_cmd(
             title="assay lock write",
         ))
         console.print()
+        console.print("Next: [bold]assay verify-pack <pack_dir> --lock assay.lock --require-claim-pass[/]")
+        console.print()
 
 
 @lock_app.command("check")
@@ -3155,6 +3161,59 @@ def lock_check_cmd(
             f"Path:  {path}",
             title="assay lock check",
         ))
+        console.print()
+
+
+@lock_app.command("init")
+def lock_init_cmd(
+    output: str = typer.Option(
+        "assay.lock", "--output", "-o",
+        help="Output path for lockfile",
+    ),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Create a lockfile with sane defaults (receipt_completeness card)."""
+    from pathlib import Path
+
+    from assay.lockfile import write_lockfile
+
+    card_ids = ["receipt_completeness"]
+    out_path = Path(output)
+
+    if out_path.exists():
+        if output_json:
+            _output_json({"command": "lock init", "status": "error", "error": f"Already exists: {output} (use 'assay lock write' to overwrite)"})
+        console.print(f"[red]Error:[/] {output} already exists. Use [bold]assay lock write[/] to overwrite.")
+        raise typer.Exit(1)
+
+    try:
+        lockfile = write_lockfile(card_ids, output_path=out_path)
+    except ValueError as e:
+        if output_json:
+            _output_json({"command": "lock init", "status": "error", "error": str(e)})
+        console.print(f"[red]Error:[/] {e}")
+        raise typer.Exit(1)
+
+    if output_json:
+        _output_json({
+            "command": "lock init",
+            "status": "ok",
+            "output": output,
+            "run_cards": card_ids,
+            "composite_hash": lockfile["run_cards_composite_hash"],
+        })
+    else:
+        console.print()
+        console.print(Panel.fit(
+            f"[bold green]Lockfile created[/]\n\n"
+            f"Path:       {output}\n"
+            f"RunCards:    {', '.join(card_ids)}\n"
+            f"Composite:  {lockfile['run_cards_composite_hash'][:16]}...\n"
+            f"Signer:     {lockfile['signer_policy']['mode']}",
+            title="assay lock init",
+        ))
+        console.print()
+        console.print("Next: [bold]assay ci init github --run-command \"python your_app.py\"[/]")
         console.print()
 
 
@@ -4496,7 +4555,7 @@ def quickstart_cmd(
         if uninstrumented > 0:
             next_steps.append(f"Patch entrypoint:     assay patch {path}")
         next_steps.append(f"Run with receipts:    assay run -c receipt_completeness -- python your_app.py")
-        next_steps.append(f"Lock baseline:        assay lock write -o assay.lock")
+        next_steps.append(f"Lock baseline:        assay lock init")
         next_steps.append(f"Enable CI:            assay ci init github")
 
     except Exception as e:
