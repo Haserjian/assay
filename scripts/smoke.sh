@@ -14,7 +14,7 @@ echo ""
 
 # 0. Version
 echo "--- version ---"
-python -c "import assay; print(f'assay {assay.__version__}')"
+python3 -c "import assay; print(f'assay {assay.__version__}')"
 echo ""
 
 # 1. Doctor

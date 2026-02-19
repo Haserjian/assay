@@ -215,8 +215,9 @@ src/assay/
   analyze.py         Cost/latency/error analytics
   doctor.py          15 preflight checks across 4 profiles
   mcp_proxy.py       Transparent stdio proxy, dual-format reader (NDJSON + Content-Length)
-  commands.py        CLI (Typer-based, 24 top-level commands)
-  integrations/      OpenAI, Anthropic, LangChain (see "Provider coverage" below)
+  flow.py            Workflow executor (try/adopt/ci/mcp/audit), step runner, dry-run JSON
+  commands.py        CLI (Typer-based, 29 top-level commands)
+  integrations/      OpenAI, Anthropic, Google Gemini, LiteLLM, LangChain
   _receipts/         Vendored: JCS canonicalization, Merkle tree, domain separation
   reporting/
     evidence_gap.py  Self-contained HTML gap report from scan
@@ -225,7 +226,7 @@ src/assay/
 
 ## Provider coverage
 
-Assay has three integration files. The OpenAI integration uses monkey-patching
+Assay has five integration files. The OpenAI integration uses monkey-patching
 on `openai.resources.chat.completions.Completions.create`, which is the same
 class used by `OpenAI(base_url=...)` and `AzureOpenAI(...)`. This means one
 patch covers all OpenAI-compatible providers.
@@ -236,6 +237,8 @@ patch covers all OpenAI-compatible providers.
 |------------|-----------|-------------|
 | OpenAI | Monkey-patch | `Completions.create` + async |
 | Anthropic | Monkey-patch | `Messages.create` + async |
+| Google Gemini | Monkey-patch | `GenerativeModel.generate_content` + async |
+| LiteLLM | Monkey-patch | `litellm.completion` + `litellm.acompletion` |
 | LangChain | Callback handler | `on_llm_start` / `on_llm_end` |
 
 ### Covered via OpenAI SDK (`base_url` swap)
@@ -265,8 +268,6 @@ This coverage is CI-locked: see `TestOpenAICompatibleProviders` in
 
 | Provider | Why separate | Status |
 |----------|-------------|--------|
-| Google Gemini (`google-genai`) | Different API (`generate_content`) | Planned |
-| LiteLLM native (`litellm.completion()`) | Not routed through OpenAI SDK | Planned |
 | Cohere (`cohere`) | Different API (`co.chat()`) | Future |
 
 ## Release history
@@ -285,5 +286,6 @@ This coverage is CI-locked: see `TestOpenAICompatibleProviders` in
 | 1.5.1 | Diff --report, MCP proxy v0, repo charters, smoke script |
 | 1.5.2 | Activation Engine: status, start ci/mcp, mcp policy init, template generators, QA harness |
 | 1.5.3 | Bug fixes: model field compatibility, scan guidance, CLI tagline alignment |
+| 1.6.0 | Workflow executor, auditor handoff, Google Gemini + LiteLLM integrations, key lifecycle, pack lifecycle |
 
-988+ tests. 24 top-level commands. 3 public repos. Apache-2.0.
+1123+ tests. 29 top-level commands. 3 public repos. Apache-2.0.
