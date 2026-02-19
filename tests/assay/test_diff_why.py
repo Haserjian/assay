@@ -373,7 +373,7 @@ class TestAgainstPreviousCLI:
             ["diff", str(tmp_path / "proof_pack_only"), "--against-previous"],
         )
         assert result.exit_code == 3
-        assert "No previous" in result.output
+        assert "No baseline found" in result.output
 
     def test_against_previous_with_two_args_errors(self, tmp_path: Path) -> None:
         """Error when --against-previous used with two pack args."""

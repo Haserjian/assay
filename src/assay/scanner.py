@@ -99,7 +99,7 @@ class ScanResult:
                     "title": "Verify and lock your baseline",
                     "commands": [
                         "assay verify-pack ./proof_pack_*/",
-                        "assay lock write --cards receipt_completeness -o assay.lock",
+                        "assay lock init",
                     ],
                 },
                 {
@@ -123,7 +123,7 @@ class ScanResult:
                     "title": "Verify and lock your baseline",
                     "commands": [
                         "assay verify-pack ./proof_pack_*/",
-                        "assay lock write --cards receipt_completeness -o assay.lock",
+                        "assay lock init",
                     ],
                 },
             ]
@@ -142,7 +142,7 @@ class ScanResult:
                     "title": "Verify and lock your baseline",
                     "commands": [
                         "assay verify-pack ./proof_pack_*/",
-                        "assay lock write --cards receipt_completeness -o assay.lock",
+                        "assay lock init",
                     ],
                 },
             ]

@@ -72,8 +72,7 @@ class TestVerifyPackLockRemediations:
         )
         assert result.exit_code == 2
         assert "Lock file not found" in result.output
-        assert "assay lock write --cards receipt_completeness" in result.output
-        assert "assay.lock" in result.output
+        assert "assay lock init" in result.output
 
     def test_missing_lock_json_uses_exit_2_and_fixes(self, tmp_path: Path) -> None:
         pack_dir = _build_valid_pack(tmp_path)
@@ -84,7 +83,7 @@ class TestVerifyPackLockRemediations:
         assert result.exit_code == 2
         data = json.loads(result.output)
         assert data["error"] == "lock_file_not_found"
-        assert "assay lock write --cards receipt_completeness -o assay.lock" in data["fixes"][0]
+        assert "assay lock init" in data["fixes"][0]
 
 
 class TestDiffAndMcpRemediations:
@@ -94,8 +93,8 @@ class TestDiffAndMcpRemediations:
         (only / "pack_manifest.json").write_text("{}")
         result = runner.invoke(assay_app, ["diff", str(only), "--against-previous"])
         assert result.exit_code == 3
-        assert "No previous proof_pack_" in result.output
-        assert "Diff explicit packs" in result.output
+        assert "No baseline found" in result.output
+        assert "baseline set" in result.output
 
     def test_mcp_proxy_no_upstream_shows_fixes(self) -> None:
         result = runner.invoke(assay_app, ["mcp-proxy"])

@@ -101,7 +101,7 @@ class TestComputeEvidenceReadiness:
 
     def test_next_actions_include_lock_when_missing(self) -> None:
         result = compute_evidence_readiness_score(_facts(lock_present=False, lock_valid=False))
-        assert any("assay lock write" in step for step in result["next_actions"])
+        assert any("assay lock init" in step for step in result["next_actions"])
 
 
 class TestGatherFacts:

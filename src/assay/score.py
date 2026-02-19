@@ -380,7 +380,7 @@ def _build_next_actions(facts: Dict[str, Any], breakdown: Dict[str, Dict[str, An
     if int(rec.get("repo_receipt_files", 0) or 0) == 0:
         actions.append("Generate first evidence pack: assay run -c receipt_completeness -- python your_app.py")
     if not lock.get("present"):
-        actions.append("Create lockfile: assay lock write --cards receipt_completeness -o assay.lock")
+        actions.append("Create lockfile: assay lock init")
     elif not lock.get("valid"):
         actions.append("Repair stale lockfile: assay lock check && assay lock write --cards receipt_completeness -o assay.lock")
     if not (ci.get("has_run") and ci.get("has_verify") and ci.get("has_lock")):

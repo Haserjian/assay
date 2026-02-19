@@ -78,5 +78,5 @@ def test_scan_all_instrumented_shows_run_lock_ci_steps() -> None:
         assert payload["next_steps"][0]["commands"] == ["assay run -c receipt_completeness -- python your_app.py"]
         flat = " ".join(cmd for step in payload["next_steps"] for cmd in step["commands"])
         assert "assay patch" not in flat
-        assert "assay lock write" in flat
+        assert "assay lock init" in flat
         assert "assay ci init github" in flat

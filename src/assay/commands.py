@@ -15,8 +15,11 @@ Commands:
   assay demo-challenge- CTF-style good + tampered pack pair
   assay demo-pack     - Build + verify a demo pack
   assay proof-pack    - Build a signed Proof Pack from an existing trace
-  assay lock write    - Write a verifier lockfile (assay.lock)
+  assay lock init     - Create a lockfile with sane defaults
+  assay lock write    - Write a lockfile with explicit card list
   assay lock check    - Validate an existing lockfile
+  assay baseline set  - Save a pack as the diff baseline
+  assay baseline get  - Show current diff baseline
   assay ci init       - Generate CI workflow
   assay cards list    - List built-in run cards
   assay cards show    - Show card details and claims
@@ -1924,7 +1927,7 @@ def start_ci_cmd(
             "step": 4,
             "title": "Lock the verification contract",
             "commands": [
-                "assay lock write --cards receipt_completeness -o assay.lock",
+                "assay lock init",
             ],
             "note": "Freezes claim set so every CI run uses the same checks.",
         },
@@ -2204,7 +2207,7 @@ def verify_pack_cmd(
                         "error": "lock_file_not_found",
                         "details": str(lock),
                         "fixes": [
-                            "assay lock write --cards receipt_completeness -o assay.lock",
+                            "assay lock init",
                             f"assay verify-pack {pack_dir} --lock path/to/assay.lock",
                             f"assay verify-pack {pack_dir}",
                         ],
@@ -2215,7 +2218,7 @@ def verify_pack_cmd(
                 f"[red]Error:[/] Lock file not found: {lock}\n"
                 "\n"
                 "[bold]Fix:[/]\n"
-                "  1. Create lock:          [bold]assay lock write --cards receipt_completeness -o assay.lock[/]\n"
+                "  1. Create lock:          [bold]assay lock init[/]\n"
                 f"  2. Use explicit path:    [bold]assay verify-pack {pack_dir} --lock path/to/assay.lock[/]\n"
                 f"  3. Verify without lock:  [bold]assay verify-pack {pack_dir}[/]"
             )
@@ -3226,6 +3229,78 @@ assay_app.add_typer(ci_app, name="ci")
 
 
 # ---------------------------------------------------------------------------
+# baseline subcommands
+# ---------------------------------------------------------------------------
+
+baseline_app = typer.Typer(
+    name="baseline",
+    help="Manage the diff baseline pack pointer (.assay/baseline.json)",
+    no_args_is_help=True,
+)
+assay_app.add_typer(baseline_app, name="baseline")
+
+
+@baseline_app.command("set")
+def baseline_set_cmd(
+    pack_dir: str = typer.Argument(..., help="Path to proof pack directory to use as baseline"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Save a proof pack as the diff baseline."""
+    from pathlib import Path
+
+    from assay.diff import save_baseline
+
+    p = Path(pack_dir)
+    if not p.is_dir():
+        if output_json:
+            _output_json({"command": "baseline set", "status": "error", "error": f"Not a directory: {pack_dir}"})
+        console.print(f"[red]Error:[/] {pack_dir} is not a directory")
+        raise typer.Exit(3)
+
+    if not (p / "pack_manifest.json").exists():
+        if output_json:
+            _output_json({"command": "baseline set", "status": "error", "error": f"No pack_manifest.json in {pack_dir}"})
+        console.print(f"[red]Error:[/] No pack_manifest.json found in {pack_dir}")
+        raise typer.Exit(3)
+
+    bf = save_baseline(p)
+    if output_json:
+        _output_json({"command": "baseline set", "status": "ok", "pack_path": str(p.resolve()), "baseline_file": str(bf)})
+    else:
+        console.print()
+        console.print(Panel.fit(
+            f"[bold green]Baseline set[/]\n\n"
+            f"Pack:      {p}\n"
+            f"Stored in: {bf}",
+            title="assay baseline set",
+        ))
+        console.print()
+        console.print(f"Next: [bold]assay diff <new_pack> --against-previous[/]")
+        console.print()
+
+
+@baseline_app.command("get")
+def baseline_get_cmd(
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Show the current diff baseline pack."""
+    from assay.diff import load_baseline
+
+    baseline = load_baseline()
+    if baseline is None:
+        if output_json:
+            _output_json({"command": "baseline get", "status": "none", "pack_path": None})
+        else:
+            console.print("No baseline set. Use [bold]assay baseline set <pack_dir>[/]")
+        return
+
+    if output_json:
+        _output_json({"command": "baseline get", "status": "ok", "pack_path": str(baseline)})
+    else:
+        console.print(f"Baseline: [bold]{baseline}[/]")
+
+
+# ---------------------------------------------------------------------------
 # cards subcommands
 # ---------------------------------------------------------------------------
 
@@ -3564,7 +3639,7 @@ def onboard_cmd(
         f"Generate first Proof Pack: assay run -c receipt_completeness -- {selected_run}"
     )
     next_steps.append("Verify + explain: assay verify-pack ./proof_pack_*/ && assay explain ./proof_pack_*/ --format md")
-    next_steps.append("Lock baseline: assay lock write --cards receipt_completeness -o assay.lock")
+    next_steps.append("Lock baseline: assay lock init")
     next_steps.append("Enable CI: assay ci init github --run-command \"" + selected_run + "\"")
 
     if output_json:
@@ -5016,7 +5091,7 @@ def diff_cmd(
     """
     from pathlib import Path
 
-    from assay.diff import diff_packs, evaluate_gates, explain_why, find_previous_pack
+    from assay.diff import diff_packs, evaluate_gates, explain_why, find_previous_pack, load_baseline
 
     # Resolve pack paths
     if against_previous:
@@ -5027,15 +5102,21 @@ def diff_cmd(
         if not current.is_dir():
             console.print(f"[red]Error:[/] {pack_a} is not a directory")
             raise typer.Exit(3)
-        previous = find_previous_pack(current)
+        # Check saved baseline first, then fall back to mtime discovery
+        previous = load_baseline()
+        if previous is not None and previous.resolve() != current.resolve():
+            console.print(f"  Using saved baseline: {previous}")
+        else:
+            previous = find_previous_pack(current)
         if previous is None:
             console.print(
-                f"[red]Error:[/] No previous proof_pack_* found in {current.parent}\n"
+                f"[red]Error:[/] No baseline found (no .assay/baseline.json, no previous proof_pack_* in {current.parent})\n"
                 "\n"
                 "[bold]Fix:[/]\n"
-                "  1. Diff explicit packs:  [bold]assay diff ./proof_pack_old/ ./proof_pack_new/[/]\n"
-                "  2. Create a baseline:    [bold]assay run -- python app.py[/]\n"
-                f"  3. List packs:           [bold]ls -1 {current.parent}/proof_pack_*[/]"
+                "  1. Set a baseline:       [bold]assay baseline set ./proof_pack_old/[/]\n"
+                "  2. Diff explicit packs:  [bold]assay diff ./proof_pack_old/ ./proof_pack_new/[/]\n"
+                "  3. Create a baseline:    [bold]assay run -- python app.py[/]\n"
+                f"  4. List packs:           [bold]ls -1 {current.parent}/proof_pack_*[/]"
             )
             raise typer.Exit(3)
         pa = previous

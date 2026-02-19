@@ -63,7 +63,7 @@ class TestStartCI:
         assert "assay patch" in result.output
         assert "assay run" in result.output
         assert "assay verify-pack" in result.output
-        assert "assay lock write" in result.output
+        assert "assay lock init" in result.output
         assert "assay ci init" in result.output
 
     def test_ci_shows_daily_use(self):

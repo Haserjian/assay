@@ -488,8 +488,47 @@ def diff_packs(pack_a: Path, pack_b: Path, *, verify: bool = True) -> DiffResult
 
 
 # ---------------------------------------------------------------------------
-# --against-previous: auto-discover baseline pack
+# --against-previous: baseline + auto-discover
 # ---------------------------------------------------------------------------
+
+_BASELINE_FILE = ".assay/baseline.json"
+
+
+def load_baseline(project_dir: Optional[Path] = None) -> Optional[Path]:
+    """Load the saved baseline pack path from .assay/baseline.json."""
+    root = project_dir or Path.cwd()
+    bf = root / _BASELINE_FILE
+    if not bf.exists():
+        return None
+    try:
+        data = json.loads(bf.read_text())
+        p = Path(data["pack_path"])
+        if not p.is_absolute():
+            p = root / p
+        if p.is_dir() and (p / "pack_manifest.json").exists():
+            return p
+    except (json.JSONDecodeError, KeyError, OSError):
+        pass
+    return None
+
+
+def save_baseline(pack_path: Path, project_dir: Optional[Path] = None) -> Path:
+    """Save a pack path as the diff baseline in .assay/baseline.json.
+
+    Returns the path to the baseline file.
+    """
+    root = project_dir or Path.cwd()
+    bf = root / _BASELINE_FILE
+    bf.parent.mkdir(parents=True, exist_ok=True)
+    # Store relative path if under project root, else absolute
+    try:
+        rel = pack_path.resolve().relative_to(root.resolve())
+        store_path = str(rel)
+    except ValueError:
+        store_path = str(pack_path.resolve())
+    bf.write_text(json.dumps({"pack_path": store_path}, indent=2) + "\n")
+    return bf
+
 
 def find_previous_pack(current_pack: Path) -> Optional[Path]:
     """Find the most recent proof pack before *current_pack* in the same

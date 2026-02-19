@@ -318,7 +318,7 @@ def _check_lock_001(lock_path: Optional[Path] = None) -> DoctorCheckResult:
             severity=Severity.MEDIUM,
             message=f"No lockfile found at {lock_path}",
             evidence={"path": str(lock_path)},
-            fix="assay lock write --cards receipt_completeness -o assay.lock",
+            fix="assay lock init",
         )
 
     try:
