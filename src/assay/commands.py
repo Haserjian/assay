@@ -4,6 +4,7 @@ Assay CLI commands: Tamper-evident audit trails for AI systems.
 Commands:
   assay run           - Run a command and build a Proof Pack from receipts
   assay verify-pack   - Verify a Proof Pack's integrity
+  assay verify-signer - Extract and verify signer identity from a proof pack
   assay explain       - Plain-English summary of a proof pack
   assay analyze       - Cost, latency, and error analysis of receipts
   assay diff          - Compare two proof packs (claims, cost, latency, models)
@@ -25,6 +26,7 @@ Commands:
   assay flow ci       - CI gate: lock -> ci init -> baseline
   assay flow mcp      - MCP audit: policy init -> proxy guidance
   assay flow audit    - Auditor handoff: verify -> explain -> bundle
+  assay audit bundle  - Create self-contained evidence bundle for auditor handoff
   assay ci init       - Generate CI workflow
   assay cards list    - List built-in run cards
   assay cards show    - Show card details and claims
@@ -2392,6 +2394,131 @@ def verify_pack_cmd(
     if claim_gate_failed:
         raise typer.Exit(1)
     if coverage_failed:
+        raise typer.Exit(1)
+
+
+@assay_app.command("verify-signer")
+def verify_signer_cmd(
+    pack_dir: str = typer.Argument(..., help="Path to Proof Pack directory"),
+    expected: Optional[str] = typer.Option(
+        None, "--expected",
+        help="Expected signer_id. Fail (exit 1) if pack signer doesn't match.",
+    ),
+    fingerprint: Optional[str] = typer.Option(
+        None, "--fingerprint",
+        help="Expected pubkey fingerprint (hex prefix). Fail (exit 1) if mismatch.",
+    ),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Extract and verify signer identity from a proof pack.
+
+    Shows who signed the pack, their public key fingerprint, and whether
+    the key exists in the local keystore.
+
+    Use --expected or --fingerprint to assert identity and fail on mismatch.
+
+    Exit codes:
+      0 = signer info extracted (and matches if --expected/--fingerprint given)
+      1 = signer mismatch
+      3 = bad input (pack doesn't exist, manifest missing)
+    """
+    from pathlib import Path
+
+    from assay.keystore import get_default_keystore
+
+    pack_path = Path(pack_dir)
+    manifest_path = pack_path / "pack_manifest.json"
+
+    if not pack_path.is_dir():
+        if output_json:
+            _output_json({"command": "verify-signer", "status": "error", "error": f"Not a directory: {pack_dir}"}, exit_code=3)
+        console.print(f"[red]Error:[/] {pack_dir} is not a directory")
+        raise typer.Exit(3)
+
+    if not manifest_path.exists():
+        if output_json:
+            _output_json({"command": "verify-signer", "status": "error", "error": "pack_manifest.json not found"}, exit_code=3)
+        console.print(f"[red]Error:[/] {manifest_path} not found")
+        raise typer.Exit(3)
+
+    manifest = json.loads(manifest_path.read_text())
+    signer_id = manifest.get("signer_id", "unknown")
+    signer_pubkey_sha256 = manifest.get("signer_pubkey_sha256")
+    signature_alg = manifest.get("signature_alg", "ed25519")
+
+    # Check local keystore
+    ks = get_default_keystore()
+    key_in_local = ks.has_key(signer_id)
+    local_fp_match = False
+    if key_in_local and signer_pubkey_sha256:
+        try:
+            local_fp = ks.signer_fingerprint(signer_id)
+            local_fp_match = local_fp == signer_pubkey_sha256
+        except Exception:
+            pass
+
+    # Check --expected
+    match_ok = True
+    mismatch_reason = None
+    if expected is not None and signer_id != expected:
+        match_ok = False
+        mismatch_reason = f"Expected signer '{expected}', got '{signer_id}'"
+
+    # Check --fingerprint (prefix match)
+    if fingerprint is not None and signer_pubkey_sha256:
+        if not signer_pubkey_sha256.startswith(fingerprint.lower()):
+            match_ok = False
+            mismatch_reason = f"Fingerprint mismatch: expected prefix {fingerprint}"
+    elif fingerprint is not None and not signer_pubkey_sha256:
+        match_ok = False
+        mismatch_reason = "Pack has no signer_pubkey_sha256 to compare"
+
+    status = "ok" if match_ok else "mismatch"
+    result_data: Dict[str, Any] = {
+        "command": "verify-signer",
+        "status": status,
+        "signer_id": signer_id,
+        "signer_pubkey_sha256": signer_pubkey_sha256,
+        "signature_alg": signature_alg,
+        "key_in_local_keystore": key_in_local,
+        "local_fingerprint_match": local_fp_match,
+    }
+    if mismatch_reason:
+        result_data["mismatch_reason"] = mismatch_reason
+
+    if output_json:
+        _output_json(result_data, exit_code=0 if match_ok else 1)
+
+    # Human output
+    console.print()
+    fp_display = signer_pubkey_sha256 or "N/A"
+    local_badge = "[green]yes[/]" if key_in_local else "[yellow]no[/]"
+    fp_badge = "[green]yes[/]" if local_fp_match else "[dim]no[/]"
+
+    from rich.panel import Panel
+    if match_ok:
+        console.print(Panel.fit(
+            f"[bold green]SIGNER VERIFIED[/]\n\n"
+            f"Signer ID:       {signer_id}\n"
+            f"Fingerprint:     {fp_display}\n"
+            f"Algorithm:       {signature_alg}\n"
+            f"In keystore:     {local_badge}\n"
+            f"Local FP match:  {fp_badge}",
+            title="assay verify-signer",
+        ))
+    else:
+        console.print(Panel.fit(
+            f"[bold red]SIGNER MISMATCH[/]\n\n"
+            f"Signer ID:       {signer_id}\n"
+            f"Fingerprint:     {fp_display}\n"
+            f"Algorithm:       {signature_alg}\n"
+            f"In keystore:     {local_badge}\n\n"
+            f"[red]{mismatch_reason}[/]",
+            title="assay verify-signer",
+        ))
+    console.print()
+
+    if not match_ok:
         raise typer.Exit(1)
 
 
@@ -5628,6 +5755,212 @@ def mcp_proxy_cmd(
         json_output=output_json,
     )
     raise typer.Exit(exit_code)
+
+
+# ---------------------------------------------------------------------------
+# audit subcommands -- auditor handoff tools
+# ---------------------------------------------------------------------------
+
+_VERIFY_INSTRUCTIONS_MD = """\
+# How to Verify This Evidence Bundle
+
+## Prerequisites
+
+```bash
+pip install assay-ai
+```
+
+## Step 1: Extract the bundle
+
+```bash
+tar xzf <bundle>.tar.gz
+cd <extracted>/
+```
+
+## Step 2: Verify integrity
+
+```bash
+assay verify-pack .
+```
+
+Exit codes:
+- **0** = Integrity PASS (evidence is authentic and untampered)
+- **1** = Claim gate failed (evidence is authentic but behavioral checks failed)
+- **2** = Integrity FAIL (evidence has been tampered with)
+
+## Step 3: Read the summary
+
+Open `PACK_SUMMARY.md` for a human-readable explanation of what this evidence proves.
+
+## Step 4: Check the signer
+
+```bash
+assay verify-signer .
+```
+
+Or compare against an expected signer:
+
+```bash
+assay verify-signer . --expected <signer_id>
+assay verify-signer . --fingerprint <hex_prefix>
+```
+
+## What is in this bundle?
+
+| File | Purpose |
+|------|---------|
+| `pack_manifest.json` | Signed manifest (hashes, attestation, signature) |
+| `pack_signature.sig` | Detached Ed25519 signature |
+| `receipt_pack.jsonl` | Canonical receipts |
+| `verify_report.json` | Machine-readable verification results |
+| `verify_transcript.md` | Human-readable verification transcript |
+| `PACK_SUMMARY.md` | Plain-English summary |
+| `SIGNER_INFO.json` | Signer identity and public key |
+| `VERIFY_INSTRUCTIONS.md` | This file |
+| `VERIFY_RESULT.json` | Pre-bundle verification result |
+"""
+
+audit_app = typer.Typer(
+    name="audit",
+    help="Auditor handoff: bundle and verify evidence packs",
+    no_args_is_help=True,
+)
+assay_app.add_typer(audit_app, name="audit")
+
+
+@audit_app.command("bundle")
+def audit_bundle_cmd(
+    pack_dir: str = typer.Argument(..., help="Path to Proof Pack directory"),
+    output: Optional[str] = typer.Option(
+        None, "--output", "-o",
+        help="Output file path (default: audit_bundle_{pack_id}.tar.gz)",
+    ),
+    output_json: bool = typer.Option(False, "--json", help="Output metadata as JSON"),
+):
+    """Create a self-contained evidence bundle for auditor handoff.
+
+    Verifies the pack first, then creates a tar.gz containing all pack files
+    plus SIGNER_INFO.json, VERIFY_INSTRUCTIONS.md, and VERIFY_RESULT.json.
+
+    Exit codes:
+      0 = bundle created successfully
+      3 = bad input or verification failed
+    """
+    import io
+    import tarfile
+    import time as _time
+    from pathlib import Path
+
+    from assay.explain import explain_pack, render_md
+    from assay.integrity import verify_pack_manifest
+    from assay.keystore import get_default_keystore
+
+    pack_path = Path(pack_dir)
+    manifest_path = pack_path / "pack_manifest.json"
+
+    if not pack_path.is_dir():
+        if output_json:
+            _output_json({"command": "audit bundle", "status": "error", "error": f"Not a directory: {pack_dir}"}, exit_code=3)
+        console.print(f"[red]Error:[/] {pack_dir} is not a directory")
+        raise typer.Exit(3)
+
+    if not manifest_path.exists():
+        if output_json:
+            _output_json({"command": "audit bundle", "status": "error", "error": "pack_manifest.json not found"}, exit_code=3)
+        console.print(f"[red]Error:[/] {manifest_path} not found")
+        raise typer.Exit(3)
+
+    manifest = json.loads(manifest_path.read_text())
+
+    # Verify before bundling -- refuse to bundle tampered evidence
+    ks = get_default_keystore()
+    vr = verify_pack_manifest(manifest, pack_path, ks)
+    if not vr.passed:
+        if output_json:
+            _output_json({
+                "command": "audit bundle", "status": "error",
+                "error": "verification_failed",
+                "details": vr.to_dict(),
+            }, exit_code=3)
+        console.print("[red]Error:[/] Pack verification failed. Cannot bundle tampered evidence.")
+        for err in vr.errors:
+            console.print(f"  [red]{err.code}[/]: {err.message}")
+        raise typer.Exit(3)
+
+    pack_id = manifest.get("pack_id", "unknown")
+    out_path = Path(output) if output else Path(f"audit_bundle_{pack_id}.tar.gz")
+
+    # Build supplementary files
+    signer_info_bytes = json.dumps({
+        "signer_id": manifest.get("signer_id", "unknown"),
+        "signer_pubkey": manifest.get("signer_pubkey"),
+        "signer_pubkey_sha256": manifest.get("signer_pubkey_sha256"),
+        "signature_alg": manifest.get("signature_alg", "ed25519"),
+    }, indent=2).encode("utf-8")
+
+    try:
+        info = explain_pack(pack_path)
+        summary_bytes = render_md(info).encode("utf-8")
+    except Exception:
+        summary_bytes = b"# Pack Summary\n\nCould not generate summary.\n"
+
+    instructions_bytes = _VERIFY_INSTRUCTIONS_MD.encode("utf-8")
+
+    verify_result_bytes = json.dumps({
+        "verified_at_bundle_time": True,
+        **vr.to_dict(),
+    }, indent=2).encode("utf-8")
+
+    # Generated file names to skip from pack dir (we supply fresh versions)
+    generated_names = {"SIGNER_INFO.json", "PACK_SUMMARY.md", "VERIFY_INSTRUCTIONS.md", "VERIFY_RESULT.json"}
+
+    with tarfile.open(str(out_path), "w:gz") as tar:
+        for file_path in sorted(pack_path.iterdir()):
+            if file_path.is_file() and file_path.name not in generated_names:
+                tar.add(str(file_path), arcname=file_path.name)
+
+        now = int(_time.time())
+        for name, data in [
+            ("SIGNER_INFO.json", signer_info_bytes),
+            ("PACK_SUMMARY.md", summary_bytes),
+            ("VERIFY_INSTRUCTIONS.md", instructions_bytes),
+            ("VERIFY_RESULT.json", verify_result_bytes),
+        ]:
+            ti = tarfile.TarInfo(name=name)
+            ti.size = len(data)
+            ti.mtime = now
+            tar.addfile(ti, io.BytesIO(data))
+
+    bundle_size = out_path.stat().st_size
+    file_count = sum(1 for f in pack_path.iterdir() if f.is_file() and f.name not in generated_names) + len(generated_names)
+
+    if output_json:
+        _output_json({
+            "command": "audit bundle",
+            "status": "ok",
+            "pack_id": pack_id,
+            "bundle_path": str(out_path),
+            "bundle_bytes": bundle_size,
+            "file_count": file_count,
+            "signer_id": manifest.get("signer_id"),
+            "verification_passed": True,
+        }, exit_code=0)
+
+    console.print()
+    from rich.panel import Panel
+    console.print(Panel.fit(
+        f"[bold green]AUDIT BUNDLE CREATED[/]\n\n"
+        f"Pack ID:    {pack_id}\n"
+        f"Signer:     {manifest.get('signer_id')}\n"
+        f"Files:      {file_count}\n"
+        f"Size:       {bundle_size:,} bytes\n"
+        f"Output:     {out_path}",
+        title="assay audit bundle",
+    ))
+    console.print()
+    console.print(f"[dim]Hand off [bold]{out_path}[/bold] to the auditor.[/]")
+    console.print(f"[dim]Auditor verifies with:[/] pip install assay-ai && tar xzf {out_path.name} && assay verify-pack .")
+    console.print()
 
 
 # ---------------------------------------------------------------------------

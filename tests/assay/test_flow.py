@@ -229,7 +229,7 @@ class TestFlowAuditDryRun:
         result = runner.invoke(assay_app, ["flow", "audit", "--json"])
         data = json.loads(result.output)
         assert data["flow"] == "audit"
-        assert len(data["steps"]) == 3
+        assert len(data["steps"]) == 4
 
 
 # ---------------------------------------------------------------------------

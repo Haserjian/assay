@@ -422,9 +422,15 @@ def build_flow_audit(pack_dir: str = "./proof_pack_*/") -> FlowDefinition:
             ),
             FlowStep(
                 number=3,
-                title="Bundle for handoff (future)",
-                command=f"# assay audit bundle {pack_dir}  (not yet implemented)",
-                note="Will create a self-contained evidence bundle.",
+                title="Create audit bundle",
+                command=f"assay audit bundle {pack_dir}",
+                note="Creates a self-contained tar.gz for auditor handoff.",
+            ),
+            FlowStep(
+                number=4,
+                title="Show signer identity",
+                command=f"assay verify-signer {pack_dir}",
+                note="Displays who signed the pack and their public key fingerprint.",
                 print_only=True,
             ),
         ],
