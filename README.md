@@ -78,12 +78,18 @@ assay run -c receipt_completeness -- python my_app.py
 assay verify-pack ./proof_pack_*/
 ```
 
-`assay scan . --report` finds every LLM call site (OpenAI, Anthropic, LangChain)
-and generates a self-contained HTML gap report. `assay patch` inserts the
-two-line integration. `assay run` wraps your command, collects receipts, and
-produces a signed 5-file evidence pack. `assay verify-pack` checks integrity +
-claims and exits with one of the four codes above. Then run `assay explain`
-on any pack for a plain-English summary.
+`assay scan . --report` finds every LLM call site (OpenAI, Anthropic, Google
+Gemini, LiteLLM, LangChain) and generates a self-contained HTML gap report.
+`assay patch` inserts the two-line integration. `assay run` wraps your command,
+collects receipts, and produces a signed 5-file evidence pack. `assay verify-pack`
+checks integrity + claims and exits with one of the four codes above. Then run
+`assay explain` on any pack for a plain-English summary.
+
+**Local models**: Any OpenAI-compatible server (Ollama, LM Studio, vLLM,
+llama.cpp) works automatically -- Assay patches the OpenAI SDK at the class
+level, so `OpenAI(base_url="http://localhost:11434/v1")` emits receipts like
+any other provider. LiteLLM users get the same coverage via the LiteLLM
+integration (`ollama/llama3`, etc.).
 
 > **Why now**: EU AI Act Article 12 requires automatic logging for high-risk
 > AI systems; Article 19 requires providers to retain automatically generated
