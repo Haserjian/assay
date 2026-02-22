@@ -42,7 +42,7 @@ action just happens.
 Each phase produces a signed receipt. The receipts bundle into a proof
 pack. The pack verifies offline. No server access. No trust relationship.
 
-## What Exists Today (Assay v1.5.0)
+## What Exists Today (Assay v1.6.0)
 
 Assay implements phases 2 and 3 of Decision Escrow:
 

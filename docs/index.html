@@ -666,7 +666,7 @@
       <a href="#gap-map">Gap Map</a>
       <a href="#faq">FAQ</a>
       <a href="#threat-model">Threat Model</a>
-      <a href="decision-escrow.md">Decision Escrow</a>
+      <a href="decision-escrow">Decision Escrow</a>
       <a href="https://github.com/Haserjian/assay" target="_blank">GitHub</a>
       <a href="https://pypi.org/project/assay-ai/" target="_blank">PyPI</a>
       <a href="https://github.com/Haserjian/assay/issues/new?template=pilot-inquiry.md" class="cta" target="_blank">Get a Pilot</a>
@@ -695,7 +695,7 @@
 
 <div class="container">
   <p style="text-align:center; margin-bottom:12px;">
-    <a href="https://github.com/Haserjian/assay/tree/launch-2026-02-18/scripts/scan_study/results" target="_blank" style="color:var(--text2); font-size:13px; text-decoration:none;">Scan study data (Feb 2026) &#8599;</a>
+    <a href="https://github.com/Haserjian/assay/blob/280c25ec46afd3ae6938501f59977162c0dbacd8/scripts/scan_study/results/report.md" target="_blank" style="color:var(--text2); font-size:13px; text-decoration:none;">Scan study data (Feb 2026) &#8599;</a>
   </p>
   <div class="stats-bar">
     <div class="stat">
@@ -1044,8 +1044,9 @@ assay verify-signer ./proof_pack_*/</span></pre>
       <details>
         <summary>Is this just logging?</summary>
         <p class="faq-answer">
-          No. Logs record what you say happened. Receipts prove what happened
-          with cryptographic signatures that can be verified independently.
+          No. Logs record what you say happened. Receipts prove the
+          integrity and tamper-evidence of recorded events -- a third party
+          can verify the evidence artifact was not modified after creation.
           Logs live on your server and you can edit them. Proof packs are
           portable and tamper-evident -- change one byte and verification fails.
         </p>
@@ -1054,9 +1055,10 @@ assay verify-signer ./proof_pack_*/</span></pre>
       <details>
         <summary>What's the performance cost?</summary>
         <p class="faq-answer">
-          Negligible. Ed25519 signing takes microseconds. Receipt emission
-          happens after the LLM call returns, so it adds no latency to your
+          Low overhead. Ed25519 signing takes microseconds. Receipt emission
+          happens after the LLM call returns and adds minimal latency to your
           application. The proof pack is assembled at the end of the run.
+          Benchmark in your environment to confirm.
         </p>
       </details>
 
@@ -1193,8 +1195,8 @@ assay verify-signer ./proof_pack_*/</span></pre>
       <a href="https://github.com/Haserjian/assay-verify-action">assay-verify-action</a> &middot;
       <a href="https://github.com/Haserjian/assay-ledger">assay-ledger</a> &middot;
       <a href="https://pypi.org/project/assay-ai/">PyPI</a> &middot;
-      <a href="decision-escrow.md">Decision Escrow</a> &middot;
-      <a href="for-compliance.md">For Compliance</a>
+      <a href="decision-escrow">Decision Escrow</a> &middot;
+      <a href="for-compliance">For Compliance</a>
     </p>
     <p style="margin-top: 8px;">Apache-2.0 License</p>
   </div>

@@ -259,6 +259,13 @@ Full command reference:
   scanning system directories (>10K Python files). Use `--force` to bypass:
   `assay quickstart --force`.
 
+- **macOS: `ModuleNotFoundError` inside `assay run` but works outside it**:
+  On macOS, `python3` on PATH may point to a different Python version than
+  where assay and your SDK are installed (e.g. `python3` → 3.14, but packages
+  are in 3.11). Use a virtual environment (recommended), or specify the exact
+  interpreter: `assay run -- python3.11 app.py`. Check with
+  `python3 --version` and compare to the Python where you ran `pip install`.
+
 ## Get Involved
 
 - **Try it**: `pip install assay-ai && assay quickstart`

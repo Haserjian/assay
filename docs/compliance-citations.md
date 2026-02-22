@@ -26,9 +26,10 @@ applicable Union or national law.
 
 ### Timeline
 
-- **2 Aug 2025**: Prohibited AI practices apply
-- **2 Aug 2026**: High-risk obligations apply (Annex III systems)
-- **2 Aug 2027**: High-risk obligations apply (regulated products)
+- **2 Feb 2025**: Prohibited AI practices apply (Chapter II)
+- **2 Aug 2025**: GPAI model obligations and governance provisions apply
+- **2 Aug 2026**: Most remaining requirements apply, including high-risk obligations (Annex III systems)
+- **2 Aug 2027**: High-risk obligations for regulated products (Annex I systems)
 
 > Source: [AI Act Service Desk -- Implementation Timeline](https://ai-act-service-desk.ec.europa.eu/en/ai-act/eu-ai-act-implementation-timeline)
 
