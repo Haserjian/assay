@@ -28,22 +28,58 @@ pip install assay-ai && assay quickstart
 No API key needed. Runs on synthetic data:
 
 ```bash
-assay demo-incident     # two-act scenario: honest PASS vs honest FAIL
+pip install assay-ai
 assay demo-challenge    # tamper detection: one valid pack, one with a single byte changed
 ```
 
-**demo-incident** -- **Act 1**: Agent uses gpt-4 with a guardian check. Integrity PASS, claims PASS.
-**Act 2**: Someone swaps the model and drops the guardian. Integrity PASS, claims FAIL.
+Two packs, one byte changed ("gpt-4" -> "gpt-5" in the receipts). Here's what happens:
 
-**demo-challenge** -- Two packs, one byte changed. Verify the good pack (PASS), verify the
-tampered pack (FAIL). Five seconds to see tamper detection work.
+```
+$ assay verify-pack challenge_pack/good/
 
-That second result is an **honest failure** -- authentic evidence proving the
-run violated its declared standards. Not a cover-up. Exit code 1.
+  VERIFICATION PASSED
 
-Exit 1 is **audit gold**: authentic evidence that a control failed, with no
-ability to edit history. Auditors love "controls can fail, but failure is
-detectable and retained."
+  Pack ID:    pack_20260222_ca2bb665
+  Integrity:  PASS
+  Claims:     PASS
+  Receipts:   3
+  Signature:  Ed25519 valid
+
+  Exit code: 0
+
+$ assay verify-pack challenge_pack/tampered/
+
+  VERIFICATION FAILED
+
+  Pack ID:    pack_20260222_ca2bb665
+  Integrity:  FAIL
+  Error:      Hash mismatch for receipt_pack.jsonl
+
+  Exit code: 2
+```
+
+One byte changed. Verification fails. No server access needed. No trust required. Just math.
+
+Now try the policy violation demo:
+
+```bash
+assay demo-incident     # two-act scenario: honest PASS vs honest FAIL
+```
+
+```
+  Act 1: Agent uses gpt-4 with guardian check
+  Integrity: PASS    Claims: PASS    Exit code: 0
+
+  Act 2: Someone swaps model to gpt-3.5-turbo, removes guardian
+  Integrity: PASS    Claims: FAIL    Exit code: 1
+```
+
+Act 2 is an **honest failure** -- authentic evidence proving the run violated
+its declared standards. The evidence is real. The failure is real. Nobody can
+edit the history. Exit code 1.
+
+Exit 1 is **audit gold**: a control failed, but the failure is detectable and
+retained. Auditors love that more than systems that always claim to pass.
 
 ### How that works
 
