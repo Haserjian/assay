@@ -2,8 +2,10 @@
 """
 Generate the Assay Conformance Corpus.
 
-Creates 6 canonical Proof Packs with known verification outcomes:
+Creates 8 canonical Proof Packs with known verification outcomes:
   - 3 good packs (exit 0)
+  - 1 deny pack: guardian deny verdict (exit 0 -- deny is valid)
+  - 1 MCP deny pack: policy-denied tool call (exit 0 -- receipt valid)
   - 1 claim-fail pack (exit 1)
   - 2 tampered packs (exit 2)
 
@@ -179,6 +181,105 @@ def generate() -> dict:
         "expect_exit": 0,
         "run_cards": ["receipt_completeness"],
         "require_claim_pass": True,
+    })
+
+    # --- deny_01: guardian deny verdict (valid pack, deny is a legit verdict) ---
+    print("Generating deny_01: guardian deny verdict...")
+    entries = [
+        _make_receipt(0, pack_name="deny_01"),
+        {
+            "receipt_id": _deterministic_id("corpus_g", 1, "deny_01"),
+            "type": "guardian_verdict",
+            "timestamp": datetime(2026, 1, 15, 12, 0, 1, tzinfo=timezone.utc).isoformat(),
+            "schema_version": "3.0",
+            "seq": 1,
+            "verdict": "deny",
+            "action": "unsafe_operation",
+            "reason": "Violates safety constraint",
+        },
+    ]
+    _build_pack("deny_01", entries, full_claims, ks)
+    outcomes["entries"].append({
+        "name": "deny_01",
+        "description": "Guardian deny verdict: integrity PASS, claims PASS (deny is valid evidence)",
+        "expect_exit": 0,
+        "run_cards": ["receipt_completeness", "guardian_enforcement"],
+        "require_claim_pass": True,
+    })
+
+    # --- mcp_deny_01: MCP tool call denied by policy (valid receipt, no forwarding) ---
+    print("Generating mcp_deny_01: MCP policy-denied tool call...")
+    mcp_entries = [
+        {
+            "receipt_id": _deterministic_id("corpus_m", 0, "mcp_deny_01"),
+            "type": "mcp_tool_call",
+            "timestamp": datetime(2026, 1, 15, 12, 0, 0, tzinfo=timezone.utc).isoformat(),
+            "schema_version": "3.0",
+            "seq": 0,
+            "invocation_id": _deterministic_id("corpus_inv", 0, "mcp_deny_01"),
+            "session_id": "mcp_corpus_session",
+            "trace_id": "mcp_corpus_trace",
+            "parent_receipt_id": None,
+            "server_id": "corpus-server",
+            "server_transport": "stdio",
+            "tool_name": "delete_user",
+            "mcp_request_id": 1,
+            "request_observed_at": datetime(2026, 1, 15, 12, 0, 0, tzinfo=timezone.utc).isoformat(),
+            "policy_decided_at": datetime(2026, 1, 15, 12, 0, 0, 1000, tzinfo=timezone.utc).isoformat(),
+            "response_observed_at": datetime(2026, 1, 15, 12, 0, 0, 2000, tzinfo=timezone.utc).isoformat(),
+            "arguments_hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "arguments_content": None,
+            "result_hash": None,
+            "result_content": None,
+            "result_is_error": False,
+            "outcome": "denied",
+            "duration_ms": 0,
+            "policy_verdict": "deny",
+            "policy_reason": "deny_list",
+            "policy_ref": "assay.mcp-policy.yaml",
+            "policy_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+            "proxy_version": "corpus",
+            "integration_source": "assay.mcp_proxy",
+        },
+        {
+            "receipt_id": _deterministic_id("corpus_m", 1, "mcp_deny_01"),
+            "type": "mcp_tool_call",
+            "timestamp": datetime(2026, 1, 15, 12, 0, 1, tzinfo=timezone.utc).isoformat(),
+            "schema_version": "3.0",
+            "seq": 1,
+            "invocation_id": _deterministic_id("corpus_inv", 1, "mcp_deny_01"),
+            "session_id": "mcp_corpus_session",
+            "trace_id": "mcp_corpus_trace",
+            "parent_receipt_id": None,
+            "server_id": "corpus-server",
+            "server_transport": "stdio",
+            "tool_name": "read_file",
+            "mcp_request_id": 2,
+            "request_observed_at": datetime(2026, 1, 15, 12, 0, 1, tzinfo=timezone.utc).isoformat(),
+            "policy_decided_at": datetime(2026, 1, 15, 12, 0, 1, 1000, tzinfo=timezone.utc).isoformat(),
+            "response_observed_at": datetime(2026, 1, 15, 12, 0, 1, 500000, tzinfo=timezone.utc).isoformat(),
+            "arguments_hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "arguments_content": None,
+            "result_hash": "sha256:abc123",
+            "result_content": None,
+            "result_is_error": False,
+            "outcome": "forwarded",
+            "duration_ms": 499.0,
+            "policy_verdict": "allow",
+            "policy_reason": None,
+            "policy_ref": "assay.mcp-policy.yaml",
+            "policy_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+            "proxy_version": "corpus",
+            "integration_source": "assay.mcp_proxy",
+        },
+    ]
+    _build_pack("mcp_deny_01", mcp_entries, None, ks)
+    outcomes["entries"].append({
+        "name": "mcp_deny_01",
+        "description": "MCP policy-denied tool call + allowed tool call: integrity PASS (no semantic claims)",
+        "expect_exit": 0,
+        "run_cards": [],
+        "require_claim_pass": False,
     })
 
     # --- claimfail_01: missing guardian (integrity PASS, claims FAIL) ---

@@ -317,6 +317,101 @@ class TestMust9AuditReceipts:
 
 
 # ---------------------------------------------------------------------------
+# MUST 9: Policy-Aware Receipts (v1 extension)
+# ---------------------------------------------------------------------------
+
+
+class TestMust9PolicyReceipts:
+    """MUST 9 extension: policy-aware receipts when evaluator is loaded.
+
+    When a policy is loaded, receipts include:
+    - policy_verdict: "allow" | "deny" (not "no_policy")
+    - policy_reason: reason string for deny verdicts
+    - policy_ref: path to policy file
+    - policy_hash: SHA-256 of policy file
+    - policy_decided_at: ISO timestamp of decision
+    - outcome "denied" for blocked tool calls
+    """
+
+    @pytest.fixture
+    def policy_proxy(self, tmp_path):
+        """Create a proxy with an enforce policy loaded."""
+        policy_file = tmp_path / "policy.yaml"
+        policy_file.write_text(
+            'version: "1"\n'
+            "server_id: conformance-test\n"
+            "mode: enforce\n"
+            "tools:\n"
+            "  default: allow\n"
+            "  deny:\n"
+            '    - "dangerous_*"\n'
+        )
+        return MCPProxy(
+            audit_dir=str(tmp_path / "audit"),
+            server_id="conformance-test",
+            auto_pack=False,
+            policy_path=str(policy_file),
+        )
+
+    def test_allowed_receipt_has_policy_fields(self, policy_proxy):
+        """Allowed tool call receipt includes all policy fields."""
+        msg = {
+            "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+            "params": {"name": "safe_tool", "arguments": {}},
+        }
+        policy_proxy._on_tool_call_request(msg)
+        policy_proxy._evaluate_policy(msg)
+        with patch.object(policy_proxy, "_emit_to_store"):
+            policy_proxy._on_tool_call_response(1, {
+                "jsonrpc": "2.0", "id": 1,
+                "result": {"content": [{"type": "text", "text": "ok"}]},
+            })
+        r = policy_proxy.receipts[0]
+        assert r["policy_verdict"] == "allow"
+        assert r["policy_ref"] is not None
+        assert r["policy_hash"] is not None
+        assert r["policy_hash"].startswith("sha256:")
+        assert r["policy_decided_at"] is not None
+        assert r["policy_decided_at"].endswith("Z") or "+" in r["policy_decided_at"]
+
+    def test_denied_receipt_has_policy_fields(self, policy_proxy):
+        """Denied tool call receipt includes policy verdict, reason, and timing."""
+        msg = {
+            "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+            "params": {"name": "dangerous_action", "arguments": {}},
+        }
+        policy_proxy._on_tool_call_request(msg)
+        policy_proxy._evaluate_policy(msg)
+        r = policy_proxy.receipts[0]
+        assert r["outcome"] == "denied"
+        assert r["policy_verdict"] == "deny"
+        assert r["policy_reason"] == "deny_list"
+        assert r["policy_ref"] is not None
+        assert r["policy_hash"] is not None
+        assert r["policy_decided_at"] is not None
+
+    def test_denied_receipt_duration_is_zero(self, policy_proxy):
+        """Denied receipts have duration_ms=0 (no server round-trip)."""
+        msg = {
+            "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+            "params": {"name": "dangerous_delete", "arguments": {}},
+        }
+        policy_proxy._on_tool_call_request(msg)
+        policy_proxy._evaluate_policy(msg)
+        r = policy_proxy.receipts[0]
+        assert r["duration_ms"] == 0
+
+    def test_no_policy_backward_compat_receipt(self):
+        """Without policy, receipt has no_policy verdict and null policy fields."""
+        proxy = _make_proxy()
+        r = _simulate_tool_call(proxy)
+        assert r["policy_verdict"] == "no_policy"
+        assert r["policy_ref"] is None
+        assert r["policy_hash"] is None
+        assert r["policy_decided_at"] is None
+
+
+# ---------------------------------------------------------------------------
 # MUST 9: Incident Mode (not yet implemented)
 # ---------------------------------------------------------------------------
 
