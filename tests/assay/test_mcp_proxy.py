@@ -1136,6 +1136,334 @@ class TestTaskCancellation:
         assert result is True
 
 
+class TestPolicyIntegration:
+    """Phase B: policy evaluation wired into the proxy."""
+
+    ENFORCE_POLICY = """\
+version: "1"
+server_id: policy-test
+mode: enforce
+
+tools:
+  default: allow
+  deny:
+    - "delete_*"
+    - "drop_*"
+  constraints:
+    web_fetch:
+      max_calls: 2
+
+budget:
+  max_tool_calls: 5
+"""
+
+    AUDIT_POLICY = """\
+version: "1"
+server_id: audit-test
+mode: audit
+
+tools:
+  default: allow
+  deny:
+    - "dangerous_*"
+"""
+
+    def _write_policy(self, tmp_path, content=None):
+        p = tmp_path / "policy.yaml"
+        p.write_text(content or self.ENFORCE_POLICY, encoding="utf-8")
+        return str(p)
+
+    def test_policy_loaded_on_init(self, tmp_path):
+        """Proxy loads policy and creates evaluator."""
+        policy_path = self._write_policy(tmp_path)
+        proxy = MCPProxy(
+            audit_dir=str(tmp_path / "audit"),
+            policy_path=policy_path,
+        )
+        assert proxy._policy is not None
+        assert proxy._evaluator is not None
+        assert proxy._policy.mode == "enforce"
+        assert proxy._policy_hash.startswith("sha256:")
+        assert proxy._policy_ref == policy_path
+        # server_id overridden from policy
+        assert proxy.server_id == "policy-test"
+
+    def test_policy_missing_raises(self, tmp_path):
+        """Missing policy file raises PolicyLoadError (fail-closed)."""
+        from assay.mcp_policy import PolicyLoadError
+        with pytest.raises(PolicyLoadError, match="not found"):
+            MCPProxy(
+                audit_dir=str(tmp_path / "audit"),
+                policy_path=str(tmp_path / "nonexistent.yaml"),
+            )
+
+    def test_enforce_deny_emits_denied_receipt(self, tmp_path):
+        """In enforce mode, denied tool call emits receipt with outcome=denied."""
+        policy_path = self._write_policy(tmp_path)
+        proxy = MCPProxy(
+            audit_dir=str(tmp_path / "audit"),
+            policy_path=policy_path,
+            auto_pack=False,
+        )
+
+        msg = {
+            "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+            "params": {"name": "delete_user", "arguments": {"user": "bob"}},
+        }
+        proxy._on_tool_call_request(msg)
+        decision = proxy._evaluate_policy(msg)
+
+        assert decision is not None
+        assert decision.verdict == "deny"
+        assert decision.reason == "deny_list"
+
+        # Receipt should have been emitted
+        assert len(proxy.receipts) == 1
+        r = proxy.receipts[0]
+        assert r["outcome"] == "denied"
+        assert r["policy_verdict"] == "deny"
+        assert r["policy_reason"] == "deny_list"
+        assert r["policy_hash"].startswith("sha256:")
+        assert r["policy_ref"] == policy_path
+        assert r["policy_decided_at"] is not None
+
+    def test_enforce_allow_no_denied_receipt(self, tmp_path):
+        """In enforce mode, allowed tool call does NOT emit denied receipt."""
+        policy_path = self._write_policy(tmp_path)
+        proxy = MCPProxy(
+            audit_dir=str(tmp_path / "audit"),
+            policy_path=policy_path,
+            auto_pack=False,
+        )
+
+        msg = {
+            "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+            "params": {"name": "read_file", "arguments": {}},
+        }
+        proxy._on_tool_call_request(msg)
+        decision = proxy._evaluate_policy(msg)
+
+        assert decision.verdict == "allow"
+        # No denied receipt emitted (regular receipt comes after response)
+        assert len(proxy.receipts) == 0
+        # Pending should still have the request (not popped)
+        assert 1 in proxy.pending
+
+    def test_enforce_allowed_response_receipt_has_policy(self, tmp_path):
+        """After allow + response, receipt has correct policy fields."""
+        policy_path = self._write_policy(tmp_path)
+        proxy = MCPProxy(
+            audit_dir=str(tmp_path / "audit"),
+            policy_path=policy_path,
+            auto_pack=False,
+        )
+
+        msg = {
+            "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+            "params": {"name": "read_file", "arguments": {}},
+        }
+        proxy._on_tool_call_request(msg)
+        proxy._evaluate_policy(msg)
+
+        with patch.object(proxy, "_emit_to_store"):
+            proxy._on_tool_call_response(1, {
+                "jsonrpc": "2.0", "id": 1,
+                "result": {"content": [{"type": "text", "text": "ok"}]},
+            })
+
+        assert len(proxy.receipts) == 1
+        r = proxy.receipts[0]
+        assert r["outcome"] == "forwarded"
+        assert r["policy_verdict"] == "allow"
+        assert r["policy_hash"].startswith("sha256:")
+        assert r["policy_ref"] == policy_path
+        assert r["policy_decided_at"] is not None
+
+    def test_audit_mode_deny_does_not_block(self, tmp_path):
+        """In audit mode, denied calls are still forwarded (verdict recorded)."""
+        policy_path = self._write_policy(tmp_path, self.AUDIT_POLICY)
+        proxy = MCPProxy(
+            audit_dir=str(tmp_path / "audit"),
+            policy_path=policy_path,
+            auto_pack=False,
+        )
+        assert proxy._policy.mode == "audit"
+
+        msg = {
+            "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+            "params": {"name": "dangerous_action", "arguments": {}},
+        }
+        proxy._on_tool_call_request(msg)
+        decision = proxy._evaluate_policy(msg)
+
+        assert decision.verdict == "deny"
+        # Denied receipt emitted
+        assert len(proxy.receipts) == 1
+        r = proxy.receipts[0]
+        assert r["outcome"] == "denied"
+        assert r["policy_verdict"] == "deny"
+
+    def test_per_tool_budget_enforcement(self, tmp_path):
+        """Per-tool max_calls enforced: first 2 allowed, 3rd denied."""
+        policy_path = self._write_policy(tmp_path)
+        proxy = MCPProxy(
+            audit_dir=str(tmp_path / "audit"),
+            policy_path=policy_path,
+            auto_pack=False,
+        )
+
+        for i in range(2):
+            msg = {
+                "jsonrpc": "2.0", "id": i, "method": "tools/call",
+                "params": {"name": "web_fetch", "arguments": {}},
+            }
+            proxy._on_tool_call_request(msg)
+            d = proxy._evaluate_policy(msg)
+            assert d.verdict == "allow"
+
+        # 3rd call should be denied
+        msg = {
+            "jsonrpc": "2.0", "id": 99, "method": "tools/call",
+            "params": {"name": "web_fetch", "arguments": {}},
+        }
+        proxy._on_tool_call_request(msg)
+        d = proxy._evaluate_policy(msg)
+        assert d.verdict == "deny"
+        assert d.reason == "tool_budget_exceeded"
+
+    def test_session_budget_enforcement(self, tmp_path):
+        """Session max_tool_calls enforced."""
+        policy_path = self._write_policy(tmp_path)
+        proxy = MCPProxy(
+            audit_dir=str(tmp_path / "audit"),
+            policy_path=policy_path,
+            auto_pack=False,
+        )
+
+        # Make 5 allowed calls (budget=5)
+        for i in range(5):
+            msg = {
+                "jsonrpc": "2.0", "id": i, "method": "tools/call",
+                "params": {"name": f"tool_{i}", "arguments": {}},
+            }
+            proxy._on_tool_call_request(msg)
+            d = proxy._evaluate_policy(msg)
+            assert d.verdict == "allow", f"Call {i} should be allowed"
+
+        # 6th call should be denied
+        msg = {
+            "jsonrpc": "2.0", "id": 100, "method": "tools/call",
+            "params": {"name": "tool_extra", "arguments": {}},
+        }
+        proxy._on_tool_call_request(msg)
+        d = proxy._evaluate_policy(msg)
+        assert d.verdict == "deny"
+        assert d.reason == "session_budget_exceeded"
+
+    def test_no_policy_backward_compat(self, tmp_path):
+        """Without --policy, proxy works as v0: no_policy verdict."""
+        proxy = MCPProxy(
+            audit_dir=str(tmp_path / "audit"),
+            auto_pack=False,
+        )
+        assert proxy._policy is None
+        assert proxy._evaluator is None
+
+        msg = {
+            "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+            "params": {"name": "anything", "arguments": {}},
+        }
+        proxy._on_tool_call_request(msg)
+        decision = proxy._evaluate_policy(msg)
+        assert decision is None  # no evaluator
+
+        # Response receipt should have no_policy
+        with patch.object(proxy, "_emit_to_store"):
+            proxy._on_tool_call_response(1, {
+                "jsonrpc": "2.0", "id": 1,
+                "result": {"content": []},
+            })
+
+        r = proxy.receipts[0]
+        assert r["policy_verdict"] == "no_policy"
+        assert r["policy_ref"] is None
+        assert r["policy_hash"] is None
+
+    def test_send_denied_response_json_rpc(self, tmp_path):
+        """_send_denied_response writes valid JSON-RPC error to stdout."""
+        policy_path = self._write_policy(tmp_path)
+        proxy = MCPProxy(
+            audit_dir=str(tmp_path / "audit"),
+            policy_path=policy_path,
+            auto_pack=False,
+        )
+
+        from assay.mcp_policy import PolicyDecision
+        decision = PolicyDecision(
+            verdict="deny",
+            reason="deny_list",
+            detail="tool 'delete_user' matched deny pattern 'delete_*'",
+        )
+
+        # Capture stdout
+        import io
+        buf = io.BytesIO()
+        with patch("sys.stdout") as mock_stdout:
+            mock_stdout.buffer = buf
+            proxy._send_denied_response(
+                {"jsonrpc": "2.0", "id": 42, "method": "tools/call", "params": {}},
+                decision,
+            )
+
+        output = buf.getvalue().decode("utf-8").strip()
+        parsed = json.loads(output)
+        assert parsed["jsonrpc"] == "2.0"
+        assert parsed["id"] == 42
+        assert parsed["error"]["code"] == -32001
+        assert "deny_list" in parsed["error"]["message"]
+        assert "delete_*" in parsed["error"]["data"]["detail"]
+
+    def test_denied_receipt_fields_complete(self, tmp_path):
+        """Denied receipt has all required fields."""
+        policy_path = self._write_policy(tmp_path)
+        proxy = MCPProxy(
+            audit_dir=str(tmp_path / "audit"),
+            policy_path=policy_path,
+            auto_pack=False,
+        )
+
+        msg = {
+            "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+            "params": {"name": "drop_table", "arguments": {"table": "users"}},
+        }
+        proxy._on_tool_call_request(msg)
+        proxy._evaluate_policy(msg)
+
+        assert len(proxy.receipts) == 1
+        r = proxy.receipts[0]
+
+        required_fields = [
+            "type", "receipt_id", "timestamp", "schema_version", "seq",
+            "invocation_id", "session_id", "parent_receipt_id",
+            "server_id", "server_transport", "tool_name", "mcp_request_id",
+            "request_observed_at", "policy_decided_at", "response_observed_at",
+            "arguments_hash", "arguments_content",
+            "result_hash", "result_content", "result_is_error",
+            "outcome", "duration_ms",
+            "policy_verdict", "policy_reason", "policy_ref", "policy_hash",
+            "proxy_version", "integration_source",
+        ]
+        for field in required_fields:
+            assert field in r, f"Missing field: {field}"
+
+        assert r["type"] == "mcp_tool_call"
+        assert r["outcome"] == "denied"
+        assert r["policy_verdict"] == "deny"
+        assert r["policy_reason"] == "deny_list"
+        assert r["duration_ms"] == 0
+        assert r["result_is_error"] is False
+
+
 class TestRunProxy:
     """Tests that spawn actual subprocess mock servers."""
 

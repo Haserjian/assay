@@ -1,5 +1,5 @@
 """
-MCP Notary Proxy v0: transparent stdio proxy with receipt emission.
+MCP Notary Proxy: transparent stdio proxy with receipt emission.
 
 Sits between an MCP client and server, intercepts tools/call requests,
 and emits one MCPToolCallReceipt per tool invocation. All other JSON-RPC
@@ -9,16 +9,22 @@ Supports both MCP stdio framing styles:
   - NDJSON (newline-delimited JSON)
   - Content-Length framed (LSP-style headers)
 
-v0 scope:
-  - stdio transport only
-  - tools/call interception only
-  - audit profile only (no policy enforcement)
-  - privacy-by-default: args/results hashed (SHA-256 of JCS)
-  - auto-pack on clean session end
-  - session trace on crash (no crash-pack yet)
+Policy modes (v1):
+  - no policy:  v0 behavior. Receipts record policy_verdict="no_policy".
+  - audit:      evaluates tool calls against policy, records verdict in
+                receipt, but never blocks. Tools always forwarded.
+  - enforce:    denied tool calls are blocked before reaching the server.
+                The proxy returns a JSON-RPC error to the client and emits
+                a receipt with outcome="denied".
+
+Missing policy file at startup with --policy flag: fail-closed (exit 1).
 
 Usage:
     proxy = MCPProxy(server_id="my-server")
+    await proxy.run(["python", "my_server.py"])
+
+    # With policy enforcement:
+    proxy = MCPProxy(server_id="my-server", policy_path="assay.mcp-policy.yaml")
     await proxy.run(["python", "my_server.py"])
 """
 from __future__ import annotations
@@ -192,6 +198,10 @@ class MCPProxy:
     MCPToolCallReceipt per round-trip.
 
     Handles both NDJSON and Content-Length framed messages transparently.
+
+    With a policy_path, evaluates each tool call against the loaded policy
+    before forwarding. In enforce mode, denied calls return a JSON-RPC
+    error to the client without reaching the server.
     """
 
     def __init__(
@@ -203,6 +213,7 @@ class MCPProxy:
         store_results: bool = False,
         auto_pack: bool = True,
         json_output: bool = False,
+        policy_path: Optional[str] = None,
     ):
         self.audit_dir = Path(audit_dir)
         self.server_id = server_id or "unknown"
@@ -217,6 +228,32 @@ class MCPProxy:
         self.receipts: List[Dict[str, Any]] = []
         self.seq = 0
         self._shutting_down = False
+
+        # Policy evaluation (v1)
+        self._policy = None
+        self._evaluator = None
+        self._policy_hash = None
+        self._policy_ref = None
+        if policy_path is not None:
+            self._load_policy(policy_path)
+
+    def _load_policy(self, policy_path: str) -> None:
+        """Load policy file. Raises PolicyLoadError on failure (fail-closed)."""
+        from assay.mcp_policy import PolicyEvaluator, load_policy
+
+        path = Path(policy_path)
+        self._policy = load_policy(path)
+        self._evaluator = PolicyEvaluator(self._policy)
+        self._policy_hash = self._policy.source_hash
+        self._policy_ref = str(path)
+
+        # Override store_args/store_results from policy if set
+        if self._policy.store_args is not None:
+            self.store_args = self._policy.store_args
+        if self._policy.store_results is not None:
+            self.store_results = self._policy.store_results
+        if self._policy.server_id:
+            self.server_id = self._policy.server_id
 
     async def run(self, upstream_cmd: List[str]) -> int:
         """Run the proxy. Returns exit code."""
@@ -328,6 +365,14 @@ class MCPProxy:
             if msg and is_tool_call_request(msg):
                 self._on_tool_call_request(msg)
 
+                # Policy evaluation: check before forwarding
+                decision = self._evaluate_policy(msg)
+                if decision is not None and decision.verdict == "deny":
+                    if self._policy and self._policy.mode == "enforce":
+                        # Block: send JSON-RPC error back to client, don't forward
+                        self._send_denied_response(msg, decision)
+                        continue  # skip forwarding to server
+
             if proc.stdin and not proc.stdin.is_closing():
                 proc.stdin.write(raw)
                 await proc.stdin.drain()
@@ -364,6 +409,74 @@ class MCPProxy:
     # Tool call tracking + receipt emission
     # -----------------------------------------------------------------------
 
+    def _evaluate_policy(self, msg: Dict[str, Any]) -> Optional[Any]:
+        """Evaluate a tool call against the loaded policy.
+
+        Returns PolicyDecision or None if no policy loaded.
+        On deny: emits a denied receipt regardless of mode.
+        """
+        if self._evaluator is None:
+            return None
+
+        params = msg.get("params", {})
+        tool_name = params.get("name", "unknown")
+        arguments = params.get("arguments", {})
+
+        decision = self._evaluator.evaluate(tool_name, arguments or None)
+
+        req_id = msg["id"]
+        pending = self.pending.get(req_id)
+        if pending is not None:
+            pending["policy_verdict"] = decision.verdict
+            pending["policy_reason"] = decision.reason
+            pending["policy_detail"] = decision.detail
+            pending["policy_decided_at"] = _now_iso()
+
+        if decision.verdict == "deny":
+            # Emit denied receipt immediately (no response from server)
+            self._emit_denied_receipt(msg, decision)
+
+        return decision
+
+    def _emit_denied_receipt(self, msg: Dict[str, Any], decision: Any) -> None:
+        """Emit a receipt for a denied tool call."""
+        req_id = msg["id"]
+        pending = self.pending.pop(req_id, None)
+        if not pending:
+            return
+
+        receipt = self._mint_receipt(
+            tool_name=pending["tool_name"],
+            arguments=pending["arguments"],
+            result_obj={"denied": True, "reason": decision.reason, "detail": decision.detail},
+            outcome="denied",
+            is_error=False,
+            duration_ms=0,
+            request_observed_at=pending["request_observed_at"],
+            response_observed_at=_now_iso(),
+            mcp_request_id=pending["mcp_request_id"],
+            policy_verdict="deny",
+            policy_reason=decision.reason,
+            policy_decided_at=pending.get("policy_decided_at"),
+        )
+        self.receipts.append(receipt)
+        self._emit_to_store(receipt)
+
+    def _send_denied_response(self, msg: Dict[str, Any], decision: Any) -> None:
+        """Send a JSON-RPC error response back to the client for a denied tool call."""
+        error_resp = {
+            "jsonrpc": "2.0",
+            "id": msg["id"],
+            "error": {
+                "code": -32001,
+                "message": f"Tool call denied by policy: {decision.reason}",
+                "data": {"detail": decision.detail, "policy_ref": self._policy_ref},
+            },
+        }
+        line = json.dumps(error_resp) + "\n"
+        sys.stdout.buffer.write(line.encode("utf-8"))
+        sys.stdout.buffer.flush()
+
     def _on_tool_call_request(self, msg: Dict[str, Any]) -> None:
         """Record a pending tool call request."""
         req_id = msg["id"]
@@ -373,6 +486,10 @@ class MCPProxy:
             "arguments": params.get("arguments", {}),
             "request_observed_at": _now_iso(),
             "mcp_request_id": req_id,
+            "policy_verdict": None,
+            "policy_reason": None,
+            "policy_detail": None,
+            "policy_decided_at": None,
         }
 
     def _on_tool_call_response(self, req_id: Any, msg: Dict[str, Any]) -> None:
@@ -411,6 +528,13 @@ class MCPProxy:
         except Exception:
             duration_ms = 0
 
+        # Use policy verdict from evaluation phase (or defaults)
+        policy_verdict = pending.get("policy_verdict")
+        if policy_verdict is None and self._evaluator is None:
+            policy_verdict = "no_policy"
+        elif policy_verdict is None:
+            policy_verdict = "allow"
+
         receipt = self._mint_receipt(
             tool_name=tool_name,
             arguments=arguments,
@@ -421,6 +545,9 @@ class MCPProxy:
             request_observed_at=pending["request_observed_at"],
             response_observed_at=response_observed_at,
             mcp_request_id=pending["mcp_request_id"],
+            policy_verdict=policy_verdict,
+            policy_reason=pending.get("policy_reason"),
+            policy_decided_at=pending.get("policy_decided_at"),
         )
 
         self.receipts.append(receipt)
@@ -440,12 +567,20 @@ class MCPProxy:
         request_observed_at: str,
         response_observed_at: str,
         mcp_request_id: Any,
+        policy_verdict: Optional[str] = None,
+        policy_reason: Optional[str] = None,
+        policy_decided_at: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Create an MCPToolCallReceipt."""
         receipt_id = f"mtc_{uuid.uuid4().hex[:16]}"
         now = _now_iso()
         seq = self.seq
         self.seq += 1
+
+        # Determine policy fields
+        verdict = policy_verdict or "no_policy"
+        p_ref = self._policy_ref if self._policy else None
+        p_hash = self._policy_hash if self._policy else None
 
         receipt: Dict[str, Any] = {
             "type": "mcp_tool_call",
@@ -468,7 +603,7 @@ class MCPProxy:
 
             # Phase timing
             "request_observed_at": request_observed_at,
-            "policy_decided_at": None,  # v0: no policy
+            "policy_decided_at": policy_decided_at,
             "response_observed_at": response_observed_at,
 
             # Arguments (privacy-by-default)
@@ -484,10 +619,11 @@ class MCPProxy:
             "outcome": outcome,
             "duration_ms": duration_ms,
 
-            # Policy (v0: no policy)
-            "policy_verdict": "no_policy",
-            "policy_ref": None,
-            "policy_hash": None,
+            # Policy
+            "policy_verdict": verdict,
+            "policy_reason": policy_reason,
+            "policy_ref": p_ref,
+            "policy_hash": p_hash,
 
             # Integration
             "proxy_version": self._get_version(),
@@ -592,6 +728,7 @@ def run_proxy(
     store_results: bool = False,
     auto_pack: bool = True,
     json_output: bool = False,
+    policy_path: Optional[str] = None,
 ) -> int:
     """Run the MCP proxy synchronously. Returns exit code."""
     proxy = MCPProxy(
@@ -601,6 +738,7 @@ def run_proxy(
         store_results=store_results,
         auto_pack=auto_pack,
         json_output=json_output,
+        policy_path=policy_path,
     )
     return asyncio.run(proxy.run(upstream_cmd))
 

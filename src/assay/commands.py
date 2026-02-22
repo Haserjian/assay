@@ -6365,6 +6365,7 @@ def mcp_proxy_cmd(
     store_results: bool = typer.Option(False, "--store-results", help="Store tool results in cleartext (default: hash-only)"),
     no_auto_pack: bool = typer.Option(False, "--no-auto-pack", help="Disable auto-pack on session end"),
     output_json: bool = typer.Option(False, "--json", help="JSON output for status messages"),
+    policy: Optional[str] = typer.Option(None, "--policy", help="Path to assay.mcp-policy.yaml (fail-closed if missing)"),
 ):
     """MCP Notary Proxy: receipt every tool call.
 
@@ -6372,13 +6373,18 @@ def mcp_proxy_cmd(
     Intercepts tools/call requests, emits MCPToolCallReceipt per
     invocation, and auto-builds a proof pack on session end.
 
+    With --policy, evaluates tool calls against the policy file.
+    In enforce mode, denied calls are blocked before reaching the server.
+    Missing or invalid policy file: fail-closed (exit 1).
+
     Usage:
 
         assay mcp-proxy -- python my_server.py
+        assay mcp-proxy --policy assay.mcp-policy.yaml -- python my_server.py
 
     In your MCP client config (e.g. claude_desktop_config.json):
 
-        {"command": "assay", "args": ["mcp-proxy", "--", "python", "my_server.py"]}
+        {"command": "assay", "args": ["mcp-proxy", "--policy", "assay.mcp-policy.yaml", "--", "python", "my_server.py"]}
     """
     from assay.mcp_proxy import run_proxy
 
@@ -6407,6 +6413,22 @@ def mcp_proxy_cmd(
         )
         raise typer.Exit(3)
 
+    # Fail-closed: if --policy given but file is bad, exit 1
+    if policy is not None:
+        from assay.mcp_policy import PolicyLoadError
+        try:
+            # Validate early so we get a clear error before starting the server
+            from assay.mcp_policy import load_policy
+            load_policy(Path(policy))
+        except PolicyLoadError as exc:
+            if output_json:
+                _output_json(
+                    {"command": "mcp-proxy", "status": "error", "error": str(exc)},
+                    exit_code=1,
+                )
+            console.print(f"[red]Error:[/] Failed to load policy: {exc}")
+            raise typer.Exit(1)
+
     exit_code = run_proxy(
         upstream_cmd,
         audit_dir=audit_dir,
@@ -6415,6 +6437,7 @@ def mcp_proxy_cmd(
         store_results=store_results,
         auto_pack=not no_auto_pack,
         json_output=output_json,
+        policy_path=policy,
     )
     raise typer.Exit(exit_code)
 
