@@ -32,7 +32,8 @@ pip install assay-ai
 assay demo-challenge    # tamper detection: one valid pack, one with a single byte changed
 ```
 
-Two packs, one byte changed ("gpt-4" -> "gpt-5" in the receipts). Here's what happens:
+Two packs, one byte changed ("gpt-4" -> "gpt-5" in the receipts). Here's what happens
+(pack IDs and timestamps will differ on your machine):
 
 ```
 $ assay verify-pack challenge_pack/good/
@@ -138,7 +139,7 @@ integration (`ollama/llama3`, etc.).
 
 ## CI Gate
 
-Three commands, three exit codes, one lockfile:
+Three commands, one lockfile:
 
 ```bash
 assay run -c receipt_completeness -- python my_app.py
