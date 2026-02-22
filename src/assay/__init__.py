@@ -7,7 +7,12 @@ Assay: Tamper-evident audit trails for AI systems.
 - Verify evidence integrity (exit 0/1/2/3: pass / honest failure / tampered / bad input)
 """
 
-__version__ = "1.6.0"
+from importlib.metadata import version, PackageNotFoundError
+
+try:
+    __version__ = version("assay-ai")
+except PackageNotFoundError:
+    __version__ = "0.0.0-dev"
 
 from .guardian import GuardianVerdict, no_coherence_by_dignity_debt
 from .health import GraceConfig, is_grace_window

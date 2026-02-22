@@ -46,13 +46,12 @@ def _read(path: Path) -> str:
 # ---------------------------------------------------------------------------
 
 class TestVersionConsistency:
-    """__init__.py __version__ must match pyproject.toml version."""
+    """Runtime __version__ must match pyproject.toml version."""
 
     def test_init_matches_pyproject(self):
-        init_text = _read(INIT_PY)
-        match = re.search(r'__version__\s*=\s*"([^"]+)"', init_text)
-        assert match, "__version__ not found in __init__.py"
-        init_version = match.group(1)
+        import assay
+
+        init_version = assay.__version__
 
         pyproject_text = _read(PYPROJECT)
         match2 = re.search(r'^version\s*=\s*"([^"]+)"', pyproject_text, re.MULTILINE)
@@ -60,7 +59,7 @@ class TestVersionConsistency:
         pyproject_version = match2.group(1)
 
         assert init_version == pyproject_version, (
-            f"Version mismatch: __init__.py={init_version}, "
+            f"Version mismatch: assay.__version__={init_version}, "
             f"pyproject.toml={pyproject_version}"
         )
 
