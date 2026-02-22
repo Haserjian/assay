@@ -5681,6 +5681,8 @@ def analyze_cmd(
     pack_dir: Optional[str] = typer.Argument(None, help="Path to proof pack directory"),
     history: bool = typer.Option(False, "--history", help="Analyze local trace history instead of a pack"),
     since: int = typer.Option(7, "--since", help="Days of history to analyze (with --history)"),
+    regime_detect: bool = typer.Option(False, "--regime-detect", help="Detect regime changes (model swaps, cost/latency drift)"),
+    window_hours: int = typer.Option(24, "--window-hours", help="Window size in hours for regime detection (default: 24)"),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Analyze receipts for cost, latency, and error breakdowns.
@@ -5689,12 +5691,17 @@ def analyze_cmd(
     and computes token usage, estimated cost, latency percentiles,
     error rates, and per-model/per-provider breakdowns.
 
+    With --regime-detect, also detects regime changes across time windows:
+    model swaps, cost spikes, latency drift, and error rate shifts.
+
     Pricing estimates are approximate.
 
     Examples:
       assay analyze ./proof_pack_*/
       assay analyze --history
       assay analyze --history --since 30
+      assay analyze --history --regime-detect
+      assay analyze --history --regime-detect --window-hours 12
       assay analyze ./proof_pack_*/ --json
     """
     from pathlib import Path
@@ -5746,15 +5753,24 @@ def analyze_cmd(
         console.print(f"[red]Error:[/] {e}")
         raise typer.Exit(3)
 
+    # Regime detection
+    regime_report = None
+    if regime_detect:
+        from assay.regime import detect_regimes
+        regime_report = detect_regimes(receipts, window_hours=window_hours)
+
     if output_json:
-        _output_json({"command": "analyze", "status": "ok", **result.to_dict()}, exit_code=0)
+        payload = {"command": "analyze", "status": "ok", **result.to_dict()}
+        if regime_report is not None:
+            payload["regime"] = regime_report.to_dict()
+        _output_json(payload, exit_code=0)
         return
 
     # Rich table output
-    _render_analysis(result)
+    _render_analysis(result, regime_report=regime_report)
 
 
-def _render_analysis(result) -> None:
+def _render_analysis(result, regime_report=None) -> None:
     """Render analysis result to console with Rich tables."""
     console.print()
 
@@ -5836,8 +5852,61 @@ def _render_analysis(result) -> None:
         fr_parts = [f"{reason}: {count}" for reason, count in sorted(result.finish_reasons.items(), key=lambda x: str(x[0]))]
         console.print(f"  [dim]Finish reasons:[/] {', '.join(fr_parts)}")
 
+    # Regime detection results
+    if regime_report is not None:
+        console.print()
+        _render_regime(regime_report)
+
     console.print()
     raise typer.Exit(0)
+
+
+def _render_regime(report) -> None:
+    """Render regime detection results to console."""
+    _severity_style = {"alert": "bold red", "warning": "yellow", "info": "dim"}
+
+    if not report.flags:
+        console.print(Panel(
+            f"[green]No regime changes detected[/] across {report.n_windows} "
+            f"window(s) ({report.window_hours}h each, {report.n_receipts} calls).",
+            title="Regime Detection",
+            border_style="green",
+        ))
+        return
+
+    # Summary
+    parts = []
+    if report.n_alerts:
+        parts.append(f"[bold red]{report.n_alerts} alert(s)[/]")
+    if report.n_warnings:
+        parts.append(f"[yellow]{report.n_warnings} warning(s)[/]")
+    if report.n_info:
+        parts.append(f"[dim]{report.n_info} info[/]")
+    summary_line = (
+        f"{len(report.flags)} drift flag(s): {', '.join(parts)}  "
+        f"({report.n_windows} windows, {report.window_hours}h each)"
+    )
+
+    # Flags table
+    flag_table = Table(box=None, padding=(0, 1))
+    flag_table.add_column("Severity", style="bold", width=8)
+    flag_table.add_column("Type", width=14)
+    flag_table.add_column("Window", width=22)
+    flag_table.add_column("Description")
+    for f in report.flags:
+        style = _severity_style.get(f.severity, "")
+        flag_table.add_row(
+            f"[{style}]{f.severity.upper()}[/{style}]",
+            f.flag_type,
+            f.window_after[:19],
+            f.description,
+        )
+
+    console.print(Panel(
+        flag_table,
+        title=f"Regime Detection -- {summary_line}",
+        border_style="red" if report.n_alerts else "yellow",
+    ))
 
 
 @assay_app.command("diff")
