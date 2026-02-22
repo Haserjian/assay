@@ -39,6 +39,7 @@ Commands:
   assay start demo    - See Assay in action (quickstart flow)
   assay start ci      - Set up CI evidence gating
   assay start mcp     - Set up MCP tool call auditing
+  assay compliance report - Map evidence pack to regulatory framework controls
   assay version       - Show version info
 """
 
@@ -6758,6 +6759,121 @@ def flow_audit_cmd(
 
     if result.failed_step is not None:
         raise typer.Exit(1)
+
+
+# ---------------------------------------------------------------------------
+# compliance: framework-specific evidence assessment
+# ---------------------------------------------------------------------------
+
+compliance_app = typer.Typer(
+    name="compliance",
+    help="Compliance assessment: map evidence packs to regulatory frameworks",
+    no_args_is_help=True,
+)
+assay_app.add_typer(compliance_app, name="compliance")
+
+
+@compliance_app.command("report")
+def compliance_report_cmd(
+    pack_dir: str = typer.Argument(..., help="Path to proof pack directory"),
+    framework: str = typer.Option(
+        "eu-ai-act", "--framework", "-f",
+        help="Framework: eu-ai-act, soc2, iso42001, nist-ai-rmf, all",
+    ),
+    output_format: str = typer.Option("text", "--format", help="Output: text, md, json"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Generate a compliance report mapping evidence to regulatory controls.
+
+    Evaluates a proof pack against a specific compliance framework and
+    produces a per-control PASS/FAIL/UNKNOWN verdict. Covers EU AI Act
+    Articles 12 & 19, SOC 2 CC7.2, ISO 42001, and NIST AI RMF.
+
+    Exit codes:
+      0 = report generated
+      3 = bad input (invalid directory, missing manifest, unknown framework)
+
+    Examples:
+      assay compliance report ./proof_pack_*/
+      assay compliance report ./proof_pack_*/ --framework soc2
+      assay compliance report ./proof_pack_*/ --framework all --json
+      assay compliance report ./proof_pack_*/ --format md
+    """
+    from pathlib import Path
+
+    from assay.compliance import (
+        ALL_FRAMEWORK_IDS,
+        evaluate_compliance,
+        render_compliance_md,
+        render_compliance_text,
+    )
+
+    pd = Path(pack_dir)
+    if not pd.is_dir():
+        if output_json or output_format == "json":
+            _output_json({
+                "command": "compliance report",
+                "status": "error",
+                "error": f"Not a directory: {pack_dir}",
+            }, exit_code=3)
+        console.print(f"[red]Error:[/] {pack_dir} is not a directory")
+        raise typer.Exit(3)
+
+    manifest_path = pd / "pack_manifest.json"
+    if not manifest_path.exists():
+        if output_json or output_format == "json":
+            _output_json({
+                "command": "compliance report",
+                "status": "error",
+                "error": "pack_manifest.json not found",
+            }, exit_code=3)
+        console.print(f"[red]Error:[/] {manifest_path} not found")
+        raise typer.Exit(3)
+
+    # Determine frameworks to evaluate
+    if framework == "all":
+        framework_ids = list(ALL_FRAMEWORK_IDS)
+    else:
+        if framework not in ALL_FRAMEWORK_IDS:
+            if output_json or output_format == "json":
+                _output_json({
+                    "command": "compliance report",
+                    "status": "error",
+                    "error": f"Unknown framework: {framework}",
+                    "supported": ALL_FRAMEWORK_IDS,
+                }, exit_code=3)
+            console.print(
+                f"[red]Error:[/] Unknown framework: {framework}. "
+                f"Supported: {', '.join(ALL_FRAMEWORK_IDS)}"
+            )
+            raise typer.Exit(3)
+        framework_ids = [framework]
+
+    reports = []
+    for fid in framework_ids:
+        reports.append(evaluate_compliance(pd, fid))
+
+    if output_json or output_format == "json":
+        if len(reports) == 1:
+            payload = {"command": "compliance report", "status": "ok", **reports[0].to_dict()}
+        else:
+            payload = {
+                "command": "compliance report",
+                "status": "ok",
+                "frameworks": [r.to_dict() for r in reports],
+            }
+        _output_json(payload, exit_code=0)
+        return
+
+    if output_format == "md":
+        for report in reports:
+            console.print(render_compliance_md(report))
+        return
+
+    # Default: text
+    for report in reports:
+        console.print()
+        console.print(render_compliance_text(report))
 
 
 def main():
