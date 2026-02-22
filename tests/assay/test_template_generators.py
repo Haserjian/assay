@@ -93,8 +93,91 @@ class TestMCPPolicyInit:
         monkeypatch.chdir(tmp_path)
         runner.invoke(assay_app, ["mcp", "policy", "init"])
         content = (tmp_path / "assay.mcp-policy.yaml").read_text()
-        assert "audit_only" in content
         assert "deny" in content
+        assert "allow" in content
+        assert "constraints" in content
+
+    def test_policy_has_v1_fields(self, tmp_path, monkeypatch):
+        """Policy template includes v1 schema fields."""
+        monkeypatch.chdir(tmp_path)
+        runner.invoke(assay_app, ["mcp", "policy", "init"])
+        content = (tmp_path / "assay.mcp-policy.yaml").read_text()
+        assert 'version: "1"' in content
+        assert "mode: audit" in content
+
+    def test_generated_policy_validates(self, tmp_path, monkeypatch):
+        """Generated policy file passes validate."""
+        monkeypatch.chdir(tmp_path)
+        runner.invoke(assay_app, ["mcp", "policy", "init"])
+        path = str(tmp_path / "assay.mcp-policy.yaml")
+        result = runner.invoke(assay_app, ["mcp", "policy", "validate", path])
+        assert result.exit_code == 0
+        assert "valid" in result.output.lower()
+
+
+class TestMCPPolicyValidate:
+    def test_validate_valid_policy(self, tmp_path):
+        """Validates a correct policy file."""
+        p = tmp_path / "policy.yaml"
+        p.write_text('version: "1"\nserver_id: test\nmode: enforce\n')
+        result = runner.invoke(assay_app, ["mcp", "policy", "validate", str(p)])
+        assert result.exit_code == 0
+        assert "valid" in result.output.lower()
+        assert "enforce" in result.output
+
+    def test_validate_missing_file(self, tmp_path):
+        """Error for missing file."""
+        result = runner.invoke(assay_app, ["mcp", "policy", "validate", str(tmp_path / "nope.yaml")])
+        assert result.exit_code == 1
+        assert "not found" in result.output.lower() or "error" in result.output.lower()
+
+    def test_validate_invalid_yaml(self, tmp_path):
+        """Error for invalid YAML."""
+        p = tmp_path / "bad.yaml"
+        p.write_text("{{not: valid: yaml: [}")
+        result = runner.invoke(assay_app, ["mcp", "policy", "validate", str(p)])
+        assert result.exit_code == 1
+
+    def test_validate_invalid_mode(self, tmp_path):
+        """Error for invalid mode."""
+        p = tmp_path / "bad.yaml"
+        p.write_text("mode: turbo\n")
+        result = runner.invoke(assay_app, ["mcp", "policy", "validate", str(p)])
+        assert result.exit_code == 1
+
+    def test_validate_json_output(self, tmp_path):
+        """--json produces valid JSON summary."""
+        p = tmp_path / "policy.yaml"
+        p.write_text('version: "1"\nserver_id: json-test\nmode: audit\n')
+        result = runner.invoke(assay_app, ["mcp", "policy", "validate", str(p), "--json"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["status"] == "ok"
+        assert data["mode"] == "audit"
+        assert data["server_id"] == "json-test"
+        assert data["hash"].startswith("sha256:")
+
+    def test_validate_json_error(self, tmp_path):
+        """--json error on bad file."""
+        result = runner.invoke(assay_app, ["mcp", "policy", "validate", str(tmp_path / "nope.yaml"), "--json"])
+        assert result.exit_code == 1
+        data = json.loads(result.output)
+        assert data["status"] == "error"
+
+    def test_validate_shows_rule_counts(self, tmp_path):
+        """Validate output shows deny/allow/constraint counts."""
+        p = tmp_path / "policy.yaml"
+        p.write_text(
+            'version: "1"\nserver_id: test\nmode: enforce\n'
+            "tools:\n  default: allow\n  deny:\n    - 'delete_*'\n    - 'drop_*'\n"
+            "  allow:\n    - 'read_*'\n"
+            "  constraints:\n    web_fetch:\n      max_calls: 5\n"
+            "budget:\n  max_tool_calls: 20\n"
+        )
+        result = runner.invoke(assay_app, ["mcp", "policy", "validate", str(p)])
+        assert result.exit_code == 0
+        assert "2" in result.output  # 2 deny rules
+        assert "20" in result.output  # budget
 
 
 class TestMCPHelp:
@@ -109,6 +192,7 @@ class TestMCPHelp:
         result = runner.invoke(assay_app, ["mcp", "policy"])
         assert result.exit_code in (0, 2)
         assert "init" in result.output
+        assert "validate" in result.output
 
 
 class TestCIInitDiffReport:
