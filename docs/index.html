@@ -692,6 +692,7 @@
       <a href="#gap-map">Gap Map</a>
       <a href="#faq">FAQ</a>
       <a href="#threat-model">Threat Model</a>
+      <a href="#regulation">Regulation</a>
       <a href="decision-escrow.md">Decision Escrow</a>
       <a href="https://github.com/Haserjian/assay#readme" target="_blank">Docs</a>
       <a href="https://github.com/Haserjian/assay" target="_blank">GitHub</a>
@@ -788,7 +789,7 @@
   <div class="container">
     <h2>Two lines. That's the diff.</h2>
     <p class="section-sub">
-      Run <code>assay patch</code> to auto-insert the integration, or add it manually.
+      Run <code>assay patch .</code> to auto-insert the integration into your source files (it finds your LLM call sites and adds the import for you), or add it manually.
       Then <code>assay run</code>. Every LLM call now produces a signed receipt.
       The proof pack is a 5-file evidence bundle that anyone can verify independently.
       Works with OpenAI, Anthropic, Google Gemini, LiteLLM, and LangChain.
@@ -1128,10 +1129,11 @@ assay verify-signer ./proof_pack_*/</span></pre>
         <summary>I ran assay run and got "No receipts emitted". What now?</summary>
         <p class="faq-answer">
           Run these in order:
-          <code>assay scan .</code>,
-          <code>assay scan . --report</code>,
-          <code>assay run -- python app.py</code>,
-          then <code>assay doctor</code>. This checks whether your project has
+          <code>assay scan .</code> (finds LLM call sites in your code),
+          <code>assay scan . --report</code> (generates an HTML gap report),
+          <code>assay run -- python app.py</code> (wraps your program and collects receipts),
+          then <code>assay doctor</code> (runs 15 preflight checks on your setup).
+          Together these tell you whether your project has
           supported call sites, whether those files are instrumented, and whether
           your run command is wired correctly (including the required <code>--</code> separator).
         </p>
@@ -1206,6 +1208,20 @@ assay verify-signer ./proof_pack_*/</span></pre>
   </div>
 </section>
 
+<section id="regulation" style="border-top: 1px solid var(--border); padding: 48px 0;">
+  <div class="container" style="max-width: 720px;">
+    <h2 style="font-size: 24px; margin-bottom: 12px;">Regulatory context</h2>
+    <p style="color: var(--text2); font-size: 15px; line-height: 1.7;">
+      The EU AI Act (Regulation 2024/1689, Articles 12 &amp; 19) requires
+      tamper-resistant logging and retention for high-risk AI systems.
+      These obligations take effect August 2, 2026 under the current timeline.
+      Assay provides one building block for these requirements -- it does not
+      constitute full compliance on its own.
+      See <a href="for-compliance.md" style="color: var(--accent);">For Compliance Teams</a> for mapping to SOC 2, ISO 42001, and NIST AI RMF.
+    </p>
+  </div>
+</section>
+
 <section class="cta-section">
   <div class="container">
     <h2>Ready to make your AI auditable?</h2>
@@ -1219,14 +1235,6 @@ assay verify-signer ./proof_pack_*/</span></pre>
       <a href="https://github.com/Haserjian/assay/issues/new?template=pilot-inquiry.md" class="btn btn-secondary" target="_blank">Request a Pilot</a>
       <a href="https://github.com/Haserjian/assay/discussions" class="btn btn-secondary" target="_blank">Join the Discussion</a>
     </div>
-    <p class="reg-note">
-      <strong>Regulatory context:</strong>
-      The EU AI Act (Regulation 2024/1689, Articles 12 &amp; 19) requires
-      tamper-resistant logging and retention for high-risk AI systems.
-      These obligations take effect August 2, 2026 under the current timeline.
-      Assay provides one building block for these requirements -- it does not
-      constitute full compliance on its own.
-    </p>
   </div>
 </section>
 
