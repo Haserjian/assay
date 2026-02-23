@@ -233,36 +233,100 @@ assay score               # evidence readiness (0-100, A-F)
 
 Full command reference:
 
+**Getting started**
+
 | Command | Purpose |
 |---------|---------|
 | `assay quickstart` | One command: demo + scan + next steps |
-| `assay status` | One-screen operational dashboard: am I set up? |
-| `assay start demo` | See Assay in action (quickstart flow) |
-| `assay start ci` | Guided CI evidence gate setup (5 steps) |
-| `assay start mcp` | Guided MCP tool call auditing setup (4 steps) |
+| `assay status` | One-screen operational dashboard |
+| `assay start demo\|ci\|mcp` | Guided entrypoints for trying, CI setup, or MCP auditing |
+| `assay onboard` | Guided setup: doctor -> scan -> first run plan |
+| `assay doctor` | Preflight check: is Assay ready here? |
+| `assay version` | Print installed version |
+
+**Instrument + produce evidence**
+
+| Command | Purpose |
+|---------|---------|
 | `assay scan` | Find uninstrumented LLM call sites (`--report` for HTML) |
 | `assay patch` | Auto-insert SDK integration patches into your entrypoint |
 | `assay run` | Wrap command, collect receipts, build signed evidence pack |
-| `assay verify-pack` | Verify an evidence pack (integrity + claims) |
+
+**Verify + analyze**
+
+| Command | Purpose |
+|---------|---------|
+| `assay verify-pack` | Verify integrity + claims (the 4 exit codes) |
+| `assay verify-signer` | Extract and verify signer identity from a pack manifest |
 | `assay explain` | Plain-English summary of an evidence pack |
 | `assay analyze` | Cost, latency, error breakdown from pack or `--history` |
 | `assay diff` | Compare packs: claims, cost, latency (`--against-previous`, `--why`, `--gate-*`) |
 | `assay score` | Evidence Readiness Score (0-100, A-F) with anti-gaming caps |
-| `assay doctor` | Preflight check: is Assay ready here? |
-| `assay mcp-proxy` | Transparent MCP proxy: intercept tool calls, emit receipts |
-| `assay mcp policy init` | Generate a starter MCP policy YAML file |
+
+**Workflows + CI**
+
+| Command | Purpose |
+|---------|---------|
+| `assay flow try\|adopt\|ci\|mcp\|audit` | Guided workflow executor (dry-run by default, `--apply` to execute) |
 | `assay ci init github` | Generate a GitHub Actions workflow |
+| `assay ci doctor` | CI-profile preflight checks |
+| `assay audit bundle` | Create portable audit bundle (tar.gz with verify instructions) |
+| `assay compliance report` | Generate compliance evidence report |
+
+**Pack + baseline management**
+
+| Command | Purpose |
+|---------|---------|
+| `assay packs list` | List local proof packs |
+| `assay packs show` | Show pack details |
+| `assay packs pin-baseline` | Pin a pack as the diff baseline |
+| `assay baseline set\|get` | Set or get the baseline pack for diff |
+
+**Key management**
+
+| Command | Purpose |
+|---------|---------|
+| `assay key generate` | Generate a new Ed25519 signing key |
+| `assay key list` | List local signing keys and active signer |
+| `assay key info` | Show key details (fingerprint, creation date) |
+| `assay key set-active` | Set active signing key for future runs |
+| `assay key rotate` | Generate a new key and switch active signer |
+| `assay key export\|import` | Export or import keys for CI or team sharing |
+| `assay key revoke` | Revoke a signing key |
+
+**Lockfile + cards**
+
+| Command | Purpose |
+|---------|---------|
 | `assay lock write` | Freeze verification contract to lockfile |
 | `assay lock check` | Validate lockfile against current card definitions |
-| `assay key list` | List local signing keys and active signer |
-| `assay key rotate` | Generate a new signer key and switch active signer |
-| `assay key set-active` | Set active signing key for future runs |
+| `assay lock init` | Initialize a new lockfile interactively |
 | `assay cards list` | List built-in run cards and their claims |
 | `assay cards show` | Show card details, claims, and parameters |
+
+**MCP + policy**
+
+| Command | Purpose |
+|---------|---------|
+| `assay mcp-proxy` | Transparent MCP proxy: intercept tool calls, emit receipts |
+| `assay mcp policy init` | Generate a starter MCP policy YAML file |
+| `assay mcp policy validate` | Validate a policy file against the schema |
+| `assay policy impact` | Analyze policy impact on existing evidence |
+
+**Incident forensics**
+
+| Command | Purpose |
+|---------|---------|
+| `assay incident timeline` | Build incident timeline from receipts |
+| `assay incident replay` | Replay an incident from receipt chain |
+
+**Demos**
+
+| Command | Purpose |
+|---------|---------|
 | `assay demo-incident` | Two-act scenario: passing run vs failing run |
 | `assay demo-challenge` | CTF-style good + tampered pack pair |
 | `assay demo-pack` | Generate demo packs (no config needed) |
-| `assay onboard` | Guided setup: doctor -> scan -> first run plan |
 
 ## Documentation
 
