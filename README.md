@@ -25,7 +25,7 @@ pip install assay-ai && assay quickstart
 
 ## See It -- Then Understand It
 
-No API key needed. Runs on synthetic data:
+Try it now (no API key needed -- demos use synthetic data; with real calls, Assay instruments OpenAI, Anthropic, Gemini, LiteLLM, LangChain, and local models):
 
 ```bash
 pip install assay-ai
@@ -98,6 +98,8 @@ Assay separates two questions on purpose:
 
 The split is the point. Systems that can prove they failed honestly are
 more trustworthy than systems that always claim to pass.
+
+**With real calls:** `assay scan .` finds your actual OpenAI / Anthropic / Gemini / LiteLLM / LangChain call sites. `assay patch .` instruments them. Every real LLM call emits a signed receipt. The demos above use synthetic data so you can see verification without configuring anything.
 
 ## Add to Your Project
 
