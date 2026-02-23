@@ -645,13 +645,38 @@
   footer a:hover { color: var(--text); }
 
   /* Responsive */
+  /* Mobile hamburger */
+  nav .hamburger {
+    display: none;
+    background: none;
+    border: none;
+    color: var(--text);
+    font-size: 24px;
+    cursor: pointer;
+    padding: 4px 8px;
+  }
+
   @media (max-width: 640px) {
     .hero h1 { font-size: 32px; }
     .hero .subtitle { font-size: 16px; }
     .stats-bar { grid-template-columns: repeat(2, 1fr); }
     .try-grid { grid-template-columns: 1fr; }
     .stat .num { font-size: 28px; }
-    nav .links { gap: 12px; }
+    nav .hamburger { display: block; }
+    nav .links {
+      display: none;
+      flex-direction: column;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      gap: 12px;
+    }
+    nav .links.open { display: flex; }
+    nav .container { position: relative; }
   }
 </style>
 </head>
@@ -660,13 +685,15 @@
 <nav>
   <div class="container">
     <a href="#" class="logo">assay</a>
+    <button class="hamburger" onclick="this.nextElementSibling.classList.toggle('open')" aria-label="Menu">&#9776;</button>
     <div class="links">
       <a href="#how-it-works">How It Works</a>
       <a href="#completeness">Coverage</a>
       <a href="#gap-map">Gap Map</a>
       <a href="#faq">FAQ</a>
       <a href="#threat-model">Threat Model</a>
-      <a href="decision-escrow">Decision Escrow</a>
+      <a href="decision-escrow.md">Decision Escrow</a>
+      <a href="https://github.com/Haserjian/assay#readme" target="_blank">Docs</a>
       <a href="https://github.com/Haserjian/assay" target="_blank">GitHub</a>
       <a href="https://pypi.org/project/assay-ai/" target="_blank">PyPI</a>
       <a href="https://github.com/Haserjian/assay/issues/new?template=pilot-inquiry.md" class="cta" target="_blank">Get a Pilot</a>
@@ -678,24 +705,29 @@
   <div class="container">
     <h1>Tamper-evident audit trails<br><span>for AI systems.</span></h1>
     <p class="subtitle">
-      Logs record what you say happened. Assay makes the record
-      tamper-evident, completeness-checkable, and independently verifiable.
+      Wrap your LLM calls. Get cryptographically signed receipts.
+      Hand them to an auditor who can verify offline -- no access to your server needed.
       Two lines of code. Four exit codes. Done.
     </p>
     <p style="color: var(--text2); font-size: 14px; margin-bottom: 28px;">
-      For teams shipping AI agents, RAG pipelines, and autonomous workflows
-      that need evidence an auditor can verify offline -- not just server logs.
+      For teams shipping AI agents, RAG pipelines, and autonomous workflows.
     </p>
     <div class="install" onclick="copyInstall(this)">
       <span class="dollar">$ </span>pip install assay-ai && assay quickstart
       <span class="copied" id="copied">Copied!</span>
     </div>
+    <p style="color: var(--text2); font-size: 13px; margin-top: 12px;">
+      Requires Python 3.9+. No API key needed. ~10s install. Uses synthetic data.
+    </p>
   </div>
 </section>
 
 <div class="container">
+  <p style="text-align:center; margin-bottom:8px; color:var(--text2); font-size:15px;">
+    We scanned the ecosystem. Nobody has tamper-evident audit trails yet.
+  </p>
   <p style="text-align:center; margin-bottom:12px;">
-    <a href="https://github.com/Haserjian/assay/blob/280c25ec46afd3ae6938501f59977162c0dbacd8/scripts/scan_study/results/report.md" target="_blank" style="color:var(--text2); font-size:13px; text-decoration:none;">Scan study data (Feb 2026) &#8599;</a>
+    <a href="https://github.com/Haserjian/assay/blob/280c25ec46afd3ae6938501f59977162c0dbacd8/scripts/scan_study/results/report.md" target="_blank" style="color:var(--text2); font-size:13px; text-decoration:none;">Scan study methodology (Feb 2026) &#8599;</a>
   </p>
   <div class="stats-bar">
     <div class="stat">
@@ -715,6 +747,9 @@
       <div class="label">coverage</div>
     </div>
   </div>
+  <p style="text-align:center; color:var(--text2); font-size:14px; margin-top:0;">
+    1,100+ tests &middot; 5 integrations &middot; Apache-2.0 &middot; on PyPI since Jan 2026
+  </p>
 </div>
 
 <section class="threat-section">
@@ -791,7 +826,12 @@
     </div>
 
     <div style="margin-top: 40px;">
-      <h3 style="font-size: 20px; margin-bottom: 16px;">Then verify</h3>
+      <h3 style="font-size: 20px; margin-bottom: 8px;">Then verify</h3>
+      <p style="color: var(--text2); font-size: 14px; margin-bottom: 16px;">
+        <code style="font-family: var(--mono); font-size: 13px; background: var(--bg2); padding: 2px 6px; border-radius: 3px; color: var(--green);">assay run</code> wraps your program, collects receipts, and bundles them into a proof pack.
+        <code style="font-family: var(--mono); font-size: 13px; background: var(--bg2); padding: 2px 6px; border-radius: 3px; color: var(--green);">-c receipt_completeness</code> runs the built-in check that all receipts are present.
+        Everything after <code style="font-family: var(--mono); font-size: 13px; background: var(--bg2); padding: 2px 6px; border-radius: 3px; color: var(--green);">--</code> is your normal run command.
+      </p>
       <div class="diff-block">
         <div class="diff-header">terminal</div>
         <div class="diff-body">
@@ -814,7 +854,7 @@
         tampering. Diff catches regressions and budget overruns.
       </p>
       <div class="diff-block">
-        <div class="diff-header">ci.yml</div>
+        <div class="diff-header">terminal</div>
         <div class="diff-body">
 <span class="diff-line" style="color: var(--text2);">$ </span><span class="diff-line" style="color: var(--green);">assay run -c receipt_completeness -- python app.py</span>
 <span class="diff-line" style="color: var(--text2);">$ </span><span class="diff-line" style="color: var(--green);">assay verify-pack ./proof_pack_*/ --lock assay.lock</span>
@@ -954,38 +994,6 @@
   </div>
 </section>
 
-<section class="gap-section" id="gap-map">
-  <div class="container">
-    <h2>Evidence Gap Map</h2>
-    <p class="section-sub">
-      We scanned 30 popular open-source AI projects for tamper-evident audit trails.
-      High-confidence = direct SDK calls (OpenAI, Anthropic). Click column headers to sort.
-    </p>
-
-    <div class="gap-controls">
-      <input type="text" id="gap-search" placeholder="Filter repos..." oninput="filterGapTable()">
-      <span class="count" id="gap-count">30 repos</span>
-    </div>
-
-    <div class="gap-table-wrap">
-      <table class="gap-table" id="gap-table">
-        <thead>
-          <tr>
-            <th onclick="sortGap('repo')">Repo <span class="sort-arrow"></span></th>
-            <th onclick="sortGap('stars')">Stars <span class="sort-arrow"></span></th>
-            <th onclick="sortGap('high')">High <span class="sort-arrow"></span></th>
-            <th onclick="sortGap('medium')">Med <span class="sort-arrow"></span></th>
-            <th onclick="sortGap('low')">Low <span class="sort-arrow"></span></th>
-            <th onclick="sortGap('total')">Total <span class="sort-arrow"></span></th>
-            <th>Coverage</th>
-          </tr>
-        </thead>
-        <tbody id="gap-tbody"></tbody>
-      </table>
-    </div>
-  </div>
-</section>
-
 <section class="try-section" id="try-it">
   <div class="container">
     <h2>Try it in 60 seconds</h2>
@@ -995,15 +1003,17 @@
       <div class="try-card">
         <h3>See an honest failure</h3>
         <p>Two-act scenario: a passing run, then someone swaps the model and drops the guardian.</p>
-        <pre><span class="comment"># Act 1: PASS. Act 2: honest FAIL.</span>
+        <pre><span class="comment"># Act 1: PASS (exit 0). Act 2: honest FAIL (exit 1).</span>
 <span class="cmd">pip install assay-ai
 assay demo-incident</span></pre>
+        <p style="font-size:12px; color:var(--text2); margin-top:8px; margin-bottom:0;">You'll see: same system, different behavior, caught by the same contract.</p>
       </div>
       <div class="try-card">
         <h3>Spot the tampered pack</h3>
         <p>CTF-style challenge. One pack is legit, one has been tampered with. Can you tell which?</p>
         <pre><span class="comment"># Good pack vs tampered pack</span>
 <span class="cmd">assay demo-challenge</span></pre>
+        <p style="font-size:12px; color:var(--text2); margin-top:8px; margin-bottom:0;">You'll see: one pack exits 0, the other exits 2 (tampered). Inline verification shows which bytes changed.</p>
       </div>
       <div class="try-card">
         <h3>Scan your own code</h3>
@@ -1032,6 +1042,38 @@ assay flow ci --apply</span></pre>
 <span class="cmd">assay audit bundle ./proof_pack_*/
 assay verify-signer ./proof_pack_*/</span></pre>
       </div>
+    </div>
+  </div>
+</section>
+
+<section class="gap-section" id="gap-map">
+  <div class="container">
+    <h2>Evidence Gap Map</h2>
+    <p class="section-sub">
+      We scanned 30 popular open-source AI projects for tamper-evident audit trails.
+      High-confidence = direct SDK calls (OpenAI, Anthropic). Click column headers to sort.
+    </p>
+
+    <div class="gap-controls">
+      <input type="text" id="gap-search" placeholder="Filter repos..." oninput="filterGapTable()">
+      <span class="count" id="gap-count">30 repos</span>
+    </div>
+
+    <div class="gap-table-wrap">
+      <table class="gap-table" id="gap-table">
+        <thead>
+          <tr>
+            <th onclick="sortGap('repo')">Repo <span class="sort-arrow"></span></th>
+            <th onclick="sortGap('stars')">Stars <span class="sort-arrow"></span></th>
+            <th onclick="sortGap('high')">High <span class="sort-arrow"></span></th>
+            <th onclick="sortGap('medium')">Med <span class="sort-arrow"></span></th>
+            <th onclick="sortGap('low')">Low <span class="sort-arrow"></span></th>
+            <th onclick="sortGap('total')">Total <span class="sort-arrow"></span></th>
+            <th>Coverage</th>
+          </tr>
+        </thead>
+        <tbody id="gap-tbody"></tbody>
+      </table>
     </div>
   </div>
 </section>
@@ -1167,7 +1209,7 @@ assay verify-signer ./proof_pack_*/</span></pre>
 <section class="cta-section">
   <div class="container">
     <h2>Ready to make your AI auditable?</h2>
-    <p>Open source. Apache-2.0. Works with OpenAI, Anthropic, and LangChain today.</p>
+    <p>Open source. Apache-2.0. Works with OpenAI, Anthropic, Google Gemini, LiteLLM, and LangChain today.</p>
     <div class="install" onclick="copyScan(this)" style="margin-bottom: 28px;">
       <span class="dollar">$ </span>pip install assay-ai && assay scan . --report
       <span class="copied">Copied!</span>
@@ -1195,8 +1237,8 @@ assay verify-signer ./proof_pack_*/</span></pre>
       <a href="https://github.com/Haserjian/assay-verify-action">assay-verify-action</a> &middot;
       <a href="https://github.com/Haserjian/assay-ledger">assay-ledger</a> &middot;
       <a href="https://pypi.org/project/assay-ai/">PyPI</a> &middot;
-      <a href="decision-escrow">Decision Escrow</a> &middot;
-      <a href="for-compliance">For Compliance</a>
+      <a href="decision-escrow.md">Decision Escrow</a> &middot;
+      <a href="for-compliance.md">For Compliance</a>
     </p>
     <p style="margin-top: 8px;">Apache-2.0 License</p>
   </div>
