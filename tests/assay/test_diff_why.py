@@ -15,7 +15,7 @@ from assay.diff import (
     DiffResult,
     PackInfo,
     WhyExplanation,
-    _trace_chain,
+    trace_chain,
     explain_why,
     find_previous_pack,
 )
@@ -163,14 +163,14 @@ class TestFindPreviousPack:
 
 
 # ---------------------------------------------------------------------------
-# _trace_chain
+# trace_chain
 # ---------------------------------------------------------------------------
 
 class TestTraceChain:
     def test_single_receipt_no_parent(self) -> None:
         """Receipt without parent_receipt_id returns chain of 1."""
         index = {"r1": {"receipt_id": "r1", "type": "model_call"}}
-        chain = _trace_chain("r1", index)
+        chain = trace_chain("r1", index)
         assert len(chain) == 1
         assert chain[0]["receipt_id"] == "r1"
 
@@ -180,7 +180,7 @@ class TestTraceChain:
             "r1": {"receipt_id": "r1", "type": "model_call"},
             "r2": {"receipt_id": "r2", "type": "guardian_verdict", "parent_receipt_id": "r1"},
         }
-        chain = _trace_chain("r2", index)
+        chain = trace_chain("r2", index)
         assert len(chain) == 2
         assert chain[0]["receipt_id"] == "r2"
         assert chain[1]["receipt_id"] == "r1"
@@ -192,7 +192,7 @@ class TestTraceChain:
             "r2": {"receipt_id": "r2", "type": "guardian_verdict", "parent_receipt_id": "r1"},
             "r3": {"receipt_id": "r3", "type": "escalation", "parent_receipt_id": "r2"},
         }
-        chain = _trace_chain("r3", index)
+        chain = trace_chain("r3", index)
         assert len(chain) == 3
         assert [r["receipt_id"] for r in chain] == ["r3", "r2", "r1"]
 
@@ -201,7 +201,7 @@ class TestTraceChain:
         index = {
             "r2": {"receipt_id": "r2", "type": "test", "parent_receipt_id": "r_missing"},
         }
-        chain = _trace_chain("r2", index)
+        chain = trace_chain("r2", index)
         assert len(chain) == 1
 
     def test_cycle_detection(self) -> None:
@@ -210,12 +210,12 @@ class TestTraceChain:
             "r1": {"receipt_id": "r1", "type": "a", "parent_receipt_id": "r2"},
             "r2": {"receipt_id": "r2", "type": "b", "parent_receipt_id": "r1"},
         }
-        chain = _trace_chain("r1", index)
+        chain = trace_chain("r1", index)
         assert len(chain) == 2  # r1 -> r2, then stops (r1 already seen)
 
     def test_unknown_start(self) -> None:
         """Starting from unknown receipt returns empty chain."""
-        chain = _trace_chain("r_unknown", {})
+        chain = trace_chain("r_unknown", {})
         assert chain == []
 
 

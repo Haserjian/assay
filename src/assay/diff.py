@@ -601,7 +601,7 @@ class WhyExplanation:
         }
 
 
-def _trace_chain(
+def trace_chain(
     receipt_id: str,
     index: Dict[str, Dict[str, Any]],
 ) -> List[Dict[str, Any]]:
@@ -664,7 +664,7 @@ def explain_why(
         # Trace causal chains for evidence receipts
         chains: List[List[Dict[str, Any]]] = []
         for rid in evidence_ids:
-            chain = _trace_chain(rid, receipt_index)
+            chain = trace_chain(rid, receipt_index)
             if chain:
                 chains.append(chain)
 

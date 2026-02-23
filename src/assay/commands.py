@@ -4970,6 +4970,7 @@ def explain_cmd(
     pack_dir: str = typer.Argument(..., help="Path to proof pack directory"),
     output_format: str = typer.Option("text", "--format", "-f", help="Output format: text, md, json"),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON (same as --format json)"),
+    causal: bool = typer.Option(False, "--causal", help="Show backward causal chains from failures"),
 ):
     """Explain a proof pack in plain English.
 
@@ -4977,12 +4978,15 @@ def explain_cmd(
     what happened, integrity status, claim results, what the pack proves,
     and what it does NOT prove.
 
+    With --causal, also traces failures backward to their root causes.
+
     Designed for non-engineers: compliance officers, auditors, executives.
 
     Examples:
       assay explain ./proof_pack_*/
       assay explain ./proof_pack_*/ --format md
       assay explain ./proof_pack_abc123/ --json
+      assay explain ./proof_pack_*/ --causal
     """
     from pathlib import Path
 
@@ -4995,20 +4999,44 @@ def explain_cmd(
 
     info = explain_pack(pd)
 
+    # Build causal chains if requested
+    causal_data = None
+    if causal:
+        from assay.analyze import load_pack_receipts
+        from assay.incident import build_causal_chains, render_causal_md, render_causal_text
+
+        try:
+            receipts = load_pack_receipts(pd)
+        except FileNotFoundError:
+            receipts = []
+        chains = build_causal_chains(receipts, info)
+        causal_data = chains
+
     if output_json or output_format == "json":
-        _output_json({
+        payload = {
             "command": "explain",
             "status": "ok",
             **info,
-        })
+        }
+        if causal_data is not None:
+            payload["causal_chains"] = [c.to_dict() for c in causal_data]
+        _output_json(payload)
         return
 
     if output_format == "md":
         console.print(render_md(info))
+        if causal_data is not None:
+            from assay.incident import render_causal_md
+            console.print()
+            console.print(render_causal_md(causal_data))
         return
 
     console.print()
     console.print(render_text(info))
+    if causal_data is not None:
+        from assay.incident import render_causal_text
+        console.print()
+        console.print(render_causal_text(causal_data))
 
 
 @assay_app.command("demo-incident")
@@ -7056,6 +7084,148 @@ def compliance_report_cmd(
     for report in reports:
         console.print()
         console.print(render_compliance_text(report))
+
+
+# ---------------------------------------------------------------------------
+# Incident forensics
+# ---------------------------------------------------------------------------
+
+incident_app = typer.Typer(
+    name="incident",
+    help="Incident forensics and timeline analysis",
+    no_args_is_help=True,
+)
+assay_app.add_typer(incident_app, name="incident")
+
+
+@incident_app.command("timeline")
+def incident_timeline_cmd(
+    pack_dir: str = typer.Argument(..., help="Path to proof pack directory"),
+    against: Optional[str] = typer.Option(None, "--against", help="Baseline pack for divergence detection"),
+    output_format: str = typer.Option("text", "--format", "-f", help="Output: text, md, json"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Build an incident timeline from a proof pack.
+
+    Shows a canonical chronology of events with severity markers,
+    identifies critical incidents, and traces causal chains backward
+    to likely root causes.
+
+    With --against, detects the first divergence point from a baseline pack.
+
+    Examples:
+      assay incident timeline ./proof_pack_*/
+      assay incident timeline ./proof_pack_*/ --against ./baseline_pack/
+      assay incident timeline ./proof_pack_*/ --json
+    """
+    from pathlib import Path
+
+    from assay.incident import (
+        build_comparative_timeline,
+        build_timeline,
+        render_timeline_md,
+        render_timeline_text,
+    )
+
+    pd = Path(pack_dir)
+    if not pd.is_dir():
+        console.print(f"[red]Error:[/] {pack_dir} is not a directory")
+        raise typer.Exit(3)
+
+    manifest_path = pd / "pack_manifest.json"
+    if not manifest_path.exists():
+        console.print(f"[red]Error:[/] No pack_manifest.json in {pack_dir}")
+        raise typer.Exit(3)
+
+    try:
+        if against:
+            baseline_path = Path(against)
+            if not baseline_path.is_dir():
+                console.print(f"[red]Error:[/] Baseline {against} is not a directory")
+                raise typer.Exit(3)
+            timeline = build_comparative_timeline(pd, baseline_path)
+        else:
+            timeline = build_timeline(pd)
+    except FileNotFoundError as e:
+        console.print(f"[red]Error:[/] {e}")
+        raise typer.Exit(3)
+
+    if output_json or output_format == "json":
+        _output_json({
+            "command": "incident timeline",
+            "status": "ok",
+            **timeline.to_dict(),
+        })
+        return
+
+    if output_format == "md":
+        console.print(render_timeline_md(timeline))
+        return
+
+    console.print()
+    console.print(render_timeline_text(timeline))
+
+
+@incident_app.command("replay")
+def incident_replay_cmd(
+    pack_dir: str = typer.Argument(..., help="Path to proof pack directory"),
+    policy: str = typer.Option(..., "--policy", "-p", help="Candidate policy YAML file"),
+    current_policy: Optional[str] = typer.Option(None, "--current-policy", help="Current policy for delta comparison"),
+    output_format: str = typer.Option("text", "--format", "-f", help="Output: text, md, json"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Replay historical evidence against a candidate policy.
+
+    Given a proof pack and a candidate MCP policy file, evaluates what
+    WOULD have changed: which tool calls would be newly denied or allowed.
+
+    This is the Policy Time Machine -- test policy changes before deploying them.
+
+    Examples:
+      assay incident replay ./proof_pack_*/ -p candidate.yaml
+      assay incident replay ./proof_pack_*/ -p strict.yaml --current-policy current.yaml
+      assay incident replay ./proof_pack_*/ -p candidate.yaml --json
+    """
+    from pathlib import Path
+
+    from assay.time_machine import render_impact_md, render_impact_text, replay_policy
+
+    pd = Path(pack_dir)
+    pp = Path(policy)
+
+    if not pd.is_dir():
+        console.print(f"[red]Error:[/] {pack_dir} is not a directory")
+        raise typer.Exit(3)
+
+    if not pp.exists():
+        console.print(f"[red]Error:[/] Policy file not found: {policy}")
+        raise typer.Exit(3)
+
+    cp = Path(current_policy) if current_policy else None
+
+    try:
+        impact = replay_policy(pd, pp, current_policy=cp)
+    except FileNotFoundError as e:
+        console.print(f"[red]Error:[/] {e}")
+        raise typer.Exit(3)
+    except ValueError as e:
+        console.print(f"[red]Error:[/] {e}")
+        raise typer.Exit(3)
+
+    if output_json or output_format == "json":
+        _output_json({
+            "command": "incident replay",
+            "status": "ok",
+            **impact.to_dict(),
+        })
+        return
+
+    if output_format == "md":
+        console.print(render_impact_md(impact))
+        return
+
+    console.print()
+    console.print(render_impact_text(impact))
 
 
 def main():
