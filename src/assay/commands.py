@@ -7228,6 +7228,113 @@ def incident_replay_cmd(
     console.print(render_impact_text(impact))
 
 
+# ---------------------------------------------------------------------------
+# Policy management
+# ---------------------------------------------------------------------------
+
+policy_app = typer.Typer(
+    name="policy",
+    help="Policy management and impact analysis",
+    no_args_is_help=True,
+)
+assay_app.add_typer(policy_app, name="policy")
+
+
+@policy_app.command("impact")
+def policy_impact_cmd(
+    policy_new: str = typer.Option(..., "--policy-new", help="Candidate policy YAML file"),
+    packs: str = typer.Option(..., "--packs", help="Directory containing pack subdirectories"),
+    policy_old: Optional[str] = typer.Option(None, "--policy-old", help="Current/baseline policy YAML"),
+    fail_if_newly_denied: Optional[int] = typer.Option(None, "--fail-if-newly-denied", help="Fail if newly denied > N"),
+    fail_if_risk_delta: Optional[float] = typer.Option(None, "--fail-if-risk-delta", help="Fail if risk delta > X"),
+    do_emit_receipt: bool = typer.Option(False, "--emit-receipt", help="Emit PolicyImpactReceipt to trace"),
+    output_format: str = typer.Option("text", "--format", "-f", help="Output: text, md, json"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Analyze the impact of a policy change on historical evidence.
+
+    Replays all packs in a directory against a candidate policy, computes
+    aggregate impact (newly denied / allowed / risk delta), and evaluates
+    CI thresholds.
+
+    This is the Policy Merge Guard -- test policy changes before deploying them.
+
+    Examples:
+      assay policy impact --policy-new strict.yaml --packs ./proof_packs/
+      assay policy impact --policy-new new.yaml --policy-old old.yaml --packs ./packs/ --fail-if-newly-denied 0
+      assay policy impact --policy-new candidate.yaml --packs ./packs/ --emit-receipt --json
+    """
+    from pathlib import Path
+
+    from assay.policy_guard import (
+        aggregate_policy_impact,
+        emit_policy_impact_receipt,
+        evaluate_thresholds,
+        render_impact_md,
+        render_impact_text,
+    )
+
+    pn = Path(policy_new)
+    pd = Path(packs)
+    po = Path(policy_old) if policy_old else None
+
+    if not pn.exists():
+        console.print(f"[red]Error:[/] Candidate policy not found: {policy_new}")
+        raise typer.Exit(3)
+
+    if not pd.exists():
+        console.print(f"[red]Error:[/] Packs directory not found: {packs}")
+        raise typer.Exit(3)
+
+    try:
+        impact = aggregate_policy_impact(pd, pn, policy_old=po)
+    except FileNotFoundError as e:
+        console.print(f"[red]Error:[/] {e}")
+        raise typer.Exit(3)
+    except ValueError as e:
+        console.print(f"[red]Error:[/] {e}")
+        raise typer.Exit(3)
+
+    # Evaluate thresholds
+    verdict, reason = evaluate_thresholds(
+        impact,
+        fail_if_newly_denied=fail_if_newly_denied,
+        fail_if_risk_delta=fail_if_risk_delta,
+    )
+
+    # Emit receipt if requested
+    if do_emit_receipt:
+        thresholds = {
+            "fail_if_newly_denied": fail_if_newly_denied,
+            "fail_if_risk_delta": fail_if_risk_delta,
+        }
+        try:
+            emit_policy_impact_receipt(impact, verdict, reason, thresholds)
+        except Exception:
+            pass  # Best-effort emission
+
+    exit_code = 0 if verdict == "pass" else 1
+
+    if output_json or output_format == "json":
+        payload = {
+            "command": "policy impact",
+            "status": "ok",
+            "ci_verdict": verdict,
+            "ci_verdict_reason": reason,
+            **impact.to_dict(),
+        }
+        _output_json(payload, exit_code=exit_code)
+        return
+
+    if output_format == "md":
+        console.print(render_impact_md(impact, verdict=verdict, verdict_reason=reason))
+        raise typer.Exit(exit_code)
+
+    console.print()
+    console.print(render_impact_text(impact, verdict=verdict, verdict_reason=reason))
+    raise typer.Exit(exit_code)
+
+
 def main():
     """Entrypoint for assay CLI."""
     assay_app()
