@@ -11,7 +11,7 @@ cryptographically signed receipt bundles that a third party can verify
 offline without trusting your server logs. Two lines of code. Four exit codes.
 
 ```bash
-pip install assay-ai && assay quickstart
+pip install assay-ai && assay quickstart   # requires Python 3.9+
 ```
 
 > **Boundary:** Assay proves tamper-evident internal consistency and
@@ -111,6 +111,8 @@ assay scan . --report
 assay patch .
 
 # 3. Run + build a signed evidence pack
+# -c receipt_completeness runs the built-in completeness check (see `assay cards list` for all options)
+# everything after -- is your normal run command
 assay run -c receipt_completeness -- python my_app.py
 
 # 4. Verify
