@@ -6,7 +6,7 @@ import json
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
@@ -193,7 +193,7 @@ def aggregate_signals(
         type_counts[rtype] = type_counts.get(rtype, 0) + 1
 
         tool = r.get("tool_name", "unknown")
-        outcome = r.get("outcome", "unknown")
+        outcome = r.get("outcome")
         allowed = r.get("allowed", True)
         verdict = r.get("policy_verdict", "")
 
@@ -203,10 +203,11 @@ def aggregate_signals(
         elif outcome == "timeout":
             timeout_count += 1
             tool_failures[tool] = tool_failures.get(tool, 0) + 1
-        elif outcome not in ("ok", "forwarded", "success", ""):
+        elif outcome is not None and outcome not in ("ok", "forwarded", "success", ""):
             failure_count += 1
             tool_failures[tool] = tool_failures.get(tool, 0) + 1
         else:
+            # outcome is None (not applicable for this receipt type) or success
             success_count += 1
 
     # Build top-N lists

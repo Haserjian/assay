@@ -14,7 +14,6 @@ from typer.testing import CliRunner
 from assay.commands import assay_app
 from assay.policy_loop import (
     PolicyLoopResult,
-    Recommendation,
     TrendComparison,
     WindowSignals,
     aggregate_signals,
@@ -166,6 +165,18 @@ class TestAggregateSignals:
         assert len(signals.top_denied_tools) == 2
         assert signals.top_denied_tools[0]["tool"] == "dangerous_tool"
         assert signals.top_denied_tools[0]["count"] == 5
+
+    def test_missing_outcome_not_counted_as_failure(self):
+        """Receipts without an outcome field (e.g. model_call) should not inflate failure rate."""
+        recs = [
+            _receipt(outcome="ok", offset=0),
+            _receipt(outcome="ok", offset=1),
+            _receipt(rtype="model_call", offset=2),  # no outcome key
+        ]
+        del recs[2]["outcome"]  # simulate model_call without outcome
+        signals = aggregate_signals(recs)
+        assert signals.failure_count == 0
+        assert signals.success_count == 3
 
     def test_type_counts(self):
         recs = [
