@@ -7335,6 +7335,51 @@ def policy_impact_cmd(
     raise typer.Exit(exit_code)
 
 
+@policy_app.command("recommend")
+def policy_recommend_cmd(
+    store_dir: Optional[str] = typer.Option(None, "--store-dir", help="Assay store directory (default: ~/.assay/)"),
+    window: int = typer.Option(7, "--window", "-w", help="Window size in days"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Analyze receipt history and generate policy recommendations.
+
+    Aggregates signals (deny rate, failure rate, timeouts, trends) from
+    recent receipts and generates deterministic recommendations.
+
+    Examples:
+      assay policy recommend
+      assay policy recommend --window 14 --json
+      assay policy recommend --store-dir /path/to/store --window 30
+    """
+    from pathlib import Path
+
+    from assay.policy_loop import analyze_receipt_history, render_text
+    from assay.store import assay_home
+
+    sdir = Path(store_dir) if store_dir else assay_home()
+
+    if not sdir.exists():
+        console.print(f"[red]Error:[/] Store directory not found: {sdir}")
+        raise typer.Exit(3)
+
+    result = analyze_receipt_history(sdir, window_days=window)
+
+    exit_code = 1 if result.has_critical else 0
+
+    if output_json:
+        payload = {
+            "command": "policy recommend",
+            "status": "ok",
+            **result.to_dict(),
+        }
+        _output_json(payload, exit_code=exit_code)
+        return
+
+    console.print()
+    console.print(render_text(result))
+    raise typer.Exit(exit_code)
+
+
 def main():
     """Entrypoint for assay CLI."""
     assay_app()
