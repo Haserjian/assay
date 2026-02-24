@@ -14,7 +14,7 @@ on:
 # Pinned protocol version for blocking conformance.
 # Update this when assay-protocol cuts a new release.
 env:
-  PROTOCOL_REF: v1.0.0-rc1  # tag in Haserjian/assay-protocol
+  PROTOCOL_REF: 8eea28181f767d47073e1f75b76a14e30d7d9e58  # pinned assay-protocol commit (contains reference gateway)
 
 jobs:
   # ---------------------------------------------------------------------------
