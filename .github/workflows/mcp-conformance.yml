@@ -201,7 +201,7 @@ jobs:
           print(json.dumps(report, indent=2))
           "
 
-      - name: Guard: unexpected skip count
+      - name: "Guard: unexpected skip count"
         run: |
           python -c "
           import json
