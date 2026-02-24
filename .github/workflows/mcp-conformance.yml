@@ -56,20 +56,34 @@ jobs:
         if: always()
         run: |
           python -c "
-          import json, xml.etree.ElementTree as ET, datetime
-          tree = ET.parse('reference-conformance-results.xml')
-          suite = tree.getroot().find('testsuite')
+          import datetime, json, os, xml.etree.ElementTree as ET
+          xml_path = 'reference-conformance-results.xml'
+          if os.path.exists(xml_path):
+              tree = ET.parse(xml_path)
+              suite = tree.getroot().find('testsuite')
+              tests = int(suite.get('tests', 0))
+              failures = int(suite.get('failures', 0))
+              errors = int(suite.get('errors', 0))
+              skipped = int(suite.get('skipped', 0))
+              passed = tests - failures - errors - skipped
+              duration = float(suite.get('time', 0))
+              junit_present = True
+          else:
+              tests = failures = errors = skipped = passed = 0
+              duration = 0.0
+              junit_present = False
           report = {
               'report_version': '1.0',
               'generated_at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
               'tier': 'reference',
               'protocol_ref': '${{ env.PROTOCOL_REF }}',
-              'tests': int(suite.get('tests', 0)),
-              'passed': int(suite.get('tests', 0)) - int(suite.get('failures', 0)) - int(suite.get('errors', 0)) - int(suite.get('skipped', 0)),
-              'failures': int(suite.get('failures', 0)),
-              'errors': int(suite.get('errors', 0)),
-              'skipped': int(suite.get('skipped', 0)),
-              'time': float(suite.get('time', 0)),
+              'tests': tests,
+              'passed': passed,
+              'failures': failures,
+              'errors': errors,
+              'skipped': skipped,
+              'time': duration,
+              'junit_present': junit_present,
           }
           with open('reference-conformance-report.json', 'w') as f:
               json.dump(report, f, indent=2)
@@ -121,9 +135,22 @@ jobs:
         if: always()
         run: |
           python -c "
-          import json, xml.etree.ElementTree as ET, datetime
-          tree = ET.parse('canary-results.xml')
-          suite = tree.getroot().find('testsuite')
+          import datetime, json, os, xml.etree.ElementTree as ET
+          xml_path = 'canary-results.xml'
+          if os.path.exists(xml_path):
+              tree = ET.parse(xml_path)
+              suite = tree.getroot().find('testsuite')
+              tests = int(suite.get('tests', 0))
+              failures = int(suite.get('failures', 0))
+              errors = int(suite.get('errors', 0))
+              skipped = int(suite.get('skipped', 0))
+              passed = tests - failures - errors - skipped
+              duration = float(suite.get('time', 0))
+              junit_present = True
+          else:
+              tests = failures = errors = skipped = passed = 0
+              duration = 0.0
+              junit_present = False
           report = {
               'report_version': '1.0',
               'generated_at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
@@ -131,13 +158,14 @@ jobs:
               'protocol_ref': 'main',
               'protocol_sha': '${{ steps.proto-sha.outputs.sha }}',
               'pinned_ref': '${{ env.PROTOCOL_REF }}',
-              'tests': int(suite.get('tests', 0)),
-              'passed': int(suite.get('tests', 0)) - int(suite.get('failures', 0)) - int(suite.get('errors', 0)) - int(suite.get('skipped', 0)),
-              'failures': int(suite.get('failures', 0)),
-              'errors': int(suite.get('errors', 0)),
-              'skipped': int(suite.get('skipped', 0)),
-              'time': float(suite.get('time', 0)),
+              'tests': tests,
+              'passed': passed,
+              'failures': failures,
+              'errors': errors,
+              'skipped': skipped,
+              'time': duration,
               'is_canary': True,
+              'junit_present': junit_present,
           }
           with open('canary-conformance-report.json', 'w') as f:
               json.dump(report, f, indent=2)
@@ -173,20 +201,27 @@ jobs:
         if: always()
         run: |
           python -c "
-          import json, xml.etree.ElementTree as ET, datetime, yaml
-
-          tree = ET.parse('proxy-conformance-results.xml')
-          suite = tree.getroot().find('testsuite')
+          import datetime, json, os, xml.etree.ElementTree as ET, yaml
 
           # Load skip matrix
           with open('tests/assay/mcp_skip_matrix.yaml') as f:
               matrix = yaml.safe_load(f)
 
-          tests_total = int(suite.get('tests', 0))
-          failures = int(suite.get('failures', 0))
-          errors = int(suite.get('errors', 0))
-          skipped = int(suite.get('skipped', 0))
-          passed = tests_total - failures - errors - skipped
+          xml_path = 'proxy-conformance-results.xml'
+          if os.path.exists(xml_path):
+              tree = ET.parse(xml_path)
+              suite = tree.getroot().find('testsuite')
+              tests_total = int(suite.get('tests', 0))
+              failures = int(suite.get('failures', 0))
+              errors = int(suite.get('errors', 0))
+              skipped = int(suite.get('skipped', 0))
+              passed = tests_total - failures - errors - skipped
+              duration = float(suite.get('time', 0))
+              junit_present = True
+          else:
+              tests_total = failures = errors = skipped = passed = 0
+              duration = 0.0
+              junit_present = False
 
           report = {
               'report_version': '1.0',
@@ -200,8 +235,9 @@ jobs:
               'skipped': skipped,
               'expected_skips': matrix['expected_skip_count'],
               'skip_matrix': matrix['skips'],
-              'unexpected_skips': skipped != matrix['expected_skip_count'],
-              'time': float(suite.get('time', 0)),
+              'unexpected_skips': (skipped != matrix['expected_skip_count']) if junit_present else False,
+              'time': duration,
+              'junit_present': junit_present,
           }
           with open('proxy-conformance-report.json', 'w') as f:
               json.dump(report, f, indent=2)
@@ -214,6 +250,9 @@ jobs:
           import json
           with open('proxy-conformance-report.json') as f:
               report = json.load(f)
+          if not report.get('junit_present', True):
+              print('Skip guard skipped: proxy-conformance-results.xml missing (earlier step failed).')
+              raise SystemExit(0)
           expected = report['expected_skips']
           actual = report['skipped']
           if actual != expected:
