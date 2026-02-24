@@ -105,7 +105,7 @@ jobs:
 
       - name: Get protocol HEAD SHA
         id: proto-sha
-        run: echo "sha=$(git -C assay-protocol rev-parse HEAD)" >> $GITHUB_OUTPUT
+        run: echo "sha=$(git -C assay-protocol rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Run spec conformance tests (canary)
         run: pytest assay-protocol/reference/python_gateway/tests/test_conformance.py -v --junit-xml=canary-results.xml
