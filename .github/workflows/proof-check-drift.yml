@@ -1,0 +1,120 @@
+name: Proof Check Drift Guard
+
+on:
+  schedule:
+    - cron: "23 6 * * *"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/lineage.yml"
+      - ".github/workflows/proof-check-drift.yml"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/lineage.yml"
+      - ".github/workflows/proof-check-drift.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  drift-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate proof-check contract
+        run: |
+          set -euo pipefail
+
+          EXPECTED="assay-gate,assay-verify,lineage"
+
+          # Validate workflow contracts and extract job names
+          WORKFLOW_CHECKS=$(python3 - <<'PY'
+          import re, sys
+          from pathlib import Path
+
+          wf = Path(".github/workflows/lineage.yml").read_text(encoding="utf-8")
+
+          # Contract 1: lineage uses agentmesh-action@v2
+          if "uses: Haserjian/agentmesh-action@v2" not in wf:
+              print("FAIL: missing Haserjian/agentmesh-action@v2", file=sys.stderr)
+              sys.exit(1)
+
+          # Contract 2: assay-gate remains advisory (min-score 0)
+          if "--min-score 0" not in wf:
+              print("FAIL: expected '--min-score 0' in assay-gate step", file=sys.stderr)
+              sys.exit(1)
+
+          # Contract 3: assay-verify step verifies a proof pack
+          if "assay verify-pack" not in wf:
+              print("FAIL: expected 'assay verify-pack' in assay-verify step", file=sys.stderr)
+              sys.exit(1)
+
+          # Contract 4: expected job names
+          m = re.search(r"(?ms)^jobs:\n(.*)$", wf)
+          if not m:
+              print("FAIL: missing jobs block", file=sys.stderr)
+              sys.exit(1)
+          jobs = sorted(set(re.findall(r"(?m)^  ([a-z0-9-]+):\n", m.group(1))))
+          expected = ["assay-gate", "assay-verify", "lineage"]
+          if jobs != expected:
+              print(f"FAIL: expected jobs {expected}, got {jobs}", file=sys.stderr)
+              sys.exit(1)
+
+          print(",".join(jobs))
+          PY
+          )
+
+          if [ "$WORKFLOW_CHECKS" != "$EXPECTED" ]; then
+            echo "::error::Workflow check set drift: expected ${EXPECTED}, got ${WORKFLOW_CHECKS}"
+            {
+              echo "## Proof Check Drift Guard"
+              echo ""
+              echo "- **FAIL**: Workflow checks drift."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+          {
+            echo "## Proof Check Drift Guard"
+            echo ""
+            echo "- Expected checks: \`${EXPECTED}\`"
+            echo "- Workflow checks: \`${WORKFLOW_CHECKS}\`"
+            echo ""
+            echo "### No workflow drift detected"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check branch protection (optional)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          REPO="${{ github.repository }}"
+          BASE="main"
+          EXPECTED="assay-gate,assay-verify,lineage"
+
+          set +e
+          BP_OUT=$(gh api "repos/${REPO}/branches/${BASE}/protection/required_status_checks" \
+            --jq '[.checks[].context] | sort | join(",")' 2>&1)
+          BP_RC=$?
+          set -e
+
+          if [ "$BP_RC" -ne 0 ]; then
+            if echo "$BP_OUT" | grep -qiE "Resource not accessible by integration|Branch not protected"; then
+              echo "::notice::Branch protection check skipped (${BP_OUT})"
+              echo "- Branch protection: \`SKIPPED\` (not configured or insufficient permissions)" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            else
+              echo "::error::Failed to read branch protection: ${BP_OUT}"
+              exit 1
+            fi
+          fi
+
+          if [ "$BP_OUT" != "$EXPECTED" ]; then
+            echo "::error::Branch protection drift: expected ${EXPECTED}, got ${BP_OUT}"
+            echo "- Branch protection checks: \`${BP_OUT}\` **DRIFT**" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo "- Branch protection checks: \`${BP_OUT}\`" >> "$GITHUB_STEP_SUMMARY"
