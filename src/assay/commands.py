@@ -4250,7 +4250,16 @@ def gate_save_baseline_cmd(
         raise typer.Exit(3)
 
     out_path = P(output) if output else root / DEFAULT_BASELINE_PATH
-    save_score_baseline(current, out_path)
+    try:
+        save_score_baseline(current, out_path)
+    except OSError as e:
+        if output_json:
+            _output_json(
+                {"command": "assay gate save-baseline", "status": "error", "error": f"Cannot write baseline: {e}"},
+                exit_code=3,
+            )
+        console.print(f"[red]Error:[/] Cannot write baseline: {e}")
+        raise typer.Exit(3)
 
     if output_json:
         _output_json({

@@ -95,6 +95,20 @@ class TestEvaluateGate:
         assert report["result"] == "FAIL"
         assert len(report["reasons"]) == 2
 
+    def test_score_exactly_at_threshold_passes(self) -> None:
+        report = evaluate_gate(current_score=_score(60), min_score=60)
+        assert report["result"] == "PASS"
+        assert report["reasons"] == []
+
+    def test_score_equal_to_baseline_passes(self) -> None:
+        report = evaluate_gate(
+            current_score=_score(80),
+            fail_on_regression=True,
+            baseline_score=80.0,
+        )
+        assert report["result"] == "PASS"
+        assert report["regression_detected"] is False
+
     def test_json_contract(self) -> None:
         report = evaluate_gate(current_score=_score(80), min_score=60)
         assert report["command"] == "assay gate"
@@ -221,3 +235,15 @@ class TestGateSaveBaselineCLI:
         assert custom.exists()
         loaded = load_score_baseline(custom)
         assert loaded is not None
+
+    def test_save_baseline_write_failure(self, tmp_path: Path, monkeypatch) -> None:
+        monkeypatch.chdir(tmp_path)
+        Path("app.py").write_text("x = 1\n", encoding="utf-8")
+        result = runner.invoke(
+            assay_app,
+            ["gate", "save-baseline", ".", "-o", "/dev/null/impossible.json", "--json"],
+        )
+        assert result.exit_code == 3
+        data = json.loads(result.output)
+        assert data["status"] == "error"
+        assert "Cannot write baseline" in data["error"]
