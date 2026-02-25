@@ -31,6 +31,16 @@ WEIGHTS: Dict[str, int] = {
     "key_setup": 10,
 }
 
+# Grade tier descriptions shown to users.
+GRADE_TIERS: Dict[str, Tuple[str, str]] = {
+    # grade -> (range_label, description)
+    "A": ("90-100", "Full evidence pipeline with signed packs and ledger."),
+    "B": ("80-89", "Strong pipeline with baseline tracking."),
+    "C": ("70-79", "Active receipts and CI gate in place."),
+    "D": ("60-69", "Basic lockfile and some instrumentation."),
+    "F": ("<60", "No evidence pipeline -- most repos start here."),
+}
+
 
 def gather_score_facts(repo_path: Path) -> Dict[str, Any]:
     """Collect readiness facts for a repository path."""
@@ -269,17 +279,27 @@ def compute_evidence_readiness_score(facts: Dict[str, Any]) -> Dict[str, Any]:
             )
         score, grade = capped_score, capped_grade
 
-    next_actions = _build_next_actions(facts, breakdown)
+    actions_detail = _build_next_actions(facts, breakdown)
+    # Backward-compatible plain-string list.
+    next_actions = [
+        f"{a['action']}: {a['command']}" if a["command"] else a["action"]
+        for a in actions_detail
+    ]
+    fastest_path = _compute_fastest_path(score, grade, actions_detail)
+    tier_range, tier_desc = GRADE_TIERS.get(grade, ("", ""))
 
     return {
         "score_version": SCORE_VERSION,
         "score": score,
         "grade": grade,
+        "grade_description": tier_desc,
         "raw_score": raw_score,
         "raw_grade": raw_grade,
         "caps_applied": caps_applied,
         "breakdown": breakdown,
         "next_actions": next_actions,
+        "next_actions_detail": actions_detail,
+        "fastest_path": fastest_path,
         "disclaimer": (
             "Evidence Readiness Score is a readiness signal, not a security guarantee."
         ),
@@ -367,34 +387,109 @@ def _apply_grade_cap(score: float, grade: str, max_grade: str) -> Tuple[float, s
     return min(score, max_score_by_grade[max_grade]), max_grade
 
 
-def _build_next_actions(facts: Dict[str, Any], breakdown: Dict[str, Dict[str, Any]]) -> List[str]:
-    actions: List[str] = []
+def _build_next_actions(
+    facts: Dict[str, Any], breakdown: Dict[str, Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    """Build prioritised next-actions with estimated point gains.
+
+    Each action is ``{"action": str, "command": str, "component": str,
+    "points_est": float}`` where *points_est* is the gap between the
+    component's current points and its weight (i.e. max possible gain).
+    """
+    actions: List[Dict[str, Any]] = []
     scan = facts.get("scan", {})
     lock = facts.get("lockfile", {})
     ci = facts.get("ci", {})
     rec = facts.get("receipts", {})
     keys = facts.get("keys", {})
 
+    def _gap(component: str) -> float:
+        comp = breakdown.get(component, {})
+        return round(comp.get("weight", 0) - comp.get("points", 0), 1)
+
     if int(scan.get("uninstrumented", 0) or 0) > 0:
-        actions.append("Instrument gaps: assay patch .")
+        actions.append({
+            "action": "Instrument gaps",
+            "command": "assay patch .",
+            "component": "coverage",
+            "points_est": _gap("coverage"),
+        })
     if int(rec.get("repo_receipt_files", 0) or 0) == 0:
-        actions.append("Generate first evidence pack: assay run -c receipt_completeness -- python your_app.py")
+        actions.append({
+            "action": "Generate first evidence pack",
+            "command": 'assay run -c receipt_completeness -- python your_app.py',
+            "component": "receipts",
+            "points_est": _gap("receipts"),
+        })
     if not lock.get("present"):
-        actions.append("Create lockfile: assay lock init")
+        actions.append({
+            "action": "Create lockfile",
+            "command": "assay lock init",
+            "component": "lockfile",
+            "points_est": _gap("lockfile"),
+        })
     elif not lock.get("valid"):
-        actions.append("Repair stale lockfile: assay lock check && assay lock write --cards receipt_completeness -o assay.lock")
+        actions.append({
+            "action": "Repair stale lockfile",
+            "command": "assay lock check && assay lock write --cards receipt_completeness -o assay.lock",
+            "component": "lockfile",
+            "points_est": _gap("lockfile"),
+        })
     if not (ci.get("has_run") and ci.get("has_verify") and ci.get("has_lock")):
-        actions.append("Harden CI gate: assay ci init github --run-command \"python your_app.py\"")
+        actions.append({
+            "action": "Harden CI gate",
+            "command": 'assay ci init github --run-command "python your_app.py"',
+            "component": "ci_gate",
+            "points_est": _gap("ci_gate"),
+        })
     if int(keys.get("signer_count", 0) or 0) == 0:
-        actions.append("Initialize signer key: assay run --allow-empty -- python -c \"pass\"")
+        actions.append({
+            "action": "Initialize signer key",
+            "command": 'assay run --allow-empty -- python -c "pass"',
+            "component": "key_setup",
+            "points_est": _gap("key_setup"),
+        })
 
     if not actions:
-        actions.append("Ready: enforce regression budgets in CI with assay diff --gate-*.")
+        actions.append({
+            "action": "Ready",
+            "command": "assay diff --gate-*",
+            "component": "",
+            "points_est": 0.0,
+        })
 
+    # Sort by largest gain first.
+    actions.sort(key=lambda a: a["points_est"], reverse=True)
     return actions
 
 
+def _compute_fastest_path(
+    score: float, grade: str, next_actions: List[Dict[str, Any]]
+) -> Dict[str, Any] | None:
+    """Find the single action that gets closest to the next grade threshold."""
+    if grade == "A" or not next_actions:
+        return None
+
+    thresholds = {"F": ("D", 60), "D": ("C", 70), "C": ("B", 80), "B": ("A", 90)}
+    target_grade, target_score = thresholds.get(grade, ("A", 90))
+
+    # Pick the action with the highest estimated gain.
+    best = max(next_actions, key=lambda a: a["points_est"])
+    if best["points_est"] <= 0:
+        return None
+
+    projected = round(score + best["points_est"], 1)
+    return {
+        "target_grade": target_grade,
+        "target_score": target_score,
+        "command": best["command"],
+        "points_est": best["points_est"],
+        "projected_score": projected,
+    }
+
+
 __all__ = [
+    "GRADE_TIERS",
     "SCORE_VERSION",
     "WEIGHTS",
     "gather_score_facts",
