@@ -474,6 +474,27 @@ def scan_file(filepath: Path) -> tuple[List[CallSite], bool]:
     return sites, visitor.has_instrumentation
 
 
+def _load_assayignore(root: Path) -> List[str]:
+    """Load exclusion patterns from .assayignore at the repo root.
+
+    Returns an empty list if the file is missing.
+    """
+    ignore_file = root / ".assayignore"
+    if not ignore_file.is_file():
+        return []
+    try:
+        text = ignore_file.read_text(encoding="utf-8")
+    except OSError:
+        return []
+    patterns: List[str] = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        patterns.append(stripped)
+    return patterns
+
+
 def scan_directory(
     root: Path,
     *,
@@ -493,6 +514,12 @@ def scan_directory(
     root = Path(root).resolve()
     result = ScanResult()
 
+    # Load .assayignore patterns
+    ignore_patterns = _load_assayignore(root)
+
+    # Merge caller-supplied excludes with .assayignore patterns
+    all_exclude = (exclude or []) + ignore_patterns
+
     # Default excludes
     default_exclude = {
         ".venv", "venv", "node_modules", ".git", "__pycache__",
@@ -502,6 +529,10 @@ def scan_directory(
     }
 
     for dirpath, dirnames, filenames in os.walk(root):
+        rel_dir = os.path.relpath(dirpath, root)
+        if rel_dir == ".":
+            rel_dir = ""
+
         # Skip excluded directories (including assay-generated proof_pack_* dirs)
         dirnames[:] = [
             d for d in dirnames
@@ -509,6 +540,16 @@ def scan_directory(
             and not d.startswith(".")
             and not d.startswith("proof_pack_")
         ]
+
+        # Prune directories matching .assayignore / caller-supplied patterns
+        if all_exclude:
+            dirnames[:] = [
+                d for d in dirnames
+                if not any(
+                    fnmatch(os.path.join(rel_dir, d) if rel_dir else d, pat)
+                    for pat in all_exclude
+                )
+            ]
 
         for filename in filenames:
             if not filename.endswith(".py"):
@@ -520,7 +561,7 @@ def scan_directory(
             except ValueError:
                 rel_path = filepath
 
-            if not _should_scan(rel_path, include, exclude):
+            if not _should_scan(rel_path, include, all_exclude or None):
                 continue
 
             sites, _has_instrumentation = scan_file(filepath)

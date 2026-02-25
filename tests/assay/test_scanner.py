@@ -12,6 +12,7 @@ from assay.scanner import (
     Confidence,
     ScanResult,
     _LLMCallVisitor,
+    _load_assayignore,
     _suggest_fix,
     scan_directory,
     scan_file,
@@ -792,3 +793,84 @@ class TestEdgeCases:
         sites, _ = scan_file(f)
         assert len(sites) == 1
         assert sites[0].line == 6
+
+
+# ---------------------------------------------------------------------------
+# .assayignore support
+# ---------------------------------------------------------------------------
+
+class TestLoadAssayignore:
+    def test_missing_file(self, tmp_path):
+        assert _load_assayignore(tmp_path) == []
+
+    def test_basic_patterns(self, tmp_path):
+        (tmp_path / ".assayignore").write_text("vendor/*\nthird_party/*\n")
+        assert _load_assayignore(tmp_path) == ["vendor/*", "third_party/*"]
+
+    def test_comments_and_blanks(self, tmp_path):
+        content = "# comment\n\nvendor/*\n  \n# another\ndata/*\n"
+        (tmp_path / ".assayignore").write_text(content)
+        assert _load_assayignore(tmp_path) == ["vendor/*", "data/*"]
+
+
+def _mkwrite(base: Path, rel: str, code: str) -> Path:
+    """Create parent dirs and write a file under base."""
+    p = base / rel
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(code)
+    return p
+
+
+_LLM_CALL = "import openai\nclient = openai.OpenAI()\nclient.chat.completions.create(model='gpt-4', messages=[])\n"
+
+
+class TestAssayignore:
+    def test_excludes_directory(self, tmp_path):
+        """Files under a matched directory are not scanned."""
+        _mkwrite(tmp_path, "src/app.py", _LLM_CALL)
+        _mkwrite(tmp_path, "vendor/lib.py", _LLM_CALL)
+        (tmp_path / ".assayignore").write_text("vendor/*\n")
+
+        result = scan_directory(tmp_path)
+        paths = {f.path for f in result.findings}
+        assert any("src" in p for p in paths)
+        assert not any("vendor" in p for p in paths), f"vendor excluded, got {paths}"
+
+    def test_missing_file_no_crash(self, tmp_path):
+        """No .assayignore -> normal scan."""
+        _write(tmp_path, "app.py", _LLM_CALL)
+        result = scan_directory(tmp_path)
+        assert len(result.findings) > 0
+
+    def test_multiple_patterns(self, tmp_path):
+        _mkwrite(tmp_path, "vendor/a.py", _LLM_CALL)
+        _mkwrite(tmp_path, "data/b.py", _LLM_CALL)
+        _mkwrite(tmp_path, "src/main.py", _LLM_CALL)
+        (tmp_path / ".assayignore").write_text("vendor/*\ndata/*\n")
+
+        result = scan_directory(tmp_path)
+        paths = {f.path for f in result.findings}
+        assert any("src" in p for p in paths)
+        assert not any("vendor" in p for p in paths)
+        assert not any("data" in p for p in paths)
+
+    def test_does_not_affect_other_files(self, tmp_path):
+        _write(tmp_path, "app.py", _LLM_CALL)
+        _mkwrite(tmp_path, "lib/helpers.py", _LLM_CALL)
+        (tmp_path / ".assayignore").write_text("vendor/*\n")
+
+        result = scan_directory(tmp_path)
+        paths = {f.path for f in result.findings}
+        assert "app.py" in paths
+        assert any("helpers" in p for p in paths)
+
+    def test_nested_directory(self, tmp_path):
+        """Pattern matching a nested path prunes the subtree."""
+        _mkwrite(tmp_path, "scripts/study/clones/repo/main.py", _LLM_CALL)
+        _mkwrite(tmp_path, "src/app.py", _LLM_CALL)
+        (tmp_path / ".assayignore").write_text("scripts/study/clones/*\n")
+
+        result = scan_directory(tmp_path)
+        paths = {f.path for f in result.findings}
+        assert any("src" in p for p in paths)
+        assert not any("clones" in p for p in paths), f"clones excluded, got {paths}"

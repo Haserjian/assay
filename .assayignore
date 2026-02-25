@@ -1,0 +1,2 @@
+# Scan study clones (third-party repos, not our code)
+scripts/scan_study/clones/*
