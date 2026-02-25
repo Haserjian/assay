@@ -1,5 +1,18 @@
+# Proof-Carrying PR checks for the Assay repository.
+#
+# Three advisory checks (no branch protection enforcement yet):
+#   1. lineage  -- commit-level AgentMesh episode trailer coverage
+#   2. assay-gate -- evidence quality score (--min-score 0 = always pass)
+#   3. assay-verify -- build + verify a tamper-evident proof pack
+#
+# To enforce: add lineage, assay-gate, assay-verify as required status checks
+# in branch protection settings after pilot validation.
+
 name: Lineage Check
-on: [pull_request]
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
   contents: read
@@ -9,4 +22,67 @@ jobs:
   lineage:
     runs-on: ubuntu-latest
     steps:
-      - uses: Haserjian/agentmesh-action@v1
+      - name: Check lineage coverage
+        uses: Haserjian/agentmesh-action@v2
+        with:
+          policy-profile: 'baseline'
+
+  assay-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install assay
+        run: pip install "assay-ai>=1.10.1"
+
+      - name: Run evidence gate
+        run: |
+          mkdir -p .assay
+          assay gate check . --min-score 0 --json | tee .assay/gate-check.json
+
+      - name: Upload gate report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: assay-gate-report
+          path: .assay
+          if-no-files-found: warn
+
+  assay-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install assay
+        run: pip install "assay-ai>=1.10.1"
+
+      - name: Build and verify proof pack
+        run: |
+          set -euo pipefail
+          mkdir -p .assay-verify
+
+          assay run \
+            --allow-empty \
+            --output ".assay-verify/proof_pack_ci" \
+            --json \
+            -- echo "proof-carrying-pr canary" \
+            | tee ".assay-verify/run.json"
+
+          assay verify-pack ".assay-verify/proof_pack_ci" --json \
+            | tee ".assay-verify/verify.json"
+
+      - name: Upload verify artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: assay-verify-report
+          path: .assay-verify
+          if-no-files-found: warn
