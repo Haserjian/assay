@@ -4095,6 +4095,185 @@ def baseline_get_cmd(
 
 
 # ---------------------------------------------------------------------------
+# gate subcommands
+# ---------------------------------------------------------------------------
+
+gate_app = typer.Typer(
+    name="gate",
+    help="Deterministic CI enforcement for evidence regression",
+    no_args_is_help=True,
+)
+assay_app.add_typer(gate_app, name="gate")
+
+
+@gate_app.command("check")
+def gate_check_cmd(
+    path: str = typer.Argument(".", help="Repository directory to score"),
+    min_score: Optional[float] = typer.Option(None, "--min-score", help="Minimum passing score (0-100)"),
+    fail_on_regression: bool = typer.Option(False, "--fail-on-regression", help="Fail if score dropped below baseline"),
+    baseline: Optional[str] = typer.Option(None, "--baseline", help="Path to score-baseline.json (default: .assay/score-baseline.json)"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Enforce minimum score and/or regression policy.
+
+    Exit 0 = PASS, exit 1 = FAIL, exit 3 = bad input.
+
+    Examples:
+
+        assay gate check --min-score 60
+
+        assay gate check --min-score 60 --fail-on-regression
+
+        assay gate check --fail-on-regression --baseline .assay/score-baseline.json --json
+    """
+    from pathlib import Path as P
+
+    from assay.gate import (
+        DEFAULT_BASELINE_PATH,
+        evaluate_gate,
+        load_score_baseline,
+    )
+    from assay.score import compute_evidence_readiness_score, gather_score_facts
+
+    root = P(path).resolve()
+    if not root.exists() or not root.is_dir():
+        if output_json:
+            _output_json(
+                {"command": "assay gate", "status": "error", "error": f"Directory not found: {path}"},
+                exit_code=3,
+            )
+        console.print(f"[red]Error:[/] Directory not found: {path}")
+        raise typer.Exit(3)
+
+    # Compute current score
+    try:
+        facts = gather_score_facts(root)
+        current = compute_evidence_readiness_score(facts)
+    except Exception as e:
+        if output_json:
+            _output_json(
+                {"command": "assay gate", "status": "error", "error": str(e)},
+                exit_code=3,
+            )
+        console.print(f"[red]Score error:[/] {e}")
+        raise typer.Exit(3)
+
+    # Load baseline if regression check requested
+    baseline_score = None
+    if fail_on_regression:
+        bp = P(baseline) if baseline else root / DEFAULT_BASELINE_PATH
+        baseline_score = load_score_baseline(bp)
+        if baseline_score is None and baseline:
+            if output_json:
+                _output_json(
+                    {"command": "assay gate", "status": "error", "error": f"Baseline not found: {baseline}"},
+                    exit_code=3,
+                )
+            console.print(f"[red]Error:[/] Baseline not found: {baseline}")
+            raise typer.Exit(3)
+
+    report = evaluate_gate(
+        current_score=current,
+        min_score=min_score,
+        fail_on_regression=fail_on_regression,
+        baseline_score=baseline_score,
+    )
+
+    exit_code = 0 if report["result"] == "PASS" else 1
+
+    if output_json:
+        _output_json({**report, "status": "ok" if exit_code == 0 else "blocked"}, exit_code=exit_code)
+
+    # Console output
+    color = "green" if report["result"] == "PASS" else "red"
+    lines = [
+        f"[bold {color}]{report['result']}[/]",
+        "",
+        f"Score:    {report['current_score']:.1f} ({report['current_grade']})",
+    ]
+    if min_score is not None:
+        lines.append(f"Min:      {min_score:.1f}")
+    if baseline_score is not None:
+        lines.append(f"Baseline: {baseline_score:.1f}")
+    if report["regression_detected"]:
+        lines.append(f"[red]Regression detected[/]")
+    if report["reasons"]:
+        lines.append("")
+        for r in report["reasons"]:
+            lines.append(f"  - {r}")
+
+    console.print()
+    console.print(Panel.fit("\n".join(lines), title="assay gate"))
+    console.print()
+
+    if exit_code == 0:
+        console.print("Next: [bold]assay gate save-baseline[/] to lock in this score")
+    else:
+        console.print("Next: fix issues with [bold]assay score[/] to see breakdown")
+
+    console.print()
+    raise typer.Exit(exit_code)
+
+
+@gate_app.command("save-baseline")
+def gate_save_baseline_cmd(
+    path: str = typer.Argument(".", help="Repository directory to score"),
+    output: Optional[str] = typer.Option(None, "--output", "-o", help="Output path (default: .assay/score-baseline.json)"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Save the current Evidence Readiness Score as the gate baseline."""
+    from pathlib import Path as P
+
+    from assay.gate import DEFAULT_BASELINE_PATH, save_score_baseline
+    from assay.score import compute_evidence_readiness_score, gather_score_facts
+
+    root = P(path).resolve()
+    if not root.exists() or not root.is_dir():
+        if output_json:
+            _output_json(
+                {"command": "assay gate save-baseline", "status": "error", "error": f"Directory not found: {path}"},
+                exit_code=3,
+            )
+        console.print(f"[red]Error:[/] Directory not found: {path}")
+        raise typer.Exit(3)
+
+    try:
+        facts = gather_score_facts(root)
+        current = compute_evidence_readiness_score(facts)
+    except Exception as e:
+        if output_json:
+            _output_json(
+                {"command": "assay gate save-baseline", "status": "error", "error": str(e)},
+                exit_code=3,
+            )
+        console.print(f"[red]Score error:[/] {e}")
+        raise typer.Exit(3)
+
+    out_path = P(output) if output else root / DEFAULT_BASELINE_PATH
+    save_score_baseline(current, out_path)
+
+    if output_json:
+        _output_json({
+            "command": "assay gate save-baseline",
+            "status": "ok",
+            "score": current["score"],
+            "grade": current["grade"],
+            "baseline_file": str(out_path),
+        })
+
+    console.print()
+    console.print(Panel.fit(
+        f"[bold green]Baseline saved[/]\n\n"
+        f"Score: {current['score']:.1f} ({current['grade']})\n"
+        f"File:  {out_path}",
+        title="assay gate save-baseline",
+    ))
+    console.print()
+    console.print(f"Next: [bold]assay gate check --min-score {max(0, current['score'] - 5):.0f} --fail-on-regression[/]")
+    console.print()
+
+
+# ---------------------------------------------------------------------------
 # cards subcommands
 # ---------------------------------------------------------------------------
 
