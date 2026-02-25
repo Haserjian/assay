@@ -8,7 +8,7 @@ from typing import Any, Dict
 from typer.testing import CliRunner
 
 from assay.commands import assay_app
-from assay.score import SCORE_VERSION, compute_evidence_readiness_score, gather_score_facts
+from assay.score import GRADE_TIERS, SCORE_VERSION, compute_evidence_readiness_score, gather_score_facts
 
 runner = CliRunner()
 
@@ -148,4 +148,115 @@ class TestScoreCLI:
         assert result.exit_code == 3, result.output
         data = json.loads(result.output)
         assert data["status"] == "error"
+
+
+# ---------------------------------------------------------------------------
+# Guidance layer: grade tiers, point estimation, fastest path
+# ---------------------------------------------------------------------------
+
+
+class TestGuidanceLayer:
+    def test_grade_description_present(self) -> None:
+        result = compute_evidence_readiness_score(_facts())
+        assert "grade_description" in result
+        assert result["grade_description"] == GRADE_TIERS["A"][1]
+
+    def test_grade_description_for_f(self) -> None:
+        result = compute_evidence_readiness_score(
+            _facts(
+                sites_total=0, instrumented=0, uninstrumented=0,
+                lock_present=False, lock_valid=False,
+                has_assay_ref=False, has_run=False, has_verify=False, has_lock=False,
+                repo_receipt_files=0, signer_count=0,
+            )
+        )
+        assert result["grade"] == "F"
+        assert result["grade_description"] == GRADE_TIERS["F"][1]
+
+    def test_next_actions_detail_structure(self) -> None:
+        result = compute_evidence_readiness_score(
+            _facts(lock_present=False, lock_valid=False)
+        )
+        detail = result["next_actions_detail"]
+        assert isinstance(detail, list)
+        assert len(detail) >= 1
+        for ad in detail:
+            assert "action" in ad
+            assert "command" in ad
+            assert "component" in ad
+            assert "points_est" in ad
+            assert isinstance(ad["points_est"], float)
+
+    def test_next_actions_detail_has_lockfile_estimate(self) -> None:
+        result = compute_evidence_readiness_score(
+            _facts(lock_present=False, lock_valid=False)
+        )
+        lock_actions = [
+            a for a in result["next_actions_detail"] if a["component"] == "lockfile"
+        ]
+        assert len(lock_actions) == 1
+        assert lock_actions[0]["points_est"] == 15.0
+        assert "assay lock init" in lock_actions[0]["command"]
+
+    def test_next_actions_backward_compat_strings(self) -> None:
+        result = compute_evidence_readiness_score(
+            _facts(lock_present=False, lock_valid=False)
+        )
+        # next_actions is still a list of strings.
+        assert isinstance(result["next_actions"], list)
+        assert all(isinstance(s, str) for s in result["next_actions"])
+        assert any("assay lock init" in s for s in result["next_actions"])
+
+    def test_next_actions_sorted_by_points(self) -> None:
+        result = compute_evidence_readiness_score(
+            _facts(
+                lock_present=False, lock_valid=False,
+                repo_receipt_files=0, signer_count=0,
+            )
+        )
+        detail = result["next_actions_detail"]
+        points = [a["points_est"] for a in detail]
+        assert points == sorted(points, reverse=True)
+
+    def test_fastest_path_present_when_not_a(self) -> None:
+        result = compute_evidence_readiness_score(
+            _facts(lock_present=False, lock_valid=False)
+        )
+        assert result["grade"] != "A"
+        fp = result["fastest_path"]
+        assert fp is not None
+        assert "target_grade" in fp
+        assert "target_score" in fp
+        assert "command" in fp
+        assert "points_est" in fp
+        assert "projected_score" in fp
+        assert fp["projected_score"] == round(result["score"] + fp["points_est"], 1)
+
+    def test_fastest_path_none_when_a(self) -> None:
+        result = compute_evidence_readiness_score(_facts())
+        assert result["grade"] == "A"
+        assert result["fastest_path"] is None
+
+    def test_perfect_score_has_ready_action(self) -> None:
+        result = compute_evidence_readiness_score(_facts())
+        detail = result["next_actions_detail"]
+        assert len(detail) == 1
+        assert detail[0]["action"] == "Ready"
+        assert detail[0]["points_est"] == 0.0
+
+    def test_json_output_includes_guidance_fields(self, tmp_path: Path, monkeypatch) -> None:
+        monkeypatch.chdir(tmp_path)
+        Path("app.py").write_text(
+            "import openai\n"
+            "client = openai.OpenAI()\n"
+            "client.chat.completions.create(model='gpt-4', messages=[])\n",
+            encoding="utf-8",
+        )
+        result = runner.invoke(assay_app, ["score", ".", "--json"])
+        assert result.exit_code == 0, result.output
+        data = json.loads(result.output)
+        assert "grade_description" in data
+        assert "next_actions_detail" in data
+        # fastest_path may be None or dict -- just check key exists
+        assert "fastest_path" in data
 

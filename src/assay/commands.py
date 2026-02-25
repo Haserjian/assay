@@ -1830,14 +1830,23 @@ def score_cmd(
         "F": "red",
     }.get(score["grade"], "white")
 
+    grade_desc = score.get("grade_description", "")
+    desc_line = f'\n         [dim]"{grade_desc}"[/]' if grade_desc else ""
+
     header = (
         f"[bold]Evidence Readiness Score[/]\n\n"
         f"Repo:    {root}\n"
         f"Score:   [bold]{score['score']:.1f}[/] / 100\n"
-        f"Grade:   [{grade_style}][bold]{score['grade']}[/]\n"
+        f"Grade:   [{grade_style}][bold]{score['grade']}[/]{desc_line}\n"
         f"Version: {score['score_version']}"
     )
     console.print(Panel.fit(header, title="assay score", border_style="blue"))
+
+    # Build a lookup from component -> action detail for inline hints.
+    action_by_comp: dict = {}
+    for ad in score.get("next_actions_detail", []):
+        if ad.get("component"):
+            action_by_comp.setdefault(ad["component"], ad)
 
     table = Table(show_header=True, header_style="bold", box=None)
     table.add_column("Component")
@@ -1847,12 +1856,16 @@ def score_cmd(
     table.add_column("Note")
     for key in ("coverage", "lockfile", "ci_gate", "receipts", "key_setup"):
         comp = score["breakdown"][key]
+        note = comp["note"]
+        ad = action_by_comp.get(key)
+        if ad and ad["points_est"] > 0:
+            note += f" [dim]→ {ad['command']} (+{ad['points_est']:.0f} pts est.)[/]"
         table.add_row(
             key,
             f"{comp['points']:.1f}",
             str(comp["weight"]),
             comp["status"],
-            comp["note"],
+            note,
         )
     console.print(table)
 
@@ -1864,9 +1877,17 @@ def score_cmd(
             )
         console.print(Panel("\n".join(caps_lines), title="Caps Applied", border_style="yellow"))
 
+    fp = score.get("fastest_path")
+    if fp:
+        console.print(
+            f"\n[bold]Fastest path to {fp['target_grade']} ({fp['target_score']}+):[/] "
+            f"{fp['command']} [dim](+{fp['points_est']:.0f} → ~{fp['projected_score']:.0f})[/]"
+        )
+
     console.print("\n[bold]Next actions:[/]")
-    for idx, action in enumerate(score["next_actions"], 1):
-        console.print(f"  {idx}. {action}")
+    for idx, ad in enumerate(score.get("next_actions_detail", []), 1):
+        pts = f" [dim](+{ad['points_est']:.0f} pts est.)[/]" if ad["points_est"] > 0 else ""
+        console.print(f"  {idx}. {ad['action']}: {ad['command']}{pts}")
 
     console.print(f"\n[dim]{score['disclaimer']}[/]\n")
 
