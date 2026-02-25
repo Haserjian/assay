@@ -142,6 +142,16 @@ class TestBaselinePersistence:
         bf.write_text('{"grade": "A"}', encoding="utf-8")
         assert load_score_baseline(bf) is None
 
+    def test_load_out_of_range_score_returns_none(self, tmp_path: Path) -> None:
+        bf = tmp_path / "bad-range.json"
+        bf.write_text('{"score": 123.4}', encoding="utf-8")
+        assert load_score_baseline(bf) is None
+
+    def test_load_non_finite_score_returns_none(self, tmp_path: Path) -> None:
+        bf = tmp_path / "bad-nan.json"
+        bf.write_text('{"score": "nan"}', encoding="utf-8")
+        assert load_score_baseline(bf) is None
+
     def test_save_creates_parent_dirs(self, tmp_path: Path) -> None:
         bf = tmp_path / "deep" / "nested" / "baseline.json"
         save_score_baseline(_score(90), bf)
@@ -183,6 +193,22 @@ class TestGateCheckCLI:
         result = runner.invoke(assay_app, ["gate", "check", "/no/such/path", "--json"])
         assert result.exit_code == 3
 
+    def test_invalid_min_score_high_exit_3(self, tmp_path: Path, monkeypatch) -> None:
+        monkeypatch.chdir(tmp_path)
+        result = runner.invoke(assay_app, ["gate", "check", ".", "--min-score", "101", "--json"])
+        assert result.exit_code == 3, result.output
+        data = json.loads(result.output)
+        assert data["status"] == "error"
+        assert "between 0 and 100" in data["error"]
+
+    def test_invalid_min_score_non_finite_exit_3(self, tmp_path: Path, monkeypatch) -> None:
+        monkeypatch.chdir(tmp_path)
+        result = runner.invoke(assay_app, ["gate", "check", ".", "--min-score", "nan", "--json"])
+        assert result.exit_code == 3, result.output
+        data = json.loads(result.output)
+        assert data["status"] == "error"
+        assert "between 0 and 100" in data["error"]
+
     def test_regression_with_baseline_file(self, tmp_path: Path, monkeypatch) -> None:
         monkeypatch.chdir(tmp_path)
         Path("app.py").write_text("x = 1\n", encoding="utf-8")
@@ -207,6 +233,18 @@ class TestGateCheckCLI:
         # No baseline file exists, so regression check is skipped -> PASS (on regression dimension)
         data = json.loads(result.output)
         assert data["regression_detected"] is False
+
+    def test_regression_invalid_default_baseline_exit_3(self, tmp_path: Path, monkeypatch) -> None:
+        monkeypatch.chdir(tmp_path)
+        Path("app.py").write_text("x = 1\n", encoding="utf-8")
+        bad = tmp_path / ".assay" / "score-baseline.json"
+        bad.parent.mkdir(parents=True, exist_ok=True)
+        bad.write_text('{"score": 500}', encoding="utf-8")
+        result = runner.invoke(assay_app, ["gate", "check", ".", "--fail-on-regression", "--json"])
+        assert result.exit_code == 3, result.output
+        data = json.loads(result.output)
+        assert data["status"] == "error"
+        assert "Invalid baseline score" in data["error"]
 
 
 # ---------------------------------------------------------------------------
