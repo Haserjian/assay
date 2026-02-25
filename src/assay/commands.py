@@ -56,7 +56,7 @@ console = Console()
 
 assay_app = typer.Typer(
     name="assay",
-    help="Tamper-evident audit trails for AI systems",
+    help="Evidence compiler for AI code changes. pip install assay-ai -- works standalone.",
     no_args_is_help=True,
 )
 
@@ -1767,7 +1767,12 @@ def score_cmd(
 ):
     """Compute an Evidence Readiness Score (0-100, A-F) for a repository.
 
-    This is a readiness signal, not a security guarantee.
+    Use this to diagnose your repo's evidence quality. Shows a component
+    breakdown with point estimates and specific commands to improve your score.
+
+    For CI enforcement, use `assay gate check` instead.
+
+    Assay works standalone -- no other tools required. Just `pip install assay-ai`.
     """
     from pathlib import Path as P
 
@@ -4121,7 +4126,7 @@ def baseline_get_cmd(
 
 gate_app = typer.Typer(
     name="gate",
-    help="Deterministic CI enforcement for evidence regression",
+    help="CI enforcement for evidence quality (use `assay score` for diagnostics)",
     no_args_is_help=True,
 )
 assay_app.add_typer(gate_app, name="gate")
@@ -4160,7 +4165,10 @@ def gate_check_cmd(
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Include score breakdown and next actions"),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
-    """Enforce minimum score and/or regression policy.
+    """Enforce minimum evidence score in CI. Pass/fail only.
+
+    For a detailed diagnostic with component breakdown and fix commands,
+    use `assay score` or pass `--verbose` here.
 
     Exit 0 = PASS, exit 1 = FAIL, exit 3 = bad input.
 
@@ -4168,7 +4176,7 @@ def gate_check_cmd(
 
         assay gate check --min-score 60
 
-        assay gate check --min-score 60 --fail-on-regression
+        assay gate check --min-score 60 --verbose
 
         assay gate check --fail-on-regression --baseline .assay/score-baseline.json --json
     """
