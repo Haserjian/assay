@@ -12,6 +12,7 @@ Exit codes follow the CLI convention:
 from __future__ import annotations
 
 import json
+import math
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -71,10 +72,23 @@ def load_score_baseline(path: Path) -> Optional[float]:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
         if isinstance(data, dict) and "score" in data:
-            return float(data["score"])
+            return normalize_score_value(data["score"])
     except (json.JSONDecodeError, OSError, TypeError, ValueError):
         pass
     return None
+
+
+def normalize_score_value(value: Any) -> Optional[float]:
+    """Normalize a score value to a finite float in [0, 100]."""
+    try:
+        score = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(score):
+        return None
+    if score < 0 or score > 100:
+        return None
+    return score
 
 
 def save_score_baseline(score_data: Dict[str, Any], path: Path) -> Path:

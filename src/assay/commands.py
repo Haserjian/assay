@@ -4132,6 +4132,7 @@ def gate_check_cmd(
         DEFAULT_BASELINE_PATH,
         evaluate_gate,
         load_score_baseline,
+        normalize_score_value,
     )
     from assay.score import compute_evidence_readiness_score, gather_score_facts
 
@@ -4144,6 +4145,19 @@ def gate_check_cmd(
             )
         console.print(f"[red]Error:[/] Directory not found: {path}")
         raise typer.Exit(3)
+
+    validated_min_score = None
+    if min_score is not None:
+        validated_min_score = normalize_score_value(min_score)
+        if validated_min_score is None:
+            msg = "--min-score must be a finite number between 0 and 100"
+            if output_json:
+                _output_json(
+                    {"command": "assay gate", "status": "error", "error": msg},
+                    exit_code=3,
+                )
+            console.print(f"[red]Error:[/] {msg}")
+            raise typer.Exit(3)
 
     # Compute current score
     try:
@@ -4163,18 +4177,28 @@ def gate_check_cmd(
     if fail_on_regression:
         bp = P(baseline) if baseline else root / DEFAULT_BASELINE_PATH
         baseline_score = load_score_baseline(bp)
-        if baseline_score is None and baseline:
+        if baseline_score is None and bp.exists():
+            msg = f"Invalid baseline score in: {bp}"
             if output_json:
                 _output_json(
-                    {"command": "assay gate", "status": "error", "error": f"Baseline not found: {baseline}"},
+                    {"command": "assay gate", "status": "error", "error": msg},
                     exit_code=3,
                 )
-            console.print(f"[red]Error:[/] Baseline not found: {baseline}")
+            console.print(f"[red]Error:[/] {msg}")
+            raise typer.Exit(3)
+        if baseline_score is None and baseline:
+            msg = f"Baseline not found: {baseline}"
+            if output_json:
+                _output_json(
+                    {"command": "assay gate", "status": "error", "error": msg},
+                    exit_code=3,
+                )
+            console.print(f"[red]Error:[/] {msg}")
             raise typer.Exit(3)
 
     report = evaluate_gate(
         current_score=current,
-        min_score=min_score,
+        min_score=validated_min_score,
         fail_on_regression=fail_on_regression,
         baseline_score=baseline_score,
     )
@@ -4191,8 +4215,8 @@ def gate_check_cmd(
         "",
         f"Score:    {report['current_score']:.1f} ({report['current_grade']})",
     ]
-    if min_score is not None:
-        lines.append(f"Min:      {min_score:.1f}")
+    if validated_min_score is not None:
+        lines.append(f"Min:      {validated_min_score:.1f}")
     if baseline_score is not None:
         lines.append(f"Baseline: {baseline_score:.1f}")
     if report["regression_detected"]:
