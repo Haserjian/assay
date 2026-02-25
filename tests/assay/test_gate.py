@@ -246,6 +246,51 @@ class TestGateCheckCLI:
         assert data["status"] == "error"
         assert "Invalid baseline score" in data["error"]
 
+    def test_save_report_json_pass(self, tmp_path: Path, monkeypatch) -> None:
+        monkeypatch.chdir(tmp_path)
+        Path("app.py").write_text("x = 1\n", encoding="utf-8")
+        out = tmp_path / ".assay" / "gate-report.json"
+        result = runner.invoke(
+            assay_app,
+            ["gate", "check", ".", "--min-score", "0", "--save-report", str(out), "--json"],
+        )
+        assert result.exit_code == 0, result.output
+        data = json.loads(result.output)
+        assert data["status"] == "ok"
+        assert data["report_file"] == str(out)
+        assert out.exists()
+        written = json.loads(out.read_text(encoding="utf-8"))
+        assert written["result"] == "PASS"
+        assert written["status"] == "ok"
+        assert written["report_file"] == str(out)
+
+    def test_save_report_non_json_fail(self, tmp_path: Path, monkeypatch) -> None:
+        monkeypatch.chdir(tmp_path)
+        Path("app.py").write_text("x = 1\n", encoding="utf-8")
+        out = tmp_path / ".assay" / "gate-report-fail.json"
+        result = runner.invoke(
+            assay_app,
+            ["gate", "check", ".", "--min-score", "100", "--save-report", str(out)],
+        )
+        assert result.exit_code == 1, result.output
+        assert out.exists()
+        written = json.loads(out.read_text(encoding="utf-8"))
+        assert written["result"] == "FAIL"
+        assert written["status"] == "blocked"
+        assert written["report_file"] == str(out)
+
+    def test_save_report_write_failure_exit_3(self, tmp_path: Path, monkeypatch) -> None:
+        monkeypatch.chdir(tmp_path)
+        Path("app.py").write_text("x = 1\n", encoding="utf-8")
+        result = runner.invoke(
+            assay_app,
+            ["gate", "check", ".", "--save-report", "/dev/null/impossible.json", "--json"],
+        )
+        assert result.exit_code == 3, result.output
+        data = json.loads(result.output)
+        assert data["status"] == "error"
+        assert "Cannot write report" in data["error"]
+
 
 # ---------------------------------------------------------------------------
 # CLI tests: assay gate save-baseline

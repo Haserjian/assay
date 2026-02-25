@@ -4112,6 +4112,7 @@ def gate_check_cmd(
     min_score: Optional[float] = typer.Option(None, "--min-score", help="Minimum passing score (0-100)"),
     fail_on_regression: bool = typer.Option(False, "--fail-on-regression", help="Fail if score dropped below baseline"),
     baseline: Optional[str] = typer.Option(None, "--baseline", help="Path to score-baseline.json (default: .assay/score-baseline.json)"),
+    save_report: Optional[str] = typer.Option(None, "--save-report", help="Write gate JSON report to file"),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Enforce minimum score and/or regression policy.
@@ -4204,9 +4205,27 @@ def gate_check_cmd(
     )
 
     exit_code = 0 if report["result"] == "PASS" else 1
+    payload: Dict[str, Any] = {**report, "status": "ok" if exit_code == 0 else "blocked"}
+
+    report_path = None
+    if save_report:
+        report_path = P(save_report)
+        payload = {**payload, "report_file": str(report_path)}
+        try:
+            report_path.parent.mkdir(parents=True, exist_ok=True)
+            report_path.write_text(json.dumps(payload, indent=2, default=str) + "\n", encoding="utf-8")
+        except OSError as e:
+            msg = f"Cannot write report: {e}"
+            if output_json:
+                _output_json(
+                    {"command": "assay gate", "status": "error", "error": msg},
+                    exit_code=3,
+                )
+            console.print(f"[red]Error:[/] {msg}")
+            raise typer.Exit(3)
 
     if output_json:
-        _output_json({**report, "status": "ok" if exit_code == 0 else "blocked"}, exit_code=exit_code)
+        _output_json(payload, exit_code=exit_code)
 
     # Console output
     color = "green" if report["result"] == "PASS" else "red"
@@ -4229,6 +4248,8 @@ def gate_check_cmd(
     console.print()
     console.print(Panel.fit("\n".join(lines), title="assay gate"))
     console.print()
+    if report_path is not None:
+        console.print(f"Report: [bold]{report_path}[/]")
 
     if exit_code == 0:
         console.print("Next: [bold]assay gate save-baseline[/] to lock in this score")
