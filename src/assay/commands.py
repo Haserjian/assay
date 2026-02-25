@@ -4106,6 +4106,29 @@ gate_app = typer.Typer(
 assay_app.add_typer(gate_app, name="gate")
 
 
+def _gate_error(msg: str, *, command: str = "assay gate", output_json: bool) -> None:
+    """Emit a gate error (JSON + console) and exit 3.
+
+    This is a shared helper for the repeated pattern in gate_check_cmd
+    and gate_save_baseline_cmd. Always raises typer.Exit(3).
+    """
+    if output_json:
+        _output_json({"command": command, "status": "error", "error": msg}, exit_code=3)
+    console.print(f"[red]Error:[/] {msg}")
+    raise typer.Exit(3)
+
+
+def _gate_write_report(payload: dict, report_path: "Path", *, output_json: bool) -> None:
+    """Write a gate JSON report to disk, exiting 3 on write failure."""
+    try:
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(
+            json.dumps(payload, indent=2, default=str) + "\n", encoding="utf-8"
+        )
+    except OSError as e:
+        _gate_error(f"Cannot write report: {e}", output_json=output_json)
+
+
 @gate_app.command("check")
 def gate_check_cmd(
     path: str = typer.Argument(".", help="Repository directory to score"),
@@ -4139,39 +4162,23 @@ def gate_check_cmd(
 
     root = P(path).resolve()
     if not root.exists() or not root.is_dir():
-        if output_json:
-            _output_json(
-                {"command": "assay gate", "status": "error", "error": f"Directory not found: {path}"},
-                exit_code=3,
-            )
-        console.print(f"[red]Error:[/] Directory not found: {path}")
-        raise typer.Exit(3)
+        _gate_error(f"Directory not found: {path}", output_json=output_json)
 
     validated_min_score = None
     if min_score is not None:
         validated_min_score = normalize_score_value(min_score)
         if validated_min_score is None:
-            msg = "--min-score must be a finite number between 0 and 100"
-            if output_json:
-                _output_json(
-                    {"command": "assay gate", "status": "error", "error": msg},
-                    exit_code=3,
-                )
-            console.print(f"[red]Error:[/] {msg}")
-            raise typer.Exit(3)
+            _gate_error(
+                "--min-score must be a finite number between 0 and 100",
+                output_json=output_json,
+            )
 
     # Compute current score
     try:
         facts = gather_score_facts(root)
         current = compute_evidence_readiness_score(facts)
     except Exception as e:
-        if output_json:
-            _output_json(
-                {"command": "assay gate", "status": "error", "error": str(e)},
-                exit_code=3,
-            )
-        console.print(f"[red]Score error:[/] {e}")
-        raise typer.Exit(3)
+        _gate_error(str(e), output_json=output_json)
 
     # Load baseline if regression check requested
     baseline_score = None
@@ -4179,23 +4186,9 @@ def gate_check_cmd(
         bp = P(baseline) if baseline else root / DEFAULT_BASELINE_PATH
         baseline_score = load_score_baseline(bp)
         if baseline_score is None and bp.exists():
-            msg = f"Invalid baseline score in: {bp}"
-            if output_json:
-                _output_json(
-                    {"command": "assay gate", "status": "error", "error": msg},
-                    exit_code=3,
-                )
-            console.print(f"[red]Error:[/] {msg}")
-            raise typer.Exit(3)
+            _gate_error(f"Invalid baseline score in: {bp}", output_json=output_json)
         if baseline_score is None and baseline:
-            msg = f"Baseline not found: {baseline}"
-            if output_json:
-                _output_json(
-                    {"command": "assay gate", "status": "error", "error": msg},
-                    exit_code=3,
-                )
-            console.print(f"[red]Error:[/] {msg}")
-            raise typer.Exit(3)
+            _gate_error(f"Baseline not found: {baseline}", output_json=output_json)
 
     report = evaluate_gate(
         current_score=current,
@@ -4211,18 +4204,7 @@ def gate_check_cmd(
     if save_report:
         report_path = P(save_report)
         payload = {**payload, "report_file": str(report_path)}
-        try:
-            report_path.parent.mkdir(parents=True, exist_ok=True)
-            report_path.write_text(json.dumps(payload, indent=2, default=str) + "\n", encoding="utf-8")
-        except OSError as e:
-            msg = f"Cannot write report: {e}"
-            if output_json:
-                _output_json(
-                    {"command": "assay gate", "status": "error", "error": msg},
-                    exit_code=3,
-                )
-            console.print(f"[red]Error:[/] {msg}")
-            raise typer.Exit(3)
+        _gate_write_report(payload, report_path, output_json=output_json)
 
     if output_json:
         _output_json(payload, exit_code=exit_code)
@@ -4272,39 +4254,23 @@ def gate_save_baseline_cmd(
     from assay.gate import DEFAULT_BASELINE_PATH, save_score_baseline
     from assay.score import compute_evidence_readiness_score, gather_score_facts
 
+    _cmd = "assay gate save-baseline"
+
     root = P(path).resolve()
     if not root.exists() or not root.is_dir():
-        if output_json:
-            _output_json(
-                {"command": "assay gate save-baseline", "status": "error", "error": f"Directory not found: {path}"},
-                exit_code=3,
-            )
-        console.print(f"[red]Error:[/] Directory not found: {path}")
-        raise typer.Exit(3)
+        _gate_error(f"Directory not found: {path}", command=_cmd, output_json=output_json)
 
     try:
         facts = gather_score_facts(root)
         current = compute_evidence_readiness_score(facts)
     except Exception as e:
-        if output_json:
-            _output_json(
-                {"command": "assay gate save-baseline", "status": "error", "error": str(e)},
-                exit_code=3,
-            )
-        console.print(f"[red]Score error:[/] {e}")
-        raise typer.Exit(3)
+        _gate_error(str(e), command=_cmd, output_json=output_json)
 
     out_path = P(output) if output else root / DEFAULT_BASELINE_PATH
     try:
         save_score_baseline(current, out_path)
     except OSError as e:
-        if output_json:
-            _output_json(
-                {"command": "assay gate save-baseline", "status": "error", "error": f"Cannot write baseline: {e}"},
-                exit_code=3,
-            )
-        console.print(f"[red]Error:[/] Cannot write baseline: {e}")
-        raise typer.Exit(3)
+        _gate_error(f"Cannot write baseline: {e}", command=_cmd, output_json=output_json)
 
     if output_json:
         _output_json({
