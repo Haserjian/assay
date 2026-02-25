@@ -293,6 +293,54 @@ class TestGateCheckCLI:
 
 
 # ---------------------------------------------------------------------------
+# CLI tests: assay gate check --verbose
+# ---------------------------------------------------------------------------
+
+
+class TestGateCheckVerboseCLI:
+    def test_verbose_json_includes_breakdown(self, tmp_path: Path, monkeypatch) -> None:
+        monkeypatch.chdir(tmp_path)
+        Path("app.py").write_text(
+            "import openai\nclient = openai.OpenAI()\n"
+            "client.chat.completions.create(model='gpt-4', messages=[])\n",
+            encoding="utf-8",
+        )
+        result = runner.invoke(assay_app, ["gate", "check", ".", "--min-score", "0", "--verbose", "--json"])
+        assert result.exit_code == 0, result.output
+        data = json.loads(result.output)
+        assert "breakdown" in data
+        assert "next_actions" in data
+        assert "next_actions_detail" in data
+        assert "fastest_path" in data
+        assert "grade_description" in data
+
+    def test_verbose_json_absent_without_flag(self, tmp_path: Path, monkeypatch) -> None:
+        monkeypatch.chdir(tmp_path)
+        Path("app.py").write_text("x = 1\n", encoding="utf-8")
+        result = runner.invoke(assay_app, ["gate", "check", ".", "--min-score", "0", "--json"])
+        assert result.exit_code == 0, result.output
+        data = json.loads(result.output)
+        assert "breakdown" not in data
+        assert "next_actions_detail" not in data
+
+    def test_verbose_console_shows_breakdown(self, tmp_path: Path, monkeypatch) -> None:
+        monkeypatch.chdir(tmp_path)
+        Path("app.py").write_text("x = 1\n", encoding="utf-8")
+        result = runner.invoke(assay_app, ["gate", "check", ".", "--min-score", "0", "--verbose"])
+        assert result.exit_code == 0, result.output
+        assert "coverage" in result.output
+        assert "lockfile" in result.output
+        assert "ci_gate" in result.output
+
+    def test_verbose_fail_shows_actions(self, tmp_path: Path, monkeypatch) -> None:
+        monkeypatch.chdir(tmp_path)
+        Path("app.py").write_text("x = 1\n", encoding="utf-8")
+        result = runner.invoke(assay_app, ["gate", "check", ".", "--min-score", "100", "--verbose"])
+        assert result.exit_code == 1, result.output
+        assert "Next actions" in result.output
+
+
+# ---------------------------------------------------------------------------
 # CLI tests: assay gate save-baseline
 # ---------------------------------------------------------------------------
 

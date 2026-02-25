@@ -4157,6 +4157,7 @@ def gate_check_cmd(
     fail_on_regression: bool = typer.Option(False, "--fail-on-regression", help="Fail if score dropped below baseline"),
     baseline: Optional[str] = typer.Option(None, "--baseline", help="Path to score-baseline.json (default: .assay/score-baseline.json)"),
     save_report: Optional[str] = typer.Option(None, "--save-report", help="Write gate JSON report to file"),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Include score breakdown and next actions"),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Enforce minimum score and/or regression policy.
@@ -4220,6 +4221,12 @@ def gate_check_cmd(
 
     exit_code = 0 if report["result"] == "PASS" else 1
     payload: Dict[str, Any] = {**report, "status": "ok" if exit_code == 0 else "blocked"}
+    if verbose:
+        payload["breakdown"] = current.get("breakdown", {})
+        payload["next_actions"] = current.get("next_actions", [])
+        payload["next_actions_detail"] = current.get("next_actions_detail", [])
+        payload["fastest_path"] = current.get("fastest_path")
+        payload["grade_description"] = current.get("grade_description", "")
 
     report_path = None
     if save_report:
@@ -4232,10 +4239,12 @@ def gate_check_cmd(
 
     # Console output
     color = "green" if report["result"] == "PASS" else "red"
+    grade_desc = current.get("grade_description", "")
+    desc_suffix = f'  [dim]"{grade_desc}"[/]' if grade_desc else ""
     lines = [
         f"[bold {color}]{report['result']}[/]",
         "",
-        f"Score:    {report['current_score']:.1f} ({report['current_grade']})",
+        f"Score:    {report['current_score']:.1f} ({report['current_grade']}){desc_suffix}",
     ]
     if validated_min_score is not None:
         lines.append(f"Min:      {validated_min_score:.1f}")
@@ -4250,14 +4259,57 @@ def gate_check_cmd(
 
     console.print()
     console.print(Panel.fit("\n".join(lines), title="assay gate"))
+
+    if verbose:
+        breakdown = current.get("breakdown", {})
+        action_by_comp: dict = {}
+        for ad in current.get("next_actions_detail", []):
+            if ad.get("component"):
+                action_by_comp.setdefault(ad["component"], ad)
+
+        table = Table(show_header=True, header_style="bold", box=None)
+        table.add_column("Component")
+        table.add_column("Points", justify="right")
+        table.add_column("Weight", justify="right")
+        table.add_column("Status")
+        table.add_column("Note")
+        for key in ("coverage", "lockfile", "ci_gate", "receipts", "key_setup"):
+            comp = breakdown.get(key, {})
+            note = comp.get("note", "")
+            ad = action_by_comp.get(key)
+            if ad and ad["points_est"] > 0:
+                note += f" [dim]→ {ad['command']} (+{ad['points_est']:.0f} pts est.)[/]"
+            table.add_row(
+                key,
+                f"{comp.get('points', 0):.1f}",
+                str(comp.get("weight", 0)),
+                comp.get("status", ""),
+                note,
+            )
+        console.print(table)
+
+        fp = current.get("fastest_path")
+        if fp:
+            console.print(
+                f"\n[bold]Fastest path to {fp['target_grade']} ({fp['target_score']}+):[/] "
+                f"{fp['command']} [dim](+{fp['points_est']:.0f} → ~{fp['projected_score']:.0f})[/]"
+            )
+
+        actions_detail = current.get("next_actions_detail", [])
+        if actions_detail:
+            console.print("\n[bold]Next actions:[/]")
+            for idx, ad in enumerate(actions_detail, 1):
+                pts = f" [dim](+{ad['points_est']:.0f} pts est.)[/]" if ad["points_est"] > 0 else ""
+                console.print(f"  {idx}. {ad['action']}: {ad['command']}{pts}")
+
     console.print()
     if report_path is not None:
         console.print(f"Report: [bold]{report_path}[/]")
 
     if exit_code == 0:
         console.print("Next: [bold]assay gate save-baseline[/] to lock in this score")
-    else:
-        console.print("Next: fix issues with [bold]assay score[/] to see breakdown")
+    elif not verbose:
+        console.print("Next: fix issues with [bold]assay score[/] to see breakdown, or use [bold]--verbose[/]")
 
     console.print()
     raise typer.Exit(exit_code)
