@@ -2296,7 +2296,11 @@ def verify_pack_cmd(
     ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
-    """Verify a Proof Pack's integrity (manifest, signatures, file hashes)."""
+    """Verify a Proof Pack's integrity (manifest, signatures, file hashes).
+
+    Trust root for signer identity is assay.lock:signer_policy.allowed_fingerprints,
+    not the embedded public key in the manifest. Use --lock to enforce key pinning.
+    """
     from pathlib import Path
 
     from assay.integrity import verify_pack_manifest
