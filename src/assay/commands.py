@@ -36,6 +36,7 @@ Commands:
   assay mcp-proxy     - MCP Notary Proxy (receipt every tool call)
   assay status        - One-screen operational dashboard
   assay score         - Evidence Readiness Score for this repository
+  assay report        - Unified Evidence Readiness Report (HTML/SARIF/markdown)
   assay start demo    - See Assay in action (quickstart flow)
   assay start ci      - Set up CI evidence gating
   assay start mcp     - Set up MCP tool call auditing
@@ -1895,6 +1896,122 @@ def score_cmd(
         console.print(f"  {idx}. {ad['action']}: {ad['command']}{pts}")
 
     console.print(f"\n[dim]{score['disclaimer']}[/]\n")
+
+
+# ---------------------------------------------------------------------------
+# assay report -- unified evidence readiness report
+# ---------------------------------------------------------------------------
+
+
+@assay_app.command("report")
+def report_cmd(
+    path: str = typer.Argument(".", help="Repository directory to report on"),
+    output_path: Optional[str] = typer.Option(
+        None, "--output", "-o", help="Output path (default: evidence_report.html)"
+    ),
+    sarif: bool = typer.Option(
+        False, "--sarif", help="Emit SARIF file for GitHub Code Scanning"
+    ),
+    sarif_path: Optional[str] = typer.Option(
+        None, "--sarif-path", help="SARIF output path (default: evidence_report.sarif)"
+    ),
+    markdown: bool = typer.Option(
+        False, "--markdown", "--md", help="Also emit markdown summary"
+    ),
+    output_json: bool = typer.Option(False, "--json", help="Output report data as JSON"),
+):
+    """Generate a unified Evidence Readiness Report (HTML + optional SARIF/markdown).
+
+    Combines score card, evidence gap map, CI gate status, and next actions
+    into a single self-contained HTML file with what-if simulator, content
+    hash verification, and print-ready styles.
+
+    Use --sarif to emit a SARIF 2.1.0 file for GitHub Code Scanning.
+    Use --markdown to emit a condensed summary for $GITHUB_STEP_SUMMARY.
+    """
+    from pathlib import Path as P
+
+    from assay.reporting.score_report import (
+        build_score_report,
+        render_html,
+        render_markdown,
+        render_sarif,
+        write_json,
+        write_markdown,
+        write_report,
+        write_sarif,
+    )
+    from assay.score import compute_evidence_readiness_score, gather_score_facts
+
+    root = P(path).resolve()
+    if not root.exists() or not root.is_dir():
+        if output_json:
+            _output_json(
+                {
+                    "command": "report",
+                    "status": "error",
+                    "error": f"Directory not found: {path}",
+                },
+                exit_code=3,
+            )
+        console.print(f"[red]Error:[/] Directory not found: {path}")
+        raise typer.Exit(3)
+
+    try:
+        facts = gather_score_facts(root)
+        score_data = compute_evidence_readiness_score(facts)
+    except Exception as e:
+        if output_json:
+            _output_json(
+                {"command": "report", "status": "error", "error": str(e)},
+                exit_code=2,
+            )
+        console.print(f"[red]Report error:[/] {e}")
+        raise typer.Exit(2)
+
+    report = build_score_report(facts, score_data, root)
+
+    # JSON to stdout
+    if output_json:
+        _output_json(
+            {
+                "command": "report",
+                "status": "ok",
+                "repo_path": str(root),
+                "content_hash": report.content_hash,
+                **score_data,
+                "facts": facts,
+            }
+        )
+        return
+
+    # HTML
+    html_path = P(output_path) if output_path else P("evidence_report.html")
+    html = render_html(report)
+    write_report(html, html_path)
+
+    # JSON sidecar
+    json_path = html_path.with_suffix(".json")
+    write_json(report, json_path)
+
+    # SARIF
+    if sarif or sarif_path:
+        sp = P(sarif_path) if sarif_path else html_path.with_suffix(".sarif")
+        sarif_data = render_sarif(report)
+        write_sarif(sarif_data, sp)
+        console.print(f"  SARIF: {sp}")
+
+    # Markdown
+    if markdown:
+        md_path = html_path.with_suffix(".md")
+        md = render_markdown(report)
+        write_markdown(md, md_path)
+        console.print(f"  Markdown: {md_path}")
+
+    console.print(
+        f"Report written: {html_path} "
+        f"(Grade: {score_data['grade']}, Score: {score_data['score']:.1f})"
+    )
 
 
 # ---------------------------------------------------------------------------
