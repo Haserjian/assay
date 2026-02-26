@@ -332,6 +332,7 @@ Full command reference:
 
 ## Documentation
 
+- **[Start Here](docs/START_HERE.md) -- 6 steps from install to evidence in CI**
 - [Full Picture](docs/FULL_PICTURE.md) -- architecture, trust tiers, repo boundaries, release history
 - [Quickstart](docs/README_quickstart.md) -- install, golden path, command reference
 - [For Compliance Teams](docs/for-compliance.md) -- what auditors see, evidence artifacts, framework alignment

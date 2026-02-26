@@ -195,9 +195,9 @@ class TestMCPHelp:
         assert "validate" in result.output
 
 
-class TestCIInitDiffReport:
-    def test_ci_workflow_has_diff_comment(self, tmp_path, monkeypatch):
-        """CI workflow template includes commented-out diff --report step."""
+class TestCIInitThreeJobs:
+    def test_ci_workflow_has_three_jobs(self, tmp_path, monkeypatch):
+        """CI workflow template includes gate, verify, and report jobs."""
         monkeypatch.chdir(tmp_path)
         result = runner.invoke(assay_app, [
             "ci", "init", "github",
@@ -205,8 +205,9 @@ class TestCIInitDiffReport:
         ])
         assert result.exit_code == 0
         wf = (tmp_path / ".github" / "workflows" / "assay-verify.yml").read_text()
-        assert "Regression Gate" in wf
-        assert "assay diff" in wf
-        assert "--report" in wf
-        assert "Upload Diff Report" in wf
-        assert "assay-diff-report" in wf
+        assert "assay-gate:" in wf
+        assert "assay gate check" in wf
+        assert "assay-verify:" in wf
+        assert "assay-report:" in wf
+        assert "assay report" in wf
+        assert "upload-sarif" in wf

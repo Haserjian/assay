@@ -29,6 +29,56 @@ def test_ci_init_github_writes_workflow() -> None:
         text = workflow.read_text(encoding="utf-8")
         assert "Haserjian/assay-verify-action@v1" in text
         assert "assay run -c receipt_completeness -- python app.py" in text
+        # 3-job structure
+        assert "assay-gate:" in text
+        assert "assay-verify:" in text
+        assert "assay-report:" in text
+
+
+def test_ci_init_has_gate_check() -> None:
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(
+            assay_commands.assay_app,
+            ["ci", "init", "github", "--run-command", "python app.py"],
+        )
+        assert result.exit_code == 0, result.output
+        text = Path(".github/workflows/assay-verify.yml").read_text(encoding="utf-8")
+        assert "assay gate check" in text
+        assert "--fail-on-regression" in text
+        assert "--save-report assay_gate_report.json" in text
+
+
+def test_ci_init_has_report_and_sarif() -> None:
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(
+            assay_commands.assay_app,
+            ["ci", "init", "github", "--run-command", "python app.py"],
+        )
+        assert result.exit_code == 0, result.output
+        text = Path(".github/workflows/assay-verify.yml").read_text(encoding="utf-8")
+        assert "assay report" in text
+        assert "upload-sarif" in text
+        assert "evidence_report.html" in text
+
+
+def test_ci_init_min_score_option() -> None:
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(
+            assay_commands.assay_app,
+            [
+                "ci", "init", "github",
+                "--run-command", "python app.py",
+                "--min-score", "60",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        text = Path(".github/workflows/assay-verify.yml").read_text(encoding="utf-8")
+        assert "--min-score 60" in text
+        # No advisory comment when score > 0
+        assert "raise this once" not in text
 
 
 def test_ci_init_existing_without_force_fails() -> None:

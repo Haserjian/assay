@@ -4616,6 +4616,11 @@ def ci_init_cmd(
         help="Workflow output path",
     ),
     force: bool = typer.Option(False, "--force", help="Overwrite existing workflow file"),
+    min_score: int = typer.Option(
+        0,
+        "--min-score",
+        help="Minimum assay score to pass the gate (0 = advisory)",
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Generate a CI workflow for Proof Pack generation + verification."""
@@ -4661,6 +4666,9 @@ def ci_init_cmd(
 
     workflow_path.parent.mkdir(parents=True, exist_ok=True)
 
+    min_score_comment = "  # raise this once your score is stable" if min_score == 0 else ""
+    placeholder_comment = "  # TODO: replace with your actual run command" if is_placeholder else ""
+
     workflow = f"""name: Assay Verify
 
 on:
@@ -4669,6 +4677,36 @@ on:
     branches: [main]
 
 jobs:
+  assay-gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Assay
+        run: |
+          python -m pip install --upgrade pip
+          pip install "assay-ai=={__version__}"
+
+      - name: Score Gate
+        run: |
+          assay gate check . --min-score {min_score} --fail-on-regression --save-report assay_gate_report.json --verbose --json{min_score_comment}
+
+      - name: Upload Gate Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: assay-gate-report
+          path: assay_gate_report.json
+          if-no-files-found: ignore
+
   assay-verify:
     runs-on: ubuntu-latest
     permissions:
@@ -4691,7 +4729,7 @@ jobs:
       # Install your project dependencies before this step if needed.
       - name: Generate Proof Pack
         run: |
-          assay run {card_flags} -- {run_command}{"  # TODO: replace with your actual run command" if is_placeholder else ""}
+          assay run {card_flags} -- {run_command}{placeholder_comment}
 
       - name: Verify Proof Pack
         uses: Haserjian/assay-verify-action@v1
@@ -4701,20 +4739,42 @@ jobs:
           comment-on-pr: true
           upload-artifact: true
 
-      # Optional: regression gate against previous pack
-      # Uncomment and set a baseline pack path to enable.
-      # - name: Regression Gate
-      #   run: |
-      #     assay diff ./baseline_pack/ ./proof_pack_*/ \\
-      #       --gate-cost-pct 25 --gate-errors 0 --gate-strict \\
-      #       --report ./diff_report/
+  assay-report:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      # - name: Upload Diff Report
-      #   if: always()
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: assay-diff-report
-      #     path: diff_report/
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Assay
+        run: |
+          python -m pip install --upgrade pip
+          pip install "assay-ai=={__version__}"
+
+      - name: Generate Evidence Report
+        run: |
+          assay report . -o evidence_report.html --sarif
+
+      - name: Upload HTML Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: assay-evidence-report
+          path: evidence_report.html
+          if-no-files-found: ignore
+
+      - name: Upload SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: evidence_report.sarif
 """
 
     workflow_path.write_text(workflow, encoding="utf-8")
@@ -4727,15 +4787,17 @@ jobs:
             "output": str(workflow_path),
             "run_command": run_command,
             "cards": [c.strip() for c in cards.split(",") if c.strip()],
+            "min_score": min_score,
         })
 
     console.print()
     console.print(Panel.fit(
-        f"[bold green]CI workflow generated[/]\n\n"
+        f"[bold green]CI workflow generated (3 jobs)[/]\n\n"
         f"Provider:   github\n"
         f"Output:     {workflow_path}\n"
         f"Run:        {run_command}\n"
-        f"RunCards:   {cards}",
+        f"RunCards:   {cards}\n"
+        f"MinScore:   {min_score}",
         title="assay ci init github",
     ))
     if is_placeholder:
@@ -4744,9 +4806,9 @@ jobs:
         console.print(f"  Or re-run: assay ci init github --run-command \"python your_app.py\" --force")
         console.print()
     console.print("Next:")
-    console.print(f"  1. Review [bold]{workflow_path}[/]")
+    console.print(f"  1. Review [bold]{workflow_path}[/] (3 jobs: gate, verify, report)")
     console.print("  2. Commit and push")
-    console.print("  3. Open a PR to see Assay verification in checks")
+    console.print("  3. Open a PR to see score gate + verification + SARIF in checks")
     console.print()
 
 

@@ -135,8 +135,9 @@ def run_activation_qa(workdir: Path) -> list[CheckResult]:
             and data.get("command") == "ci init"
             and data.get("status") == "ok"
             and workflow.exists()
-            and "Regression Gate" in wf_text
-            and "--report" in wf_text
+            and "assay-gate:" in wf_text
+            and "assay-verify:" in wf_text
+            and "assay-report:" in wf_text
         )
         detail = f"exit={proc.returncode}, workflow_exists={workflow.exists()}"
     except Exception as e:
