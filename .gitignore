@@ -32,6 +32,9 @@ challenge_pack/
 *.jsonl
 assay.lock
 
+# Package manager lock (library, not app -- consumers use their own lock)
+uv.lock
+
 # OS
 .DS_Store
 Thumbs.db
