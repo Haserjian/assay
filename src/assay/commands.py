@@ -7843,6 +7843,228 @@ def policy_recommend_cmd(
     raise typer.Exit(exit_code)
 
 
+# ---------------------------------------------------------------------------
+# Pilot orchestration
+# ---------------------------------------------------------------------------
+
+pilot_app = typer.Typer(
+    name="pilot",
+    help="End-to-end pilot run, verify, and closeout",
+    no_args_is_help=True,
+)
+assay_app.add_typer(pilot_app, name="pilot")
+
+
+@pilot_app.command("run")
+def pilot_run_cmd(
+    repo: str = typer.Argument(".", help="Repository directory"),
+    config: Optional[str] = typer.Option(None, "--config", "-c", help="Path to pilot.yaml"),
+    test_cmd: Optional[str] = typer.Option(None, "--test-cmd", "-t", help="Test command (overrides config)"),
+    mode: Optional[str] = typer.Option(None, "--mode", "-m", help="Scan mode: high-only or high+medium"),
+    output: str = typer.Option("pilot_bundle", "--output", "-o", help="Bundle output directory"),
+    allow_empty: bool = typer.Option(False, "--allow-empty", help="Allow empty receipt packs"),
+    allow_dirty: bool = typer.Option(False, "--allow-dirty", help="Allow dirty working tree"),
+    patch: bool = typer.Option(False, "--patch", help="Run assay patch before test"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Simulate without executing"),
+    resume: bool = typer.Option(False, "--resume", help="Resume from last checkpoint"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Run the 9-step pilot pipeline: scan, score, run, verify, bundle.
+
+    Reads pilot.yaml for configuration. CLI flags override config values.
+
+    Examples:
+      assay pilot run . --test-cmd "pytest tests/ -q"
+      assay pilot run /path/to/repo --config pilot.yaml --json
+      assay pilot run . --dry-run
+    """
+    from pathlib import Path
+
+    from assay.pilot import PilotError, load_pilot_config, run_pilot
+
+    repo_path = Path(repo).resolve()
+    if not repo_path.is_dir():
+        if output_json:
+            _output_json({"command": "pilot run", "status": "error", "error": f"Directory not found: {repo}"}, exit_code=3)
+        console.print(f"[red]Error:[/] Directory not found: {repo}")
+        raise typer.Exit(3)
+
+    cli_overrides: dict = {}
+    if test_cmd is not None:
+        cli_overrides["test_cmd"] = test_cmd
+    if mode is not None:
+        cli_overrides["mode"] = mode
+    if output != "pilot_bundle":
+        cli_overrides["output"] = output
+    if allow_empty:
+        cli_overrides["allow_empty"] = True
+    if allow_dirty:
+        cli_overrides["allow_dirty"] = True
+    if patch:
+        cli_overrides["patch"] = True
+
+    try:
+        pilot_config = load_pilot_config(config, repo_path, cli_overrides=cli_overrides)
+    except PilotError as e:
+        if output_json:
+            _output_json({"command": "pilot run", "status": "error", "error": str(e)}, exit_code=1)
+        console.print(f"[red]Error:[/] {e}")
+        raise typer.Exit(1)
+
+    # Apply output override
+    if output != "pilot_bundle":
+        pilot_config.output = output
+
+    try:
+        result = run_pilot(repo_path, pilot_config, dry_run=dry_run, resume=resume)
+    except PilotError as e:
+        if output_json:
+            _output_json({"command": "pilot run", "status": "error", "error": str(e)}, exit_code=1)
+        console.print(f"[red]Error:[/] {e}")
+        raise typer.Exit(1)
+
+    if output_json:
+        _output_json({
+            "command": "pilot run",
+            "status": "ok",
+            "output_dir": result["output_dir"],
+            "steps_completed": result["steps_completed"],
+            "dry_run": dry_run,
+        })
+
+    console.print(f"[green]Pilot run complete.[/] Bundle: {result['output_dir']}")
+    console.print(f"Steps: {', '.join(result['steps_completed'])}")
+    raise typer.Exit(0)
+
+
+@pilot_app.command("verify")
+def pilot_verify_cmd(
+    bundle: str = typer.Argument(..., help="Path to pilot bundle directory"),
+    profile: Optional[str] = typer.Option(None, "--profile", help="Verification profile: score-delta, integrity-only, otel-bridge"),
+    self_test: bool = typer.Option(False, "--self-test", help="Run tamper self-test"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Verify a pilot bundle's integrity and claims.
+
+    Three verification layers: structural, integrity (SHA256), claims (profile-aware).
+
+    Exit codes: 0=pass, 1=claims_fail, 2=integrity_fail, 3=malformed.
+
+    Examples:
+      assay pilot verify pilot_bundle/
+      assay pilot verify pilot_bundle/ --profile otel-bridge
+      assay pilot verify pilot_bundle/ --self-test --json
+    """
+    from pathlib import Path
+
+    from assay.pilot import CLAIM_HINTS, _run_self_test, verify_pilot_bundle
+
+    bundle_path = Path(bundle).resolve()
+    if not bundle_path.is_dir():
+        if output_json:
+            _output_json({"command": "pilot verify", "status": "error", "error": "Bundle path does not exist"}, exit_code=3)
+        console.print(f"[red]Error:[/] Bundle path does not exist: {bundle}")
+        raise typer.Exit(3)
+
+    exit_code, errors = verify_pilot_bundle(bundle_path, profile=profile)
+
+    if output_json:
+        status_map = {0: "ok", 1: "claims_fail", 2: "integrity_fail", 3: "malformed"}
+        payload = {
+            "command": "pilot verify",
+            "status": status_map.get(exit_code, "error"),
+            "exit_code": exit_code,
+            "errors": errors,
+            "profile": profile,
+        }
+        if self_test and exit_code == 0:
+            st_code, st_errors = _run_self_test(bundle_path)
+            payload["self_test"] = {"exit_code": st_code, "errors": st_errors}
+        _output_json(payload, exit_code=exit_code)
+
+    if exit_code == 0:
+        console.print("[green]VERIFY_PASS:[/] bundle integrity and claims verified")
+    elif exit_code == 1:
+        console.print(f"[yellow]VERIFY_CLAIMS_FAIL:[/] {','.join(errors)}")
+        for code in errors:
+            hint = CLAIM_HINTS.get(code)
+            if hint:
+                console.print(f"  HINT({code}): {hint}")
+    else:
+        for err in errors:
+            console.print(f"[red]{err}[/]")
+        labels = {2: "INTEGRITY_FAIL", 3: "MALFORMED"}
+        console.print(f"[red]VERIFY_{labels.get(exit_code, 'FAIL')}:[/] exit {exit_code}")
+
+    if self_test and exit_code == 0:
+        st_code, st_errors = _run_self_test(bundle_path)
+        if st_code != 0:
+            for err in st_errors:
+                console.print(f"SELF_TEST: {err}")
+            console.print("[red]SELF_TEST_FAIL[/]")
+        else:
+            console.print("[green]SELF_TEST_PASS:[/] all mutation checks passed")
+
+    raise typer.Exit(exit_code)
+
+
+@pilot_app.command("closeout")
+def pilot_closeout_cmd(
+    bundle: str = typer.Argument(..., help="Path to pilot bundle directory"),
+    repo: Optional[str] = typer.Option(None, "--repo", help="Repository identifier"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Validate without writing logs"),
+    json_output_path: Optional[str] = typer.Option(None, "--json-output", help="Write closeout row JSON to this path"),
+    log_path: Optional[str] = typer.Option(None, "--log", help="JSONL replication log path"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Run closeout pipeline: verify, self-test, build closeout row.
+
+    Extracts metadata from bundle, verifies integrity, runs self-test,
+    and optionally writes to a JSONL replication log.
+
+    Examples:
+      assay pilot closeout pilot_bundle/ --dry-run
+      assay pilot closeout pilot_bundle/ --json-output closeout.json
+      assay pilot closeout pilot_bundle/ --log replication.jsonl --json
+    """
+    from pathlib import Path
+
+    from assay.pilot import PilotError, run_pilot_closeout
+
+    bundle_path = Path(bundle).resolve()
+
+    try:
+        row = run_pilot_closeout(
+            bundle_path,
+            repo=repo,
+            dry_run=dry_run,
+            json_output=Path(json_output_path) if json_output_path else None,
+            log_path=Path(log_path) if log_path else None,
+        )
+    except PilotError as e:
+        if output_json:
+            _output_json({"command": "pilot closeout", "status": "error", "error": str(e)}, exit_code=1)
+        console.print(f"[red]Error:[/] {e}")
+        raise typer.Exit(1)
+
+    if output_json:
+        _output_json({
+            "command": "pilot closeout",
+            "status": "ok",
+            **row,
+        })
+
+    delta_str = f"{row.get('score_delta', 'N/A'):+.1f}" if isinstance(row.get("score_delta"), (int, float)) else "N/A"
+    tamper_str = str(row.get("tamper_exit", "N/A"))
+    console.print(
+        f"[green]CLOSEOUT_OK:[/] {row.get('repo', 'unknown')} "
+        f"| verify={row.get('verify_exit', '?')} "
+        f"| tamper={tamper_str} "
+        f"| delta={delta_str}"
+    )
+    raise typer.Exit(0)
+
+
 def main():
     """Entrypoint for assay CLI."""
     assay_app()
