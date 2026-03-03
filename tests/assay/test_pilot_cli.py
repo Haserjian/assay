@@ -12,6 +12,9 @@ from typer.testing import CliRunner
 from assay.commands import assay_app
 from assay.pilot import (
     BUNDLE_SCHEMA_VERSION,
+    C_LOCALITY_UNKNOWN,
+    C_TIME_AUTHORITY_WEAK,
+    C_TRUNCATED_OUTPUT,
     PilotConfig,
     PilotError,
     _run_self_test,
@@ -57,6 +60,9 @@ def _write_pilot_bundle(
     with_score: bool = True,
     with_receipts: int = 0,
     verify_exit: int = 0,
+    receipt_finish_reason: str | None = None,
+    receipt_locality: str | None = None,
+    receipt_time_authority: str | None = None,
 ) -> Path:
     """Write a minimal pilot bundle directory for testing."""
     bundle = tmp_path / "pilot_bundle"
@@ -70,7 +76,14 @@ def _write_pilot_bundle(
         (proof / "pack_signature.sig").write_text("sig", encoding="utf-8")
         receipt_lines = []
         for i in range(with_receipts):
-            receipt_lines.append(json.dumps({"receipt_id": f"r_{i}", "type": "model_call"}))
+            receipt: dict[str, object] = {"receipt_id": f"r_{i}", "type": "model_call"}
+            if receipt_finish_reason is not None:
+                receipt["finish_reason"] = receipt_finish_reason
+            if receipt_locality is not None:
+                receipt["locality"] = receipt_locality
+            if receipt_time_authority is not None:
+                receipt["time_authority"] = receipt_time_authority
+            receipt_lines.append(json.dumps(receipt))
         (proof / "receipt_pack.jsonl").write_text(
             "\n".join(receipt_lines) + ("\n" if receipt_lines else ""),
             encoding="utf-8",
@@ -265,13 +278,13 @@ class TestPilotRunCLI:
 class TestVerifyPilotBundle:
     def test_verify_pass(self, tmp_path: Path) -> None:
         bundle = _write_pilot_bundle(tmp_path, with_score=True, verify_exit=0)
-        exit_code, errors = verify_pilot_bundle(bundle)
+        exit_code, errors, warnings = verify_pilot_bundle(bundle)
         assert exit_code == 0
         assert errors == []
 
     def test_verify_claims_fail_missing_score(self, tmp_path: Path) -> None:
         bundle = _write_pilot_bundle(tmp_path, with_score=False, verify_exit=0)
-        exit_code, errors = verify_pilot_bundle(bundle)
+        exit_code, errors, warnings = verify_pilot_bundle(bundle)
         assert exit_code == 1
         assert "C_SCORE_BEFORE_MISSING" in errors
         assert "C_SCORE_AFTER_MISSING" in errors
@@ -281,16 +294,18 @@ class TestVerifyPilotBundle:
         # Corrupt a file to trigger integrity failure
         receipt_path = bundle / "proof" / "receipt_pack.jsonl"
         receipt_path.write_text('{"tampered": true}\n', encoding="utf-8")
-        exit_code, errors = verify_pilot_bundle(bundle)
+        exit_code, errors, warnings = verify_pilot_bundle(bundle)
         assert exit_code == 2
         assert any("E_MANIFEST_TAMPER" in e for e in errors)
+        assert warnings == []
 
     def test_verify_malformed_no_manifest(self, tmp_path: Path) -> None:
         bundle = tmp_path / "empty_bundle"
         bundle.mkdir()
-        exit_code, errors = verify_pilot_bundle(bundle)
+        exit_code, errors, warnings = verify_pilot_bundle(bundle)
         assert exit_code == 3
         assert "E_MANIFEST_MISSING" in errors
+        assert warnings == []
 
     def test_verify_otel_bridge_profile(self, tmp_path: Path) -> None:
         bundle = _write_pilot_bundle(
@@ -300,7 +315,7 @@ class TestVerifyPilotBundle:
             verify_exit=0,
         )
         # otel-bridge profile: requires receipts, not scores
-        exit_code, errors = verify_pilot_bundle(bundle, profile="otel-bridge")
+        exit_code, errors, warnings = verify_pilot_bundle(bundle, profile="otel-bridge")
         assert exit_code == 0
         assert errors == []
 
@@ -311,7 +326,7 @@ class TestVerifyPilotBundle:
             with_receipts=0,
             verify_exit=0,
         )
-        exit_code, errors = verify_pilot_bundle(bundle, profile="otel-bridge")
+        exit_code, errors, warnings = verify_pilot_bundle(bundle, profile="otel-bridge")
         assert exit_code == 1
         assert "C_NO_RECEIPTS" in errors
 
@@ -423,3 +438,110 @@ class TestCloseout:
         row = run_pilot_closeout(bundle, dry_run=True)
         assert row["pilot_type"] == "otel-bridge"
         assert row["receipt_count"] == 3
+
+
+# ---------------------------------------------------------------------------
+# Receipt quality warning tests
+# ---------------------------------------------------------------------------
+
+
+class TestWarnCodes:
+    def test_warn_truncated_output(self, tmp_path: Path) -> None:
+        bundle = _write_pilot_bundle(
+            tmp_path, with_receipts=3, receipt_finish_reason="length",
+        )
+        exit_code, errors, warnings = verify_pilot_bundle(bundle)
+        assert exit_code == 0
+        assert C_TRUNCATED_OUTPUT in warnings
+
+    def test_no_warn_truncated_when_stop(self, tmp_path: Path) -> None:
+        bundle = _write_pilot_bundle(
+            tmp_path, with_receipts=3, receipt_finish_reason="stop",
+        )
+        exit_code, errors, warnings = verify_pilot_bundle(bundle)
+        assert exit_code == 0
+        assert C_TRUNCATED_OUTPUT not in warnings
+
+    def test_warn_locality_unknown_absent(self, tmp_path: Path) -> None:
+        bundle = _write_pilot_bundle(tmp_path, with_receipts=3)
+        exit_code, errors, warnings = verify_pilot_bundle(bundle)
+        assert exit_code == 0
+        assert C_LOCALITY_UNKNOWN in warnings
+
+    def test_warn_locality_unknown_explicit(self, tmp_path: Path) -> None:
+        bundle = _write_pilot_bundle(
+            tmp_path, with_receipts=3, receipt_locality="unknown",
+        )
+        exit_code, errors, warnings = verify_pilot_bundle(bundle)
+        assert exit_code == 0
+        assert C_LOCALITY_UNKNOWN in warnings
+
+    def test_no_warn_locality_set(self, tmp_path: Path) -> None:
+        bundle = _write_pilot_bundle(
+            tmp_path, with_receipts=3, receipt_locality="cloud",
+        )
+        exit_code, errors, warnings = verify_pilot_bundle(bundle)
+        assert exit_code == 0
+        assert C_LOCALITY_UNKNOWN not in warnings
+
+    def test_warn_time_authority_weak_absent(self, tmp_path: Path) -> None:
+        bundle = _write_pilot_bundle(tmp_path, with_receipts=3)
+        exit_code, errors, warnings = verify_pilot_bundle(bundle)
+        assert exit_code == 0
+        assert C_TIME_AUTHORITY_WEAK in warnings
+
+    def test_warn_time_authority_local_clock(self, tmp_path: Path) -> None:
+        bundle = _write_pilot_bundle(
+            tmp_path, with_receipts=3, receipt_time_authority="local_clock",
+        )
+        exit_code, errors, warnings = verify_pilot_bundle(bundle)
+        assert exit_code == 0
+        assert C_TIME_AUTHORITY_WEAK in warnings
+
+    def test_no_warn_time_authority_strong(self, tmp_path: Path) -> None:
+        bundle = _write_pilot_bundle(
+            tmp_path, with_receipts=3, receipt_time_authority="ntp_verified",
+        )
+        exit_code, errors, warnings = verify_pilot_bundle(bundle)
+        assert exit_code == 0
+        assert C_TIME_AUTHORITY_WEAK not in warnings
+
+    def test_no_warns_zero_receipts(self, tmp_path: Path) -> None:
+        bundle = _write_pilot_bundle(tmp_path, with_receipts=0)
+        exit_code, errors, warnings = verify_pilot_bundle(bundle)
+        assert warnings == []
+
+    def test_closeout_warn_fields(self, tmp_path: Path) -> None:
+        bundle = _write_pilot_bundle(
+            tmp_path, with_receipts=3, receipt_finish_reason="length",
+        )
+        row = run_pilot_closeout(bundle, dry_run=True)
+        assert row["verify_warn_codes"] is not None
+        assert C_TRUNCATED_OUTPUT in row["verify_warn_codes"]
+        assert row["verify_warn_count"] >= 1
+
+    def test_closeout_no_warns_clean(self, tmp_path: Path) -> None:
+        bundle = _write_pilot_bundle(
+            tmp_path,
+            with_receipts=3,
+            receipt_finish_reason="stop",
+            receipt_locality="cloud",
+            receipt_time_authority="ntp_verified",
+        )
+        row = run_pilot_closeout(bundle, dry_run=True)
+        assert row["verify_warn_codes"] is None
+        assert row["verify_warn_count"] == 0
+
+    def test_verify_json_includes_warnings(self, tmp_path: Path) -> None:
+        bundle = _write_pilot_bundle(
+            tmp_path, with_receipts=3, receipt_finish_reason="length",
+        )
+        result = runner.invoke(
+            assay_app,
+            ["pilot", "verify", str(bundle), "--json"],
+        )
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "warnings" in data
+        assert C_TRUNCATED_OUTPUT in data["warnings"]
+        assert data["warning_count"] >= 1

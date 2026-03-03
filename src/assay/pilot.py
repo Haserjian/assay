@@ -55,12 +55,20 @@ C_SCORE_AFTER_MISSING = "C_SCORE_AFTER_MISSING"
 C_SCORE_DELTA_UNAVAILABLE = "C_SCORE_DELTA_UNAVAILABLE"
 C_NO_RECEIPTS = "C_NO_RECEIPTS"
 
+# --- Claim codes (v1.3 hardening) ---
+C_TRUNCATED_OUTPUT = "C_TRUNCATED_OUTPUT"
+C_LOCALITY_UNKNOWN = "C_LOCALITY_UNKNOWN"
+C_TIME_AUTHORITY_WEAK = "C_TIME_AUTHORITY_WEAK"
+
 CLAIM_HINTS: dict[str, str] = {
     C_PACK_VERIFY_NOT_PASS: "Run assay verify-pack and ensure exit 0",
     C_SCORE_BEFORE_MISSING: "Run assay score before patching (score/before.json)",
     C_SCORE_AFTER_MISSING: "Run assay score after patching (score/after.json)",
     C_SCORE_DELTA_UNAVAILABLE: "Ensure score/delta.json exists with before/after/delta fields",
     C_NO_RECEIPTS: "Emit at least one receipt (model_call or completeness proof)",
+    C_TRUNCATED_OUTPUT: "One or more receipts have finish_reason=='length'; increase token limit or chunk input",
+    C_LOCALITY_UNKNOWN: "Receipt missing locality or locality=='unknown'; set local|cloud|hybrid in provider config",
+    C_TIME_AUTHORITY_WEAK: "time_authority is local_clock or missing; upgrade to ntp_verified or tsa_anchored",
 }
 
 VERIFY_PROFILES: dict[str, dict[str, bool]] = {
@@ -911,22 +919,51 @@ def _check_integrity(
     return errors
 
 
-def _count_receipt_lines(bundle_path: Path) -> int:
+@dataclass
+class ReceiptStats:
+    """Quality signals extracted from receipt_pack.jsonl."""
+    count: int = 0
+    truncated_count: int = 0
+    locality_unknown_count: int = 0
+    time_authority_weak_count: int = 0
+
+
+def _inspect_receipts(bundle_path: Path) -> ReceiptStats:
+    """Parse receipt_pack.jsonl and extract quality signals."""
     receipt_path = bundle_path / "proof" / "receipt_pack.jsonl"
     if not receipt_path.exists():
-        return 0
-    count = 0
+        return ReceiptStats()
+    stats = ReceiptStats()
     for line in receipt_path.read_text(encoding="utf-8").splitlines():
-        if line.strip():
-            count += 1
-    return count
+        line = line.strip()
+        if not line:
+            continue
+        stats.count += 1
+        try:
+            r = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if r.get("finish_reason") == "length":
+            stats.truncated_count += 1
+        loc = r.get("locality")
+        if loc is None or loc == "unknown":
+            stats.locality_unknown_count += 1
+        ta = r.get("time_authority")
+        if ta is None or ta == "local_clock":
+            stats.time_authority_weak_count += 1
+    return stats
 
 
 def _check_claims(
     bundle_path: Path, *, profile: str | None = None
-) -> list[str]:
+) -> tuple[list[str], list[str]]:
+    """Check profile-aware claims. Returns (fail_codes, warn_codes)."""
     reqs = VERIFY_PROFILES.get(profile, _DEFAULT_PROFILE_REQS) if profile else _DEFAULT_PROFILE_REQS
     codes: list[str] = []
+    warn_codes: list[str] = []
+
+    # Inspect receipts (used for both fail and warn checks)
+    stats = _inspect_receipts(bundle_path)
 
     if reqs["require_pack_verify_pass"]:
         summary_path = bundle_path / "verification" / "summary.json"
@@ -961,16 +998,24 @@ def _check_claims(
                 codes.append(C_SCORE_DELTA_UNAVAILABLE)
 
     if reqs["require_receipts"]:
-        if _count_receipt_lines(bundle_path) == 0:
+        if stats.count == 0:
             codes.append(C_NO_RECEIPTS)
 
-    return codes
+    # --- Receipt quality warnings (Phase 1: always warn, never fail) ---
+    if stats.truncated_count > 0:
+        warn_codes.append(C_TRUNCATED_OUTPUT)
+    if stats.count > 0 and stats.locality_unknown_count > 0:
+        warn_codes.append(C_LOCALITY_UNKNOWN)
+    if stats.count > 0 and stats.time_authority_weak_count > 0:
+        warn_codes.append(C_TIME_AUTHORITY_WEAK)
+
+    return codes, warn_codes
 
 
 def verify_pilot_bundle(
     bundle_path: Path, *, profile: str | None = None
-) -> tuple[int, list[str]]:
-    """Verify a pilot bundle. Returns (exit_code, error_codes).
+) -> tuple[int, list[str], list[str]]:
+    """Verify a pilot bundle. Returns (exit_code, error_codes, warn_codes).
 
     Exit codes:
         0 — integrity pass + claims pass
@@ -981,21 +1026,21 @@ def verify_pilot_bundle(
     # Layer 1: Structural
     manifest, structural_errors = _load_manifest(bundle_path)
     if structural_errors:
-        return 3, structural_errors
+        return 3, structural_errors, []
 
     assert manifest is not None
 
     # Layer 2: Integrity
     integrity_errors = _check_integrity(bundle_path, manifest)
     if integrity_errors:
-        return 2, integrity_errors
+        return 2, integrity_errors, []
 
     # Layer 3: Claims (profile-aware)
-    claims_errors = _check_claims(bundle_path, profile=profile)
+    claims_errors, warn_codes = _check_claims(bundle_path, profile=profile)
     if claims_errors:
-        return 1, claims_errors
+        return 1, claims_errors, warn_codes
 
-    return 0, []
+    return 0, [], warn_codes
 
 
 def _run_self_test(bundle_path: Path) -> tuple[int, list[str]]:
@@ -1021,7 +1066,7 @@ def _run_self_test(bundle_path: Path) -> tuple[int, list[str]]:
             with target_path.open("a", encoding="utf-8") as f:
                 f.write('\n{"selftest_tamper": true}\n')
 
-            exit_code, _errors = verify_pilot_bundle(tmp_bundle)
+            exit_code, _errors, _warns = verify_pilot_bundle(tmp_bundle)
             if target == "manifest.json":
                 if exit_code not in (2, 3):
                     failures.append(
@@ -1145,7 +1190,7 @@ def run_pilot_closeout(
     bundle_id = _extract_bundle_id(bundle_path)
     before_score, after_score, delta_score = _extract_scores(bundle_path)
     verify_status_str, verify_exit_extracted = _extract_verify(bundle_path)
-    receipt_count = _count_receipt_lines(bundle_path)
+    receipt_count = _inspect_receipts(bundle_path).count
 
     # Determine pilot type
     if before_score is not None or after_score is not None:
@@ -1179,8 +1224,9 @@ def run_pilot_closeout(
     # --- Verify (profile-aware) ---
     verify_exit: int
     claim_codes: list[str] = []
+    verify_warns: list[str] = []
     if has_manifest:
-        verify_exit, verify_errors = verify_pilot_bundle(bundle_path, profile=pilot_type)
+        verify_exit, verify_errors, verify_warns = verify_pilot_bundle(bundle_path, profile=pilot_type)
         if verify_exit in (2, 3):
             raise PilotError(
                 f"Bundle verification failed (exit {verify_exit}): {', '.join(verify_errors)}"
@@ -1207,6 +1253,8 @@ def run_pilot_closeout(
         "verify_status": _verify_exit_to_status(verify_exit),
         "verify_claim_codes": claim_codes if claim_codes else None,
         "verify_claim_count": len(claim_codes) if claim_codes else 0,
+        "verify_warn_codes": verify_warns if verify_warns else None,
+        "verify_warn_count": len(verify_warns) if verify_warns else 0,
         "tamper_exit": tamper_exit,
         "score_before": before_score,
         "score_after": after_score,
