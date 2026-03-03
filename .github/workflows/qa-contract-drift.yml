@@ -1,0 +1,27 @@
+name: QA Contract Drift
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  qa-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install validator dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pyyaml
+
+      - name: Validate QA contract drift
+        run: |
+          python scripts/ci/validate_qa_contract.py --contract .github/qa_contract.yaml
