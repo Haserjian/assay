@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -14,6 +15,7 @@ from assay.pilot import (
     PilotConfig,
     PilotError,
     _run_self_test,
+    _run_assay,
     load_pilot_config,
     run_pilot_closeout,
     verify_pilot_bundle,
@@ -249,6 +251,10 @@ class TestPilotRunCLI:
         assert result.exit_code != 0
         data = json.loads(result.output)
         assert data["status"] == "error"
+
+    def test_run_assay_uses_assay_cli_module(self, tmp_path: Path) -> None:
+        result = _run_assay(["--help"], cwd=tmp_path, dry_run=True)
+        assert result.command[:3] == [sys.executable, "-m", "assay.cli"]
 
 
 # ---------------------------------------------------------------------------
