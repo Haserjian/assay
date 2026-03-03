@@ -7966,7 +7966,7 @@ def pilot_verify_cmd(
         console.print(f"[red]Error:[/] Bundle path does not exist: {bundle}")
         raise typer.Exit(3)
 
-    exit_code, errors = verify_pilot_bundle(bundle_path, profile=profile)
+    exit_code, errors, warnings = verify_pilot_bundle(bundle_path, profile=profile)
 
     if output_json:
         status_map = {0: "ok", 1: "claims_fail", 2: "integrity_fail", 3: "malformed"}
@@ -7975,12 +7975,19 @@ def pilot_verify_cmd(
             "status": status_map.get(exit_code, "error"),
             "exit_code": exit_code,
             "errors": errors,
+            "warnings": warnings,
+            "warning_count": len(warnings),
             "profile": profile,
         }
         if self_test and exit_code == 0:
             st_code, st_errors = _run_self_test(bundle_path)
             payload["self_test"] = {"exit_code": st_code, "errors": st_errors}
         _output_json(payload, exit_code=exit_code)
+
+    if warnings:
+        for wcode in warnings:
+            hint = CLAIM_HINTS.get(wcode, "")
+            console.print(f"[dim yellow]WARN({wcode}):[/] {hint}")
 
     if exit_code == 0:
         console.print("[green]VERIFY_PASS:[/] bundle integrity and claims verified")
