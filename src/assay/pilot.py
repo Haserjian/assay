@@ -77,18 +77,21 @@ VERIFY_PROFILES: dict[str, dict[str, bool]] = {
         "require_score_files": True,
         "require_score_delta": True,
         "require_receipts": False,
+        "require_receipt_quality": True,   # Phase 2
     },
     "integrity-only": {
         "require_pack_verify_pass": False,
         "require_score_files": False,
         "require_score_delta": False,
         "require_receipts": False,
+        "require_receipt_quality": True,   # Phase 2
     },
     "otel-bridge": {
         "require_pack_verify_pass": False,
         "require_score_files": False,
         "require_score_delta": False,
         "require_receipts": True,
+        "require_receipt_quality": True,   # Phase 2
     },
 }
 
@@ -97,6 +100,7 @@ _DEFAULT_PROFILE_REQS: dict[str, bool] = {
     "require_score_files": True,
     "require_score_delta": True,
     "require_receipts": False,
+    "require_receipt_quality": True,   # Phase 2
 }
 
 
@@ -1001,13 +1005,14 @@ def _check_claims(
         if stats.count == 0:
             codes.append(C_NO_RECEIPTS)
 
-    # --- Receipt quality warnings (Phase 1: always warn, never fail) ---
+    # --- Receipt quality checks (Phase 2: fail when profile requires) ---
+    _quality_target = codes if reqs.get("require_receipt_quality") else warn_codes
     if stats.truncated_count > 0:
-        warn_codes.append(C_TRUNCATED_OUTPUT)
+        _quality_target.append(C_TRUNCATED_OUTPUT)
     if stats.count > 0 and stats.locality_unknown_count > 0:
-        warn_codes.append(C_LOCALITY_UNKNOWN)
+        _quality_target.append(C_LOCALITY_UNKNOWN)
     if stats.count > 0 and stats.time_authority_weak_count > 0:
-        warn_codes.append(C_TIME_AUTHORITY_WEAK)
+        _quality_target.append(C_TIME_AUTHORITY_WEAK)
 
     return codes, warn_codes
 

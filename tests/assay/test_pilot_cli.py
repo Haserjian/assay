@@ -313,6 +313,8 @@ class TestVerifyPilotBundle:
             with_score=False,
             with_receipts=3,
             verify_exit=0,
+            receipt_locality="cloud",
+            receipt_time_authority="ntp_verified",
         )
         # otel-bridge profile: requires receipts, not scores
         exit_code, errors, warnings = verify_pilot_bundle(bundle, profile="otel-bridge")
@@ -441,84 +443,86 @@ class TestCloseout:
 
 
 # ---------------------------------------------------------------------------
-# Receipt quality warning tests
+# Receipt quality tests (Phase 2: promoted to fail codes)
 # ---------------------------------------------------------------------------
 
 
-class TestWarnCodes:
-    def test_warn_truncated_output(self, tmp_path: Path) -> None:
+class TestReceiptQuality:
+    def test_fail_truncated_output(self, tmp_path: Path) -> None:
         bundle = _write_pilot_bundle(
             tmp_path, with_receipts=3, receipt_finish_reason="length",
         )
         exit_code, errors, warnings = verify_pilot_bundle(bundle)
-        assert exit_code == 0
-        assert C_TRUNCATED_OUTPUT in warnings
+        assert exit_code == 1
+        assert C_TRUNCATED_OUTPUT in errors
 
-    def test_no_warn_truncated_when_stop(self, tmp_path: Path) -> None:
+    def test_no_fail_truncated_when_stop(self, tmp_path: Path) -> None:
         bundle = _write_pilot_bundle(
             tmp_path, with_receipts=3, receipt_finish_reason="stop",
+            receipt_locality="cloud", receipt_time_authority="ntp_verified",
         )
         exit_code, errors, warnings = verify_pilot_bundle(bundle)
         assert exit_code == 0
-        assert C_TRUNCATED_OUTPUT not in warnings
+        assert C_TRUNCATED_OUTPUT not in errors
 
-    def test_warn_locality_unknown_absent(self, tmp_path: Path) -> None:
+    def test_fail_locality_unknown_absent(self, tmp_path: Path) -> None:
         bundle = _write_pilot_bundle(tmp_path, with_receipts=3)
         exit_code, errors, warnings = verify_pilot_bundle(bundle)
-        assert exit_code == 0
-        assert C_LOCALITY_UNKNOWN in warnings
+        assert exit_code == 1
+        assert C_LOCALITY_UNKNOWN in errors
 
-    def test_warn_locality_unknown_explicit(self, tmp_path: Path) -> None:
+    def test_fail_locality_unknown_explicit(self, tmp_path: Path) -> None:
         bundle = _write_pilot_bundle(
             tmp_path, with_receipts=3, receipt_locality="unknown",
         )
         exit_code, errors, warnings = verify_pilot_bundle(bundle)
-        assert exit_code == 0
-        assert C_LOCALITY_UNKNOWN in warnings
+        assert exit_code == 1
+        assert C_LOCALITY_UNKNOWN in errors
 
-    def test_no_warn_locality_set(self, tmp_path: Path) -> None:
+    def test_no_fail_locality_set(self, tmp_path: Path) -> None:
         bundle = _write_pilot_bundle(
             tmp_path, with_receipts=3, receipt_locality="cloud",
+            receipt_finish_reason="stop", receipt_time_authority="ntp_verified",
         )
         exit_code, errors, warnings = verify_pilot_bundle(bundle)
         assert exit_code == 0
-        assert C_LOCALITY_UNKNOWN not in warnings
+        assert C_LOCALITY_UNKNOWN not in errors
 
-    def test_warn_time_authority_weak_absent(self, tmp_path: Path) -> None:
+    def test_fail_time_authority_weak_absent(self, tmp_path: Path) -> None:
         bundle = _write_pilot_bundle(tmp_path, with_receipts=3)
         exit_code, errors, warnings = verify_pilot_bundle(bundle)
-        assert exit_code == 0
-        assert C_TIME_AUTHORITY_WEAK in warnings
+        assert exit_code == 1
+        assert C_TIME_AUTHORITY_WEAK in errors
 
-    def test_warn_time_authority_local_clock(self, tmp_path: Path) -> None:
+    def test_fail_time_authority_local_clock(self, tmp_path: Path) -> None:
         bundle = _write_pilot_bundle(
             tmp_path, with_receipts=3, receipt_time_authority="local_clock",
         )
         exit_code, errors, warnings = verify_pilot_bundle(bundle)
-        assert exit_code == 0
-        assert C_TIME_AUTHORITY_WEAK in warnings
+        assert exit_code == 1
+        assert C_TIME_AUTHORITY_WEAK in errors
 
-    def test_no_warn_time_authority_strong(self, tmp_path: Path) -> None:
+    def test_no_fail_time_authority_strong(self, tmp_path: Path) -> None:
         bundle = _write_pilot_bundle(
             tmp_path, with_receipts=3, receipt_time_authority="ntp_verified",
+            receipt_finish_reason="stop", receipt_locality="cloud",
         )
         exit_code, errors, warnings = verify_pilot_bundle(bundle)
         assert exit_code == 0
-        assert C_TIME_AUTHORITY_WEAK not in warnings
+        assert C_TIME_AUTHORITY_WEAK not in errors
 
     def test_no_warns_zero_receipts(self, tmp_path: Path) -> None:
         bundle = _write_pilot_bundle(tmp_path, with_receipts=0)
         exit_code, errors, warnings = verify_pilot_bundle(bundle)
         assert warnings == []
 
-    def test_closeout_warn_fields(self, tmp_path: Path) -> None:
+    def test_closeout_quality_fail_fields(self, tmp_path: Path) -> None:
         bundle = _write_pilot_bundle(
             tmp_path, with_receipts=3, receipt_finish_reason="length",
         )
         row = run_pilot_closeout(bundle, dry_run=True)
-        assert row["verify_warn_codes"] is not None
-        assert C_TRUNCATED_OUTPUT in row["verify_warn_codes"]
-        assert row["verify_warn_count"] >= 1
+        assert C_TRUNCATED_OUTPUT in (row["verify_claim_codes"] or [])
+        assert row["verify_exit"] == 1
 
     def test_closeout_no_warns_clean(self, tmp_path: Path) -> None:
         bundle = _write_pilot_bundle(
@@ -532,7 +536,7 @@ class TestWarnCodes:
         assert row["verify_warn_codes"] is None
         assert row["verify_warn_count"] == 0
 
-    def test_verify_json_includes_warnings(self, tmp_path: Path) -> None:
+    def test_verify_json_includes_errors(self, tmp_path: Path) -> None:
         bundle = _write_pilot_bundle(
             tmp_path, with_receipts=3, receipt_finish_reason="length",
         )
@@ -540,8 +544,6 @@ class TestWarnCodes:
             assay_app,
             ["pilot", "verify", str(bundle), "--json"],
         )
-        assert result.exit_code == 0
+        assert result.exit_code == 1
         data = json.loads(result.output)
-        assert "warnings" in data
-        assert C_TRUNCATED_OUTPUT in data["warnings"]
-        assert data["warning_count"] >= 1
+        assert C_TRUNCATED_OUTPUT in data["errors"]
