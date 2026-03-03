@@ -248,7 +248,8 @@ def _run_assay(
     timeout: int | None = None,
 ) -> CommandResult:
     """Run an assay subcommand via subprocess."""
-    command = [sys.executable, "-m", "assay"] + args
+    # Use assay.cli module directly; `python -m assay` fails without assay.__main__.
+    command = [sys.executable, "-m", "assay.cli"] + args
     if dry_run:
         return CommandResult(
             command=command,
@@ -562,7 +563,7 @@ def _write_bundle(
         "commit": commit,
         "branch": _git_branch(repo),
         "mode": config.mode,
-        "assay_version": f"assay-ai (python -m assay)",
+        "assay_version": "assay-ai (python -m assay.cli)",
         "dirty_tree": dirty_tree,
         "allow_empty": config.allow_empty,
         "steps_completed": completed,
