@@ -1,37 +1,61 @@
-version: 1
-contract_name: assay-public-toolkit
-repo_tier: public
+version: 2
+contract_name: assay-qa-contract
+active_tier: public
 
-invariants:
-  required_workflows:
-    - path: .github/workflows/lineage.yml
-      workflow_name: Lineage Check
-      required_jobs:
-        - id: lineage
-          required_step_names:
-            - Check lineage coverage
-        - id: assay-gate
-          required_step_names:
-            - Install assay
-            - Run evidence gate
-            - Upload gate report
-        - id: assay-verify
-          required_step_names:
-            - Install assay
-            - Build and verify proof pack
-            - Upload verify artifacts
-    - path: .github/workflows/proof-check-drift.yml
-      workflow_name: Proof Check Drift Guard
-      required_jobs:
-        - id: drift-guard
-          required_step_names:
-            - Validate proof-check contract
+tiers:
+  public:
+    description: Public baseline for assay-family repositories.
+    checks:
+      required:
+        - lineage
+        - assay-verify
+        - drift-guard
+        - qa-contract
+      advisory:
+        - assay-gate
 
-  required_uses:
-    - actions/checkout@v4
-    - actions/setup-python@v5
-    - actions/upload-artifact@v4
-    - Haserjian/agentmesh-action@v2
+    invariants:
+      required_workflows:
+        - path: .github/workflows/lineage.yml
+          workflow_name: Lineage Check
+          required_jobs:
+            - id: lineage
+              required_steps:
+                - uses: Haserjian/agentmesh-action@v2
+            - id: assay-gate
+              required_steps:
+                - run_contains: assay gate check
+            - id: assay-verify
+              required_steps:
+                - run_contains: assay verify-pack
 
-policy:
-  require_pinned_uses: true
+        - path: .github/workflows/proof-check-drift.yml
+          workflow_name: Proof Check Drift Guard
+          required_jobs:
+            - id: drift-guard
+              required_steps:
+                - name_contains: Validate proof-check contract
+
+        - path: .github/workflows/qa-contract-drift.yml
+          workflow_name: QA Contract Drift
+          required_jobs:
+            - id: qa-contract
+              required_steps:
+                - run_contains: validate_qa_contract.py
+
+      required_uses:
+        - actions/checkout@v4
+        - actions/setup-python@v5
+        - actions/upload-artifact@v4
+        - Haserjian/agentmesh-action@v2
+
+    policy:
+      require_pinned_uses: true
+      require_uses_sha: false
+
+  private_strict:
+    extends: public
+    description: Optional strict tier for private repos with SHA-pinned actions.
+    policy:
+      require_pinned_uses: true
+      require_uses_sha: true
