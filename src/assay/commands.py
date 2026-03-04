@@ -4305,7 +4305,10 @@ def lock_init_cmd(
     """Create a lockfile with sane defaults (receipt_completeness card)."""
     from pathlib import Path
 
+    from assay.integrity import verify_pack_manifest
+    from assay.keystore import get_default_keystore
     from assay.lockfile import write_lockfile
+    from assay.manifest_schema import validate_manifest
 
     card_ids = ["receipt_completeness"]
     out_path = Path(output)
@@ -4327,7 +4330,57 @@ def lock_init_cmd(
                 _output_json({"command": "lock init", "status": "error", "error": msg})
             console.print(f"[red]Error:[/] {msg}")
             raise typer.Exit(1)
-        manifest = json.loads(manifest_path.read_text())
+        try:
+            manifest = json.loads(manifest_path.read_text())
+        except json.JSONDecodeError as e:
+            msg = f"Invalid JSON in {manifest_path}: {e.msg}"
+            if output_json:
+                _output_json({"command": "lock init", "status": "error", "error": msg})
+            console.print(f"[red]Error:[/] {msg}")
+            raise typer.Exit(1)
+
+        schema_errors = validate_manifest(manifest)
+        if schema_errors:
+            msg = (
+                f"Cannot import claim_set_hash from unverified pack: {from_pack} "
+                f"(schema validation failed)"
+            )
+            if output_json:
+                _output_json(
+                    {
+                        "command": "lock init",
+                        "status": "error",
+                        "error": msg,
+                        "details": schema_errors,
+                    }
+                )
+            console.print(f"[red]Error:[/] {msg}")
+            for se in schema_errors[:5]:
+                console.print(f"  [dim]{se}[/]")
+            raise typer.Exit(1)
+
+        ks = get_default_keystore()
+        verify_result = verify_pack_manifest(manifest, pack_path, ks)
+        if not verify_result.passed:
+            first = verify_result.errors[0] if verify_result.errors else None
+            detail = (
+                f"{first.code}: {first.message}" if first else "integrity verification failed"
+            )
+            msg = (
+                f"Cannot import claim_set_hash from unverified pack: "
+                f"{from_pack} ({detail})"
+            )
+            if output_json:
+                _output_json(
+                    {
+                        "command": "lock init",
+                        "status": "error",
+                        "error": msg,
+                    }
+                )
+            console.print(f"[red]Error:[/] {msg}")
+            raise typer.Exit(1)
+
         pack_claim_set_hash = manifest.get("claim_set_hash")
         if not pack_claim_set_hash:
             msg = f"Pack manifest in {from_pack} has no claim_set_hash"
