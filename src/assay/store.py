@@ -5,13 +5,12 @@ Persists receipts to disk with trace IDs for auditability.
 Default location: ~/.assay/
 
 Thread-safe and process-safe. Uses threading.RLock for in-process
-concurrency and O_APPEND + fcntl.flock for cross-process safety.
+concurrency and O_APPEND + fcntl.flock(LOCK_EX) for cross-process safety.
 """
 from __future__ import annotations
 
 import json
 import os
-import sys
 import threading
 import uuid
 from datetime import datetime, timezone
@@ -19,12 +18,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from assay._receipts.compat.pyd import BaseModel
-
-# ---------------------------------------------------------------------------
-# POSIX atomicity threshold.  O_APPEND writes under this size are atomic
-# on POSIX.  Larger writes get flock protection.
-# ---------------------------------------------------------------------------
-_PIPE_BUF = 4096 if sys.platform != "win32" else 512
 
 # Advisory file locking -- POSIX only, graceful no-op on Windows
 try:
@@ -63,8 +56,7 @@ class AssayStore:
     Persistent storage for Assay receipts.
 
     Thread-safe: all mutable operations are protected by a reentrant lock.
-    Process-safe: writes use O_APPEND for POSIX atomicity, with fcntl.flock
-    fallback for oversized writes (> PIPE_BUF).
+    Process-safe: writes use O_APPEND + fcntl.flock(LOCK_EX) for atomicity.
 
     Receipts are stored as JSONL files organized by date:
         ~/.assay/2025-02-05/trace_xxx.jsonl
@@ -141,9 +133,9 @@ class AssayStore:
     def _write_line(self, line_bytes: bytes) -> None:
         """Write a single JSONL line atomically.
 
-        Thread-lock must be held by caller.  For cross-process safety:
-        - Writes < PIPE_BUF: O_APPEND guarantees POSIX atomicity.
-        - Writes >= PIPE_BUF: additionally protected by fcntl.flock.
+        Thread-lock must be held by caller.  For cross-process safety
+        we always acquire fcntl.flock (even for small writes) to prevent
+        byte interleaving when multiple processes write concurrently.
         """
         fd = os.open(
             str(self._current_file),
@@ -151,7 +143,7 @@ class AssayStore:
             0o644,
         )
         try:
-            if len(line_bytes) >= _PIPE_BUF and _HAS_FCNTL:
+            if _HAS_FCNTL:
                 fcntl.flock(fd, fcntl.LOCK_EX)
                 try:
                     self._write_all(fd, line_bytes)
