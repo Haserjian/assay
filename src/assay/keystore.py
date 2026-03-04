@@ -10,6 +10,7 @@ import hashlib
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from nacl.exceptions import BadSignatureError
 from nacl.signing import SigningKey, VerifyKey
 
 
@@ -42,7 +43,9 @@ class AssayKeyStore:
         """Generate and persist a new Ed25519 signing key."""
         self.keys_dir.mkdir(parents=True, exist_ok=True)
         sk = SigningKey.generate()
-        self._key_path(signer_id).write_bytes(sk.encode())
+        key_path = self._key_path(signer_id)
+        key_path.write_bytes(sk.encode())
+        key_path.chmod(0o600)
         self._pub_path(signer_id).write_bytes(sk.verify_key.encode())
         return sk
 
@@ -74,23 +77,28 @@ class AssayKeyStore:
     def verify(
         self, data: bytes, signature: bytes, signer_id: str = DEFAULT_SIGNER_ID
     ) -> bool:
-        """Verify a signature. Returns True if valid, False otherwise."""
+        """Verify a signature. Returns True if valid, False on bad signature.
+
+        Raises on infrastructure errors (missing key, corrupt file, etc.)
+        so callers can distinguish "invalid signature" from "broken setup".
+        """
+        vk = self.get_verify_key(signer_id)
         try:
-            vk = self.get_verify_key(signer_id)
             vk.verify(data, signature)
             return True
-        except Exception:
+        except (BadSignatureError, ValueError):
             return False
 
     def verify_b64(
         self, data: bytes, signature_b64: str, signer_id: str = DEFAULT_SIGNER_ID
     ) -> bool:
-        """Verify a base64-encoded signature."""
-        try:
-            sig_bytes = base64.b64decode(signature_b64)
-            return self.verify(data, sig_bytes, signer_id)
-        except Exception:
-            return False
+        """Verify a base64-encoded signature.
+
+        Raises on infrastructure errors (missing key, corrupt file, bad base64).
+        Returns False only for cryptographically invalid signatures.
+        """
+        sig_bytes = base64.b64decode(signature_b64)
+        return self.verify(data, sig_bytes, signer_id)
 
     def delete_key(self, signer_id: str) -> bool:
         """Delete a signer's key and pubkey files. Returns True if deleted."""
