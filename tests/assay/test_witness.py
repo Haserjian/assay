@@ -302,7 +302,16 @@ class TestGenerateWitnessBundle:
         mock_reply.stderr = b""
         mock_reply.stdout = b""
 
+        # Mock for nonce extraction from query text
+        mock_query_text = MagicMock()
+        mock_query_text.returncode = 0
+        mock_query_text.stdout = b"Nonce: 0x44C02FF2BD956A61\n"
+        mock_query_text.stderr = b""
+
         def mock_run(cmd, **kwargs):
+            if "ts" in cmd and "-query" in cmd and "-text" in cmd:
+                # openssl ts -query -in ... -text (nonce extraction)
+                return mock_query_text
             if "ts" in cmd and "-query" in cmd:
                 # Write a fake query file
                 out_idx = cmd.index("-out")
@@ -347,7 +356,7 @@ class TestGenerateWitnessBundle:
         """Non-WitnessError network failures should be wrapped as WitnessError."""
         with patch("assay.witness._openssl_ts_query") as mock_query, \
              patch("assay.witness._fetch_url", side_effect=RuntimeError("network down")):
-            mock_query.return_value = None
+            mock_query.return_value = "0xABCD"  # nonce
             with pytest.raises(WitnessError, match="RFC 3161 witness request failed"):
                 request_rfc3161_witness(FAKE_PACK_ROOT)
 
@@ -360,12 +369,18 @@ class TestGenerateWitnessBundle:
 
         def mock_run(cmd, **kwargs):
             r = MagicMock()
-            r.returncode = 0 if "-query" in cmd else 1
             r.stderr = b""
             r.stdout = b""
+            if "ts" in cmd and "-query" in cmd and "-text" in cmd:
+                r.returncode = 0
+                r.stdout = b"Nonce: 0xABCD\n"
+                return r
             if "-query" in cmd:
+                r.returncode = 0
                 out_idx = cmd.index("-out")
                 Path(cmd[out_idx + 1]).write_bytes(b"fake-query")
+                return r
+            r.returncode = 1
             return r
 
         def mock_urlopen(req, **kwargs):
@@ -396,12 +411,18 @@ class TestWitnessRoundTrip:
 
         def mock_run_gen(cmd, **kwargs):
             r = MagicMock()
-            r.returncode = 0 if "-query" in cmd else 1
             r.stderr = b""
             r.stdout = b""
+            if "ts" in cmd and "-query" in cmd and "-text" in cmd:
+                r.returncode = 0
+                r.stdout = b"Nonce: 0xABCD\n"
+                return r
             if "-query" in cmd:
+                r.returncode = 0
                 out_idx = cmd.index("-out")
                 Path(cmd[out_idx + 1]).write_bytes(b"fake-query")
+                return r
+            r.returncode = 1
             return r
 
         def mock_urlopen(req, **kwargs):
