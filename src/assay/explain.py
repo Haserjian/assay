@@ -82,6 +82,16 @@ def explain_pack(pack_dir: Path) -> Dict[str, Any]:
     # Signer
     signer_id = manifest.get("signer_id", "unknown")
 
+    # Witness
+    witness_path = pack_dir / "witness_bundle.json"
+    has_witness = witness_path.exists()
+    witness_info: Optional[Dict[str, Any]] = None
+    if has_witness:
+        try:
+            witness_info = json.loads(witness_path.read_text())
+        except (json.JSONDecodeError, OSError):
+            has_witness = False
+
     return {
         "pack_id": pack_id,
         "run_id": run_id,
@@ -101,6 +111,8 @@ def explain_pack(pack_dir: Path) -> Dict[str, Any]:
         "claim_results": claim_results,
         "signer_id": signer_id,
         "pack_dir": str(pack_dir),
+        "has_witness": has_witness,
+        "witness_info": witness_info,
     }
 
 
@@ -177,7 +189,13 @@ def render_text(info: Dict[str, Any]) -> str:
     lines.append("  - That every action was recorded (only recorded actions are in the pack)")
     lines.append("  - That model outputs are correct or safe")
     lines.append("  - That receipts were honestly created (tamper-evidence, not source attestation)")
-    lines.append("  - That timestamps are externally anchored (local clock was used)")
+    if info.get("has_witness"):
+        witness = info.get("witness_info") or {}
+        tsa = witness.get("tsa_url", "TSA")
+        wtype = witness.get("witness_type", "rfc3161").upper()
+        lines.append(f"  - Timestamps are externally anchored via {wtype} witness ({tsa})")
+    else:
+        lines.append("  - That timestamps are externally anchored (local clock was used)")
     lines.append("  - That the signer key was not compromised")
     lines.append("")
 
@@ -279,7 +297,13 @@ def render_md(info: Dict[str, Any]) -> str:
     lines.append("- That every action was recorded (only recorded actions are in the pack)")
     lines.append("- That model outputs are correct or safe")
     lines.append("- That receipts were honestly created (tamper-evidence, not source attestation)")
-    lines.append("- That timestamps are externally anchored (local clock was used)")
+    if info.get("has_witness"):
+        witness = info.get("witness_info") or {}
+        tsa = witness.get("tsa_url", "TSA")
+        wtype = witness.get("witness_type", "rfc3161").upper()
+        lines.append(f"- Timestamps are externally anchored via {wtype} witness ({tsa})")
+    else:
+        lines.append("- That timestamps are externally anchored (local clock was used)")
     lines.append("- That the signer key was not compromised")
     lines.append("")
 

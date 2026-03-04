@@ -2347,6 +2347,19 @@ def verify_pack_cmd(
         console.print(f"[red]Error:[/] --max-age-hours must be > 0, got {max_age_hours}")
         raise typer.Exit(3)
 
+    if expected_commit_sha:
+        import re
+        if not re.match(r"^[a-fA-F0-9]{40}$", expected_commit_sha):
+            msg = (
+                f"--expected-commit-sha must be a full 40-character hex SHA, "
+                f"got {expected_commit_sha!r} ({len(expected_commit_sha)} chars). "
+                f"Use: git rev-parse HEAD"
+            )
+            if output_json:
+                _output_json({"command": "verify-pack", "status": "error", "error": msg}, exit_code=3)
+            console.print(f"[red]Error:[/] {msg}")
+            raise typer.Exit(3)
+
     pack_path = Path(pack_dir)
     manifest_path = pack_path / "pack_manifest.json"
 
@@ -2889,6 +2902,19 @@ def witness_cmd(
         raise typer.Exit(2)
 
     bundle_path = out_path or (pack_path / "witness_bundle.json")
+
+    # Update PACK_SUMMARY.md if it exists in the pack directory
+    summary_path = pack_path / "PACK_SUMMARY.md"
+    if summary_path.exists():
+        summary = summary_path.read_text()
+        old_line = "- That timestamps are externally anchored (local clock was used)"
+        new_line = (
+            f"- Timestamps are externally anchored via {bundle['witness_type'].upper()} "
+            f"witness ({bundle.get('tsa_url', 'TSA')})"
+        )
+        if old_line in summary:
+            summary = summary.replace(old_line, new_line)
+            summary_path.write_text(summary)
 
     if output_json:
         _output_json({
@@ -4270,6 +4296,10 @@ def lock_init_cmd(
         "assay.lock", "--output", "-o",
         help="Output path for lockfile",
     ),
+    from_pack: Optional[str] = typer.Option(
+        None, "--from-pack",
+        help="Copy claim_set_hash from an existing Proof Pack directory (avoids hash mismatch).",
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Create a lockfile with sane defaults (receipt_completeness card)."""
@@ -4286,6 +4316,26 @@ def lock_init_cmd(
         console.print(f"[red]Error:[/] {output} already exists. Use [bold]assay lock write[/] to overwrite.")
         raise typer.Exit(1)
 
+    # If --from-pack, extract claim_set_hash from the existing pack manifest
+    pack_claim_set_hash = None
+    if from_pack:
+        pack_path = Path(from_pack)
+        manifest_path = pack_path / "pack_manifest.json"
+        if not manifest_path.exists():
+            msg = f"No pack_manifest.json in {from_pack}"
+            if output_json:
+                _output_json({"command": "lock init", "status": "error", "error": msg})
+            console.print(f"[red]Error:[/] {msg}")
+            raise typer.Exit(1)
+        manifest = json.loads(manifest_path.read_text())
+        pack_claim_set_hash = manifest.get("claim_set_hash")
+        if not pack_claim_set_hash:
+            msg = f"Pack manifest in {from_pack} has no claim_set_hash"
+            if output_json:
+                _output_json({"command": "lock init", "status": "error", "error": msg})
+            console.print(f"[red]Error:[/] {msg}")
+            raise typer.Exit(1)
+
     try:
         lockfile = write_lockfile(card_ids, output_path=out_path)
     except ValueError as e:
@@ -4294,6 +4344,11 @@ def lock_init_cmd(
         console.print(f"[red]Error:[/] {e}")
         raise typer.Exit(1)
 
+    # Override claim_set_hash from pack if specified
+    if pack_claim_set_hash:
+        lockfile["claim_set_hash"] = pack_claim_set_hash
+        out_path.write_text(json.dumps(lockfile, indent=2) + "\n")
+
     if output_json:
         _output_json({
             "command": "lock init",
@@ -4301,6 +4356,7 @@ def lock_init_cmd(
             "output": output,
             "run_cards": card_ids,
             "composite_hash": lockfile["run_cards_composite_hash"],
+            "from_pack": from_pack,
         })
     else:
         console.print()

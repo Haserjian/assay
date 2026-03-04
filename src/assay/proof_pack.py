@@ -58,12 +58,31 @@ def _generate_pack_id(*, deterministic_seed: Optional[str] = None) -> str:
     return f"pack_{ts}_{uuid.uuid4().hex[:8]}"
 
 
+import re as _re
+
+_FULL_SHA_RE = _re.compile(r"^[a-f0-9]{40}$")
+
+
+def _is_full_sha(s: str) -> bool:
+    """Return True if *s* is a full 40-character lowercase hex SHA."""
+    return bool(_FULL_SHA_RE.match(s.lower()))
+
+
 def detect_ci_binding() -> Optional[Dict[str, Any]]:
     """Detect CI environment and return a ci_binding dict, or None if local."""
     if os.environ.get("GITHUB_ACTIONS") == "true":
         sha = os.environ.get("GITHUB_SHA")
         if not sha:
             # Required by schema; treat incomplete env as non-bound local context.
+            return None
+        if not _is_full_sha(sha):
+            import warnings
+            warnings.warn(
+                f"GITHUB_SHA is not a full 40-char hex SHA ({sha!r}). "
+                f"CI binding requires a full commit SHA (e.g. git rev-parse HEAD). "
+                f"Skipping CI binding.",
+                stacklevel=2,
+            )
             return None
 
         binding: Dict[str, Any] = {
