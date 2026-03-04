@@ -135,6 +135,50 @@
       "type": ["string", "null"],
       "description": "SHA-256 of JCS-canonical claim results. Null when no claims evaluated.",
       "pattern": "^[a-f0-9]{64}$"
+    },
+    "ci_binding": {
+      "type": ["object", "null"],
+      "description": "CI environment binding. Ties the pack to a specific CI run context to prevent replay across runs. Null when built locally.",
+      "properties": {
+        "provider": {
+          "type": "string",
+          "description": "CI provider identifier.",
+          "enum": ["github_actions", "gitlab_ci", "circleci", "jenkins", "local"]
+        },
+        "repo": {
+          "type": "string",
+          "description": "Repository slug (e.g. owner/repo)."
+        },
+        "ref": {
+          "type": "string",
+          "description": "Git ref (e.g. refs/heads/main, refs/pull/42/merge)."
+        },
+        "commit_sha": {
+          "type": "string",
+          "description": "Full commit SHA at pack creation time.",
+          "pattern": "^[a-f0-9]{40}$"
+        },
+        "run_id": {
+          "type": "string",
+          "description": "CI run identifier (e.g. GitHub Actions run ID).",
+          "minLength": 1
+        },
+        "run_attempt": {
+          "type": "string",
+          "description": "CI run attempt number.",
+          "minLength": 1
+        },
+        "workflow_ref": {
+          "type": "string",
+          "description": "Workflow file path (e.g. .github/workflows/ci.yml)."
+        },
+        "actor": {
+          "type": "string",
+          "description": "User or bot that triggered the run."
+        }
+      },
+      "required": ["provider", "commit_sha"],
+      "additionalProperties": false
     }
   }
 }

@@ -19,6 +19,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -55,6 +56,41 @@ def _generate_pack_id(*, deterministic_seed: Optional[str] = None) -> str:
         return f"pack_deterministic_{tag}"
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
     return f"pack_{ts}_{uuid.uuid4().hex[:8]}"
+
+
+def detect_ci_binding() -> Optional[Dict[str, Any]]:
+    """Detect CI environment and return a ci_binding dict, or None if local."""
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        sha = os.environ.get("GITHUB_SHA")
+        if not sha:
+            # Required by schema; treat incomplete env as non-bound local context.
+            return None
+
+        binding: Dict[str, Any] = {
+            "provider": "github_actions",
+            "commit_sha": str(sha),
+        }
+        repo = os.environ.get("GITHUB_REPOSITORY")
+        if repo:
+            binding["repo"] = repo
+        ref = os.environ.get("GITHUB_REF")
+        if ref:
+            binding["ref"] = ref
+        run_id = os.environ.get("GITHUB_RUN_ID")
+        if run_id:
+            binding["run_id"] = str(run_id)
+        run_attempt = os.environ.get("GITHUB_RUN_ATTEMPT")
+        if run_attempt:
+            binding["run_attempt"] = str(run_attempt)
+        workflow = os.environ.get("GITHUB_WORKFLOW_REF")
+        if workflow:
+            binding["workflow_ref"] = workflow
+        actor = os.environ.get("GITHUB_ACTOR")
+        if actor:
+            binding["actor"] = actor
+        return binding
+    # Future: add GITLAB_CI, CIRCLECI detection here
+    return None
 
 
 def _sort_receipts(entries: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -149,6 +185,7 @@ class ProofPack:
         claim_set_hash: Optional[str] = None,
         claims: Optional[List[ClaimSpec]] = None,
         mode: str = "shadow",
+        ci_binding: Optional[Dict[str, Any]] = None,
     ):
         # run_id is canonical; trace_id accepted as alias for backward compat
         resolved_run_id = run_id or trace_id
@@ -159,6 +196,7 @@ class ProofPack:
         self.signer_id = signer_id
         self.mode = mode
         self.claims = claims
+        self.ci_binding = ci_binding
 
         # Default hashes for fields not yet wired
         self.policy_hash = policy_hash or _sha256_hex(b"default-policy-v0")
@@ -280,6 +318,7 @@ class ProofPack:
             "n_receipts": verify_result.receipt_count,
             "timestamp_start": ts_start or deterministic_ts or datetime.now(timezone.utc).isoformat(),
             "timestamp_end": ts_end or deterministic_ts or datetime.now(timezone.utc).isoformat(),
+            "ci_binding": self.ci_binding,
         }
 
         # 5. Build verify_transcript.md
@@ -403,6 +442,7 @@ def build_proof_pack(
     keystore: Optional[AssayKeyStore] = None,
     mode: str = "shadow",
     claims: Optional[List[ClaimSpec]] = None,
+    ci_binding: Optional[Dict[str, Any]] = None,
 ) -> Path:
     """Convenience function: load trace from store and build a Proof Pack.
 
@@ -426,11 +466,21 @@ def build_proof_pack(
     if output_dir is None:
         output_dir = Path(f"proof_pack_{trace_id}")
 
-    pack = ProofPack(run_id=trace_id, entries=entries, mode=mode, claims=claims)
+    if ci_binding is None:
+        ci_binding = detect_ci_binding()
+
+    pack = ProofPack(
+        run_id=trace_id,
+        entries=entries,
+        mode=mode,
+        claims=claims,
+        ci_binding=ci_binding,
+    )
     return pack.build(output_dir, keystore=keystore)
 
 
 __all__ = [
     "ProofPack",
     "build_proof_pack",
+    "detect_ci_binding",
 ]

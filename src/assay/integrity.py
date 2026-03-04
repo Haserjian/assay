@@ -25,6 +25,8 @@ E_MANIFEST_TAMPER = "E_MANIFEST_TAMPER"
 E_TIMESTAMP_INVALID = "E_TIMESTAMP_INVALID"
 E_DUPLICATE_ID = "E_DUPLICATE_ID"
 E_PACK_STALE = "E_PACK_STALE"
+E_CI_BINDING_MISSING = "E_CI_BINDING_MISSING"
+E_CI_BINDING_MISMATCH = "E_CI_BINDING_MISMATCH"
 
 @dataclass
 class VerifyError:
@@ -215,6 +217,8 @@ def verify_pack_manifest(
     *,
     max_age_hours: Optional[float] = None,
     now: Optional[datetime] = None,
+    require_ci_binding: bool = False,
+    expected_commit_sha: Optional[str] = None,
 ) -> VerifyResult:
     """Verify pack_manifest.json integrity.
 
@@ -489,6 +493,36 @@ def verify_pack_manifest(
                     field="timestamp_end",
                 ))
 
+    # 6. Optional CI binding verification
+    attestation = manifest.get("attestation", {})
+    ci_binding = attestation.get("ci_binding")
+    if require_ci_binding and not ci_binding:
+        errors.append(VerifyError(
+            code=E_CI_BINDING_MISSING,
+            message="CI binding required but attestation has no ci_binding block",
+            field="ci_binding",
+        ))
+    if expected_commit_sha and ci_binding:
+        pack_sha = ci_binding.get("commit_sha", "")
+        if pack_sha != expected_commit_sha:
+            errors.append(VerifyError(
+                code=E_CI_BINDING_MISMATCH,
+                message=(
+                    f"CI binding commit_sha mismatch: "
+                    f"pack has {pack_sha!r}, expected {expected_commit_sha!r}"
+                ),
+                field="ci_binding.commit_sha",
+            ))
+    elif expected_commit_sha and not ci_binding and not require_ci_binding:
+        errors.append(VerifyError(
+            code=E_CI_BINDING_MISSING,
+            message=(
+                f"Expected commit_sha {expected_commit_sha!r} but "
+                f"attestation has no ci_binding block"
+            ),
+            field="ci_binding",
+        ))
+
     return VerifyResult(
         passed=len(errors) == 0,
         errors=errors,
@@ -511,6 +545,8 @@ __all__ = [
     "E_TIMESTAMP_INVALID",
     "E_DUPLICATE_ID",
     "E_PACK_STALE",
+    "E_CI_BINDING_MISSING",
+    "E_CI_BINDING_MISMATCH",
     "VerifyError",
     "VerifyResult",
     "verify_receipt",

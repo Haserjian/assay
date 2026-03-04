@@ -2298,6 +2298,14 @@ def verify_pack_cmd(
         None, "--max-age-hours",
         help="Fail verification if pack timestamp_end is older than this many hours.",
     ),
+    require_ci_binding: bool = typer.Option(
+        False, "--require-ci-binding",
+        help="Fail if attestation has no ci_binding block. For CI-only verification.",
+    ),
+    expected_commit_sha: Optional[str] = typer.Option(
+        None, "--expected-commit-sha",
+        help="Fail if ci_binding.commit_sha does not match this value.",
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Verify a Proof Pack's integrity (manifest, signatures, file hashes).
@@ -2366,6 +2374,8 @@ def verify_pack_cmd(
         pack_path,
         ks,
         max_age_hours=max_age_hours,
+        require_ci_binding=require_ci_binding,
+        expected_commit_sha=expected_commit_sha,
     )
 
     att = manifest.get("attestation", {})
@@ -3089,12 +3099,14 @@ def run_cmd(
         console.print("[yellow]Warning:[/] No receipts emitted. Building empty pack (--allow-empty).")
         entries = []
 
+    from assay.proof_pack import detect_ci_binding
     pack = ProofPack(
         run_id=trace_id,
         entries=entries,
         signer_id=signer_id,
         claims=claims,
         mode=mode,
+        ci_binding=detect_ci_binding(),
     )
 
     try:
