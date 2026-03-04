@@ -2585,6 +2585,219 @@ def verify_pack_cmd(
         raise typer.Exit(1)
 
 
+@assay_app.command("accept")
+def accept_cmd(
+    pack_dir: str = typer.Argument(..., help="Path to verified Proof Pack directory"),
+    output: Optional[str] = typer.Option(
+        None, "--output", "-o",
+        help="Output path for ACCEPTANCE_RECEIPT.json. Default: <pack_dir>/ACCEPTANCE_RECEIPT.json",
+    ),
+    lock: Optional[str] = typer.Option(
+        None, "--lock",
+        help="Path to assay.lock file. Enforces locked verification before acceptance.",
+    ),
+    max_age_hours: Optional[float] = typer.Option(
+        None, "--max-age-hours",
+        help="Fail if pack is older than this many hours.",
+    ),
+    require_ci_binding: bool = typer.Option(
+        False, "--require-ci-binding",
+        help="Fail if pack has no CI binding.",
+    ),
+    expected_commit_sha: Optional[str] = typer.Option(
+        None, "--expected-commit-sha",
+        help="Fail if ci_binding.commit_sha does not match.",
+    ),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Verify a Proof Pack and emit a signed ACCEPTANCE_RECEIPT.json.
+
+    This is the contract-close command: it verifies the pack, then produces
+    a single signed artifact that references the pack by hash and records
+    the verification verdict.
+
+    Exit codes follow the standard Assay contract:
+      0 = integrity PASS, claims PASS (or N/A)
+      1 = integrity PASS, claims FAIL
+      2 = integrity FAIL or critical error
+    """
+    from pathlib import Path
+
+    from assay.acceptance import generate_acceptance_receipt
+    from assay.integrity import verify_pack_manifest
+    from assay.keystore import get_default_keystore
+
+    pack_path = Path(pack_dir)
+    manifest_path = pack_path / "pack_manifest.json"
+
+    if not manifest_path.exists():
+        if output_json:
+            _output_json({"command": "accept", "status": "error", "error": "pack_manifest.json not found"})
+        console.print(f"[red]Error:[/] {manifest_path} not found")
+        raise typer.Exit(2)
+
+    manifest = json.loads(manifest_path.read_text())
+
+    # Schema validation
+    from assay.manifest_schema import validate_manifest
+    schema_errors = validate_manifest(manifest)
+    if schema_errors:
+        if output_json:
+            _output_json({
+                "command": "accept", "status": "error",
+                "error": "schema_validation_failed", "details": schema_errors,
+            })
+        console.print("[red]Schema validation failed:[/]")
+        for se in schema_errors[:10]:
+            console.print(f"  {se}")
+        raise typer.Exit(2)
+
+    ks = get_default_keystore()
+    result = verify_pack_manifest(
+        manifest,
+        pack_path,
+        ks,
+        max_age_hours=max_age_hours,
+        require_ci_binding=require_ci_binding,
+        expected_commit_sha=expected_commit_sha,
+    )
+
+    att = manifest.get("attestation", {})
+    claim_check = att.get("claim_check", "N/A")
+    integrity_passed = result.passed
+    claims_verdict = claim_check
+
+    # Determine exit code
+    if not integrity_passed:
+        exit_code = 2
+    elif claim_check == "FAIL":
+        exit_code = 1
+    else:
+        exit_code = 0
+
+    lock_errors: list[str] = []
+
+    # Lock enforcement
+    if lock:
+        from assay.lockfile import load_lockfile, validate_against_lock
+        lock_path = Path(lock)
+        if not lock_path.exists():
+            if output_json:
+                _output_json({"command": "accept", "status": "error", "error": "lock_file_not_found"}, exit_code=2)
+            console.print(f"[red]Error:[/] Lock file not found: {lock}")
+            raise typer.Exit(2)
+        lock_data = load_lockfile(lock_path)
+        lock_result = validate_against_lock(manifest, lock_data)
+        if not lock_result.passed:
+            lock_errors = [str(err) for err in lock_result.errors]
+            integrity_passed = False
+            exit_code = 2
+
+    # Generate receipt
+    receipt_path = Path(output) if output else (pack_path / "ACCEPTANCE_RECEIPT.json")
+    receipt = generate_acceptance_receipt(
+        manifest,
+        integrity_passed=integrity_passed,
+        claims_verdict=claims_verdict,
+        exit_code=exit_code,
+        keystore=ks,
+        output_path=receipt_path,
+    )
+
+    if output_json:
+        _output_json({
+            "command": "accept",
+            "status": "accepted" if exit_code == 0 else ("claims_failed" if exit_code == 1 else "rejected"),
+            "exit_code": exit_code,
+            "receipt_path": str(receipt_path),
+            "pack_id": receipt["pack_id"],
+            "pack_root_sha256": receipt["pack_root_sha256"],
+            "verification": receipt["verification"],
+            "signer_id": receipt["signer"]["signer_id"],
+            "lock_errors": lock_errors,
+        }, exit_code=exit_code)
+
+    if exit_code == 0:
+        console.print(f"[bold green]Accepted[/] — {receipt_path}")
+    elif exit_code == 1:
+        console.print(f"[bold yellow]Claims failed[/] — receipt written to {receipt_path}")
+    else:
+        console.print(f"[bold red]Rejected[/] — receipt written to {receipt_path}")
+
+    console.print(f"  Pack ID:     {receipt['pack_id']}")
+    console.print(f"  Integrity:   {receipt['verification']['integrity']}")
+    console.print(f"  Claims:      {receipt['verification']['claims']}")
+    console.print(f"  Exit code:   {exit_code}")
+    console.print(f"  Signer:      {receipt['signer']['signer_id']}")
+    if lock_errors:
+        console.print("  Lock errors:")
+        for err in lock_errors:
+            console.print(f"    - {err}")
+    console.print()
+
+    raise typer.Exit(exit_code)
+
+
+@assay_app.command("verify-acceptance")
+def verify_acceptance_cmd(
+    receipt_path: str = typer.Argument(..., help="Path to ACCEPTANCE_RECEIPT.json"),
+    expected_pack_root: Optional[str] = typer.Option(
+        None, "--expected-pack-root",
+        help="Expected pack_root_sha256. Fail if receipt references a different pack.",
+    ),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Verify an ACCEPTANCE_RECEIPT.json signature and optionally check pack reference.
+
+    Exit codes:
+      0 = receipt is valid
+      2 = signature invalid or verification error
+    """
+    from pathlib import Path
+
+    from assay.acceptance import verify_acceptance_receipt
+    from assay.keystore import get_default_keystore
+
+    rpath = Path(receipt_path)
+    if not rpath.exists():
+        if output_json:
+            _output_json({"command": "verify-acceptance", "status": "error", "error": "receipt not found"})
+        console.print(f"[red]Error:[/] {rpath} not found")
+        raise typer.Exit(2)
+
+    receipt = json.loads(rpath.read_text())
+    ks = get_default_keystore()
+    result = verify_acceptance_receipt(
+        receipt,
+        keystore=ks,
+        expected_pack_root=expected_pack_root,
+    )
+
+    if output_json:
+        _output_json({
+            "command": "verify-acceptance",
+            "status": "valid" if result.passed else "invalid",
+            "pack_id": receipt.get("pack_id", ""),
+            "pack_root_sha256": receipt.get("pack_root_sha256", ""),
+            "verification": receipt.get("verification", {}),
+            "errors": result.errors,
+        }, exit_code=0 if result.passed else 2)
+
+    if result.passed:
+        console.print(f"[bold green]Valid[/] — {rpath}")
+        console.print(f"  Pack ID:     {receipt.get('pack_id', 'N/A')}")
+        console.print(f"  Integrity:   {receipt.get('verification', {}).get('integrity', 'N/A')}")
+        console.print(f"  Claims:      {receipt.get('verification', {}).get('claims', 'N/A')}")
+        console.print(f"  Issued:      {receipt.get('issued_at', 'N/A')}")
+        console.print(f"  Signer:      {receipt.get('signer', {}).get('signer_id', 'N/A')}")
+    else:
+        console.print(f"[bold red]Invalid[/] — {rpath}")
+        for err in result.errors:
+            console.print(f"  [red]{err}[/]")
+
+    raise typer.Exit(0 if result.passed else 2)
+
+
 @assay_app.command("verify-signer")
 def verify_signer_cmd(
     pack_dir: str = typer.Argument(..., help="Path to Proof Pack directory"),

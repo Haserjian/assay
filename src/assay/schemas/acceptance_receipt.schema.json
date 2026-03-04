@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://assay.local/schemas/acceptance_receipt.schema.json",
+  "title": "Acceptance Receipt",
+  "description": "Signed artifact-of-artifacts closing a verification cycle. References a Proof Pack by hash and records the verification verdict.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "pack_id",
+    "pack_root_sha256",
+    "attestation_sha256",
+    "claim_set_hash",
+    "verification",
+    "issued_at",
+    "signer"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "description": "Acceptance receipt schema version.",
+      "const": "1.0.0"
+    },
+    "pack_id": {
+      "type": "string",
+      "description": "The pack_id from the verified Proof Pack.",
+      "minLength": 1
+    },
+    "pack_root_sha256": {
+      "type": "string",
+      "description": "SHA-256 of the JCS-canonical attestation (== pack_root_sha256 from manifest).",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "attestation_sha256": {
+      "type": "string",
+      "description": "SHA-256 of the JCS-canonical attestation. Must equal pack_root_sha256 (D12 invariant).",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "claim_set_hash": {
+      "type": "string",
+      "description": "Hash of the claim set used during verification.",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "verification": {
+      "type": "object",
+      "description": "Verification verdict summary.",
+      "additionalProperties": false,
+      "required": ["integrity", "claims", "exit_code"],
+      "properties": {
+        "integrity": {
+          "type": "string",
+          "enum": ["PASS", "FAIL"],
+          "description": "Pack integrity result (signatures, hashes, structure)."
+        },
+        "claims": {
+          "type": "string",
+          "enum": ["PASS", "FAIL", "N/A"],
+          "description": "Semantic claim check result."
+        },
+        "exit_code": {
+          "type": "integer",
+          "enum": [0, 1, 2],
+          "description": "Assay exit code: 0=both pass, 1=integrity pass + claims fail, 2=integrity fail."
+        }
+      }
+    },
+    "ci_binding": {
+      "type": ["object", "null"],
+      "description": "CI binding passthrough from the verified pack's attestation. Null if pack was built locally."
+    },
+    "issued_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 timestamp when this receipt was issued."
+    },
+    "signer": {
+      "type": "object",
+      "description": "Identity of the entity that issued this receipt.",
+      "additionalProperties": false,
+      "required": ["signer_id", "signer_pubkey", "pubkey_fingerprint", "signature"],
+      "properties": {
+        "signer_id": {
+          "type": "string",
+          "description": "Signer identifier.",
+          "minLength": 1
+        },
+        "signer_pubkey": {
+          "type": "string",
+          "description": "Base64-encoded Ed25519 public key used to verify signature."
+        },
+        "pubkey_fingerprint": {
+          "type": "string",
+          "description": "SHA-256 fingerprint of the signer's public key.",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "signature": {
+          "type": "string",
+          "description": "Base64-encoded Ed25519 signature over JCS-canonical receipt body (all fields except signer.signature)."
+        }
+      }
+    }
+  }
+}
