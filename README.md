@@ -14,6 +14,9 @@ offline without trusting your server logs. Two lines of code. Four exit codes.
 pip install assay-ai && assay quickstart   # requires Python 3.9+
 ```
 
+Prefer a deterministic setup path? Start here:
+[docs/START_HERE.md](docs/START_HERE.md)
+
 > **Boundary:** Assay proves tamper-evident internal consistency and
 > completeness relative to scanned call sites. It does not prevent a fully
 > compromised machine from fabricating a consistent story. That's what
@@ -117,6 +120,13 @@ assay run -c receipt_completeness -- python my_app.py
 
 # 4. Verify
 assay verify-pack ./proof_pack_*/
+
+# 5. Generate report artifacts for security/compliance review
+assay report . -o evidence_report.html --sarif
+
+# 6. Optional: set and enforce score gates in CI
+assay gate save-baseline
+assay gate check . --min-score 60 --fail-on-regression
 ```
 
 `assay scan . --report` finds every LLM call site (OpenAI, Anthropic, Google
@@ -143,16 +153,30 @@ integration (`ollama/llama3`, etc.).
 
 ## CI Gate
 
-Three commands, one lockfile:
+Fastest path (recommended):
 
 ```bash
-assay run -c receipt_completeness -- python my_app.py
-assay verify-pack ./proof_pack_*/ --lock assay.lock --require-claim-pass
-assay diff ./baseline_pack/ ./proof_pack_*/ --gate-cost-pct 25 --gate-errors 0 --gate-strict
+assay ci init github --run-command "python my_app.py" --min-score 60
 ```
 
-The lockfile catches config drift. Verify-pack catches tampering. Diff
-catches regressions and budget overruns. See
+This generates a 3-job GitHub Actions workflow:
+- `assay-gate` (score enforcement, regression checks, JSON gate report artifact)
+- `assay-verify` (proof pack generation + cryptographic verification)
+- `assay-report` (HTML evidence report artifact + SARIF upload)
+
+Manual path (advanced):
+
+```bash
+assay gate save-baseline
+assay gate check . --min-score 60 --fail-on-regression --save-report assay_gate_report.json --verbose --json
+assay run -c receipt_completeness -- python my_app.py
+assay verify-pack ./proof_pack_*/ --lock assay.lock --require-claim-pass
+assay report . -o evidence_report.html --sarif
+```
+
+The lockfile catches config drift. Verify-pack catches tampering. Gate
+enforces score regressions. Report produces the shareable artifact + SARIF.
+`assay diff` remains useful for deep forensics and budget/drift analysis. See
 [Decision Escrow](docs/decision-escrow.md) for the protocol model.
 
 ```bash
