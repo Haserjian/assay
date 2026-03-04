@@ -2306,6 +2306,10 @@ def verify_pack_cmd(
         None, "--expected-commit-sha",
         help="Fail if ci_binding.commit_sha does not match this value.",
     ),
+    require_witness: bool = typer.Option(
+        False, "--require-witness",
+        help="Fail if pack has no valid witness bundle (T2 trust).",
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Verify a Proof Pack's integrity (manifest, signatures, file hashes).
@@ -2471,6 +2475,17 @@ def verify_pack_cmd(
         if coverage_result["coverage_pct"] < min_coverage:
             coverage_failed = True
 
+    # Witness verification (T2 trust)
+    witness_failed = False
+    witness_errors: list = []
+    if require_witness:
+        from assay.witness import verify_witness_from_pack
+
+        witness_result = verify_witness_from_pack(pack_path)
+        if not witness_result.passed:
+            witness_failed = True
+            witness_errors = witness_result.errors
+
     overall_status = "ok"
     if not result.passed:
         overall_status = "failed"
@@ -2480,6 +2495,8 @@ def verify_pack_cmd(
         overall_status = "claim_gate_failed"
     elif coverage_failed:
         overall_status = "coverage_below_threshold"
+    elif witness_failed:
+        overall_status = "witness_failed"
 
     if output_json:
         out = {
@@ -2496,6 +2513,8 @@ def verify_pack_cmd(
             out["lock_errors"] = [str(e) for e in lock_errors]
         if coverage_result is not None:
             out["coverage"] = coverage_result
+        if witness_failed:
+            out["witness_errors"] = witness_errors
         _output_json(out)
 
     if lock_failed:
@@ -2509,6 +2528,19 @@ def verify_pack_cmd(
         ))
         for le in lock_errors:
             console.print(f"  [red]{le.field}[/]: expected {le.expected}, got {le.actual}")
+        console.print()
+        raise typer.Exit(2)
+
+    if witness_failed:
+        console.print()
+        console.print(Panel.fit(
+            f"[bold red]WITNESS VERIFICATION FAILED[/]\n\n"
+            f"Pack ID:    {att.get('pack_id')}\n"
+            f"Errors:     {len(witness_errors)}",
+            title="assay verify-pack",
+        ))
+        for we in witness_errors:
+            console.print(f"  [red]{we}[/]")
         console.print()
         raise typer.Exit(2)
 
@@ -2792,6 +2824,136 @@ def verify_acceptance_cmd(
         console.print(f"  Signer:      {receipt.get('signer', {}).get('signer_id', 'N/A')}")
     else:
         console.print(f"[bold red]Invalid[/] — {rpath}")
+        for err in result.errors:
+            console.print(f"  [red]{err}[/]")
+
+    raise typer.Exit(0 if result.passed else 2)
+
+
+@assay_app.command("witness")
+def witness_cmd(
+    pack_dir: str = typer.Argument(..., help="Path to Proof Pack directory"),
+    witness_type: str = typer.Option(
+        "rfc3161", "--type", "-t",
+        help="Witness provider type: rfc3161 (default) or rekor.",
+    ),
+    tsa_url: str = typer.Option(
+        "https://freetsa.org/tsr", "--tsa-url",
+        help="TSA server URL (RFC 3161 only).",
+    ),
+    output: Optional[str] = typer.Option(
+        None, "--output", "-o",
+        help="Output path for witness_bundle.json. Default: <pack_dir>/witness_bundle.json",
+    ),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Request an independent timestamp witness for a Proof Pack.
+
+    Contacts a TSA (Time Stamping Authority) to obtain a signed timestamp
+    proving that the pack's root hash existed at a specific time. The result
+    is written as witness_bundle.json.
+
+    Exit codes:
+      0 = witness obtained successfully
+      2 = error (network, TSA, missing pack)
+    """
+    from pathlib import Path
+
+    from assay.witness import (
+        WitnessError,
+        generate_witness_bundle,
+    )
+
+    pack_path = Path(pack_dir)
+    manifest_path = pack_path / "pack_manifest.json"
+
+    if not manifest_path.exists():
+        if output_json:
+            _output_json({"command": "witness", "status": "error", "error": "pack_manifest.json not found"})
+        console.print(f"[red]Error:[/] {manifest_path} not found")
+        raise typer.Exit(2)
+
+    out_path = Path(output) if output else None
+
+    try:
+        bundle = generate_witness_bundle(
+            pack_path,
+            witness_type=witness_type,
+            tsa_url=tsa_url,
+            output_path=out_path,
+        )
+    except WitnessError as e:
+        if output_json:
+            _output_json({"command": "witness", "status": "error", "error": str(e)}, exit_code=2)
+        console.print(f"[red]Error:[/] {e}")
+        raise typer.Exit(2)
+
+    bundle_path = out_path or (pack_path / "witness_bundle.json")
+
+    if output_json:
+        _output_json({
+            "command": "witness",
+            "status": "ok",
+            "witness_type": bundle["witness_type"],
+            "pack_root_sha256": bundle["pack_root_sha256"],
+            "gen_time": bundle.get("gen_time"),
+            "bundle_path": str(bundle_path),
+        }, exit_code=0)
+
+    console.print(f"[bold green]Witness obtained[/] — {bundle_path}")
+    console.print(f"  Type:        {bundle['witness_type']}")
+    console.print(f"  Pack root:   {bundle['pack_root_sha256'][:16]}...")
+    console.print(f"  TSA:         {bundle.get('tsa_url', 'N/A')}")
+    console.print(f"  Gen time:    {bundle.get('gen_time', 'N/A')}")
+    console.print(f"  Issued at:   {bundle['issued_at']}")
+    console.print()
+
+    raise typer.Exit(0)
+
+
+@assay_app.command("verify-witness")
+def verify_witness_cmd(
+    pack_dir: str = typer.Argument(..., help="Path to Proof Pack directory"),
+    bundle: Optional[str] = typer.Option(
+        None, "--bundle", "-b",
+        help="Path to witness_bundle.json. Default: <pack_dir>/witness_bundle.json",
+    ),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Verify a witness bundle's timestamp token against the pack root hash.
+
+    Checks:
+      - Token signature via TSA certificate chain
+      - Message imprint matches pack_root_sha256
+      - Schema version and D12 invariant
+
+    Exit codes:
+      0 = witness verified
+      2 = verification failed or error
+    """
+    from pathlib import Path
+
+    from assay.witness import verify_witness_from_pack
+
+    pack_path = Path(pack_dir)
+    bundle_path = Path(bundle) if bundle else None
+
+    result = verify_witness_from_pack(pack_path, bundle_path=bundle_path)
+
+    if output_json:
+        _output_json({
+            "command": "verify-witness",
+            "status": "valid" if result.passed else "invalid",
+            "gen_time": result.gen_time,
+            "errors": result.errors,
+        }, exit_code=0 if result.passed else 2)
+
+    if result.passed:
+        console.print(f"[bold green]Witness verified[/]")
+        if result.gen_time:
+            console.print(f"  Gen time:  {result.gen_time}")
+    else:
+        console.print(f"[bold red]Witness verification failed[/]")
         for err in result.errors:
             console.print(f"  [red]{err}[/]")
 

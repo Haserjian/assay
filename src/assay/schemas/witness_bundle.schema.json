@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://assay.local/schemas/witness_bundle.schema.json",
+  "title": "Witness Bundle",
+  "description": "Independent timestamp or transparency witness for a Proof Pack. Ties pack_root_sha256 to an external time/existence authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "witness_type",
+    "pack_root_sha256",
+    "attestation_sha256",
+    "issued_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "witness_type": {
+      "type": "string",
+      "enum": ["rfc3161", "rekor"],
+      "description": "Witness provider type."
+    },
+    "pack_root_sha256": {
+      "type": "string",
+      "description": "SHA-256 of the attested pack (== attestation_sha256, D12).",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "attestation_sha256": {
+      "type": "string",
+      "description": "SHA-256 of the JCS-canonical attestation.",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "tsa_url": {
+      "type": "string",
+      "description": "URL of the TSA server used (RFC 3161 only).",
+      "format": "uri"
+    },
+    "token_b64": {
+      "type": "string",
+      "description": "Base64-encoded TSA response token (DER, RFC 3161) or Rekor entry."
+    },
+    "query_b64": {
+      "type": "string",
+      "description": "Base64-encoded RFC 3161 query used to request timestamp. Enables nonce-bound verification."
+    },
+    "ca_cert_b64": {
+      "type": "string",
+      "description": "Base64-encoded CA certificate chain for offline verification."
+    },
+    "tsa_cert_b64": {
+      "type": "string",
+      "description": "Base64-encoded TSA signing certificate for offline verification."
+    },
+    "nonce": {
+      "type": ["string", "null"],
+      "description": "Nonce used in the TSA request for replay prevention."
+    },
+    "gen_time": {
+      "type": ["string", "null"],
+      "description": "Timestamp from the TSA response (genTime field).",
+      "format": "date-time"
+    },
+    "issued_at": {
+      "type": "string",
+      "description": "ISO-8601 timestamp when the witness bundle was created.",
+      "format": "date-time"
+    },
+    "verified_at": {
+      "type": ["string", "null"],
+      "description": "ISO-8601 timestamp when the bundle was last verified. Null if not yet verified.",
+      "format": "date-time"
+    }
+  }
+}
