@@ -5,7 +5,7 @@ import hashlib
 import json
 import base64
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -24,6 +24,7 @@ E_PACK_OMISSION_DETECTED = "E_PACK_OMISSION_DETECTED"
 E_MANIFEST_TAMPER = "E_MANIFEST_TAMPER"
 E_TIMESTAMP_INVALID = "E_TIMESTAMP_INVALID"
 E_DUPLICATE_ID = "E_DUPLICATE_ID"
+E_PACK_STALE = "E_PACK_STALE"
 
 @dataclass
 class VerifyError:
@@ -211,6 +212,9 @@ def verify_pack_manifest(
     manifest: Dict[str, Any],
     pack_dir: Path,
     keystore: Any,
+    *,
+    max_age_hours: Optional[float] = None,
+    now: Optional[datetime] = None,
 ) -> VerifyResult:
     """Verify pack_manifest.json integrity.
 
@@ -458,6 +462,33 @@ def verify_pack_manifest(
             field="pack_root_sha256",
         ))
 
+    # 5. Optional freshness check (replay/staleness mitigation)
+    if max_age_hours is not None:
+        att_ts = attestation.get("timestamp_end") or attestation.get("timestamp_start")
+        parsed_ts = _parse_timestamp(str(att_ts)) if att_ts else None
+        if parsed_ts is None:
+            errors.append(VerifyError(
+                code=E_TIMESTAMP_INVALID,
+                message="Freshness check failed: attestation timestamp_end/start missing or invalid",
+                field="timestamp_end",
+            ))
+        else:
+            if parsed_ts.tzinfo is None:
+                parsed_ts = parsed_ts.replace(tzinfo=timezone.utc)
+            now_ts = now or datetime.now(timezone.utc)
+            if now_ts.tzinfo is None:
+                now_ts = now_ts.replace(tzinfo=timezone.utc)
+            age_hours = (now_ts - parsed_ts).total_seconds() / 3600.0
+            if age_hours > max_age_hours:
+                errors.append(VerifyError(
+                    code=E_PACK_STALE,
+                    message=(
+                        f"Pack is stale: age {age_hours:.2f}h exceeds "
+                        f"max_age_hours {max_age_hours:.2f}h"
+                    ),
+                    field="timestamp_end",
+                ))
+
     return VerifyResult(
         passed=len(errors) == 0,
         errors=errors,
@@ -479,6 +510,7 @@ __all__ = [
     "E_MANIFEST_TAMPER",
     "E_TIMESTAMP_INVALID",
     "E_DUPLICATE_ID",
+    "E_PACK_STALE",
     "VerifyError",
     "VerifyResult",
     "verify_receipt",

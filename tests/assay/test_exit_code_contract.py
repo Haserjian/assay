@@ -440,3 +440,39 @@ class TestCoverageContractCLI:
         assert result.exit_code == 2, (
             f"Integrity failure should be exit 2, got {result.exit_code}\n{result.output}"
         )
+
+
+class TestFreshnessGateCLI:
+    """Exit codes and payload behavior for --max-age-hours."""
+
+    def test_stale_pack_exits_2(self, tmp_path):
+        old_receipt = _make_receipt(timestamp="2025-01-01T00:00:00+00:00", seq=0)
+        pack_dir, _ks = _build_pack(tmp_path, receipts=[old_receipt])
+
+        result = runner.invoke(
+            assay_app, ["verify-pack", str(pack_dir), "--max-age-hours", "24", "--json"]
+        )
+        assert result.exit_code == 2, result.output
+        payload = json.loads(result.output)
+        codes = {err.get("code") for err in payload.get("errors", [])}
+        assert "E_PACK_STALE" in codes
+
+    def test_fresh_pack_with_large_max_age_exits_0(self, tmp_path):
+        pack_dir, _ks = _build_pack(tmp_path)
+        result = runner.invoke(
+            assay_app, ["verify-pack", str(pack_dir), "--max-age-hours", "100000", "--json"]
+        )
+        assert result.exit_code == 0, result.output
+        payload = json.loads(result.output)
+        assert payload["status"] == "ok"
+        assert payload["max_age_hours"] == 100000.0
+
+    def test_invalid_max_age_exits_3(self, tmp_path):
+        pack_dir, _ks = _build_pack(tmp_path)
+        result = runner.invoke(
+            assay_app, ["verify-pack", str(pack_dir), "--max-age-hours", "0", "--json"]
+        )
+        assert result.exit_code == 3, result.output
+        payload = json.loads(result.output)
+        assert payload["status"] == "error"
+        assert "--max-age-hours must be > 0" in payload["error"]

@@ -2294,6 +2294,10 @@ def verify_pack_cmd(
         0.8, "--min-coverage",
         help="Minimum coverage threshold (0.0-1.0). Used with --coverage-contract.",
     ),
+    max_age_hours: Optional[float] = typer.Option(
+        None, "--max-age-hours",
+        help="Fail verification if pack timestamp_end is older than this many hours.",
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Verify a Proof Pack's integrity (manifest, signatures, file hashes).
@@ -2308,8 +2312,27 @@ def verify_pack_cmd(
 
     if not 0.0 <= min_coverage <= 1.0:
         if output_json:
-            _output_json({"command": "verify-pack", "status": "error", "error": f"--min-coverage must be between 0.0 and 1.0, got {min_coverage}"})
+            _output_json(
+                {
+                    "command": "verify-pack",
+                    "status": "error",
+                    "error": f"--min-coverage must be between 0.0 and 1.0, got {min_coverage}",
+                },
+                exit_code=3,
+            )
         console.print(f"[red]Error:[/] --min-coverage must be between 0.0 and 1.0, got {min_coverage}")
+        raise typer.Exit(3)
+    if max_age_hours is not None and max_age_hours <= 0:
+        if output_json:
+            _output_json(
+                {
+                    "command": "verify-pack",
+                    "status": "error",
+                    "error": f"--max-age-hours must be > 0, got {max_age_hours}",
+                },
+                exit_code=3,
+            )
+        console.print(f"[red]Error:[/] --max-age-hours must be > 0, got {max_age_hours}")
         raise typer.Exit(3)
 
     pack_path = Path(pack_dir)
@@ -2338,7 +2361,12 @@ def verify_pack_cmd(
         raise typer.Exit(1)
 
     ks = get_default_keystore()
-    result = verify_pack_manifest(manifest, pack_path, ks)
+    result = verify_pack_manifest(
+        manifest,
+        pack_path,
+        ks,
+        max_age_hours=max_age_hours,
+    )
 
     att = manifest.get("attestation", {})
     claim_check = att.get("claim_check", "N/A")
@@ -2450,6 +2478,8 @@ def verify_pack_cmd(
             "claim_check": claim_check,
             **result.to_dict(),
         }
+        if max_age_hours is not None:
+            out["max_age_hours"] = max_age_hours
         if claim_gate_failed:
             out["claim_gate"] = f"--require-claim-pass: claim_check is '{claim_check}'"
         if lock_failed:
@@ -4281,6 +4311,7 @@ def gate_check_cmd(
     path: str = typer.Argument(".", help="Repository directory to score"),
     min_score: Optional[float] = typer.Option(None, "--min-score", help="Minimum passing score (0-100)"),
     fail_on_regression: bool = typer.Option(False, "--fail-on-regression", help="Fail if score dropped below baseline"),
+    require_lock: bool = typer.Option(False, "--require-lock", help="Fail if assay.lock is missing or invalid"),
     baseline: Optional[str] = typer.Option(None, "--baseline", help="Path to score-baseline.json (default: .assay/score-baseline.json)"),
     save_report: Optional[str] = typer.Option(None, "--save-report", help="Write gate JSON report to file"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Include score breakdown and next actions"),
@@ -4309,6 +4340,7 @@ def gate_check_cmd(
         load_score_baseline,
         normalize_score_value,
     )
+    from assay.lockfile import check_lockfile
     from assay.score import compute_evidence_readiness_score, gather_score_facts
 
     root = P(path).resolve()
@@ -4348,14 +4380,43 @@ def gate_check_cmd(
         baseline_score=baseline_score,
     )
 
+    # Optional hard enforcement: lockfile must exist and validate.
+    lock_status = "not_required"
+    lock_issues: List[str] = []
+    if require_lock:
+        lock_path = root / "assay.lock"
+        if not lock_path.exists():
+            lock_status = "missing"
+            report["result"] = "FAIL"
+            report.setdefault("reasons", []).append(
+                f"Required lockfile missing: {lock_path}"
+            )
+        else:
+            lock_issues = check_lockfile(lock_path)
+            if lock_issues:
+                lock_status = "invalid"
+                report["result"] = "FAIL"
+                report.setdefault("reasons", []).append(
+                    f"Required lockfile invalid: {lock_path} ({len(lock_issues)} issue(s))"
+                )
+            else:
+                lock_status = "valid"
+
     exit_code = 0 if report["result"] == "PASS" else 1
-    payload: Dict[str, Any] = {**report, "status": "ok" if exit_code == 0 else "blocked"}
+    payload: Dict[str, Any] = {
+        **report,
+        "status": "ok" if exit_code == 0 else "blocked",
+        "require_lock": require_lock,
+        "lock_status": lock_status,
+    }
     if verbose:
         payload["breakdown"] = current.get("breakdown", {})
         payload["next_actions"] = current.get("next_actions", [])
         payload["next_actions_detail"] = current.get("next_actions_detail", [])
         payload["fastest_path"] = current.get("fastest_path")
         payload["grade_description"] = current.get("grade_description", "")
+        if lock_issues:
+            payload["lock_issues"] = lock_issues
 
     report_path = None
     if save_report:

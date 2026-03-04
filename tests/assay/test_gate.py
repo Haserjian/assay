@@ -291,6 +291,54 @@ class TestGateCheckCLI:
         assert data["status"] == "error"
         assert "Cannot write report" in data["error"]
 
+    def test_require_lock_missing_exits_1(self, tmp_path: Path, monkeypatch) -> None:
+        monkeypatch.chdir(tmp_path)
+        Path("app.py").write_text("x = 1\n", encoding="utf-8")
+        result = runner.invoke(
+            assay_app,
+            ["gate", "check", ".", "--min-score", "0", "--require-lock", "--json"],
+        )
+        assert result.exit_code == 1, result.output
+        data = json.loads(result.output)
+        assert data["result"] == "FAIL"
+        assert data["status"] == "blocked"
+        assert data["require_lock"] is True
+        assert data["lock_status"] == "missing"
+        assert any("Required lockfile missing" in r for r in data.get("reasons", []))
+
+    def test_require_lock_invalid_exits_1(self, tmp_path: Path, monkeypatch) -> None:
+        monkeypatch.chdir(tmp_path)
+        Path("app.py").write_text("x = 1\n", encoding="utf-8")
+        Path("assay.lock").write_text("{}", encoding="utf-8")
+        result = runner.invoke(
+            assay_app,
+            ["gate", "check", ".", "--min-score", "0", "--require-lock", "--json"],
+        )
+        assert result.exit_code == 1, result.output
+        data = json.loads(result.output)
+        assert data["result"] == "FAIL"
+        assert data["lock_status"] == "invalid"
+        assert any("Required lockfile invalid" in r for r in data.get("reasons", []))
+
+    def test_require_lock_valid_passes(self, tmp_path: Path, monkeypatch) -> None:
+        monkeypatch.chdir(tmp_path)
+        Path("app.py").write_text("x = 1\n", encoding="utf-8")
+
+        lock_write = runner.invoke(
+            assay_app,
+            ["lock", "write", "--cards", "receipt_completeness", "-o", "assay.lock", "--json"],
+        )
+        assert lock_write.exit_code == 0, lock_write.output
+
+        result = runner.invoke(
+            assay_app,
+            ["gate", "check", ".", "--min-score", "0", "--require-lock", "--json"],
+        )
+        assert result.exit_code == 0, result.output
+        data = json.loads(result.output)
+        assert data["result"] == "PASS"
+        assert data["lock_status"] == "valid"
+
 
 # ---------------------------------------------------------------------------
 # CLI tests: assay gate check --verbose
