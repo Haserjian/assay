@@ -109,9 +109,18 @@ def write_lockfile(
     flat_specs = [c.to_dict() for c in all_claims]
     flat_hash = hashlib.sha256(to_jcs_bytes(flat_specs)).hexdigest()
 
+    # Compute major.minor for version ceiling (e.g. 1.15.1 -> 1.999.0)
+    # This prevents a future major version from silently accepting this lock.
+    try:
+        v = Version(_assay_version)
+        version_max = f"{v.major + 1}.0.0"
+    except Exception:
+        version_max = "2.0.0"
+
     lockfile: Dict[str, Any] = {
         "lock_version": LOCK_VERSION,
         "assay_version_min": _assay_version,
+        "assay_version_max": version_max,
         "pack_format_version": "0.1.0",
         "receipt_schema_version": "3.0",
         "run_cards": run_card_entries,
@@ -178,6 +187,16 @@ def load_lockfile(path: Path) -> Dict[str, Any]:
             f"Invalid assay_version_min: {data['assay_version_min']!r} "
             f"(must be a valid PEP 440 version)"
         )
+
+    # assay_version_max (optional, but must be parseable if present)
+    if "assay_version_max" in data:
+        try:
+            Version(data["assay_version_max"])
+        except Exception:
+            raise ValueError(
+                f"Invalid assay_version_max: {data['assay_version_max']!r} "
+                f"(must be a valid PEP 440 version)"
+            )
 
     return data
 
@@ -277,6 +296,19 @@ def validate_against_lock(
         except Exception:
             pass  # Version parsing already validated in load_lockfile
 
+    # 5. Assay version maximum (prevents future major versions from accepting old locks)
+    locked_max = lockfile.get("assay_version_max", "")
+    if locked_max:
+        try:
+            if Version(_assay_version) >= Version(locked_max):
+                errors.append(LockfileError(
+                    field="assay_version_max",
+                    expected=f"< {locked_max}",
+                    actual=_assay_version,
+                ))
+        except Exception:
+            pass
+
     return LockValidation(
         passed=len(errors) == 0,
         errors=errors,
@@ -332,6 +364,20 @@ def check_lockfile(path: Path) -> List[str]:
             issues.append(f"Invalid assay_version_min: {ver_min!r}")
     elif "assay_version_min" in _REQUIRED_FIELDS:
         issues.append("Missing assay_version_min")
+
+    # assay_version_max (optional but validated if present)
+    ver_max = data.get("assay_version_max", "")
+    if ver_max:
+        try:
+            max_v = Version(ver_max)
+            current_v = Version(_assay_version)
+            if current_v >= max_v:
+                issues.append(
+                    f"Assay version {_assay_version} is at or above "
+                    f"assay_version_max {ver_max} — lockfile may need regeneration"
+                )
+        except Exception:
+            issues.append(f"Invalid assay_version_max: {ver_max!r}")
 
     # signer_policy
     sp = data.get("signer_policy", {})
