@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://assay.dev/schemas/vendorq.answer.v1.schema.json",
+  "title": "VendorQ Answers v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "prompt_contract",
+    "policy_profile",
+    "policy_fingerprint",
+    "questions_hash",
+    "answers",
+    "global_warnings"
+  ],
+  "properties": {
+    "schema_version": {"type": "string", "const": "vendorq.answer.v1"},
+    "prompt_contract": {"type": "string", "minLength": 1},
+    "policy_profile": {"type": "string", "enum": ["conservative", "balanced"]},
+    "policy_fingerprint": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "questions_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "answers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "question_id",
+          "answer_id",
+          "status",
+          "answer_mode",
+          "claim_type",
+          "answer_bool",
+          "answer_value",
+          "details",
+          "confidence",
+          "evidence_refs",
+          "review_required",
+          "review_reason",
+          "review_owner_hint",
+          "risk_flags",
+          "missing_evidence_requests"
+        ],
+        "properties": {
+          "question_id": {"type": "string", "minLength": 1},
+          "answer_id": {"type": "string", "minLength": 1},
+          "status": {
+            "type": "string",
+            "enum": ["ANSWERED", "PARTIAL", "INSUFFICIENT_EVIDENCE", "OUT_OF_SCOPE"]
+          },
+          "answer_mode": {
+            "type": "string",
+            "enum": ["EVIDENCE_ONLY", "EVIDENCE_PLUS_EXPLANATION", "POLICY_ONLY"]
+          },
+          "claim_type": {
+            "type": "string",
+            "enum": ["CERTIFICATION", "PROCESS", "TECH_CONTROL", "INCIDENT", "METRIC", "COMMITMENT", "LEGAL"]
+          },
+          "answer_bool": {"type": ["boolean", "null"]},
+          "answer_value": {"type": ["string", "number", "null"]},
+          "details": {"type": "string"},
+          "confidence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+          "evidence_refs": {
+            "type": "array",
+            "items": {"$ref": "https://assay.dev/schemas/vendorq.evidence_ref.v1.schema.json"}
+          },
+          "review_required": {"type": "boolean"},
+          "review_reason": {"type": "string"},
+          "review_owner_hint": {
+            "type": "string",
+            "enum": ["LEGAL", "SECURITY", "PRIVACY", "ENG", "NONE"]
+          },
+          "risk_flags": {
+            "type": "array",
+            "items": {"type": "string", "minLength": 1}
+          },
+          "missing_evidence_requests": {
+            "type": "array",
+            "items": {"type": "string", "minLength": 1}
+          }
+        }
+      }
+    },
+    "global_warnings": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1}
+    }
+  }
+}

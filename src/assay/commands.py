@@ -4426,6 +4426,311 @@ def lock_init_cmd(
         console.print()
 
 
+# ---------------------------------------------------------------------------
+# VendorQ subcommands
+# ---------------------------------------------------------------------------
+
+vendorq_app = typer.Typer(
+    name="vendorq",
+    help="Verifiable Vendor Packet: compile and verify questionnaire answers from proof packs",
+    no_args_is_help=True,
+)
+assay_app.add_typer(vendorq_app, name="vendorq")
+
+vendorq_lock_app = typer.Typer(
+    name="lock",
+    help="Manage vendorq.lock",
+    no_args_is_help=True,
+)
+vendorq_app.add_typer(vendorq_lock_app, name="lock")
+
+
+@vendorq_app.command("ingest")
+def vendorq_ingest_cmd(
+    in_path: str = typer.Option(..., "--in", help="Input questionnaire file (.csv, .md, .xlsx)"),
+    source_label: str = typer.Option("", "--source-label", help="Optional source label stored in payload (defaults to input basename)"),
+    out: str = typer.Option(".assay/vendorq/questions.json", "--out", "-o", help="Output normalized questions JSON"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Normalize a questionnaire into vendorq.question.v1 JSON."""
+    from pathlib import Path
+
+    from assay.vendorq_ingest import ingest_questionnaire
+    from assay.vendorq_models import VendorQInputError
+
+    try:
+        payload = ingest_questionnaire(Path(in_path), Path(out), source_label=source_label)
+    except VendorQInputError as e:
+        if output_json:
+            _output_json(
+                {
+                    "command": "vendorq ingest",
+                    "status": "error",
+                    "error": str(e),
+                },
+                exit_code=3,
+            )
+        console.print(f"[red]Error:[/] {e}")
+        raise typer.Exit(3)
+
+    if output_json:
+        _output_json(
+            {
+                "command": "vendorq ingest",
+                "status": "ok",
+                "output": out,
+                "schema_version": payload["schema_version"],
+                "question_count": len(payload["questions"]),
+            },
+            exit_code=0,
+        )
+
+    console.print()
+    console.print(Panel.fit(
+        f"[bold green]VendorQ Questionnaire Ingested[/]\n\n"
+        f"Input:      {in_path}\n"
+        f"Output:     {out}\n"
+        f"Questions:  {len(payload['questions'])}",
+        title="assay vendorq ingest",
+    ))
+    console.print()
+
+
+@vendorq_app.command("compile")
+def vendorq_compile_cmd(
+    questions: str = typer.Option(..., "--questions", help="Path to vendorq.question.v1 JSON"),
+    pack: Optional[List[str]] = typer.Option(None, "--pack", help="Proof pack directory (repeatable)"),
+    policy: str = typer.Option("conservative", "--policy", help="Policy profile: conservative|balanced"),
+    org_profile: Optional[str] = typer.Option(None, "--org-profile", help="Optional organization profile JSON"),
+    out: str = typer.Option(".assay/vendorq/answers.json", "--out", "-o", help="Output answers JSON"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Compile vendor questionnaire answers from questions + evidence packs."""
+    from pathlib import Path
+
+    from assay.vendorq_compile import compile_answers_payload
+    from assay.vendorq_index import build_evidence_index
+    from assay.vendorq_models import (
+        VendorQInputError,
+        canonical_sha256,
+        load_json,
+        validate_vendorq_schema,
+        write_json,
+    )
+
+    try:
+        questions_payload = load_json(Path(questions))
+        validate_vendorq_schema("vendorq.question.v1.schema.json", questions_payload)
+        questions_payload["questions_hash"] = canonical_sha256(questions_payload["questions"])
+
+        pack_dirs = [Path(p) for p in (pack or [])]
+        evidence_index = build_evidence_index(pack_dirs) if pack_dirs else {"packs": [], "by_pack": {}}
+        org = load_json(Path(org_profile)) if org_profile else None
+        answers_payload = compile_answers_payload(
+            questions_payload=questions_payload,
+            evidence_index=evidence_index,
+            policy_profile_name=policy,
+            org_profile=org,
+        )
+        write_json(Path(out), answers_payload)
+    except VendorQInputError as e:
+        if output_json:
+            _output_json({"command": "vendorq compile", "status": "error", "error": str(e)}, exit_code=3)
+        console.print(f"[red]Error:[/] {e}")
+        raise typer.Exit(3)
+
+    if output_json:
+        _output_json(
+            {
+                "command": "vendorq compile",
+                "status": "ok",
+                "output": out,
+                "answer_count": len(answers_payload["answers"]),
+                "policy_profile": answers_payload["policy_profile"],
+                "questions_hash": answers_payload["questions_hash"],
+            },
+            exit_code=0,
+        )
+
+    console.print()
+    console.print(Panel.fit(
+        f"[bold green]VendorQ Answers Compiled[/]\n\n"
+        f"Questions:      {questions}\n"
+        f"Policy:         {answers_payload['policy_profile']}\n"
+        f"Answer count:   {len(answers_payload['answers'])}\n"
+        f"Output:         {out}",
+        title="assay vendorq compile",
+    ))
+    console.print()
+
+
+@vendorq_app.command("verify")
+def vendorq_verify_cmd(
+    answers: str = typer.Option(..., "--answers", help="Path to vendorq.answer.v1 JSON"),
+    pack: List[str] = typer.Option(..., "--pack", help="Proof pack directory (repeatable)"),
+    lock: Optional[str] = typer.Option(None, "--lock", help="Path to vendorq.lock"),
+    strict: bool = typer.Option(False, "--strict", help="Treat stale evidence as errors"),
+    report_out: str = typer.Option(".assay/vendorq/verify_report.json", "--report-out", help="Write verify report JSON"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Verify vendor questionnaire answers against evidence packs and lockfile."""
+    from pathlib import Path
+
+    from assay.vendorq_index import build_evidence_index
+    from assay.vendorq_lock import load_vendorq_lock
+    from assay.vendorq_models import VendorQInputError, load_json, write_json
+    from assay.vendorq_verify import verify_answers_payload
+
+    try:
+        answers_payload = load_json(Path(answers))
+        evidence_index = build_evidence_index([Path(p) for p in pack])
+        policy_name = str(answers_payload.get("policy_profile", "conservative"))
+        lock_payload = load_vendorq_lock(Path(lock)) if lock else None
+        report = verify_answers_payload(
+            answers_payload=answers_payload,
+            evidence_index=evidence_index,
+            policy_name=policy_name,
+            strict=bool(strict),
+            lock_payload=lock_payload,
+        )
+        write_json(Path(report_out), report)
+    except VendorQInputError as e:
+        if output_json:
+            _output_json({"command": "vendorq verify", "status": "error", "error": str(e)}, exit_code=3)
+        console.print(f"[red]Error:[/] {e}")
+        raise typer.Exit(3)
+
+    failed = report["status"] != "ok"
+    exit_code = 2 if failed else 0
+
+    if output_json:
+        _output_json(
+            {
+                "command": "vendorq verify",
+                **report,
+                "report_out": report_out,
+            },
+            exit_code=exit_code,
+        )
+
+    color = "green" if not failed else "red"
+    console.print()
+    console.print(Panel.fit(
+        f"[bold {color}]VENDORQ {'VERIFICATION PASSED' if not failed else 'VERIFICATION FAILED'}[/]\n\n"
+        f"Answers:          {answers}\n"
+        f"Strict mode:      {strict}\n"
+        f"Errors:           {report['summary']['errors']}\n"
+        f"Warnings:         {report['summary']['warnings']}\n"
+        f"Evidence chains:  {len(report.get('evidence_navigation', []))}\n"
+        f"Report:           {report_out}",
+        title="assay vendorq verify",
+    ))
+    if failed:
+        for err in report.get("errors", [])[:20]:
+            console.print(f"  [red]{err['code']}[/]: {err['message']}")
+        console.print()
+        raise typer.Exit(2)
+    console.print()
+
+
+@vendorq_app.command("export")
+def vendorq_export_cmd(
+    answers: str = typer.Option(..., "--answers", help="Path to vendorq.answer.v1 JSON"),
+    format: str = typer.Option(..., "--format", help="Export format: json|md"),
+    out: str = typer.Option(..., "--out", "-o", help="Output file path"),
+    verify_report: Optional[str] = typer.Option(None, "--verify-report", help="Optional vendorq.verify_report.v1 JSON"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Export answers to JSON or Markdown auditor packet."""
+    from pathlib import Path
+
+    from assay.vendorq_export import export_answers
+    from assay.vendorq_models import VendorQInputError, load_json
+
+    try:
+        answers_payload = load_json(Path(answers))
+        verify_payload = load_json(Path(verify_report)) if verify_report else None
+        export_answers(
+            answers_payload=answers_payload,
+            fmt=format,
+            out_path=Path(out),
+            verify_report=verify_payload,
+        )
+    except VendorQInputError as e:
+        if output_json:
+            _output_json({"command": "vendorq export", "status": "error", "error": str(e)}, exit_code=3)
+        console.print(f"[red]Error:[/] {e}")
+        raise typer.Exit(3)
+
+    if output_json:
+        _output_json(
+            {
+                "command": "vendorq export",
+                "status": "ok",
+                "format": format,
+                "output": out,
+            },
+            exit_code=0,
+        )
+
+    console.print()
+    console.print(Panel.fit(
+        f"[bold green]VendorQ Export Complete[/]\n\n"
+        f"Input:    {answers}\n"
+        f"Format:   {format}\n"
+        f"Output:   {out}",
+        title="assay vendorq export",
+    ))
+    console.print()
+
+
+@vendorq_lock_app.command("write")
+def vendorq_lock_write_cmd(
+    answers: str = typer.Option(..., "--answers", help="Path to vendorq.answer.v1 JSON"),
+    pack: List[str] = typer.Option(..., "--pack", help="Proof pack directory (repeatable)"),
+    out: str = typer.Option("vendorq.lock", "--out", "-o", help="Output lock path"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Write vendorq.lock with pinned questions/answers/policy and pack digests."""
+    from pathlib import Path
+
+    from assay.vendorq_index import build_evidence_index
+    from assay.vendorq_lock import lock_fingerprint, write_vendorq_lock
+    from assay.vendorq_models import VendorQInputError, load_json
+
+    try:
+        answers_payload = load_json(Path(answers))
+        evidence_index = build_evidence_index([Path(p) for p in pack])
+        lock_payload = write_vendorq_lock(answers_payload, evidence_index, Path(out))
+    except VendorQInputError as e:
+        if output_json:
+            _output_json({"command": "vendorq lock write", "status": "error", "error": str(e)}, exit_code=3)
+        console.print(f"[red]Error:[/] {e}")
+        raise typer.Exit(3)
+
+    if output_json:
+        _output_json(
+            {
+                "command": "vendorq lock write",
+                "status": "ok",
+                "output": out,
+                "fingerprint": lock_fingerprint(lock_payload),
+                "pack_count": len(lock_payload["pack_digests"]),
+            },
+            exit_code=0,
+        )
+
+    console.print()
+    console.print(Panel.fit(
+        f"[bold green]vendorq.lock written[/]\n\n"
+        f"Path:         {out}\n"
+        f"Policy:       {lock_payload['policy_profile']}\n"
+        f"Pack digests: {len(lock_payload['pack_digests'])}",
+        title="assay vendorq lock write",
+    ))
+    console.print()
+
+
 ci_app = typer.Typer(
     name="ci",
     help="Generate CI workflows for Assay verification",

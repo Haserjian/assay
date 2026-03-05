@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://assay.dev/schemas/vendorq.verify_report.v1.schema.json",
+  "title": "VendorQ Verify Report v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "verified_at",
+    "status",
+    "strict",
+    "summary",
+    "errors",
+    "warnings",
+    "evidence_navigation"
+  ],
+  "properties": {
+    "schema_version": {"type": "string", "const": "vendorq.verify_report.v1"},
+    "verified_at": {"type": "string", "format": "date-time"},
+    "status": {"type": "string", "enum": ["ok", "failed"]},
+    "strict": {"type": "boolean"},
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total_answers", "errors", "warnings"],
+      "properties": {
+        "total_answers": {"type": "integer", "minimum": 0},
+        "errors": {"type": "integer", "minimum": 0},
+        "warnings": {"type": "integer", "minimum": 0}
+      }
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "message", "question_id", "answer_id"],
+        "properties": {
+          "code": {"type": "string", "minLength": 1},
+          "message": {"type": "string", "minLength": 1},
+          "question_id": {"type": "string"},
+          "answer_id": {"type": "string"}
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "message", "question_id", "answer_id"],
+        "properties": {
+          "code": {"type": "string", "minLength": 1},
+          "message": {"type": "string", "minLength": 1},
+          "question_id": {"type": "string"},
+          "answer_id": {"type": "string"}
+        }
+      }
+    },
+    "evidence_navigation": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["question_id", "answer_id", "evidence_ref", "receipt_pointer", "pack_digest", "verify_command"],
+        "properties": {
+          "question_id": {"type": "string", "minLength": 1},
+          "answer_id": {"type": "string", "minLength": 1},
+          "evidence_ref": {"$ref": "https://assay.dev/schemas/vendorq.evidence_ref.v1.schema.json"},
+          "receipt_pointer": {"type": "string", "minLength": 1},
+          "pack_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "verify_command": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  }
+}

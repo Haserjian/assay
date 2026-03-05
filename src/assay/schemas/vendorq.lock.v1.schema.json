@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://assay.dev/schemas/vendorq.lock.v1.schema.json",
+  "title": "VendorQ Lock v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "lock_version",
+    "questions_hash",
+    "answers_hash",
+    "policy_profile",
+    "policy_fingerprint",
+    "pack_digests",
+    "schema_versions",
+    "created_at",
+    "created_by_assay_version"
+  ],
+  "properties": {
+    "lock_version": {"type": "string", "const": "1.0"},
+    "questions_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "answers_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "policy_profile": {"type": "string", "enum": ["conservative", "balanced"]},
+    "policy_fingerprint": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "pack_digests": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["pack_id", "digest", "path"],
+        "properties": {
+          "pack_id": {"type": "string", "minLength": 1},
+          "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "path": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "schema_versions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["question", "answer", "evidence_ref", "verify_report"],
+      "properties": {
+        "question": {"type": "string", "const": "vendorq.question.v1"},
+        "answer": {"type": "string", "const": "vendorq.answer.v1"},
+        "evidence_ref": {"type": "string", "const": "vendorq.evidence_ref.v1"},
+        "verify_report": {"type": "string", "const": "vendorq.verify_report.v1"}
+      }
+    },
+    "created_at": {"type": "string", "format": "date-time"},
+    "created_by_assay_version": {"type": "string", "minLength": 1}
+  }
+}

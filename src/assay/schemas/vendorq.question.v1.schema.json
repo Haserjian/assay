@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://assay.dev/schemas/vendorq.question.v1.schema.json",
+  "title": "VendorQ Question Payload v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_at", "source", "questions"],
+  "properties": {
+    "schema_version": {"type": "string", "const": "vendorq.question.v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "source": {"type": "string", "minLength": 1},
+    "questions_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "questions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["question_id", "question_text", "type_hint", "required_format"],
+        "properties": {
+          "question_id": {"type": "string", "minLength": 1},
+          "question_text": {"type": "string", "minLength": 1},
+          "type_hint": {
+            "type": "string",
+            "enum": ["yes_no", "free_text", "numeric", "multi_select", "unknown"]
+          },
+          "required_format": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,7 @@
+question_id,question_text,type_hint,required_format
+Q1,Does your system produce tamper-evident audit trails for AI model calls?,yes_no,text
+Q2,How many AI model call receipts were captured in the most recent evidence pack?,numeric,number
+Q3,Describe the process for reviewing AI model behavior changes before deployment.,free_text,text
+Q4,Do you hold SOC 2 Type II certification?,yes_no,text
+Q5,Is there an incident response procedure for AI model failures?,yes_no,text
+Q6,What data retention policy applies to AI model call logs?,free_text,text

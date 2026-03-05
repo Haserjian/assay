@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://assay.dev/schemas/vendorq.evidence_ref.v1.schema.json",
+  "title": "VendorQ EvidenceRef v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "pack_id",
+    "receipt_id",
+    "evidence_kind",
+    "target",
+    "span_hash",
+    "field_path",
+    "time_authority",
+    "evidence_timestamp"
+  ],
+  "properties": {
+    "pack_id": {"type": "string", "minLength": 1},
+    "receipt_id": {"type": "string", "minLength": 1},
+    "evidence_kind": {
+      "type": "string",
+      "enum": ["RECEIPT", "PACK_TRANSCRIPT", "REPORT_SECTION", "FILE_HASH"]
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "pointer"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "pointer": {"type": "string", "minLength": 0}
+      }
+    },
+    "span_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "field_path": {"type": "string"},
+    "time_authority": {"type": "string", "minLength": 1},
+    "evidence_timestamp": {"type": "string", "format": "date-time"}
+  }
+}
