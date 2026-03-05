@@ -81,7 +81,7 @@ These rules are fail-closed: if the verifier can't confirm a claim, it flags it.
 - That instrumentation is complete (uninstrumented calls produce no receipts)
 - Legal or regulatory compliance
 
-For the full guarantees boundary, see the [Guarantees Matrix](https://github.com/Haserjian/assay).
+**Boundary statement:** Assay proves that evidence hasn't been tampered with and that claims trace to that evidence. It does not prove the evidence is true, complete, or legally sufficient. Each gap has a named upgrade path (trust tiers T0-T3).
 
 ---
 
