@@ -103,8 +103,10 @@ assay vendorq export \
   --verify-report "$WORK_DIR/verify_report.json" \
   --format md \
   --out "$WORK_DIR/vendor_packet.md" \
+  --coverage-out "$WORK_DIR/coverage_receipt.json" \
   --json > "$WORK_DIR/export_output.json"
 echo "  Exported: $WORK_DIR/vendor_packet.md"
+echo "  Coverage: $WORK_DIR/coverage_receipt.json"
 echo ""
 
 # ── Tamper path ───────────────────────────────────────────────────────
@@ -152,12 +154,13 @@ echo "========================================="
 echo "  DEMO READY"
 echo "========================================="
 echo ""
-echo "  Pack:            $PACK_DIR"
-echo "  Work dir:        $WORK_DIR"
-echo "  Clean answers:   $WORK_DIR/answers.json"
-echo "  Lockfile:        $WORK_DIR/vendorq.lock"
-echo "  Verify report:   $WORK_DIR/verify_report.json"
-echo "  Markdown packet: $WORK_DIR/vendor_packet.md"
+echo "  Pack:             $PACK_DIR"
+echo "  Work dir:         $WORK_DIR"
+echo "  Clean answers:    $WORK_DIR/answers.json"
+echo "  Lockfile:         $WORK_DIR/vendorq.lock"
+echo "  Verify report:    $WORK_DIR/verify_report.json"
+echo "  Markdown packet:  $WORK_DIR/vendor_packet.md"
+echo "  Coverage receipt: $WORK_DIR/coverage_receipt.json"
 echo ""
 echo "  During the demo, tamper with:"
 echo "    python3 -c \"import json,pathlib; p=pathlib.Path('$WORK_DIR/answers.json'); o=json.loads(p.read_text()); o['answers'][0]['status']='ANSWERED'; o['answers'][0]['answer_bool']=True; o['answers'][0]['missing_evidence_requests']=[]; p.write_text(json.dumps(o,indent=2)+'\\\\n')\""
