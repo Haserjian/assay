@@ -95,7 +95,7 @@ class AssayCallbackHandler:
         """
         if not _check_langchain():
             raise ImportError(
-                "LangChain not installed. Install with: pip install langchain-core"
+                "LangChain not installed. Install with: python3 -m pip install langchain-core"
             )
 
         self.store_prompts = store_prompts

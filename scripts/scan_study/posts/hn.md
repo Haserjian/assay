@@ -8,7 +8,7 @@ Show HN: I scanned 30 popular AI projects for tamper-evident LLM evidence. 0 had
 
 Assay produces tamper-evident audit trails for AI systems. Whoever controls the server controls the story -- logs aren't proof. Try it on your own repo:
 
-    pip install assay-ai && assay scan . --report
+    python3 -m pip install assay-ai && assay scan . --report
 
 That generates a self-contained HTML gap report you can open in a browser -- no server, no account, one file.
 
@@ -42,7 +42,7 @@ The lockfile catches config drift. Verify-pack catches tampering (exit 2). Diff 
 
 Want to see tamper detection in 5 seconds?
 
-    pip install assay-ai && assay demo-challenge
+    python3 -m pip install assay-ai && assay demo-challenge
     assay verify-pack challenge_pack/good/       # PASS
     assay verify-pack challenge_pack/tampered/    # FAIL (one byte changed)
 

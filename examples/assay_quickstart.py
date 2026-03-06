@@ -8,11 +8,11 @@ Demonstrates the complete flow:
 3. Use integrations for automatic receipt emission
 
 Run mock demo (no API key needed):
-    pip install assay-ai
+    python3 -m pip install assay-ai
     python examples/assay_quickstart.py
 
 Run with real OpenAI calls (requires OPENAI_API_KEY):
-    pip install assay-ai[openai]
+    python3 -m pip install "assay-ai[openai]"
     python examples/assay_quickstart.py --live
 
 Or just run the built-in demo:
@@ -121,7 +121,7 @@ def run_live_demo():
         from openai import OpenAI  # noqa: F401
     except ImportError:
         print("ERROR: openai package not installed")
-        print("Install with: pip install assay-ai[openai]")
+        print("Install with: python3 -m pip install \"assay-ai[openai]\"")
         sys.exit(1)
 
     api_key = os.environ.get("OPENAI_API_KEY")

@@ -132,7 +132,7 @@ def load_policy(path: Path) -> MCPPolicy:
         import yaml
     except ImportError:
         raise PolicyLoadError(
-            "PyYAML is required for MCP policy files: pip install pyyaml"
+            "PyYAML is required for MCP policy files: python3 -m pip install pyyaml"
         )
 
     if not path.exists():

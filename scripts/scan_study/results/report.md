@@ -42,7 +42,7 @@ verifiability ("we can prove what happened, cryptographically").
 I used [`assay scan`](https://github.com/Haserjian/assay) -- an AST-based static scanner.
 
 ```bash
-pip install assay-ai
+python3 -m pip install assay-ai
 assay scan .  # run it on your own project
 ```
 
@@ -189,7 +189,7 @@ The proof pack is a 5-file evidence bundle: receipts, manifest, signature, verif
 ## Try it yourself
 
 ```bash
-pip install assay-ai
+python3 -m pip install assay-ai
 assay scan .          # find uninstrumented call sites
 assay doctor          # check your setup
 assay demo-pack       # see a complete proof pack (no API key needed)
@@ -213,7 +213,7 @@ same process -- open an issue with the file and line.
 ```bash
 git clone https://github.com/Haserjian/assay.git
 cd assay
-pip install -e .
+python3 -m pip install -e .
 cd scripts/scan_study
 ./run_study.sh                 # clone 30 repos, scan each, aggregate
 python generate_report.py      # generate report.md from results.csv

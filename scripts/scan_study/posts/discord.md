@@ -20,7 +20,7 @@ assay patch .  # auto-inserts the integration into your entrypoint
 
 Check your repo (generates an HTML gap report):
 ```
-pip install assay-ai && assay scan . --report
+python3 -m pip install assay-ai && assay scan . --report
 ```
 
 See tamper detection in 5 seconds:

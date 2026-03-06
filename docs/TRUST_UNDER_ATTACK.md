@@ -4,7 +4,7 @@
 
 Assay's verifier is tested against a suite of adversarial attacks that simulate real-world tampering of AI execution evidence. Every attack produces a deterministic error code. Every attack is caught. This report documents the results.
 
-Run it yourself: `pip install assay-ai && pytest tests/assay/test_adversarial_attacks.py -v`
+From a repo checkout: `python3 -m pip install -e ".[dev]" && python3 -m pytest tests/assay/test_adversarial_attacks.py -v`
 
 ---
 
@@ -88,11 +88,10 @@ These rules are fail-closed: if the verifier can't confirm a claim, it flags it.
 ## Reproduce These Results
 
 ```bash
-pip install assay-ai
 git clone https://github.com/Haserjian/assay.git
 cd assay
-pip install -e ".[dev]"
-pytest tests/assay/test_adversarial_attacks.py -v
+python3 -m pip install -e ".[dev]"
+python3 -m pytest tests/assay/test_adversarial_attacks.py -v
 ```
 
 All 16 tests pass in < 1 second on commodity hardware. The test suite runs in CI on every pull request.

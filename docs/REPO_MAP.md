@@ -23,7 +23,7 @@ Canonical reference for what lives where, what's public, and what ships from eac
 
 Everything a user needs to install, scan, instrument, run, verify, and gate:
 
-- `src/assay/` -- Python package (`pip install assay-ai`)
+- `src/assay/` -- Python package (`python3 -m pip install assay-ai`)
 - `tests/assay/` -- Full test suite
 - `conformance/` -- Verifier ABI corpus (6 packs, expected outcomes)
 - `docs/` -- Quickstart, decision escrow, compliance guide, specs, pilot program

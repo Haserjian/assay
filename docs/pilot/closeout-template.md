@@ -132,7 +132,7 @@
 
 Everything delivered during this pilot is yours. The CI gate runs on your
 infrastructure. The proof packs live in your artifact store. The lockfile
-prevents drift. Assay itself is open source (`pip install assay-ai`).
+prevents drift. Assay itself is open source (`python3 -m pip install assay-ai`).
 
 Useful commands for ongoing ops:
 ```bash

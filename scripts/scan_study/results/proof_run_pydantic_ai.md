@@ -155,7 +155,7 @@ $ assay explain proof_pack_trace_20260219T174534_2f27ba55/
 ## Reproduce
 
 ```bash
-pip install assay-ai
+python3 -m pip install assay-ai
 git clone https://github.com/pydantic/pydantic-ai.git
 cd pydantic-ai
 git checkout 8f74af04

@@ -287,7 +287,7 @@ def patch(
         from anthropic.resources import messages
     except ImportError:
         raise ImportError(
-            "Anthropic package not installed. Install with: pip install anthropic"
+            "Anthropic package not installed. Install with: python3 -m pip install anthropic"
         )
 
     _patch_config = {

@@ -31,7 +31,7 @@ class TestOpenAIIntegration:
                     import openai  # noqa: F401
                     from openai.resources.chat import completions  # noqa: F401
                 except (ImportError, TypeError):
-                    raise ImportError("OpenAI package not installed. Install with: pip install openai")
+                    raise ImportError("OpenAI package not installed. Install with: python3 -m pip install openai")
 
     def test_hash_content(self):
         """Hash content produces consistent output."""

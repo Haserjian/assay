@@ -1124,7 +1124,7 @@ tr:hover { background: rgba(255,255,255,0.02); }
 
     var cta = el("div", {className: "footer-cta"}, [
       el("div", {textContent: "Get started:"}),
-      el("code", {textContent: "pip install assay-ai && assay scan . --report"}),
+      el("code", {textContent: "python3 -m pip install assay-ai && assay scan . --report"}),
     ]);
     footer.appendChild(cta);
 

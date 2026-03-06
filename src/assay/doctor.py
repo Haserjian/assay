@@ -199,7 +199,7 @@ def _check_core_001() -> DoctorCheckResult:
             severity=Severity.CRITICAL,
             message="Assay not importable",
             evidence={"error": str(e)},
-            fix="pip install assay-ai",
+            fix="python3 -m pip install assay-ai",
         )
 
 

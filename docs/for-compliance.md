@@ -51,7 +51,7 @@ honestly are more trustworthy than systems that always claim to pass.
 ## What an Auditor Review Looks Like
 
 1. Receive a evidence pack directory from the engineering team
-2. Install Assay: `pip install assay-ai`
+2. Install Assay: `python3 -m pip install assay-ai`
 3. Verify independently: `assay verify-pack ./proof_pack_*/`
 4. Read the summary: `assay explain ./proof_pack_*/`
 

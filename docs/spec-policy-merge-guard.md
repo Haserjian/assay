@@ -269,7 +269,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install Assay
-        run: pip install assay-ai
+        run: python -m pip install assay-ai
 
       - name: Collect evidence packs
         run: |

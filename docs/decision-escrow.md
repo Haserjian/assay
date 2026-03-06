@@ -64,7 +64,7 @@ assay diff ./baseline_pack/ ./proof_pack_*/ --gate-cost-pct 25 --gate-errors 0 -
 ```
 
 This produces a portable proof pack that any third party can verify
-offline with `pip install assay-ai && assay verify-pack ./proof_pack_*/`.
+offline with `python3 -m pip install assay-ai && assay verify-pack ./proof_pack_*/`.
 
 ## What Assay Proves
 
@@ -101,7 +101,7 @@ doesn't make fraud impossible. It makes fraud expensive.
 When evaluating an AI vendor:
 
 1. Ask for a proof pack from a recent run.
-2. Install Assay: `pip install assay-ai`
+2. Install Assay: `python3 -m pip install assay-ai`
 3. Verify: `assay verify-pack ./their_pack/`
 4. Read the summary: `assay explain ./their_pack/`
 

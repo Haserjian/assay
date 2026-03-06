@@ -307,7 +307,7 @@ def patch(
     except ImportError:
         raise ImportError(
             "google-generativeai package not installed. "
-            "Install with: pip install google-generativeai"
+            "Install with: python3 -m pip install google-generativeai"
         )
 
     _patch_config = {

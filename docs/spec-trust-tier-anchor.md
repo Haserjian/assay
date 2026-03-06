@@ -37,7 +37,7 @@ timestamping and transparency log in one integration).
 ### Package
 
 ```bash
-pip install assay-ai[witness]
+python3 -m pip install "assay-ai[witness]"
 ```
 
 Optional dependency: `sigstore>=3.0.0`.

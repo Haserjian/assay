@@ -261,7 +261,7 @@ def patch(
         import litellm  # noqa: F401
     except ImportError:
         raise ImportError(
-            "litellm package not installed. Install with: pip install litellm"
+            "litellm package not installed. Install with: python3 -m pip install litellm"
         )
 
     _patch_config = {

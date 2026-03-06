@@ -51,7 +51,7 @@ The lockfile catches config drift. Verify-pack catches tampering (exit 2). Diff 
 **See tamper detection in 5 seconds:**
 
 ```bash
-pip install assay-ai && assay demo-challenge
+python3 -m pip install assay-ai && assay demo-challenge
 assay verify-pack challenge_pack/good/       # PASS
 assay verify-pack challenge_pack/tampered/   # FAIL -- one byte changed
 ```

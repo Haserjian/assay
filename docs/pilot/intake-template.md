@@ -87,7 +87,7 @@ If you've already run Assay, paste the output here:
 
 ```bash
 # Install and scan:
-pip install assay-ai
+python3 -m pip install assay-ai
 assay scan . --report
 ```
 

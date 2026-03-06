@@ -533,7 +533,7 @@ def patch(
         from openai.resources.chat import completions
     except ImportError:
         raise ImportError(
-            "OpenAI package not installed. Install with: pip install openai"
+            "OpenAI package not installed. Install with: python3 -m pip install openai"
         )
 
     _patch_config = {

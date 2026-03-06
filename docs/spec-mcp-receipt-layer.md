@@ -22,7 +22,7 @@ protocol surface.
 ### Package
 
 ```bash
-pip install assay-ai[mcp]
+python3 -m pip install "assay-ai[mcp]"
 ```
 
 Optional dependency: `mcp>=1.0.0` (the official MCP Python SDK).
@@ -499,7 +499,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install
-        run: pip install assay-ai[mcp] -e .
+        run: python -m pip install "assay-ai[mcp]" -e .
 
       - name: Run MCP server with test client
         run: |

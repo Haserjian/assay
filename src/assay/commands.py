@@ -57,7 +57,7 @@ console = Console()
 
 assay_app = typer.Typer(
     name="assay",
-    help="Evidence compiler for AI code changes. pip install assay-ai -- works standalone.",
+    help="Evidence compiler for AI code changes. Install with python3 -m pip install assay-ai. Works standalone.",
     no_args_is_help=True,
 )
 
@@ -1773,7 +1773,7 @@ def score_cmd(
 
     For CI enforcement, use `assay gate check` instead.
 
-    Assay works standalone -- no other tools required. Just `pip install assay-ai`.
+    Assay works standalone -- no other tools required. Just `python3 -m pip install assay-ai`.
     """
     from pathlib import Path as P
 
@@ -5559,7 +5559,7 @@ jobs:
       - name: Install Assay
         run: |
           python -m pip install --upgrade pip
-          pip install "assay-ai=={__version__}"
+          python -m pip install "assay-ai=={__version__}"
 
       - name: Score Gate
         run: |
@@ -5590,7 +5590,7 @@ jobs:
       - name: Install Assay
         run: |
           python -m pip install --upgrade pip
-          pip install "assay-ai=={__version__}"
+          python -m pip install "assay-ai=={__version__}"
 
       # Install your project dependencies before this step if needed.
       - name: Generate Proof Pack
@@ -5622,7 +5622,7 @@ jobs:
       - name: Install Assay
         run: |
           python -m pip install --upgrade pip
-          pip install "assay-ai=={__version__}"
+          python -m pip install "assay-ai=={__version__}"
 
       - name: Generate Evidence Report
         run: |
@@ -6794,12 +6794,12 @@ def quickstart_cmd(
     if not next_steps:
         _print("[dim]No AI call sites found.[/] Add SDK integrations and re-scan:")
         _print()
-        _print(f"  pip install assay-ai[openai]")
+        _print("  python3 -m pip install 'assay-ai[openai]'")
         _print(f"  # Add to your entrypoint:")
         _print(f"  # from assay.integrations.openai import patch; patch()")
         _print()
         _print(f"  Then re-run: [bold]{scan_cmd}[/]")
-        results["next_steps"] = [f"Install SDK: pip install assay-ai[openai]", f"Re-scan: {scan_cmd}"]
+        results["next_steps"] = [f"Install SDK: python3 -m pip install 'assay-ai[openai]'", f"Re-scan: {scan_cmd}"]
     else:
         next_steps.insert(0, f"View gap report:      {scan_cmd}")
         _print("[bold]Next steps:[/]")
@@ -6954,7 +6954,7 @@ def demo_challenge_cmd(
         "Two proof packs. One is authentic. One has been tampered with.\n"
         "Your machine decides which is real.\n\n"
         "```bash\n"
-        "pip install assay-ai\n"
+        "python3 -m pip install assay-ai\n"
         "assay verify-pack ./good/\n"
         "assay verify-pack ./tampered/\n"
         "```\n\n"
@@ -7968,7 +7968,7 @@ _VERIFY_INSTRUCTIONS_MD = """\
 ## Prerequisites
 
 ```bash
-pip install assay-ai
+python3 -m pip install assay-ai
 ```
 
 ## Step 1: Extract the bundle
@@ -8160,7 +8160,7 @@ def audit_bundle_cmd(
     ))
     console.print()
     console.print(f"[dim]Hand off [bold]{out_path}[/bold] to the auditor.[/]")
-    console.print(f"[dim]Auditor verifies with:[/] pip install assay-ai && tar xzf {out_path.name} && assay verify-pack .")
+    console.print(f"[dim]Auditor verifies with:[/] python3 -m pip install assay-ai && tar xzf {out_path.name} && assay verify-pack .")
     console.print()
 
 

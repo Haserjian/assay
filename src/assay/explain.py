@@ -201,7 +201,7 @@ def render_text(info: Dict[str, Any]) -> str:
 
     # How to verify
     lines.append("VERIFY INDEPENDENTLY")
-    lines.append(f"  pip install assay-ai && assay verify-pack {info['pack_dir']}")
+    lines.append(f"  python3 -m pip install assay-ai && assay verify-pack {info['pack_dir']}")
     lines.append("")
 
     return "\n".join(lines)
@@ -311,7 +311,7 @@ def render_md(info: Dict[str, Any]) -> str:
     lines.append("## Verify Independently")
     lines.append("")
     lines.append("```bash")
-    lines.append(f"pip install assay-ai && assay verify-pack {info['pack_dir']}")
+    lines.append(f"python3 -m pip install assay-ai && assay verify-pack {info['pack_dir']}")
     lines.append("```")
     lines.append("")
 

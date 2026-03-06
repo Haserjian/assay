@@ -5,7 +5,7 @@
 #   cd ~/assay/scripts/scan_study
 #   ./run_study.sh
 #
-# Requires: assay (pip install assay-ai), git, jq, gh
+# Requires: assay (python3 -m pip install assay-ai), git, jq, gh
 # Output:  results/ directory with per-repo JSON + aggregated CSV + report
 
 set -euo pipefail
@@ -24,7 +24,7 @@ mkdir -p "${WORK_DIR}" "${RESULTS_DIR}"
 
 # Verify assay is available
 if ! command -v assay &>/dev/null; then
-    echo "ERROR: assay not found. Install with: pip install assay-ai"
+    echo "ERROR: assay not found. Install with: python3 -m pip install assay-ai"
     exit 1
 fi
 
