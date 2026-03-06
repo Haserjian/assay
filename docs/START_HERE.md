@@ -11,6 +11,7 @@ assay version
 
 Requires Python 3.9+. Installs the `assay` CLI with zero runtime dependencies on your production code.
 If bare `pip` is not on `PATH` on macOS, use `python3 -m pip` (recommended) or `pip3 install assay-ai`.
+On Windows, use `py -m pip install assay-ai` or `python -m pip install assay-ai`.
 
 Installing Assay gives you the CLI and receipt runtime. It does **not**
 record anything until your app is instrumented and run through Assay.

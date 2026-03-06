@@ -16,6 +16,7 @@ assay quickstart   # requires Python 3.9+
 ```
 
 If bare `pip` is not on `PATH` on macOS, use `python3 -m pip` (recommended) or `pip3 install assay-ai`.
+On Windows, use `py -m pip install assay-ai` or `python -m pip install assay-ai` (`python3` is not typically available on Windows).
 Confirm the CLI is installed with `assay version`.
 
 Prefer a deterministic setup path? Start here:

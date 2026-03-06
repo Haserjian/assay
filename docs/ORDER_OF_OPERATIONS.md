@@ -24,7 +24,7 @@ The default spine: **scan -> patch -> run -> verify-pack -> lock -> CI gate**.
 **Goal:** See that tampering shows up as exit 2.
 
 ```bash
-python3 -m pip install assay-ai
+python3 -m pip install assay-ai   # on Windows: py -m pip install assay-ai
 assay quickstart .
 assay verify-pack ./challenge_pack/good/       # exit 0 (pass)
 assay verify-pack ./challenge_pack/tampered/    # exit 2 (tampered)

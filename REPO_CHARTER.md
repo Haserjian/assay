@@ -43,7 +43,7 @@ internal tooling, or proprietary logic belongs here.
 ## Consumer Workflow
 
 ```bash
-python3 -m pip install assay-ai          # install
+python3 -m pip install assay-ai          # install (on Windows: py -m pip install assay-ai)
 assay quickstart              # first-value in 2 minutes
 assay scan . --report         # find uninstrumented call sites
 assay patch .                 # auto-instrument

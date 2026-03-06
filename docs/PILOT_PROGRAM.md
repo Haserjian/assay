@@ -82,7 +82,7 @@ If you want ongoing support:
 
 Three ways to start:
 
-1. **Try it yourself first**: `python3 -m pip install assay-ai && assay quickstart`
+1. **Try it yourself first**: `python3 -m pip install assay-ai && assay quickstart` (on Windows: `py -m pip install assay-ai`)
 2. **Open a pilot inquiry**: [GitHub Issue](https://github.com/Haserjian/assay/issues/new?template=pilot-inquiry.md)
 3. **Email directly**: tim2208@gmail.com
 
