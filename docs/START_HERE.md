@@ -5,13 +5,17 @@ Six steps from install to evidence in CI.
 ## 1. Install
 
 ```bash
+# macOS / Linux
 python3 -m pip install assay-ai
-assay version
+```
+
+```powershell
+# Windows
+py -m pip install assay-ai
 ```
 
 Requires Python 3.9+. Installs the `assay` CLI with zero runtime dependencies on your production code.
-If bare `pip` is not on `PATH` on macOS, use `python3 -m pip` (recommended) or `pip3 install assay-ai`.
-On Windows, use `py -m pip install assay-ai` or `python -m pip install assay-ai`.
+Verify it's on PATH: `assay version`
 
 Installing Assay gives you the CLI and receipt runtime. It does **not**
 record anything until your app is instrumented and run through Assay.

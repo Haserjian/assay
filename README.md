@@ -11,13 +11,22 @@ cryptographically signed receipt bundles that a third party can verify
 offline without trusting your server logs. Two lines of code. Four exit codes.
 
 ```bash
+# macOS / Linux
 python3 -m pip install assay-ai
-assay quickstart   # requires Python 3.9+
 ```
 
-If bare `pip` is not on `PATH` on macOS, use `python3 -m pip` (recommended) or `pip3 install assay-ai`.
-On Windows, use `py -m pip install assay-ai` or `python -m pip install assay-ai` (`python3` is not typically available on Windows).
-Confirm the CLI is installed with `assay version`.
+```powershell
+# Windows
+py -m pip install assay-ai
+```
+
+Requires Python 3.9+. Verify the CLI is on PATH:
+
+```bash
+assay version
+```
+
+If `pip` isn't on your PATH, use the Python launcher (`python3 -m pip` on macOS/Linux, `py -m pip` on Windows).
 
 Prefer a deterministic setup path? Start here:
 [docs/START_HERE.md](docs/START_HERE.md)

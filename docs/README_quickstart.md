@@ -10,12 +10,16 @@ for compliance reviews, Assay replaces that process with one CI step.
 ## Install
 
 ```bash
+# macOS / Linux
 python3 -m pip install assay-ai
-assay version
 ```
 
-If bare `pip` is not on `PATH` on macOS, use `python3 -m pip` (recommended) or `pip3 install assay-ai`.
-On Windows, use `py -m pip install assay-ai` or `python -m pip install assay-ai`.
+```powershell
+# Windows
+py -m pip install assay-ai
+```
+
+Verify it's on PATH: `assay version`
 
 ## Install vs Instrument
 
