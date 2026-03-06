@@ -10,8 +10,36 @@ for compliance reviews, Assay replaces that process with one CI step.
 ## Install
 
 ```bash
-pip install assay-ai
+python3 -m pip install assay-ai
+assay version
 ```
+
+If bare `pip` is not on `PATH` on macOS, use `python3 -m pip` (recommended) or `pip3 install assay-ai`.
+
+## Install vs Instrument
+
+Installing Assay gives you two things:
+
+- a receipt runtime (`patch()`, callbacks, `emit_receipt(...)`)
+- an evidence compiler/verifier (`assay run`, `assay verify-pack`)
+
+Installing the package alone does **not** emit receipts. Receipts appear only
+when your app is instrumented and then run with Assay trace context.
+
+The normal flow is:
+
+```text
+assay patch .
+assay run -- python my_app.py
+assay verify-pack ./proof_pack_*/
+```
+
+What happens under the hood:
+
+1. `assay run` creates a trace id and sets `ASSAY_TRACE_ID`
+2. patched SDK calls or `emit_receipt(...)` write receipts to `~/.assay/...`
+3. Assay packages those receipts into `proof_pack_<trace_id>/`
+4. the manifest is signed and the pack can be verified offline
 
 ## See It Work (No API Key Required)
 
@@ -158,6 +186,15 @@ emit receipts yet.
 
 Only add `-c guardian_enforcement` after your runtime emits `guardian_verdict`
 receipts.
+
+### No receipts? Check these 4 things
+
+If `assay run` says no receipts were emitted, the usual causes are:
+
+1. you installed Assay but never instrumented the runtime
+2. `patch()` ran too late, after the first model call
+3. the provider SDK extra is missing, for example `python3 -m pip install "assay-ai[openai]"`
+4. you ran the app outside `assay run -- ...`, so the trace context was missing
 
 ### 4. Verify the pack
 

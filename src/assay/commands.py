@@ -3471,7 +3471,7 @@ def run_cmd(
                     "fixes": [
                         "assay scan .",
                         "assay scan . --report",
-                        "pip install assay-ai[openai]",
+                        "python3 -m pip install 'assay-ai[openai]'",
                         "assay run -- python app.py",
                         "assay doctor",
                     ],
@@ -3487,7 +3487,7 @@ def run_cmd(
             "  2. Check patch status:    [bold]assay scan . --report[/]\n"
             "     patch() must execute before any LLM API calls.\n"
             "     Your script needs [bold]# assay:patched[/] or an early import.\n"
-            "  3. Missing SDK extra:     [bold]pip install assay-ai\\[openai][/]\n"
+            "  3. Missing SDK extra:     [bold]python3 -m pip install 'assay-ai\\[openai]'[/]\n"
             "     (or assay-ai\\[anthropic], assay-ai\\[all])\n"
             "  4. Missing separator:     [bold]assay run -- python app.py[/] (note the --)\n"
             "  5. Full diagnostic:       [bold]assay doctor[/]\n"
@@ -4639,6 +4639,7 @@ def vendorq_export_cmd(
     format: str = typer.Option(..., "--format", help="Export format: json|md"),
     out: str = typer.Option(..., "--out", "-o", help="Output file path"),
     verify_report: Optional[str] = typer.Option(None, "--verify-report", help="Optional vendorq.verify_report.v1 JSON"),
+    coverage_out: Optional[str] = typer.Option(None, "--coverage-out", help="Optional vendorq.coverage_receipt.v1 JSON sidecar"),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Export answers to JSON or Markdown auditor packet."""
@@ -4655,6 +4656,7 @@ def vendorq_export_cmd(
             fmt=format,
             out_path=Path(out),
             verify_report=verify_payload,
+            coverage_out_path=Path(coverage_out) if coverage_out else None,
         )
     except VendorQInputError as e:
         if output_json:
@@ -4669,6 +4671,7 @@ def vendorq_export_cmd(
                 "status": "ok",
                 "format": format,
                 "output": out,
+                "coverage_output": coverage_out,
             },
             exit_code=0,
         )
@@ -4678,7 +4681,8 @@ def vendorq_export_cmd(
         f"[bold green]VendorQ Export Complete[/]\n\n"
         f"Input:    {answers}\n"
         f"Format:   {format}\n"
-        f"Output:   {out}",
+        f"Output:   {out}\n"
+        f"Coverage: {coverage_out or '(not written)'}",
         title="assay vendorq export",
     ))
     console.print()

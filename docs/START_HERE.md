@@ -1,14 +1,19 @@
 # Start Here
 
-Six steps from `pip install` to evidence in CI.
+Six steps from install to evidence in CI.
 
 ## 1. Install
 
 ```bash
-pip install assay-ai
+python3 -m pip install assay-ai
+assay version
 ```
 
 Requires Python 3.9+. Installs the `assay` CLI with zero runtime dependencies on your production code.
+If bare `pip` is not on `PATH` on macOS, use `python3 -m pip` (recommended) or `pip3 install assay-ai`.
+
+Installing Assay gives you the CLI and receipt runtime. It does **not**
+record anything until your app is instrumented and run through Assay.
 
 ## 2. See your score
 
@@ -18,6 +23,12 @@ assay score .
 ```
 
 `scan` finds every LLM call site (OpenAI, Anthropic, Gemini, LiteLLM, LangChain). `score` gives you an Evidence Readiness Score (0--100, A--F). This is your starting point.
+
+Think of the flow as:
+
+```text
+install Assay -> instrument the runtime -> run with a trace id -> build proof pack
+```
 
 ## 3. Generate a report
 

@@ -714,16 +714,27 @@
       For teams shipping AI agents, RAG pipelines, and autonomous workflows.
     </p>
     <div class="install" onclick="copyInstall(this)">
-      <span class="dollar">$ </span>pip install assay-ai && assay quickstart
+      <span class="dollar">$ </span>python3 -m pip install assay-ai && assay quickstart
       <span class="copied" id="copied">Copied!</span>
     </div>
     <p style="color: var(--text2); font-size: 13px; margin-top: 12px;">
-      Requires Python 3.9+. No API key needed. ~10s install. Uses synthetic data.
+      Requires Python 3.9+. No API key needed. ~10s install. Uses synthetic data. If bare pip is not on PATH on macOS, use python3 -m pip.
     </p>
   </div>
 </section>
 
 <div class="container">
+  <div style="max-width: 760px; margin: 24px auto 18px; padding: 16px 18px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg2);">
+    <p style="margin: 0 0 8px; font-size: 14px; font-weight: 600; color: var(--text);">
+      Installing Assay gives you the tools. Instrumentation makes receipts happen.
+    </p>
+    <p style="margin: 0; color: var(--text2); font-size: 14px; line-height: 1.6;">
+      <code>assay patch .</code> or <code>patch()</code> wires receipt emission into your runtime.
+      <code>assay run -- ...</code> launches your app with a trace id and packages emitted receipts into
+      <code>proof_pack_*</code>. <code>assay verify-pack</code> checks the artifact offline.
+      No instrumentation means no receipts.
+    </p>
+  </div>
   <p style="text-align:center; margin-bottom:8px; color:var(--text2); font-size:15px;">
     We scanned the ecosystem. Nobody has tamper-evident audit trails yet.
   </p>
@@ -1005,7 +1016,7 @@
         <h3>See an honest failure</h3>
         <p>Two-act scenario: a passing run, then someone swaps the model and drops the guardian.</p>
         <pre><span class="comment"># Act 1: PASS (exit 0). Act 2: honest FAIL (exit 1).</span>
-<span class="cmd">pip install assay-ai
+<span class="cmd">python3 -m pip install assay-ai
 assay demo-incident</span></pre>
         <p style="font-size:12px; color:var(--text2); margin-top:8px; margin-bottom:0;">You'll see: same system, different behavior, caught by the same contract.</p>
       </div>
@@ -1227,7 +1238,7 @@ assay verify-signer ./proof_pack_*/</span></pre>
     <h2>Ready to make your AI auditable?</h2>
     <p>Open source. Apache-2.0. Works with OpenAI, Anthropic, Google Gemini, LiteLLM, and LangChain today.</p>
     <div class="install" onclick="copyScan(this)" style="margin-bottom: 28px;">
-      <span class="dollar">$ </span>pip install assay-ai && assay scan . --report
+      <span class="dollar">$ </span>python3 -m pip install assay-ai && assay scan . --report
       <span class="copied">Copied!</span>
     </div>
     <div class="cta-buttons">
@@ -1343,14 +1354,14 @@ function filterGapTable() {
 }
 
 function copyInstall(el) {
-  navigator.clipboard.writeText('pip install assay-ai && assay quickstart');
+  navigator.clipboard.writeText('python3 -m pip install assay-ai && assay quickstart');
   const tip = el.querySelector('.copied');
   tip.classList.add('show');
   setTimeout(() => tip.classList.remove('show'), 1500);
 }
 
 function copyScan(el) {
-  navigator.clipboard.writeText('pip install assay-ai && assay scan . --report');
+  navigator.clipboard.writeText('python3 -m pip install assay-ai && assay scan . --report');
   const tip = el.querySelector('.copied');
   tip.classList.add('show');
   setTimeout(() => tip.classList.remove('show'), 1500);

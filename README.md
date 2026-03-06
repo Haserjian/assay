@@ -11,8 +11,12 @@ cryptographically signed receipt bundles that a third party can verify
 offline without trusting your server logs. Two lines of code. Four exit codes.
 
 ```bash
-pip install assay-ai && assay quickstart   # requires Python 3.9+
+python3 -m pip install assay-ai
+assay quickstart   # requires Python 3.9+
 ```
+
+If bare `pip` is not on `PATH` on macOS, use `python3 -m pip` (recommended) or `pip3 install assay-ai`.
+Confirm the CLI is installed with `assay version`.
 
 Prefer a deterministic setup path? Start here:
 [docs/START_HERE.md](docs/START_HERE.md)
@@ -31,7 +35,7 @@ Prefer a deterministic setup path? Start here:
 Try it now (no API key needed -- demos use synthetic data; with real calls, Assay instruments OpenAI, Anthropic, Gemini, LiteLLM, LangChain, and local models):
 
 ```bash
-pip install assay-ai
+python3 -m pip install assay-ai
 assay demo-challenge    # tamper detection: one valid pack, one with a single byte changed
 ```
 
@@ -103,6 +107,34 @@ The split is the point. Systems that can prove they failed honestly are
 more trustworthy than systems that always claim to pass.
 
 **With real calls:** `assay scan .` finds your actual OpenAI / Anthropic / Gemini / LiteLLM / LangChain call sites. `assay patch .` instruments them. Every real LLM call emits a signed receipt. The demos above use synthetic data so you can see verification without configuring anything.
+
+### How Assay captures evidence
+
+Installing Assay gives you the CLI, receipt store, and proof-pack builder.
+It does **not** automatically record your app.
+
+Receipts are emitted only when your runtime is instrumented:
+
+- `assay patch .` inserts the right Assay integration for supported SDKs
+- `patch()` wrappers emit receipts when model calls happen
+- `AssayCallbackHandler()` does the same for LangChain callback flows
+- `emit_receipt(...)` lets you record events manually in any stack
+
+`assay run -- <your command>` then does three things:
+
+1. creates a trace id
+2. runs your app with `ASSAY_TRACE_ID` in the environment
+3. packages any emitted receipts into `proof_pack_<trace_id>/`
+
+The result is a signed, offline-verifiable artifact:
+
+```text
+app execution
+  -> instrumented SDK or emit_receipt(...)
+  -> receipts written to ~/.assay/...
+  -> assay run packages them into proof_pack_<trace_id>/
+  -> assay verify-pack checks the artifact offline
+```
 
 ## Add to Your Project
 
@@ -370,10 +402,13 @@ Full command reference:
 
 - **"No receipts emitted" after `assay run`**: First, check whether your code
   has call sites: `assay scan .` -- if scan finds 0 sites, you may not be
-  using a supported SDK yet. If scan finds sites, check: (1) Is `# assay:patched`
-  in the file? Run `assay scan . --report` to see patch status per file.
-  (2) Did you install the SDK extra (`pip install assay-ai[openai]`)?
-  (3) Did you use `--` before your command (`assay run -- python app.py`)?
+  using a supported SDK yet. Installing Assay alone does not emit receipts;
+  your runtime must be instrumented. If scan finds sites, check:
+  (1) Is `# assay:patched` in the file, or did you add `patch()` / a callback?
+  Run `assay scan . --report` to see patch status per file.
+  (2) Did you install the SDK extra (`python3 -m pip install "assay-ai[openai]"`)?
+  (3) Did `patch()` execute before the first model call?
+  (4) Did you use `--` before your command (`assay run -- python app.py`)?
   Run `assay doctor` for a full diagnostic.
 
 - **LangChain projects**: `assay patch` auto-instruments OpenAI and Anthropic
@@ -394,11 +429,11 @@ Full command reference:
   where assay and your SDK are installed (e.g. `python3` → 3.14, but packages
   are in 3.11). Use a virtual environment (recommended), or specify the exact
   interpreter: `assay run -- python3.11 app.py`. Check with
-  `python3 --version` and compare to the Python where you ran `pip install`.
+  `python3 --version` and compare to the Python where you installed Assay.
 
 ## Get Involved
 
-- **Try it**: `pip install assay-ai && assay quickstart`
+- **Try it**: `python3 -m pip install assay-ai && assay quickstart`
 - **Questions / feedback**: [GitHub Discussions](https://github.com/Haserjian/assay/discussions)
 - **Bug reports**: [Issues](https://github.com/Haserjian/assay/issues)
 - **Want this in your stack in 2 weeks?** [Pilot program](docs/PILOT_PROGRAM.md) --
