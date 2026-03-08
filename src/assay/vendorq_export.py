@@ -88,20 +88,39 @@ def _render_markdown(
     return "\n".join(lines).rstrip() + "\n"
 
 
+def _build_coverage_receipt(answers_payload: Dict[str, Any]) -> Dict[str, Any]:
+    answers = answers_payload.get("answers", [])
+    by_status: Dict[str, int] = {}
+    for ans in answers:
+        s = str(ans.get("status", "UNKNOWN"))
+        by_status[s] = by_status.get(s, 0) + 1
+    return {
+        "schema_version": "vendorq.coverage.v1",
+        "total_questions": len(answers),
+        "breakdown": by_status,
+        "policy_profile": answers_payload.get("policy_profile", "unknown"),
+        "questions_hash": answers_payload.get("questions_hash", "unknown"),
+    }
+
+
 def export_answers(
     answers_payload: Dict[str, Any],
     fmt: str,
     out_path: Path,
     verify_report: Optional[Dict[str, Any]] = None,
+    coverage_out_path: Optional[Path] = None,
 ) -> None:
     f = fmt.strip().lower()
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     if f == "json":
         out_path.write_text(json.dumps(answers_payload, indent=2) + "\n")
-        return
-    if f == "md":
+    elif f == "md":
         out_path.write_text(_render_markdown(answers_payload, verify_report=verify_report), encoding="utf-8")
-        return
+    else:
+        raise VendorQInputError(f"unsupported_export_format: {fmt}")
 
-    raise VendorQInputError(f"unsupported_export_format: {fmt}")
+    if coverage_out_path is not None:
+        coverage_out_path.parent.mkdir(parents=True, exist_ok=True)
+        receipt = _build_coverage_receipt(answers_payload)
+        coverage_out_path.write_text(json.dumps(receipt, indent=2) + "\n")

@@ -26,10 +26,10 @@ check() {
 }
 
 echo "=== Preflight ==="
-check python -c "import assay"
-check python -c "from assay.vendorq_models import SCHEMA_VERSION_QUESTION"
-check python -c "from assay.keystore import AssayKeyStore"
-check python -c "from assay.proof_pack import ProofPack"
+check python3 -c "import assay"
+check python3 -c "from assay.vendorq_models import SCHEMA_VERSION_QUESTION"
+check python3 -c "from assay.keystore import AssayKeyStore"
+check python3 -c "from assay.proof_pack import ProofPack"
 check test -f "$DEMO_DIR/sample_questionnaire.csv"
 check test -f "$DEMO_DIR/build_demo_pack.py"
 check command -v assay
@@ -50,7 +50,7 @@ echo ""
 
 # ── Build ─────────────────────────────────────────────────────────────
 echo "=== 1. Build demo pack ==="
-python "$DEMO_DIR/build_demo_pack.py"
+python3 "$DEMO_DIR/build_demo_pack.py"
 echo ""
 
 echo "=== 2. Ingest ==="

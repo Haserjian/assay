@@ -7464,7 +7464,7 @@ def _fmt_delta(a_val, b_val, fmt: str = "d", prefix: str = "", suffix: str = "")
     return f"{color}{prefix}{delta_str}{pct}{end}"
 
 
-def _render_diff(result, *, gate_eval=None, exit_code: int | None = None, why_results=None) -> None:
+def _render_diff(result, *, gate_eval=None, exit_code=None, why_results=None) -> None:
     """Render diff result to console with Rich panels."""
     from assay.diff import DiffResult
 

@@ -246,6 +246,30 @@ assay analyze --history --since 7
 Shows cost, latency percentiles, error rates, and per-model breakdowns
 from your local trace history.
 
+## VendorQ: Verifiable Vendor Questionnaires
+
+Enterprise customers ask AI governance questions in security questionnaires.
+VendorQ compiles evidence-backed answer packets from Assay proof packs.
+Every answer traces to a signed receipt. Every modification is detectable.
+
+```bash
+# Ingest a questionnaire, compile answers against evidence, lock, verify
+assay vendorq ingest --in questionnaire.csv --out questions.json
+assay vendorq compile --questions questions.json --pack ./proof_pack --out answers.json
+assay vendorq lock write --answers answers.json --pack ./proof_pack --out vendorq.lock
+assay vendorq verify --answers answers.json --pack ./proof_pack --lock vendorq.lock --strict
+```
+
+10 deterministic verification rules. Tamper one answer and verification
+fails with exit code 2. The packet is forwardable to your customer's
+security team — they verify it offline with a public key.
+
+**See it live**: [Proof Gallery](https://haserjian.github.io/assay-proof-gallery/) —
+three real proof packs demonstrating pass, honest fail, and tamper detection.
+All three are independently verifiable without any account or API key.
+
+**Adversarial testing**: [16 attack scenarios, 16 catches, 0 false passes](docs/TRUST_UNDER_ATTACK.md).
+
 ## Trust Model
 
 What Assay detects, what it doesn't, and how to strengthen guarantees.
