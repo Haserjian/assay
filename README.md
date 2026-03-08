@@ -481,6 +481,7 @@ Full command reference:
 | [assay](https://github.com/Haserjian/assay) | Core CLI, SDK, conformance corpus (this repo) |
 | [assay-verify-action](https://github.com/Haserjian/assay-verify-action) | GitHub Action for CI verification |
 | [assay-ledger](https://github.com/Haserjian/assay-ledger) | Public transparency ledger |
+| [assay-proof-gallery](https://github.com/Haserjian/assay-proof-gallery) | Live demo packs (PASS / HONEST FAIL / TAMPERED) |
 
 ## License
 
