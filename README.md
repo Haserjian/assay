@@ -270,6 +270,24 @@ All three are independently verifiable without any account or API key.
 
 **Adversarial testing**: [16 attack scenarios, 16 catches, 0 false passes](docs/TRUST_UNDER_ATTACK.md).
 
+## AI Decision Credentials (ADC)
+
+ADC is a structured schema for packaging AI decision evidence into
+verifiable, time-bounded credentials. An ADC wraps the proof pack with
+decision metadata: what was decided, by whom, under what policy, with
+what evidence, and how long the credential remains valid.
+
+```bash
+# Verify a pack with expiry enforcement
+assay verify-pack ./proof_pack_*/ --check-expiry
+
+# ADC v0.1 schema: 35 properties, 17 required, additionalProperties: false
+# Schema: src/assay/schemas/adc_v0.1.schema.json
+```
+
+The conformance corpus includes 10 canonical packs (including `stale_01`
+for expired credentials and `superseded_01` for replaced decisions).
+
 ## Trust Model
 
 What Assay detects, what it doesn't, and how to strengthen guarantees.

@@ -1,6 +1,6 @@
 # Assay Roadmap
 
-**As of**: v1.6.0 (Feb 2026)
+**As of**: v1.16.0 (March 2026)
 **Launch**: Feb 18, 2026
 
 ---
@@ -32,10 +32,14 @@ when they're stable and don't require private infrastructure.
 | key (list, rotate, set-active) | Ed25519 key lifecycle + active signer | Shipped |
 | doctor | Preflight checks (4 profiles) | Shipped |
 | schema registry | Receipt version compat + parent_receipt_id | Shipped |
-| conformance corpus | 6 deterministic packs + expected outcomes | Shipped |
+| conformance corpus | 10 deterministic packs + expected outcomes (incl. stale + superseded) | Shipped |
 | flow (try, adopt, ci, mcp, audit) | Guided workflow executor | Shipped |
 | audit bundle, verify-signer | Auditor handoff artifacts | Shipped |
 | packs (list, show, pin-baseline) | Local pack browsing | Shipped |
+| ADC v0.1 schema | AI Decision Credential schema (35 props, 17 required) | Shipped |
+| verify-pack --check-expiry | Expiry enforcement for time-bounded credentials | Shipped |
+| stale/superseded verifier support | Lifecycle-aware pack verification | Shipped |
+| VendorQ (ingest, compile, lock, verify) | Verifiable vendor questionnaire packets | Shipped |
 
 ### MCP Notary Proxy (Tool-Call Evidence)
 
@@ -66,7 +70,7 @@ Receipting proxy between MCP clients and servers. Zero server changes.
 
 **Goal**: Get strangers from curiosity to first proof pack in 10 minutes.
 
-All deliverables complete. 1123 tests passing. v1.6.0 on PyPI.
+All deliverables complete. 1,555+ tests passing. v1.16.0 on PyPI.
 
 ### Phase 1: Temporal Intelligence (Mar 2026)
 
@@ -150,8 +154,10 @@ See [compliance citations](compliance-citations.md) for exact regulatory referen
 |---------|-----------|------|
 | v1.5.3 | Schema registry, diff --why, key lifecycle | Live (PyPI) |
 | v1.6.0 | Flow commands, audit bundle, verify-signer, Gemini + LiteLLM, key lifecycle UX, pack lifecycle | Live (PyPI) |
-| v1.7.0 | Regime detection + drift (`analyze --history --regime-detect`) | Phase 1 (Mar) |
-| v1.8.0 | MCP Guard profile + policy enforcement | Phase 2 (late Mar) |
+| v1.13.0 | Truth-claim hardening, pilot orchestration | Live (PyPI) |
+| v1.16.0 | VendorQ, ADC v0.1 schema, --check-expiry, stale/superseded verifiers, conformance corpus (10 packs) | Live (PyPI) |
+| v1.7.0+ | Regime detection + drift (`analyze --history --regime-detect`) | Phase 1 (Mar) |
+| v1.8.0+ | MCP Guard profile + policy enforcement | Phase 2 (late Mar) |
 | v2.0.0 | Decision Escrow (breaking: new receipt types) | Q2-Q3 |
 
 ---
