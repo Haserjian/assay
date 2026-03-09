@@ -207,6 +207,8 @@ class ProofPack:
         ci_binding: Optional[Dict[str, Any]] = None,
         valid_until: Optional[str] = None,
         superseded_by: Optional[str] = None,
+        emit_adc: bool = False,
+        claim_namespace: Optional[str] = None,
     ):
         # run_id is canonical; trace_id accepted as alias for backward compat
         resolved_run_id = run_id or trace_id
@@ -220,6 +222,8 @@ class ProofPack:
         self.ci_binding = ci_binding
         self.valid_until = valid_until
         self.superseded_by = superseded_by
+        self.emit_adc = emit_adc
+        self.claim_namespace = claim_namespace
 
         # Default hashes for fields not yet wired
         self.policy_hash = policy_hash or _sha256_hex(b"default-policy-v0")
@@ -445,6 +449,43 @@ class ProofPack:
         # 9. Write detached signature
         sig_raw = base64.b64decode(signature_b64)
         (output_dir / "pack_signature.sig").write_bytes(sig_raw)
+
+        # 9b. Emit ADC (optional, presentation layer alongside PACK_SUMMARY)
+        if self.emit_adc:
+            from assay.adc_emitter import build_adc
+
+            ns = self.claim_namespace
+            if ns is None:
+                ns = f"assay:{self.suite_id}" if self.suite_id != "manual" else "assay:pack:v0.1"
+
+            cids = (
+                [c.claim_id for c in self.claims]
+                if self.claims
+                else ["pack_integrity"]
+            )
+
+            adc = build_adc(
+                issuer_id=self.signer_id,
+                signer_pubkey=signed_manifest["signer_pubkey"],
+                signer_pubkey_sha256=signed_manifest["signer_pubkey_sha256"],
+                claim_namespace=ns,
+                claim_ids=cids,
+                evidence_manifest_sha256=pack_root_sha256,
+                evidence_pack_id=pack_id,
+                evidence_n_receipts=attestation["n_receipts"],
+                evidence_head_hash=attestation["head_hash"],
+                policy_id=self.claim_set_id,
+                policy_hash=self.policy_hash,
+                integrity_passed=verify_result.passed,
+                claim_result=claim_result,
+                issued_at=deterministic_ts or datetime.now(timezone.utc).isoformat(),
+                evidence_observed_at=attestation.get("timestamp_start"),
+                evaluated_at=report["verified_at"],
+                valid_until=self.valid_until,
+                sign_fn=lambda data: ks.sign_b64(data, self.signer_id),
+            )
+            adc_bytes = json.dumps(adc, indent=2).encode("utf-8")
+            (output_dir / "decision_credential.json").write_bytes(adc_bytes)
 
         # 10. Write PACK_SUMMARY.md (presentation layer, not part of
         # the 5-file verification kernel). Safe to import here since
