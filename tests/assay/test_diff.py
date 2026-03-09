@@ -771,7 +771,7 @@ class TestDiffGateCLI:
             assert "strict mode" in result.output
 
     def test_report_html_written(self) -> None:
-        """--report writes a self-contained HTML artifact."""
+        """--report writes a self-contained HTML proof artifact."""
         runner = CliRunner()
         with runner.isolated_filesystem():
             _write_pack(Path("a"), [_make_receipt()], {"rc": True})
@@ -779,18 +779,19 @@ class TestDiffGateCLI:
 
             result = runner.invoke(
                 assay_commands.assay_app,
-                ["diff", "a", "b", "--no-verify", "--report", "gate_report.html"],
+                ["diff", "a", "b", "--no-verify", "--report", "-o", "proof_report.html"],
             )
             assert result.exit_code == 0, result.output
-            out = Path("gate_report.html")
+            out = Path("proof_report.html")
             assert out.exists()
-            html = out.read_text(encoding="utf-8")
-            assert "Assay Diff Gate Report" in html
-            assert "1. Integrity" in html
-            assert "5. Model Churn" in html
+            content = out.read_text(encoding="utf-8")
+            assert "Assay Diff Proof Report" in content
+            assert "Comparable" in content
+            # diff_result.json is written alongside
+            assert Path("diff_result.json").exists()
 
     def test_report_json_written(self) -> None:
-        """--report *.json writes structured report JSON."""
+        """--report writes diff_result.json alongside the HTML."""
         runner = CliRunner()
         with runner.isolated_filesystem():
             _write_pack(Path("a"), [_make_receipt()], {"rc": True})
@@ -798,15 +799,13 @@ class TestDiffGateCLI:
 
             result = runner.invoke(
                 assay_commands.assay_app,
-                ["diff", "a", "b", "--no-verify", "--report", "gate_report.json"],
+                ["diff", "a", "b", "--no-verify", "--report", "-o", "proof_report.html"],
             )
             assert result.exit_code == 1
-            out = Path("gate_report.json")
-            assert out.exists()
-            payload = json.loads(out.read_text(encoding="utf-8"))
-            assert payload["meta"]["title"] == "Assay Diff Gate Report"
-            assert payload["meta"]["verdict"] == "FAIL"
-            assert payload["claims"]["regression_count"] >= 1
+            assert Path("diff_result.json").exists()
+            payload = json.loads(Path("diff_result.json").read_text(encoding="utf-8"))
+            assert "verdict" in payload
+            assert payload["verdict"]["trust"] in ("Comparable", "Unverifiable")
 
     def test_report_with_json_stdout(self) -> None:
         """When stdout is JSON, report file is still generated without polluting JSON."""
@@ -817,13 +816,13 @@ class TestDiffGateCLI:
 
             result = runner.invoke(
                 assay_commands.assay_app,
-                ["diff", "a", "b", "--no-verify", "--json", "--report", "gate_report.html"],
+                ["diff", "a", "b", "--no-verify", "--json", "--report", "-o", "proof_report.html"],
             )
             assert result.exit_code == 0, result.output
             data = json.loads(result.output)
             assert data["command"] == "diff"
-            assert data["report_path"] == "gate_report.html"
-            assert Path("gate_report.html").exists()
+            assert "report_path" in data
+            assert Path("proof_report.html").exists()
 
     def test_report_written_when_gate_fails(self) -> None:
         """Report should still be written when gate threshold is exceeded."""
@@ -837,10 +836,9 @@ class TestDiffGateCLI:
                 [
                     "diff", "a", "b", "--no-verify",
                     "--gate-cost-pct", "10",
-                    "--report", "gate_report.html",
+                    "--report", "-o", "proof_report.html",
                 ],
             )
             assert result.exit_code == 1
-            html = Path("gate_report.html").read_text(encoding="utf-8")
-            assert "FAIL" in html
-            assert "Gates" in html
+            content = Path("proof_report.html").read_text(encoding="utf-8")
+            assert "Assay Diff Proof Report" in content

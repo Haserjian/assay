@@ -7311,7 +7311,8 @@ def diff_cmd(
     pack_b: Optional[str] = typer.Argument(None, help="Current pack directory"),
     against_previous: bool = typer.Option(False, "--against-previous", help="Auto-find baseline pack from same directory"),
     why: bool = typer.Option(False, "--why", help="Explain regressions with receipt-level detail"),
-    report: Optional[str] = typer.Option(None, "--report", help="Write a self-contained diff report (.html or .json)"),
+    report: bool = typer.Option(False, "--report", help="Generate a self-contained HTML diff proof report"),
+    output: Optional[str] = typer.Option(None, "-o", "--output", help="Output path for the HTML report (default: assay_diff_report.html)"),
     no_verify: bool = typer.Option(False, "--no-verify", help="Skip integrity verification"),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
     gate_cost_pct: float = typer.Option(None, "--gate-cost-pct", help="Max allowed cost increase (percent, e.g. 20)"),
@@ -7346,7 +7347,8 @@ def diff_cmd(
       assay diff ./a/ ./b/ --why
       assay diff ./proof_pack_new/ --against-previous --why
       assay diff ./a/ ./b/ --gate-cost-pct 20 --gate-errors 0
-      assay diff ./a/ ./b/ --gate-cost-pct 20 --report gate_report.html
+      assay diff ./a/ ./b/ --report -o diff_report.html
+      assay diff ./a/ ./b/ --report
     """
     from pathlib import Path
 
@@ -7418,28 +7420,15 @@ def diff_cmd(
     if exit_code == 0 and gate_eval is not None and gate_eval.any_failed:
         exit_code = 1
 
-    # Optional report artifact (HTML by default; JSON when path ends in .json)
+    # Optional report artifact (HTML proof report + JSON)
     if report:
-        from assay.reporting.diff_gate import (
-            build_report,
-            render_html,
-            write_json as write_diff_report_json,
-            write_report as write_diff_report_html,
-        )
+        from assay.reporting.diff_report import generate_diff_report, generate_diff_json
 
-        report_path = Path(report)
+        report_path = Path(output or "assay_diff_report.html")
+        json_path = report_path.parent / "diff_result.json"
         try:
-            diff_report = build_report(
-                result,
-                gate_eval=gate_eval,
-                why_results=why_results,
-                exit_code=exit_code,
-                gate_strict=gate_strict,
-            )
-            if report_path.suffix.lower() == ".json":
-                write_diff_report_json(diff_report, report_path)
-            else:
-                write_diff_report_html(render_html(diff_report), report_path)
+            generate_diff_report(result, report_path)
+            generate_diff_json(result, json_path)
         except Exception as e:
             if output_json:
                 _output_json({"command": "diff", "status": "error", "error": f"report generation failed: {e}"}, exit_code=3)
@@ -7453,7 +7442,8 @@ def diff_cmd(
         if why_results is not None:
             payload["why"] = [w.to_dict() for w in why_results]
         if report:
-            payload["report_path"] = report
+            payload["report_path"] = str(report_path)
+            payload["json_path"] = str(json_path)
         gates_failed = gate_eval is not None and gate_eval.any_failed
         payload["integrity_failed"] = not result.both_valid
         payload["claims_regressed"] = result.has_regression
@@ -7463,7 +7453,8 @@ def diff_cmd(
         return
 
     if report:
-        console.print(f"  [bold green]Report written:[/] {report}")
+        console.print(f"  [bold green]Report written:[/] {report_path}")
+        console.print(f"  [bold green]JSON written:[/]   {json_path}")
 
     _render_diff(result, gate_eval=gate_eval, exit_code=exit_code, why_results=why_results)
 
