@@ -1,0 +1,257 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://assay.dev/schemas/adc_v0.1.schema.json",
+  "title": "AI Decision Credential v0.1",
+  "description": "Portable, signed credential envelope that sits above the Assay 5-file proof pack. Binds an AI decision claim to its evidence, policy, and verification results in a single self-contained object. Designed for cross-system exchange: hand this to a counterparty and they can verify the decision without the full pack.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "credential_id",
+    "credential_version",
+    "credential_type",
+    "issued_at",
+    "issuer_id",
+    "signer_pubkey",
+    "signer_pubkey_sha256",
+    "claim_namespace",
+    "claim_ids",
+    "evidence_manifest_sha256",
+    "evidence_pack_id",
+    "integrity_result",
+    "overall_result",
+    "evaluated_at",
+    "signature",
+    "signature_scope",
+    "canon_version"
+  ],
+  "properties": {
+
+    "_comment_identity": { "const": "--- Identity ---" },
+
+    "credential_id": {
+      "type": "string",
+      "description": "Content-addressable identifier. SHA-256 hex digest of the JCS-canonicalized credential with the 'signature' field removed. Allows any holder to recompute and verify.",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "credential_version": {
+      "type": "string",
+      "description": "Schema version of this credential. Verifiers MUST reject unknown versions.",
+      "const": "0.1.0"
+    },
+    "credential_type": {
+      "type": "string",
+      "description": "Credential type discriminator.",
+      "const": "ai_decision_credential"
+    },
+    "issued_at": {
+      "type": "string",
+      "description": "ISO-8601 timestamp when this credential was issued.",
+      "format": "date-time"
+    },
+
+    "_comment_issuer": { "const": "--- Issuer ---" },
+
+    "issuer_id": {
+      "type": "string",
+      "description": "Identifier of the entity that issued this credential (e.g. org slug, DID, email).",
+      "minLength": 1
+    },
+    "signer_pubkey": {
+      "type": "string",
+      "description": "Base64-encoded Ed25519 public key (32 raw bytes). Enables self-contained offline verification.",
+      "minLength": 1
+    },
+    "signer_pubkey_sha256": {
+      "type": "string",
+      "description": "SHA-256 hex fingerprint of the raw public key bytes. Stable key identifier across encodings.",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+
+    "_comment_claim_binding": { "const": "--- Claim Binding ---" },
+
+    "claim_namespace": {
+      "type": "string",
+      "description": "URI identifying the claim schema or domain (e.g. 'assay:vendorq:v1', 'assay:run_card:v1', 'org:fintech:loan_decision:v1'). Prevents cross-domain claim collisions.",
+      "minLength": 1
+    },
+    "claim_ids": {
+      "type": "array",
+      "description": "Ordered list of claim identifiers evaluated in this credential.",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "claim_summary": {
+      "type": "string",
+      "description": "Human-readable summary of what was claimed and evaluated. Not machine-parsed."
+    },
+
+    "_comment_evidence_binding": { "const": "--- Evidence Binding ---" },
+
+    "evidence_manifest_sha256": {
+      "type": "string",
+      "description": "SHA-256 hex digest of the evidence manifest (pack_root_sha256 from the proof pack). Binds this credential to a specific, immutable evidence unit.",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "evidence_pack_id": {
+      "type": "string",
+      "description": "pack_id of the underlying proof pack.",
+      "minLength": 1
+    },
+    "evidence_n_receipts": {
+      "type": "integer",
+      "description": "Number of receipts in the evidence pack. Enables quick completeness sanity check.",
+      "minimum": 0
+    },
+    "evidence_head_hash": {
+      "type": "string",
+      "description": "Head hash of the receipt chain in the evidence pack.",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+
+    "_comment_policy_binding": { "const": "--- Policy Binding ---" },
+
+    "policy_id": {
+      "type": "string",
+      "description": "Identifier of the policy or claim set used for evaluation.",
+      "minLength": 1
+    },
+    "policy_hash": {
+      "type": "string",
+      "description": "SHA-256 hex digest of the policy bundle. Prevents silent policy swap.",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "governance_framework": {
+      "type": "string",
+      "description": "Governance or compliance framework this credential was evaluated under (e.g. 'nist_ai_rmf_1.0', 'iso_42001', 'eu_ai_act', 'internal').",
+      "minLength": 1
+    },
+
+    "_comment_results": { "const": "--- Results ---" },
+
+    "integrity_result": {
+      "type": "string",
+      "description": "Pack-level integrity verification result. PASS means all hashes and signatures verified.",
+      "enum": ["PASS", "FAIL"]
+    },
+    "claim_results": {
+      "type": "array",
+      "description": "Per-claim evaluation results. Order matches claim_ids.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["claim_id", "result"],
+        "properties": {
+          "claim_id": {
+            "type": "string",
+            "description": "Identifier of the evaluated claim. Must appear in claim_ids.",
+            "minLength": 1
+          },
+          "result": {
+            "type": "string",
+            "description": "Evaluation outcome for this claim.",
+            "enum": ["PASS", "FAIL", "INSUFFICIENT_EVIDENCE", "ABSTAIN"]
+          },
+          "severity": {
+            "type": "string",
+            "description": "Severity if the claim did not pass.",
+            "enum": ["info", "warning", "error", "critical"]
+          }
+        }
+      }
+    },
+    "overall_result": {
+      "type": "string",
+      "description": "Aggregate credential verdict. Maps to Assay exit codes: PASS=0, HONEST_FAIL=1, TAMPERED=2. INSUFFICIENT_EVIDENCE and STALE are advisory.",
+      "enum": ["PASS", "HONEST_FAIL", "TAMPERED", "INSUFFICIENT_EVIDENCE", "STALE"]
+    },
+
+    "_comment_time_semantics": { "const": "--- Time Semantics ---" },
+
+    "evidence_observed_at": {
+      "type": "string",
+      "description": "ISO-8601 timestamp when the evidence was originally observed or collected.",
+      "format": "date-time"
+    },
+    "evaluated_at": {
+      "type": "string",
+      "description": "ISO-8601 timestamp when the evaluation that produced this credential was performed.",
+      "format": "date-time"
+    },
+    "valid_from": {
+      "type": "string",
+      "description": "ISO-8601 timestamp from which this credential is considered valid. Defaults to issued_at if omitted.",
+      "format": "date-time"
+    },
+    "valid_until": {
+      "type": ["string", "null"],
+      "description": "ISO-8601 timestamp after which this credential expires. Null means no explicit expiry (relying parties should apply their own staleness policy).",
+      "format": "date-time"
+    },
+    "time_authority": {
+      "type": "string",
+      "description": "Source of time assertions in this credential.",
+      "enum": ["local_clock", "rfc3161_tsa", "transparency_log"]
+    },
+
+    "_comment_challenge_semantics": { "const": "--- Challenge Semantics ---" },
+
+    "challenge_window_seconds": {
+      "type": ["integer", "null"],
+      "description": "Number of seconds after issued_at during which the credential can be challenged. Null means no formal challenge window.",
+      "minimum": 0
+    },
+    "challenge_endpoint": {
+      "type": ["string", "null"],
+      "description": "URI where challenges to this credential can be submitted.",
+      "format": "uri"
+    },
+    "supersedes": {
+      "type": ["string", "null"],
+      "description": "credential_id of the previous credential this one replaces. Enables credential chain traversal.",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "superseded_by": {
+      "type": ["string", "null"],
+      "description": "credential_id of a newer credential that replaces this one. Set after issuance via amendment. Null until superseded.",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+
+    "_comment_witness": { "const": "--- Witness (optional) ---" },
+
+    "witness_status": {
+      "type": "string",
+      "description": "Whether this credential has been independently witnessed. Progresses from unwitnessed to stronger levels.",
+      "enum": ["unwitnessed", "hash_verified", "signature_verified"]
+    },
+    "ledger_entry_hash": {
+      "type": ["string", "null"],
+      "description": "Hash of the ledger entry if the credential was recorded in an append-only ledger.",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "transparency_log_id": {
+      "type": ["string", "null"],
+      "description": "Identifier in a transparency log (e.g. Rekor log index, Assay Ledger entry ID)."
+    },
+
+    "_comment_signature": { "const": "--- Signature ---" },
+
+    "signature": {
+      "type": "string",
+      "description": "Base64-encoded Ed25519 signature over the JCS-canonicalized credential with this field removed. Verifiers: remove 'signature', canonicalize with JCS (RFC 8785), verify against signer_pubkey.",
+      "minLength": 1
+    },
+    "signature_scope": {
+      "type": "string",
+      "description": "Documents what is signed. Verifiers MUST reject unknown scopes.",
+      "const": "jcs_rfc8785_without_signature"
+    },
+    "canon_version": {
+      "type": "string",
+      "description": "Canonicalization algorithm used before signing.",
+      "const": "jcs-rfc8785"
+    }
+  }
+}

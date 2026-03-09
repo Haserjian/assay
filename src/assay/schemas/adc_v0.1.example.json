@@ -1,0 +1,73 @@
+{
+  "credential_id": "a3b1c9f4e8d72060a5f3c1b9e8d7a6f5c4e3b2a1d0f9e8c7b6a5d4c3f2e1a0b9",
+  "credential_version": "0.1.0",
+  "credential_type": "ai_decision_credential",
+  "issued_at": "2026-03-09T12:05:30Z",
+
+  "issuer_id": "assay:fintech-underwriting-platform",
+  "signer_pubkey": "MCowBQYDK2VwAyEAq7K9hVr2TZMRD4N3dGp8JYxWbXTvQJ0fE5K7mN8pYiA=",
+  "signer_pubkey_sha256": "d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8091a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d",
+
+  "claim_namespace": "assay:fintech:loan_decision:v1",
+  "claim_ids": [
+    "bias_audit_complete",
+    "model_card_current",
+    "adverse_action_logged",
+    "data_lineage_verified",
+    "fair_lending_compliant"
+  ],
+  "claim_summary": "Automated loan decisioning model passed all five required compliance claims: bias audit, model card currency, adverse action logging, data lineage, and fair lending compliance.",
+
+  "evidence_manifest_sha256": "7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d",
+  "evidence_pack_id": "pack_20260309T120000_abc12345",
+  "evidence_n_receipts": 47,
+  "evidence_head_hash": "1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b",
+
+  "policy_id": "fintech_underwriting_policy_v3.2",
+  "policy_hash": "e1f2a3b4c5d6e7f8091a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e",
+  "governance_framework": "nist_ai_rmf_1.0",
+
+  "integrity_result": "PASS",
+  "claim_results": [
+    {
+      "claim_id": "bias_audit_complete",
+      "result": "PASS"
+    },
+    {
+      "claim_id": "model_card_current",
+      "result": "PASS"
+    },
+    {
+      "claim_id": "adverse_action_logged",
+      "result": "PASS"
+    },
+    {
+      "claim_id": "data_lineage_verified",
+      "result": "PASS"
+    },
+    {
+      "claim_id": "fair_lending_compliant",
+      "result": "PASS"
+    }
+  ],
+  "overall_result": "PASS",
+
+  "evidence_observed_at": "2026-03-09T11:42:18Z",
+  "evaluated_at": "2026-03-09T12:04:55Z",
+  "valid_from": "2026-03-09T12:05:30Z",
+  "valid_until": "2026-06-09T12:05:30Z",
+  "time_authority": "local_clock",
+
+  "challenge_window_seconds": 604800,
+  "challenge_endpoint": null,
+  "supersedes": null,
+  "superseded_by": null,
+
+  "witness_status": "unwitnessed",
+  "ledger_entry_hash": null,
+  "transparency_log_id": null,
+
+  "signature": "TUVBSU5fU0lHTkFUVVJFX0JBU0U2NF9QTEFDRUhPTERFUl9SRVBMQUNFRl9CWV9SRUFMX0VEMjU1MTlfU0lHTkFUVVJFX09WRVJfSkNTX0NBTk9OSUNBTElaRURfQ1JFREVOVElBTA==",
+  "signature_scope": "jcs_rfc8785_without_signature",
+  "canon_version": "jcs-rfc8785"
+}
