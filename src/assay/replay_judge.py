@@ -437,10 +437,94 @@ def judge_replay(
     return judgment, trace
 
 
+from dataclasses import dataclass
+
+
+@dataclass
+class ReplayJudgeResult:
+    """Operational result from writing replay judgment artifacts."""
+
+    verdict: str
+    judgment_path: Path
+    trace_path: Path
+    judgment_id: str
+    exit_code: int
+
+
+# Exit codes: match Assay pack semantics (0=pass, 1=fail, 2=tampered/unverifiable)
+# plus 3=bad input, 4=internal error.
+_EXIT_REPRODUCIBLE = 0
+_EXIT_DRIFTED = 1
+_EXIT_UNVERIFIABLE = 2
+_EXIT_BAD_INPUT = 3
+_EXIT_INTERNAL = 4
+
+_VERDICT_EXIT_MAP = {
+    _VERDICT_REPRODUCIBLE: _EXIT_REPRODUCIBLE,
+    _VERDICT_DRIFTED: _EXIT_DRIFTED,
+    _VERDICT_UNVERIFIABLE: _EXIT_UNVERIFIABLE,
+}
+
+
+def write_replay_judgment(
+    *,
+    expected_pack_dir: Path,
+    observed_pack_dir: Path,
+    out_dir: Path,
+    keystore: Optional[AssayKeyStore] = None,
+    signer_id: str = DEFAULT_SIGNER_ID,
+    issued_at: Optional[str] = None,
+    overwrite: bool = False,
+    pretty: bool = False,
+) -> ReplayJudgeResult:
+    """Judge a replay and write artifacts to out_dir.
+
+    Returns a ReplayJudgeResult with verdict, file paths, and exit code.
+    """
+    out_dir = Path(out_dir)
+    judgment_path = out_dir / "replay_judgment.json"
+    trace_path = out_dir / "replay_explanation_trace.json"
+
+    if not overwrite:
+        for p in (judgment_path, trace_path):
+            if p.exists():
+                raise FileExistsError(
+                    f"{p} already exists. Use overwrite=True to replace."
+                )
+
+    judgment, trace = judge_replay(
+        Path(expected_pack_dir),
+        Path(observed_pack_dir),
+        keystore=keystore,
+        signer_id=signer_id,
+        issued_at=issued_at,
+    )
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    indent = 2 if pretty else None
+    judgment_path.write_text(
+        json.dumps(judgment, indent=indent), encoding="utf-8"
+    )
+    trace_path.write_text(
+        json.dumps(trace, indent=indent), encoding="utf-8"
+    )
+
+    verdict = judgment["verdict"]
+    return ReplayJudgeResult(
+        verdict=verdict,
+        judgment_path=judgment_path,
+        trace_path=trace_path,
+        judgment_id=judgment["judgment_id"],
+        exit_code=_VERDICT_EXIT_MAP.get(verdict, _EXIT_INTERNAL),
+    )
+
+
 __all__ = [
+    "ReplayJudgeResult",
     "build_explanation_trace",
     "build_replay_judgment",
     "judge_replay",
     "validate_explanation_trace",
     "validate_replay_judgment",
+    "write_replay_judgment",
 ]

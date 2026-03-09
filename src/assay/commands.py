@@ -2669,6 +2669,108 @@ def verify_pack_cmd(
         raise typer.Exit(1)
 
 
+@assay_app.command("replay-judge")
+def replay_judge_cmd(
+    expected_pack: str = typer.Option(
+        ..., "--expected-pack", "-e",
+        help="Path to the expected (original/baseline) proof pack directory",
+    ),
+    observed_pack: str = typer.Option(
+        ..., "--observed-pack", "-o",
+        help="Path to the observed (replayed) proof pack directory",
+    ),
+    out_dir: str = typer.Option(
+        ..., "--out-dir", "-O",
+        help="Directory to write replay_judgment.json and replay_explanation_trace.json",
+    ),
+    key_id: Optional[str] = typer.Option(
+        None, "--key-id",
+        help="Signing key identity. Default: active key.",
+    ),
+    overwrite: bool = typer.Option(
+        False, "--overwrite",
+        help="Overwrite output files if they already exist.",
+    ),
+    pretty: bool = typer.Option(
+        False, "--pretty",
+        help="Pretty-print JSON output (indented).",
+    ),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Compare two proof packs and emit a signed replay judgment plus explanation trace.
+
+    Exit codes:
+      0 = reproducible   1 = drifted   2 = unverifiable   3 = bad input
+    """
+    from pathlib import Path
+
+    from assay.keystore import DEFAULT_SIGNER_ID, get_default_keystore
+    from assay.replay_judge import write_replay_judgment
+
+    expected_path = Path(expected_pack)
+    observed_path = Path(observed_pack)
+    out_path = Path(out_dir)
+
+    # Early validation
+    for label, p in [("expected-pack", expected_path), ("observed-pack", observed_path)]:
+        if not p.exists():
+            msg = f"--{label} directory does not exist: {p}"
+            if output_json:
+                _output_json({"command": "replay-judge", "status": "error", "error": msg}, exit_code=3)
+            console.print(f"[red]Error:[/] {msg}")
+            raise typer.Exit(3)
+        if not (p / "pack_manifest.json").exists():
+            msg = f"--{label} directory missing pack_manifest.json: {p}"
+            if output_json:
+                _output_json({"command": "replay-judge", "status": "error", "error": msg}, exit_code=3)
+            console.print(f"[red]Error:[/] {msg}")
+            raise typer.Exit(3)
+
+    ks = get_default_keystore()
+    signer_id = key_id or DEFAULT_SIGNER_ID
+
+    try:
+        result = write_replay_judgment(
+            expected_pack_dir=expected_path,
+            observed_pack_dir=observed_path,
+            out_dir=out_path,
+            keystore=ks,
+            signer_id=signer_id,
+            overwrite=overwrite,
+            pretty=pretty,
+        )
+    except FileExistsError as e:
+        msg = str(e)
+        if output_json:
+            _output_json({"command": "replay-judge", "status": "error", "error": msg}, exit_code=3)
+        console.print(f"[red]Error:[/] {msg}")
+        raise typer.Exit(3)
+    except Exception as e:
+        msg = f"Internal error: {e}"
+        if output_json:
+            _output_json({"command": "replay-judge", "status": "error", "error": msg}, exit_code=4)
+        console.print(f"[red]Error:[/] {msg}")
+        raise typer.Exit(4)
+
+    if output_json:
+        _output_json({
+            "command": "replay-judge",
+            "status": "ok",
+            "verdict": result.verdict,
+            "judgment_id": result.judgment_id,
+            "judgment_path": str(result.judgment_path),
+            "trace_path": str(result.trace_path),
+            "exit_code": result.exit_code,
+        }, exit_code=result.exit_code)
+
+    console.print(f"\nreplay verdict: [bold]{result.verdict}[/]")
+    console.print(f"wrote: {result.judgment_path}")
+    console.print(f"wrote: {result.trace_path}")
+    console.print()
+
+    raise typer.Exit(result.exit_code)
+
+
 @assay_app.command("accept")
 def accept_cmd(
     pack_dir: str = typer.Argument(..., help="Path to verified Proof Pack directory"),
