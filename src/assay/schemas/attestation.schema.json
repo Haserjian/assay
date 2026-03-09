@@ -136,6 +136,16 @@
       "description": "SHA-256 of JCS-canonical claim results. Null when no claims evaluated.",
       "pattern": "^[a-f0-9]{64}$"
     },
+    "valid_until": {
+      "type": ["string", "null"],
+      "description": "ISO-8601 timestamp after which this pack should be considered stale. Null means no explicit expiry (relying parties apply their own staleness policy).",
+      "format": "date-time"
+    },
+    "superseded_by": {
+      "type": ["string", "null"],
+      "description": "pack_id of a newer pack that replaces this one. Null until superseded. Informational metadata; does not affect integrity or claim checks.",
+      "minLength": 1
+    },
     "ci_binding": {
       "type": ["object", "null"],
       "description": "CI environment binding. Ties the pack to a specific CI run context to prevent replay across runs. Null when built locally.",

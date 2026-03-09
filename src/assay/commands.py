@@ -2310,6 +2310,10 @@ def verify_pack_cmd(
         False, "--require-witness",
         help="Fail if pack has no valid witness bundle (T2 trust).",
     ),
+    check_expiry: bool = typer.Option(
+        False, "--check-expiry",
+        help="Fail (exit 1) if attestation valid_until is in the past.",
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Verify a Proof Pack's integrity (manifest, signatures, file hashes).
@@ -2499,6 +2503,24 @@ def verify_pack_cmd(
             witness_failed = True
             witness_errors = witness_result.errors
 
+    # Expiry check: valid_until in the past means the pack has expired.
+    # This is an honest failure (exit 1), not a tamper (exit 2).
+    expiry_failed = False
+    if check_expiry:
+        valid_until_str = att.get("valid_until")
+        if valid_until_str:
+            from datetime import datetime as _dt, timezone as _tz
+            try:
+                # Python 3.9/3.10 fromisoformat doesn't handle 'Z' suffix
+                _vu = valid_until_str.replace("Z", "+00:00") if valid_until_str.endswith("Z") else valid_until_str
+                valid_until_ts = _dt.fromisoformat(_vu)
+                if valid_until_ts.tzinfo is None:
+                    valid_until_ts = valid_until_ts.replace(tzinfo=_tz.utc)
+                if _dt.now(_tz.utc) > valid_until_ts:
+                    expiry_failed = True
+            except (ValueError, TypeError):
+                pass  # Malformed valid_until is not an expiry failure
+
     overall_status = "ok"
     if not result.passed:
         overall_status = "failed"
@@ -2506,6 +2528,8 @@ def verify_pack_cmd(
         overall_status = "lock_mismatch"
     elif claim_gate_failed:
         overall_status = "claim_gate_failed"
+    elif expiry_failed:
+        overall_status = "expired"
     elif coverage_failed:
         overall_status = "coverage_below_threshold"
     elif witness_failed:
@@ -2557,7 +2581,7 @@ def verify_pack_cmd(
         console.print()
         raise typer.Exit(2)
 
-    if result.passed and not claim_gate_failed and not coverage_failed:
+    if result.passed and not claim_gate_failed and not coverage_failed and not expiry_failed:
         lock_line = f"\nLock:       PASS ({lock})" if lock else ""
         cov_line = ""
         if coverage_result is not None:
@@ -2575,6 +2599,19 @@ def verify_pack_cmd(
             f"Warnings:   {len(result.warnings)}"
             f"{lock_line}"
             f"{cov_line}",
+            title="assay verify-pack",
+        ))
+    elif result.passed and expiry_failed:
+        valid_until_str = att.get("valid_until", "N/A")
+        console.print()
+        console.print(Panel.fit(
+            f"[bold yellow]PACK EXPIRED[/]\n\n"
+            f"Pack ID:      {att.get('pack_id')}\n"
+            f"Integrity:    PASS\n"
+            f"Claims:       {claim_check}\n"
+            f"Valid Until:  {valid_until_str}\n"
+            f"Receipts:     {result.receipt_count}\n\n"
+            f"--check-expiry: valid_until is in the past",
             title="assay verify-pack",
         ))
     elif result.passed and claim_gate_failed:
@@ -2618,13 +2655,15 @@ def verify_pack_cmd(
 
     console.print()
 
-    if result.passed and not claim_gate_failed and not coverage_failed and not lock:
+    if result.passed and not claim_gate_failed and not coverage_failed and not expiry_failed and not lock:
         console.print("Next: [bold]assay lock init[/]")
         console.print()
 
     if not result.passed:
         raise typer.Exit(2)
     if claim_gate_failed:
+        raise typer.Exit(1)
+    if expiry_failed:
         raise typer.Exit(1)
     if coverage_failed:
         raise typer.Exit(1)

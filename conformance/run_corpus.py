@@ -64,6 +64,10 @@ def run_corpus() -> int:
         if require_claim:
             cmd.append("--require-claim-pass")
 
+        # Entry-specific extra CLI args (e.g. --max-age-hours for stale packs)
+        extra_args = entry.get("extra_verify_args", [])
+        cmd.extend(extra_args)
+
         result = subprocess.run(cmd, capture_output=True, text=True)
         actual_exit = result.returncode
 

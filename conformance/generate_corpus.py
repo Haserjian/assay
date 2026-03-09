@@ -2,11 +2,13 @@
 """
 Generate the Assay Conformance Corpus.
 
-Creates 8 canonical Proof Packs with known verification outcomes:
+Creates 10 canonical Proof Packs with known verification outcomes:
   - 3 good packs (exit 0)
   - 1 deny pack: guardian deny verdict (exit 0 -- deny is valid)
   - 1 MCP deny pack: policy-denied tool call (exit 0 -- receipt valid)
+  - 1 superseded pack: valid but superseded by newer (exit 0 -- informational)
   - 1 claim-fail pack (exit 1)
+  - 1 stale pack: expired validity (exit 1 -- honest freshness failure)
   - 2 tampered packs (exit 2)
 
 Run from the repo root:
@@ -20,7 +22,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from nacl.signing import SigningKey
@@ -109,6 +111,10 @@ def _build_pack(
     entries: list[dict],
     claims: list[ClaimSpec] | None,
     ks: AssayKeyStore,
+    *,
+    valid_until: str | None = None,
+    superseded_by: str | None = None,
+    deterministic_ts: str | None = None,
 ) -> Path:
     """Build a Proof Pack to the corpus directory."""
     out_dir = CORPUS_DIR / name
@@ -122,11 +128,13 @@ def _build_pack(
         signer_id=CORPUS_SIGNER,
         claims=claims,
         mode="shadow",
+        valid_until=valid_until,
+        superseded_by=superseded_by,
     )
     return pack.build(
         out_dir,
         keystore=ks,
-        deterministic_ts=_CORPUS_TS,
+        deterministic_ts=deterministic_ts or _CORPUS_TS,
     )
 
 
@@ -292,6 +300,98 @@ def generate() -> dict:
         "expect_exit": 1,
         "run_cards": ["receipt_completeness", "guardian_enforcement"],
         "require_claim_pass": True,
+    })
+
+    # --- stale_01: expired validity (integrity PASS, but pack is stale) ---
+    # Timestamps set to 120 days before _CORPUS_TS so the pack is well past
+    # any reasonable freshness window. The valid_until field is set to 30 days
+    # before _CORPUS_TS, making it unambiguously expired at corpus evaluation
+    # time. A conformance verifier using max_age_hours or valid_until checking
+    # should flag this as an honest failure (exit 1).
+    print("Generating stale_01: expired validity (stale pack)...")
+    _stale_base = datetime(2025, 9, 17, 12, 0, 0, tzinfo=timezone.utc)  # ~120 days before corpus TS
+    _stale_valid_until = datetime(2025, 12, 16, 12, 0, 0, tzinfo=timezone.utc)  # ~30 days before corpus TS
+    stale_entries = [
+        _make_receipt(
+            0,
+            pack_name="stale_01",
+            timestamp=datetime(2025, 9, 17, 12, 0, 0, tzinfo=timezone.utc).isoformat(),
+        ),
+        _make_receipt(
+            1,
+            pack_name="stale_01",
+            timestamp=datetime(2025, 9, 17, 12, 0, 1, tzinfo=timezone.utc).isoformat(),
+        ),
+        {
+            "receipt_id": _deterministic_id("corpus_g", 2, "stale_01"),
+            "type": "guardian_verdict",
+            "timestamp": datetime(2025, 9, 17, 12, 0, 2, tzinfo=timezone.utc).isoformat(),
+            "schema_version": "3.0",
+            "seq": 2,
+            "verdict": "allow",
+            "action": "corpus_test",
+            "reason": "Conformance corpus generation (stale scenario)",
+        },
+    ]
+    _build_pack(
+        "stale_01",
+        stale_entries,
+        full_claims,
+        ks,
+        valid_until=_stale_valid_until.isoformat(),
+        deterministic_ts=_stale_base.isoformat(),
+    )
+    outcomes["entries"].append({
+        "name": "stale_01",
+        "description": (
+            "Stale pack: timestamps 120 days old, valid_until in the past. "
+            "Integrity PASS, claims PASS, but freshness check FAIL"
+        ),
+        "expect_exit": 1,
+        "run_cards": ["receipt_completeness", "guardian_enforcement"],
+        "require_claim_pass": True,
+        # --check-expiry causes verify-pack to check if valid_until is in the
+        # past. Since valid_until is 2025-12-16 (well before any evaluation
+        # time), this will trigger an honest failure (exit 1).
+        "extra_verify_args": ["--check-expiry"],
+        "freshness_note": (
+            "valid_until is 2025-12-16T12:00:00+00:00, well before corpus "
+            "evaluation. Verifiers should flag E_PACK_STALE or equivalent."
+        ),
+    })
+
+    # --- superseded_01: valid pack that has been superseded by a newer one ---
+    # All receipts valid, integrity PASS, claims PASS. The superseded_by field
+    # in the attestation points to a fictional replacement pack_id. The pack
+    # itself is fully valid (exit 0); the superseded status is informational
+    # metadata that downstream consumers may use for credential chain traversal.
+    print("Generating superseded_01: valid pack superseded by newer...")
+    _superseded_replacement_id = (
+        f"pack_deterministic_{hashlib.sha256(b'corpus_superseded_01_replacement').hexdigest()[:8]}"
+    )
+    superseded_entries = [
+        _make_receipt(0, pack_name="superseded_01"),
+        _make_receipt(1, pack_name="superseded_01"),
+        _make_guardian(2, pack_name="superseded_01"),
+    ]
+    _build_pack(
+        "superseded_01",
+        superseded_entries,
+        full_claims,
+        ks,
+        superseded_by=_superseded_replacement_id,
+    )
+    outcomes["entries"].append({
+        "name": "superseded_01",
+        "description": (
+            "Superseded pack: integrity PASS, claims PASS, but attestation "
+            "carries superseded_by pointing to a newer replacement pack. "
+            "Exit 0 (pack is valid; superseded status is informational)"
+        ),
+        "expect_exit": 0,
+        "run_cards": ["receipt_completeness", "guardian_enforcement"],
+        "require_claim_pass": True,
+        "superseded_by": _superseded_replacement_id,
     })
 
     # --- tampered_01: field injection in receipt_pack.jsonl ---

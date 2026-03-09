@@ -205,6 +205,8 @@ class ProofPack:
         claims: Optional[List[ClaimSpec]] = None,
         mode: str = "shadow",
         ci_binding: Optional[Dict[str, Any]] = None,
+        valid_until: Optional[str] = None,
+        superseded_by: Optional[str] = None,
     ):
         # run_id is canonical; trace_id accepted as alias for backward compat
         resolved_run_id = run_id or trace_id
@@ -216,6 +218,8 @@ class ProofPack:
         self.mode = mode
         self.claims = claims
         self.ci_binding = ci_binding
+        self.valid_until = valid_until
+        self.superseded_by = superseded_by
 
         # Default hashes for fields not yet wired
         self.policy_hash = policy_hash or _sha256_hex(b"default-policy-v0")
@@ -338,6 +342,8 @@ class ProofPack:
             "timestamp_start": ts_start or deterministic_ts or datetime.now(timezone.utc).isoformat(),
             "timestamp_end": ts_end or deterministic_ts or datetime.now(timezone.utc).isoformat(),
             "ci_binding": self.ci_binding,
+            "valid_until": self.valid_until,
+            "superseded_by": self.superseded_by,
         }
 
         # 5. Build verify_transcript.md
