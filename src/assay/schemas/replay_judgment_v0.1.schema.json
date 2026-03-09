@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://assay.dev/schemas/replay_judgment_v0.1.schema.json",
+  "title": "Replay Judgment v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "judgment_id",
+    "judgment_version",
+    "judgment_type",
+    "issued_at",
+    "judge_id",
+    "signer_pubkey",
+    "signer_pubkey_sha256",
+    "original",
+    "replay",
+    "comparison",
+    "verdict",
+    "divergence_reasons",
+    "divergence_details",
+    "signature",
+    "signature_scope",
+    "canon_version"
+  ],
+  "properties": {
+    "judgment_id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "judgment_version": {
+      "const": "0.1.0"
+    },
+    "judgment_type": {
+      "const": "replay_judgment"
+    },
+    "issued_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "judge_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "signer_pubkey": {
+      "type": "string",
+      "minLength": 1
+    },
+    "signer_pubkey_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "original": {
+      "$ref": "#/$defs/artifact"
+    },
+    "replay": {
+      "$ref": "#/$defs/artifact"
+    },
+    "comparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "byte_equivalent",
+        "logical_equivalent",
+        "policy_consistent",
+        "divergence_fields"
+      ],
+      "properties": {
+        "byte_equivalent": {"type": "boolean"},
+        "logical_equivalent": {"type": "boolean"},
+        "policy_consistent": {"type": "boolean"},
+        "divergence_fields": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    },
+    "verdict": {
+      "type": "string",
+      "enum": ["reproducible", "drifted", "unverifiable"]
+    },
+    "divergence_reasons": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "missing_decision_credential",
+          "missing_pack_root",
+          "evidence_binding_mismatch",
+          "policy_mismatch",
+          "claim_binding_mismatch",
+          "integrity_result_mismatch",
+          "overall_result_mismatch",
+          "claim_results_mismatch"
+        ]
+      }
+    },
+    "divergence_details": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["field", "reason"],
+        "properties": {
+          "field": {"type": "string"},
+          "reason": {"type": "string"}
+        }
+      }
+    },
+    "signature": {
+      "type": "string",
+      "minLength": 1
+    },
+    "signature_scope": {
+      "const": "jcs_rfc8785_without_signature"
+    },
+    "canon_version": {
+      "const": "jcs-rfc8785"
+    }
+  },
+  "$defs": {
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pack_id",
+        "pack_root_sha256",
+        "policy_hash",
+        "claim_set_hash",
+        "signer_pubkey_sha256",
+        "receipt_integrity",
+        "adc_credential_id",
+        "adc_unsigned_sha256",
+        "semantic_sha256",
+        "claim_namespace",
+        "claim_ids",
+        "overall_result",
+        "integrity_result"
+      ],
+      "properties": {
+        "pack_id": {"type": "string"},
+        "pack_root_sha256": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+        "policy_hash": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+        "claim_set_hash": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+        "signer_pubkey_sha256": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+        "receipt_integrity": {"type": ["string", "null"]},
+        "adc_credential_id": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+        "adc_unsigned_sha256": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+        "semantic_sha256": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+        "claim_namespace": {"type": ["string", "null"]},
+        "claim_ids": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "overall_result": {"type": ["string", "null"]},
+        "integrity_result": {"type": ["string", "null"]}
+      }
+    }
+  }
+}

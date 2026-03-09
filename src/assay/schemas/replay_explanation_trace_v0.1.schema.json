@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://assay.dev/schemas/replay_explanation_trace_v0.1.schema.json",
+  "title": "Replay Explanation Trace v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "trace_version",
+    "trace_type",
+    "generated_at",
+    "judgment_id",
+    "verdict",
+    "summary",
+    "drivers"
+  ],
+  "properties": {
+    "trace_version": {"const": "0.1.0"},
+    "trace_type": {"const": "replay_explanation_trace"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "judgment_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "verdict": {"type": "string", "enum": ["reproducible", "drifted", "unverifiable"]},
+    "summary": {"type": "string", "minLength": 1},
+    "drivers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_namespace",
+        "claim_ids",
+        "policy_hashes",
+        "overall_results",
+        "integrity_results",
+        "pack_roots",
+        "divergence_reasons",
+        "divergence_fields"
+      ],
+      "properties": {
+        "claim_namespace": {"type": ["string", "null"]},
+        "claim_ids": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "policy_hashes": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["original", "replay"],
+          "properties": {
+            "original": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+            "replay": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"}
+          }
+        },
+        "overall_results": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["original", "replay"],
+          "properties": {
+            "original": {"type": ["string", "null"]},
+            "replay": {"type": ["string", "null"]}
+          }
+        },
+        "integrity_results": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["original", "replay"],
+          "properties": {
+            "original": {"type": ["string", "null"]},
+            "replay": {"type": ["string", "null"]}
+          }
+        },
+        "pack_roots": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["original", "replay"],
+          "properties": {
+            "original": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+            "replay": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"}
+          }
+        },
+        "divergence_reasons": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "divergence_fields": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    }
+  }
+}
