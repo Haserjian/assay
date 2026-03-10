@@ -364,6 +364,7 @@ trust faster than bugs.
 
 ## Read Next
 
+- [CI Integration](ci-integration.md) -- why CI matters and how to enforce evidence discipline
 - [Decision Escrow](decision-escrow.md) -- protocol model: agent actions don't settle until verified
 - [For Compliance Teams](for-compliance.md) -- what auditors see, evidence artifacts, framework alignment
 - [Repo Map](REPO_MAP.md) -- what lives where across the Assay ecosystem

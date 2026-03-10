@@ -86,6 +86,7 @@ Open a PR and you'll see all three checks in your GitHub status checks.
 
 - `assay explain ./proof_pack_*/` -- plain-English summary of any evidence pack
 - `assay diff` -- compare packs for cost/latency regressions
+- [CI integration](ci-integration.md) -- why CI matters and how to enforce evidence discipline
 - [Quickstart reference](README_quickstart.md) -- full command reference
 - [Order of operations](ORDER_OF_OPERATIONS.md) -- detailed workflow guide
 - [Pilot program](PILOT_PROGRAM.md) -- get hands-on help setting this up
