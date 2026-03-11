@@ -21,6 +21,7 @@ import hashlib
 import json
 import os
 import uuid
+import warnings
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -44,6 +45,9 @@ def _sha256_hex(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+_UNSIGNED_SIDECAR_DIR = "_unsigned"
+
+
 def _generate_pack_id(*, deterministic_seed: Optional[str] = None) -> str:
     """Generate a pack ID.
 
@@ -56,6 +60,36 @@ def _generate_pack_id(*, deterministic_seed: Optional[str] = None) -> str:
         return f"pack_deterministic_{tag}"
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
     return f"pack_{ts}_{uuid.uuid4().hex[:8]}"
+
+
+def _build_deterministic_pack_seed(
+    *,
+    run_id: str,
+    receipt_pack_bytes: bytes,
+    policy_hash: str,
+    suite_hash: str,
+    claim_set_id: str,
+    claim_set_hash: str,
+    mode: str,
+    ci_binding: Optional[Dict[str, Any]],
+    valid_until: Optional[str],
+    superseded_by: Optional[str],
+) -> str:
+    """Build a stable seed from artifact-defining inputs."""
+    seed_material = {
+        "pack_format_version": "0.1.0",
+        "run_id": run_id,
+        "receipt_pack_sha256": _sha256_hex(receipt_pack_bytes),
+        "policy_hash": policy_hash,
+        "suite_hash": suite_hash,
+        "claim_set_id": claim_set_id,
+        "claim_set_hash": claim_set_hash,
+        "mode": mode,
+        "ci_binding": ci_binding,
+        "valid_until": valid_until,
+        "superseded_by": superseded_by,
+    }
+    return _sha256_hex(to_jcs_bytes(seed_material))
 
 
 import re as _re
@@ -76,7 +110,6 @@ def detect_ci_binding() -> Optional[Dict[str, Any]]:
             # Required by schema; treat incomplete env as non-bound local context.
             return None
         if not _is_full_sha(sha):
-            import warnings
             warnings.warn(
                 f"GITHUB_SHA is not a full 40-char hex SHA ({sha!r}). "
                 f"CI binding requires a full commit SHA (e.g. git rev-parse HEAD). "
@@ -123,6 +156,56 @@ def _sort_receipts(entries: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return sorted(entries, key=sort_key)
 
 
+def _receipt_run_id(entry: Dict[str, Any]) -> Optional[str]:
+    """Return the canonical run identifier for a receipt, if present."""
+    trace_id = entry.get("_trace_id")
+    run_id = entry.get("run_id")
+    if trace_id and run_id and trace_id != run_id:
+        receipt_id = entry.get("receipt_id", "<unknown>")
+        raise ValueError(
+            f"Receipt {receipt_id} has conflicting run ids: "
+            f"_trace_id={trace_id!r}, run_id={run_id!r}"
+        )
+    if trace_id:
+        return str(trace_id)
+    if run_id:
+        return str(run_id)
+    return None
+
+
+def _assert_receipt_run_ids(entries: List[Dict[str, Any]], expected_run_id: str) -> None:
+    """Fail closed if a pack mixes receipts from multiple runs."""
+    for entry in entries:
+        entry_run_id = _receipt_run_id(entry)
+        if entry_run_id and entry_run_id != expected_run_id:
+            receipt_id = entry.get("receipt_id", "<unknown>")
+            raise ValueError(
+                f"Receipt {receipt_id} belongs to run {entry_run_id!r}; "
+                f"expected {expected_run_id!r}"
+            )
+
+
+def get_unsigned_sidecar_dir(pack_dir: Path) -> Path:
+    """Return the directory that stores unsigned narrative sidecars."""
+    return Path(pack_dir) / _UNSIGNED_SIDECAR_DIR
+
+
+def get_pack_summary_path(pack_dir: Path, *, legacy_fallback: bool = True) -> Path:
+    """Return the preferred PACK_SUMMARY path, falling back to legacy root."""
+    sidecar = get_unsigned_sidecar_dir(pack_dir) / "PACK_SUMMARY.md"
+    if sidecar.exists() or not legacy_fallback:
+        return sidecar
+    return Path(pack_dir) / "PACK_SUMMARY.md"
+
+
+def get_decision_credential_path(pack_dir: Path, *, legacy_fallback: bool = True) -> Path:
+    """Return the preferred decision credential path, falling back to legacy root."""
+    sidecar = get_unsigned_sidecar_dir(pack_dir) / "decision_credential.json"
+    if sidecar.exists() or not legacy_fallback:
+        return sidecar
+    return Path(pack_dir) / "decision_credential.json"
+
+
 # ---------------------------------------------------------------------------
 # Transcript generator
 # ---------------------------------------------------------------------------
@@ -132,6 +215,7 @@ def _generate_transcript(
     attestation: Dict[str, Any],
     verify_result: VerifyResult,
     version: str,
+    claim_result: Optional[ClaimSetResult] = None,
     *,
     generated_at: Optional[str] = None,
 ) -> str:
@@ -150,6 +234,29 @@ def _generate_transcript(
 
     ts_start = attestation.get("timestamp_start", "N/A")
     ts_end = attestation.get("timestamp_end", "N/A")
+
+    claim_section = "No claim set provided."
+    if claim_result is not None:
+        claim_lines = [
+            f"- Verdict: **{'PASS' if claim_result.passed else 'FAIL'}**",
+            f"- Claims evaluated: {claim_result.n_claims}",
+            f"- Passed: {claim_result.n_passed}",
+            f"- Failed: {claim_result.n_failed}",
+            f"- Discrepancy fingerprint: `{claim_result.discrepancy_fingerprint}`",
+        ]
+        failed_claims = [r for r in claim_result.results if not r.passed]
+        if failed_claims:
+            claim_lines.append("")
+            claim_lines.append("### Failed Claims")
+            for result in failed_claims:
+                claim_lines.append(
+                    f"- **{result.claim_id}** ({result.severity}): "
+                    f"expected {result.expected}; actual {result.actual}"
+                )
+        else:
+            claim_lines.append("")
+            claim_lines.append("No failing claims.")
+        claim_section = "\n".join(claim_lines)
 
     return f"""# Proof Pack Verification Transcript
 
@@ -176,6 +283,10 @@ def _generate_transcript(
 ## Verification Warnings
 
 {warnings_section}
+
+## Claim Verification
+
+{claim_section}
 
 ---
 Generated by Assay {version} at {generated_at or datetime.now(timezone.utc).isoformat()}
@@ -262,11 +373,11 @@ class ProofPack:
         ks = keystore or get_default_keystore()
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
+        build_ts = deterministic_ts or datetime.now(timezone.utc).isoformat()
+        resolved_ci_binding = self.ci_binding if self.ci_binding is not None else detect_ci_binding()
 
-        if pack_id is None:
-            seed = self.run_id if deterministic_ts else None
-            pack_id = _generate_pack_id(deterministic_seed=seed)
         sorted_entries = _sort_receipts(self.entries)
+        _assert_receipt_run_ids(sorted_entries, self.run_id)
 
         # 1. Write receipt_pack.jsonl (canonical, deterministic order).
         # JSONL invariant: one JCS-canonical JSON object per line, no blank
@@ -279,6 +390,24 @@ class ProofPack:
             receipt_lines.append(canonical)
         receipt_pack_content = "\n".join(receipt_lines) + "\n" if receipt_lines else ""
         receipt_pack_bytes = receipt_pack_content.encode("utf-8")
+        if pack_id is None:
+            seed = (
+                _build_deterministic_pack_seed(
+                    run_id=self.run_id,
+                    receipt_pack_bytes=receipt_pack_bytes,
+                    policy_hash=self.policy_hash,
+                    suite_hash=self.suite_hash,
+                    claim_set_id=self.claim_set_id,
+                    claim_set_hash=self.claim_set_hash,
+                    mode=self.mode,
+                    ci_binding=resolved_ci_binding,
+                    valid_until=self.valid_until,
+                    superseded_by=self.superseded_by,
+                )
+                if deterministic_ts
+                else None
+            )
+            pack_id = _generate_pack_id(deterministic_seed=seed)
         (output_dir / "receipt_pack.jsonl").write_bytes(receipt_pack_bytes)
 
         # 2. Verify receipts (structural integrity)
@@ -297,7 +426,7 @@ class ProofPack:
             "pack_id": pack_id,
             "run_id": self.run_id,
             **verify_result.to_dict(),
-            "verified_at": deterministic_ts or datetime.now(timezone.utc).isoformat(),
+            "verified_at": build_ts,
             "verifier_version": _assay_version,
         }
         if claim_result is not None:
@@ -306,14 +435,14 @@ class ProofPack:
         (output_dir / "verify_report.json").write_bytes(report_bytes)
 
         # 4. Build attestation object
-        ts_start = None
-        ts_end = None
+        timestamps: List[str] = []
         for entry in sorted_entries:
             ts = entry.get("timestamp") or entry.get("_stored_at")
             if ts:
-                if ts_start is None:
-                    ts_start = str(ts)
-                ts_end = str(ts)
+                timestamps.append(str(ts))
+
+        ts_start = min(timestamps) if timestamps else None
+        ts_end = max(timestamps) if timestamps else None
 
         attestation = {
             "pack_format_version": "0.1.0",
@@ -343,17 +472,21 @@ class ProofPack:
             "head_hash_algorithm": "last-receipt-digest-v0",
             "time_authority": "local_clock",
             "n_receipts": verify_result.receipt_count,
-            "timestamp_start": ts_start or deterministic_ts or datetime.now(timezone.utc).isoformat(),
-            "timestamp_end": ts_end or deterministic_ts or datetime.now(timezone.utc).isoformat(),
-            "ci_binding": self.ci_binding,
+            "timestamp_start": ts_start or build_ts,
+            "timestamp_end": ts_end or build_ts,
+            "ci_binding": resolved_ci_binding,
             "valid_until": self.valid_until,
             "superseded_by": self.superseded_by,
         }
 
         # 5. Build verify_transcript.md
         transcript = _generate_transcript(
-            pack_id, attestation, verify_result, _assay_version,
-            generated_at=deterministic_ts,
+            pack_id,
+            attestation,
+            verify_result,
+            _assay_version,
+            claim_result=claim_result,
+            generated_at=build_ts,
         )
         transcript_bytes = transcript.encode("utf-8")
         (output_dir / "verify_transcript.md").write_bytes(transcript_bytes)
@@ -421,6 +554,14 @@ class ProofPack:
             "signature_scope": "JCS(pack_manifest_without_signature)",
         }
 
+        from assay.manifest_schema import validate_attestation, validate_manifest
+
+        attestation_errors = validate_attestation(attestation)
+        if attestation_errors:
+            raise ValueError(
+                f"Built attestation fails schema validation: {attestation_errors[0]}"
+            )
+
         # 7. Sign: JCS(unsigned_manifest) -> Ed25519
         canonical_unsigned = to_jcs_bytes(unsigned_manifest)
         signature_b64 = ks.sign_b64(canonical_unsigned, self.signer_id)
@@ -436,13 +577,14 @@ class ProofPack:
         }
 
         # 8b. Schema validation (build-time enforcement)
-        from assay.manifest_schema import validate_manifest
         schema_errors = validate_manifest(signed_manifest)
         if schema_errors:
             raise ValueError(
                 f"Built manifest fails schema validation: {schema_errors[0]}"
             )
 
+        # pack_manifest.json is stored as readable JSON, but the signature
+        # covers JCS(unsigned_manifest), not the raw file bytes.
         manifest_bytes = json.dumps(signed_manifest, indent=2).encode("utf-8")
         (output_dir / "pack_manifest.json").write_bytes(manifest_bytes)
 
@@ -454,6 +596,8 @@ class ProofPack:
         if self.emit_adc:
             from assay.adc_emitter import build_adc
 
+            unsigned_dir = get_unsigned_sidecar_dir(output_dir)
+            unsigned_dir.mkdir(parents=True, exist_ok=True)
             ns = self.claim_namespace
             if ns is None:
                 ns = f"assay:{self.suite_id}" if self.suite_id != "manual" else "assay:pack:v0.1"
@@ -478,25 +622,28 @@ class ProofPack:
                 policy_hash=self.policy_hash,
                 integrity_passed=verify_result.passed,
                 claim_result=claim_result,
-                issued_at=deterministic_ts or datetime.now(timezone.utc).isoformat(),
+                issued_at=build_ts,
                 evidence_observed_at=attestation.get("timestamp_start"),
                 evaluated_at=report["verified_at"],
                 valid_until=self.valid_until,
                 sign_fn=lambda data: ks.sign_b64(data, self.signer_id),
             )
             adc_bytes = json.dumps(adc, indent=2).encode("utf-8")
-            (output_dir / "decision_credential.json").write_bytes(adc_bytes)
+            get_decision_credential_path(output_dir, legacy_fallback=False).write_bytes(adc_bytes)
 
         # 10. Write PACK_SUMMARY.md (presentation layer, not part of
         # the 5-file verification kernel). Safe to import here since
         # explain has no dependency on proof_pack.
         try:
             from assay.explain import explain_pack, render_md
+
+            unsigned_dir = get_unsigned_sidecar_dir(output_dir)
+            unsigned_dir.mkdir(parents=True, exist_ok=True)
             info = explain_pack(output_dir)
             summary = render_md(info)
-            (output_dir / "PACK_SUMMARY.md").write_text(summary, encoding="utf-8")
-        except Exception:
-            pass  # Never fail a pack build over a summary file
+            get_pack_summary_path(output_dir, legacy_fallback=False).write_text(summary, encoding="utf-8")
+        except Exception as exc:
+            warnings.warn(f"PACK_SUMMARY generation failed: {exc}", stacklevel=2)
 
         return output_dir
 
@@ -549,4 +696,7 @@ __all__ = [
     "ProofPack",
     "build_proof_pack",
     "detect_ci_binding",
+    "get_decision_credential_path",
+    "get_pack_summary_path",
+    "get_unsigned_sidecar_dir",
 ]

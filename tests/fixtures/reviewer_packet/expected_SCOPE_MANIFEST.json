@@ -1,0 +1,34 @@
+{
+  "workflow_name": "AcmeSaaS support workflow sample",
+  "workflow_description": "Redacted sample pilot deliverable for an AI-powered support workflow.",
+  "repo_or_system_in_scope": "sample deliverable only",
+  "entrypoints_in_scope": [
+    "ticket classification",
+    "response generation",
+    "sentiment analysis",
+    "escalation handling"
+  ],
+  "callsites_identified": 5,
+  "callsites_instrumented": 4,
+  "controls_declared": [
+    "min_receipt_count",
+    "model_call_present"
+  ],
+  "questions_mapped": [
+    "Can the reviewer verify the proof artifact offline?",
+    "Is all identified workflow coverage complete?"
+  ],
+  "questions_out_of_scope": [
+    "Does this packet establish legal or regulatory compliance?"
+  ],
+  "excluded_components": [
+    "admin-only paths not represented in the sample receipts",
+    "live production infrastructure outside the redacted sample"
+  ],
+  "boundary_notes": [
+    "This is a redacted commercial sample for portability.",
+    "Coverage is partial, so the packet settlement is VERIFIED_WITH_GAPS."
+  ],
+  "signed_at": "2026-03-11T00:00:00+00:00",
+  "signed_by": "sample-fixture"
+}

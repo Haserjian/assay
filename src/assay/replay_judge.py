@@ -418,8 +418,10 @@ def judge_replay(
 
     original_manifest = _load_json(original_pack_dir / "pack_manifest.json")
     replay_manifest = _load_json(replay_pack_dir / "pack_manifest.json")
-    original_adc = _load_optional_json(original_pack_dir / "decision_credential.json")
-    replay_adc = _load_optional_json(replay_pack_dir / "decision_credential.json")
+    from assay.proof_pack import get_decision_credential_path
+
+    original_adc = _load_optional_json(get_decision_credential_path(original_pack_dir))
+    replay_adc = _load_optional_json(get_decision_credential_path(replay_pack_dir))
 
     judgment = build_replay_judgment(
         original_manifest=original_manifest,

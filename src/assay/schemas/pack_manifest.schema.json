@@ -96,7 +96,7 @@
     },
     "expected_files": {
       "type": "array",
-      "description": "All files expected in the pack directory, including non-hash-covered ones.",
+      "description": "All required kernel files expected in the pack directory, including non-hash-covered kernel entries. Supplementary content under _unsigned/ is allowed outside this required set.",
       "minItems": 5,
       "items": {
         "type": "string",

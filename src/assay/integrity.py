@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional
 from nacl.signing import VerifyKey
 
 from assay._receipts.canonicalize import to_jcs_bytes
+from assay.pack_verify_policy import inspect_pack_entries, validate_signed_manifest
 
 E_CANON_MISMATCH = "E_CANON_MISMATCH"
 E_SCHEMA_UNKNOWN = "E_SCHEMA_UNKNOWN"
@@ -72,6 +73,8 @@ def _parse_timestamp(ts: str) -> Optional[datetime]:
         return datetime.fromisoformat(ts.replace("Z", "+00:00"))
     except (ValueError, AttributeError):
         return None
+
+
 REQUIRED_RECEIPT_FIELDS = ("receipt_id", "type", "timestamp")
 
 
@@ -223,13 +226,35 @@ def verify_pack_manifest(
     """Verify pack_manifest.json integrity.
 
     Checks:
+      0. Manifest passes schema validation (fail closed)
+      0b. Expected kernel files are present; `_unsigned/` is an allowed supplementary namespace
       1. File hashes match files on disk
       2. Receipt count matches receipt_pack.jsonl
       3. Attestation hash matches embedded attestation
       4. Manifest signature is valid
     """
+    pack_dir = Path(pack_dir)
     errors: List[VerifyError] = []
     warnings: List[str] = []
+
+    schema_errors = validate_signed_manifest(manifest)
+    if schema_errors:
+        return VerifyResult(
+            passed=False,
+            errors=[
+                VerifyError(
+                    code=E_MANIFEST_TAMPER,
+                    message=f"Manifest schema validation failed: {error}",
+                    field="pack_manifest.json",
+                )
+                for error in schema_errors
+            ],
+            warnings=warnings,
+            receipt_count=0,
+            head_hash=None,
+        )
+
+    warnings.extend(inspect_pack_entries(manifest, pack_dir))
 
     # 1. Verify file hashes
     files_list = manifest.get("files", [])

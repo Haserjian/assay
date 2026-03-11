@@ -53,8 +53,19 @@ def keystore(tmp_path):
 
 
 @pytest.fixture
-def pack_manifest(keystore, tmp_path):
+def pack_manifest(keystore, tmp_path, monkeypatch):
     """Build a minimal pack and return its manifest dict + pack_dir."""
+    for key in (
+        "GITHUB_ACTIONS",
+        "GITHUB_REPOSITORY",
+        "GITHUB_REF",
+        "GITHUB_SHA",
+        "GITHUB_RUN_ID",
+        "GITHUB_RUN_ATTEMPT",
+        "GITHUB_WORKFLOW_REF",
+        "GITHUB_ACTOR",
+    ):
+        monkeypatch.delenv(key, raising=False)
     pp = ProofPack(run_id="accept-test", entries=[], signer_id="test")
     pack_dir = pp.build(tmp_path / "pack", keystore=keystore)
     manifest = json.loads((pack_dir / "pack_manifest.json").read_text())

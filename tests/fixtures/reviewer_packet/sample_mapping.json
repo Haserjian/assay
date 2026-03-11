@@ -1,0 +1,36 @@
+{
+  "questions": [
+    {
+      "question_id": "sample-001",
+      "prompt": "Can the reviewer verify the proof artifact offline?",
+      "in_scope": true,
+      "status_rule": "ALL_EVIDENCE_REQUIRED",
+      "scope": "Whole packet",
+      "evidence": [
+        {
+          "type": "verify_report_field",
+          "path": "claim_verification.passed"
+        }
+      ],
+      "notes": "The nested proof pack passes its declared claims and is verifiable offline."
+    },
+    {
+      "question_id": "sample-002",
+      "prompt": "Is all identified workflow coverage complete?",
+      "in_scope": true,
+      "status_rule": "PARTIAL_IF_RATIO_LT_1",
+      "scope": "Support workflow only",
+      "numerator_field": "callsites_instrumented",
+      "denominator_field": "callsites_identified",
+      "notes": "Coverage is partial because the sample shows 4 of 5 identified call sites in the packet boundary."
+    },
+    {
+      "question_id": "sample-003",
+      "prompt": "Does this packet establish legal or regulatory compliance?",
+      "in_scope": false,
+      "status_rule": "OUT_OF_SCOPE",
+      "scope": "Out of scope for this packet",
+      "out_of_scope_note": "Packet provides evidence, not legal conclusions."
+    }
+  ]
+}

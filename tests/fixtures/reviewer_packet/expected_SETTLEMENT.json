@@ -1,0 +1,28 @@
+{
+  "packet_id": "rp_pack_20260304T061703_2c002032",
+  "packet_version": "1.0",
+  "artifact_type": "reviewer_packet",
+  "settlement_state": "VERIFIED_WITH_GAPS",
+  "integrity_state": "PASS",
+  "claim_state": "PASS",
+  "scope_state": "BOUNDED",
+  "freshness_state": "FRESH",
+  "regression_state": "NONE",
+  "generated_at": "2026-03-11T00:00:00+00:00",
+  "valid_for": "P30D",
+  "expires_at": "2026-04-10T00:00:00+00:00",
+  "source_commit": "sample-redacted-artifact",
+  "pack_manifest_sha256": "b605abbfee5e8dcced0b3cd29f39f1019b8fa88987028128165857da899e198f",
+  "proof_pack_path": "./proof_pack",
+  "settlement_basis": [
+    "The packet is authentic and useful, but some in-scope coverage remains partial or human-attested.",
+    "Nested proof pack integrity: PASS",
+    "Nested proof pack claims: PASS"
+  ],
+  "signer": {
+    "mode": "local_key",
+    "identity": "assay-local",
+    "fingerprint": "5910f35f991d2137ebe818df0c2af65f4722a13d3e7279efa4613a768fcb8cbe"
+  },
+  "trust_tier": "L0"
+}

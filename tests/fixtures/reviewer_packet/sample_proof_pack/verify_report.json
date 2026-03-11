@@ -1,0 +1,41 @@
+{
+  "pack_id": "pack_20260304T061703_2c002032",
+  "run_id": "trace_20260304T061702_506b8914",
+  "passed": true,
+  "errors": [],
+  "warnings": [],
+  "receipt_count": 4,
+  "head_hash": "f4f5904c37584625c1e8c80319d9fc6800b98d1fe20c936f1d427fb34adf8c05",
+  "verified_at": "2026-03-04T06:17:03.006826+00:00",
+  "verifier_version": "1.14.0",
+  "claim_verification": {
+    "passed": true,
+    "n_claims": 2,
+    "n_passed": 2,
+    "n_failed": 0,
+    "discrepancy_fingerprint": "205e71fe60648d8a8c1c6c3d34fc37ecbcf44535fb5336a00b97877812145504",
+    "results": [
+      {
+        "claim_id": "min_receipt_count",
+        "passed": true,
+        "expected": ">= 1 receipts",
+        "actual": "4 receipts",
+        "severity": "critical",
+        "evidence_receipt_ids": []
+      },
+      {
+        "claim_id": "model_call_present",
+        "passed": true,
+        "expected": "at least 1 receipt of type 'model_call'",
+        "actual": "found 4",
+        "severity": "critical",
+        "evidence_receipt_ids": [
+          "r_8b41ae8c85f5",
+          "r_5d17b6b5ca2f",
+          "r_c717b367c5bd",
+          "r_096cac52ad53"
+        ]
+      }
+    ]
+  }
+}
