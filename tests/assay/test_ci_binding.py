@@ -66,6 +66,20 @@ FULL_BINDING = {
 }
 
 
+def _clear_github_env(monkeypatch):
+    for key in (
+        "GITHUB_ACTIONS",
+        "GITHUB_REPOSITORY",
+        "GITHUB_REF",
+        "GITHUB_SHA",
+        "GITHUB_RUN_ID",
+        "GITHUB_RUN_ATTEMPT",
+        "GITHUB_WORKFLOW_REF",
+        "GITHUB_ACTOR",
+    ):
+        monkeypatch.delenv(key, raising=False)
+
+
 # ---------------------------------------------------------------------------
 # detect_ci_binding tests
 # ---------------------------------------------------------------------------
@@ -166,7 +180,8 @@ class TestDetectCiBinding:
 # ---------------------------------------------------------------------------
 
 class TestCiBindingInAttestation:
-    def test_no_binding_local(self, keystore, tmp_path):
+    def test_no_binding_local(self, keystore, tmp_path, monkeypatch):
+        _clear_github_env(monkeypatch)
         manifest, _ = _build_pack(keystore, ci_binding=None, tmp_path=tmp_path)
         att = manifest["attestation"]
         assert att["ci_binding"] is None
@@ -179,6 +194,21 @@ class TestCiBindingInAttestation:
         assert cb["commit_sha"] == FAKE_SHA
         assert cb["repo"] == "Haserjian/assay"
         assert cb["run_id"] == "12345"
+
+    def test_direct_build_auto_detects_ci_binding(self, keystore, tmp_path, monkeypatch):
+        _clear_github_env(monkeypatch)
+        monkeypatch.setenv("GITHUB_ACTIONS", "true")
+        monkeypatch.setenv("GITHUB_SHA", FAKE_SHA)
+        monkeypatch.setenv("GITHUB_REPOSITORY", "Haserjian/assay")
+        monkeypatch.setenv("GITHUB_REF", "refs/heads/main")
+
+        manifest, _ = _build_pack(keystore, ci_binding=None, tmp_path=tmp_path)
+        cb = manifest["attestation"]["ci_binding"]
+        assert cb is not None
+        assert cb["provider"] == "github_actions"
+        assert cb["commit_sha"] == FAKE_SHA
+        assert cb["repo"] == "Haserjian/assay"
+        assert cb["ref"] == "refs/heads/main"
 
     def test_binding_covered_by_signature(self, keystore, tmp_path):
         """CI binding is part of the signed attestation — tampering fails verification."""
@@ -200,12 +230,14 @@ class TestCiBindingInAttestation:
 # ---------------------------------------------------------------------------
 
 class TestRequireCiBinding:
-    def test_not_required_no_binding_passes(self, keystore, tmp_path):
+    def test_not_required_no_binding_passes(self, keystore, tmp_path, monkeypatch):
+        _clear_github_env(monkeypatch)
         manifest, pack_dir = _build_pack(keystore, ci_binding=None, tmp_path=tmp_path)
         result = verify_pack_manifest(manifest, pack_dir, keystore, require_ci_binding=False)
         assert result.passed
 
-    def test_required_no_binding_fails(self, keystore, tmp_path):
+    def test_required_no_binding_fails(self, keystore, tmp_path, monkeypatch):
+        _clear_github_env(monkeypatch)
         manifest, pack_dir = _build_pack(keystore, ci_binding=None, tmp_path=tmp_path)
         result = verify_pack_manifest(manifest, pack_dir, keystore, require_ci_binding=True)
         assert not result.passed
@@ -239,8 +271,9 @@ class TestExpectedCommitSha:
         error_codes = [e.code for e in result.errors]
         assert E_CI_BINDING_MISMATCH in error_codes
 
-    def test_expected_sha_no_binding_fails(self, keystore, tmp_path):
+    def test_expected_sha_no_binding_fails(self, keystore, tmp_path, monkeypatch):
         """Expecting a commit SHA but pack has no CI binding → fail."""
+        _clear_github_env(monkeypatch)
         manifest, pack_dir = _build_pack(keystore, ci_binding=None, tmp_path=tmp_path)
         result = verify_pack_manifest(
             manifest, pack_dir, keystore, expected_commit_sha=FAKE_SHA,

@@ -34,7 +34,11 @@ from assay.integrity import (
     verify_receipt_pack,
 )
 from assay.keystore import AssayKeyStore
-from assay.proof_pack import ProofPack
+from assay.proof_pack import (
+    ProofPack,
+    get_pack_summary_path,
+    get_unsigned_sidecar_dir,
+)
 from assay.run_cards import (
     BUILTIN_CARDS,
     RunCard,
@@ -231,8 +235,8 @@ class TestProofPackBuilder:
         }
         actual_files = {f.name for f in out.iterdir()}
         assert kernel_files.issubset(actual_files)
-        # PACK_SUMMARY.md is a presentation extra, not part of the verification kernel
-        assert actual_files - kernel_files <= {"PACK_SUMMARY.md"}
+        # Unsigned narrative sidecars live under _unsigned/, outside the kernel.
+        assert actual_files - kernel_files <= {"_unsigned"}
 
     def test_manifest_is_valid_json(self, tmp_path, tmp_keys, sample_receipts):
         pack = ProofPack(
@@ -259,6 +263,72 @@ class TestProofPackBuilder:
         att_bytes = to_jcs_bytes(att)
         expected = hashlib.sha256(att_bytes).hexdigest()
         assert manifest["attestation_sha256"] == expected
+
+    def test_deterministic_pack_id_is_stable_for_same_content(self, tmp_path, tmp_keys):
+        receipts = [
+            _make_receipt(
+                receipt_id="r_det_1",
+                timestamp="2026-03-11T00:00:00+00:00",
+                seq=0,
+                run_id="deterministic-run",
+            )
+        ]
+        ts = "2026-03-11T12:00:00+00:00"
+        pack_a = ProofPack(run_id="deterministic-run", entries=receipts, signer_id="test-signer")
+        pack_b = ProofPack(run_id="deterministic-run", entries=receipts, signer_id="test-signer")
+
+        out_a = pack_a.build(tmp_path / "pack_a", keystore=tmp_keys, deterministic_ts=ts)
+        out_b = pack_b.build(tmp_path / "pack_b", keystore=tmp_keys, deterministic_ts=ts)
+
+        manifest_a = json.loads((out_a / "pack_manifest.json").read_text())
+        manifest_b = json.loads((out_b / "pack_manifest.json").read_text())
+        assert manifest_a["pack_id"] == manifest_b["pack_id"]
+
+    def test_deterministic_pack_id_changes_when_content_changes(self, tmp_path, tmp_keys):
+        ts = "2026-03-11T12:00:00+00:00"
+        pack_a = ProofPack(
+            run_id="deterministic-run",
+            entries=[_make_receipt(receipt_id="r_det_a", timestamp=ts, seq=0, run_id="deterministic-run")],
+            signer_id="test-signer",
+        )
+        pack_b = ProofPack(
+            run_id="deterministic-run",
+            entries=[
+                _make_receipt(receipt_id="r_det_b1", timestamp=ts, seq=0, run_id="deterministic-run"),
+                _make_receipt(receipt_id="r_det_b2", timestamp=ts, seq=1, run_id="deterministic-run"),
+            ],
+            signer_id="test-signer",
+        )
+
+        out_a = pack_a.build(tmp_path / "pack_a", keystore=tmp_keys, deterministic_ts=ts)
+        out_b = pack_b.build(tmp_path / "pack_b", keystore=tmp_keys, deterministic_ts=ts)
+
+        manifest_a = json.loads((out_a / "pack_manifest.json").read_text())
+        manifest_b = json.loads((out_b / "pack_manifest.json").read_text())
+        assert manifest_a["pack_id"] != manifest_b["pack_id"]
+
+    def test_attestation_time_range_uses_true_min_max_timestamps(self, tmp_path, tmp_keys):
+        receipts = [
+            _make_receipt(
+                receipt_id="r_time_1",
+                timestamp="2026-03-11T03:00:00+00:00",
+                seq=1,
+                run_id="time-range-run",
+            ),
+            _make_receipt(
+                receipt_id="r_time_2",
+                timestamp="2026-03-11T01:00:00+00:00",
+                seq=0,
+                run_id="time-range-run",
+            ),
+        ]
+        pack = ProofPack(run_id="time-range-run", entries=receipts, signer_id="test-signer")
+
+        out = pack.build(tmp_path / "pack", keystore=tmp_keys)
+        manifest = json.loads((out / "pack_manifest.json").read_text())
+        attestation = manifest["attestation"]
+        assert attestation["timestamp_start"] == "2026-03-11T01:00:00+00:00"
+        assert attestation["timestamp_end"] == "2026-03-11T03:00:00+00:00"
 
     def test_receipt_count_matches(self, tmp_path, tmp_keys, sample_receipts):
         pack = ProofPack(
@@ -403,6 +473,19 @@ class TestProofPackBuilder:
         assert "PASS" in transcript
         assert "test_trace_009" in transcript
 
+    def test_mixed_run_receipts_are_rejected(self, tmp_path, tmp_keys):
+        receipts = [
+            _make_receipt(receipt_id="r_ok", run_id="expected-run", seq=0),
+            _make_receipt(receipt_id="r_bad", run_id="other-run", seq=1),
+        ]
+        pack = ProofPack(
+            run_id="expected-run",
+            entries=receipts,
+            signer_id="test-signer",
+        )
+        with pytest.raises(ValueError, match="expected-run"):
+            pack.build(tmp_path / "pack", keystore=tmp_keys)
+
     def test_empty_trace(self, tmp_path, tmp_keys):
         """Empty trace should still produce a valid pack."""
         pack = ProofPack(
@@ -453,6 +536,56 @@ class TestProofPackBuilder:
         assert not result.passed
         codes = {e.code for e in result.errors}
         assert E_PACK_SIG_INVALID in codes or E_MANIFEST_TAMPER in codes
+
+    def test_verify_fails_closed_on_manifest_schema_error(self, tmp_path, tmp_keys, sample_receipts):
+        pack = ProofPack(
+            trace_id="test_trace_schema_fail_closed",
+            entries=sample_receipts,
+            signer_id="test-signer",
+        )
+        out = pack.build(tmp_path / "pack", keystore=tmp_keys)
+        manifest = json.loads((out / "pack_manifest.json").read_text())
+
+        del manifest["expected_files"]
+
+        result = verify_pack_manifest(manifest, out, tmp_keys)
+        assert not result.passed
+        assert any("Manifest schema validation failed" in e.message for e in result.errors)
+
+    def test_verify_allows_unsigned_sidecar_namespace(self, tmp_path, tmp_keys, sample_receipts):
+        pack = ProofPack(
+            trace_id="test_trace_unsigned_namespace",
+            entries=sample_receipts,
+            signer_id="test-signer",
+        )
+        out = pack.build(tmp_path / "pack", keystore=tmp_keys)
+        manifest = json.loads((out / "pack_manifest.json").read_text())
+
+        sidecar_dir = get_unsigned_sidecar_dir(out)
+        sidecar_dir.mkdir(parents=True, exist_ok=True)
+        (sidecar_dir / "note.txt").write_text("supplementary note")
+
+        result = verify_pack_manifest(manifest, out, tmp_keys)
+        assert result.passed, f"Errors: {[e.to_dict() for e in result.errors]}"
+        assert not any("Unexpected top-level pack entry" in warning for warning in result.warnings)
+
+    def test_verify_warns_on_unexpected_top_level_entry(self, tmp_path, tmp_keys, sample_receipts):
+        pack = ProofPack(
+            trace_id="test_trace_unexpected_entry",
+            entries=sample_receipts,
+            signer_id="test-signer",
+        )
+        out = pack.build(tmp_path / "pack", keystore=tmp_keys)
+        manifest = json.loads((out / "pack_manifest.json").read_text())
+
+        (out / "SURPRISE.txt").write_text("unexpected")
+
+        result = verify_pack_manifest(manifest, out, tmp_keys)
+        assert result.passed, f"Errors: {[e.to_dict() for e in result.errors]}"
+        assert any(
+            warning == "Unexpected top-level pack entry ignored: SURPRISE.txt"
+            for warning in result.warnings
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -563,6 +696,18 @@ class TestAuditHardeningFields:
         out = pack.build(tmp_path / "pack", keystore=tmp_keys)
         manifest = json.loads((out / "pack_manifest.json").read_text())
         assert manifest["attestation"]["time_authority"] == "local_clock"
+
+    def test_pack_summary_written_to_unsigned_sidecar(self, tmp_path, tmp_keys, sample_receipts):
+        pack = ProofPack(
+            run_id="test_summary_sidecar",
+            entries=sample_receipts,
+            signer_id="test-signer",
+        )
+        out = pack.build(tmp_path / "pack", keystore=tmp_keys)
+        assert not (out / "PACK_SUMMARY.md").exists()
+        summary_path = get_pack_summary_path(out)
+        if summary_path.exists():
+            assert summary_path.parent.name == "_unsigned"
 
     def test_head_hash_algorithm(self, tmp_path, tmp_keys, sample_receipts):
         """Attestation contains head_hash_algorithm."""
@@ -1156,6 +1301,10 @@ class TestClaimWiring:
         manifest = json.loads((out / "pack_manifest.json").read_text())
         assert manifest["attestation"]["claim_check"] == "FAIL"
         assert manifest["attestation"]["discrepancy_fingerprint"]
+        transcript = (out / "verify_transcript.md").read_text()
+        assert "## Claim Verification" in transcript
+        assert "### Failed Claims" in transcript
+        assert "need_guardian" in transcript
 
     def test_integrity_pass_claim_fail(self, tmp_path, tmp_keys, sample_receipts):
         """The critical demo: integrity PASS + claim FAIL without ambiguity."""

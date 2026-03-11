@@ -22,17 +22,8 @@ import hashlib
 from typing import Any
 
 from .merkle import compute_merkle_root
+from assay._receipts.jcs import canonicalize as _jcs_canonicalize
 from assay._receipts.compat.pyd import unwrap_frozen, strip_signatures
-try:
-    from tools import proofkit as proofkit_module
-except Exception:  # pragma: no cover - fallback when proofkit is unavailable
-    from assay._receipts.jcs import canonicalize as _jcs_canonicalize
-
-    class _FallbackProofkit:
-        @staticmethod
-        def canonicalize_json(payload: Any) -> bytes:
-            return _jcs_canonicalize(payload)
-    proofkit_module = _FallbackProofkit()
 try:
     # Prefer normal package import within the project
     from .compatibility import normalize_legacy_fields  # type: ignore
@@ -63,10 +54,10 @@ except Exception:
 
 def to_jcs_bytes(obj: Any) -> bytes:
     """
-    Serialize object to JCS (RFC 8785) canonical bytes using ProofKit.
+    Serialize object to JCS (RFC 8785) canonical bytes.
     """
     normalized = _prepare_for_canonicalization(obj)
-    return proofkit_module.canonicalize_json(normalized)
+    return _jcs_canonicalize(normalized)
 
 
 def _prepare_for_canonicalization(obj: Any) -> Any:
@@ -109,7 +100,7 @@ def compute_payload_hash(obj: Any, algorithm: str = "sha256") -> str:
     Returns:
         Hex-encoded hash string
     """
-    canonical_bytes = proofkit_module.canonicalize_json(_prepare_for_canonicalization(obj))
+    canonical_bytes = _jcs_canonicalize(_prepare_for_canonicalization(obj))
 
     if algorithm == "sha256":
         h = hashlib.sha256(canonical_bytes)

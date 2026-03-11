@@ -18,7 +18,7 @@ from assay.adc_emitter import (
 )
 from assay.claim_verifier import ClaimResult, ClaimSetResult
 from assay.keystore import AssayKeyStore
-from assay.proof_pack import ProofPack
+from assay.proof_pack import ProofPack, get_decision_credential_path
 
 
 # ---------------------------------------------------------------------------
@@ -297,6 +297,7 @@ class TestProofPackIntegration:
             signer_id="test-signer",
         )
         out = pack.build(tmp_path / "pack", keystore=ks)
+        assert not get_decision_credential_path(out, legacy_fallback=False).exists()
         assert not (out / "decision_credential.json").exists()
 
     def test_emit_adc_true_writes_file(self, tmp_path):
@@ -309,8 +310,9 @@ class TestProofPackIntegration:
             signer_id="test-signer",
         )
         out = pack.build(tmp_path / "pack", keystore=ks)
-        cred_path = out / "decision_credential.json"
+        cred_path = get_decision_credential_path(out, legacy_fallback=False)
         assert cred_path.exists()
+        assert cred_path.parent.name == "_unsigned"
 
         adc = json.loads(cred_path.read_text())
         assert adc["credential_type"] == "ai_decision_credential"
@@ -329,7 +331,7 @@ class TestProofPackIntegration:
             signer_id="test-signer",
         )
         out = pack.build(tmp_path / "pack", keystore=ks, deterministic_ts=ts)
-        adc = json.loads((out / "decision_credential.json").read_text())
+        adc = json.loads(get_decision_credential_path(out, legacy_fallback=False).read_text())
         assert adc["issued_at"] == ts
         assert adc["evaluated_at"] == ts
 
@@ -344,7 +346,7 @@ class TestProofPackIntegration:
             signer_id="test-signer",
         )
         out = pack.build(tmp_path / "pack", keystore=ks)
-        adc = json.loads((out / "decision_credential.json").read_text())
+        adc = json.loads(get_decision_credential_path(out, legacy_fallback=False).read_text())
         assert adc["claim_namespace"] == "assay:vendorq_v1"
 
     def test_emit_adc_manual_namespace_fallback(self, tmp_path):
@@ -357,7 +359,7 @@ class TestProofPackIntegration:
             signer_id="test-signer",
         )
         out = pack.build(tmp_path / "pack", keystore=ks)
-        adc = json.loads((out / "decision_credential.json").read_text())
+        adc = json.loads(get_decision_credential_path(out, legacy_fallback=False).read_text())
         assert adc["claim_namespace"] == "assay:pack:v0.1"
 
     def test_emit_adc_explicit_namespace(self, tmp_path):
@@ -371,7 +373,7 @@ class TestProofPackIntegration:
             signer_id="test-signer",
         )
         out = pack.build(tmp_path / "pack", keystore=ks)
-        adc = json.loads((out / "decision_credential.json").read_text())
+        adc = json.loads(get_decision_credential_path(out, legacy_fallback=False).read_text())
         assert adc["claim_namespace"] == "org:fintech:loan:v1"
 
     def test_emit_adc_signature_verifies(self, tmp_path):
@@ -384,7 +386,7 @@ class TestProofPackIntegration:
             signer_id="test-signer",
         )
         out = pack.build(tmp_path / "pack", keystore=ks)
-        adc = json.loads((out / "decision_credential.json").read_text())
+        adc = json.loads(get_decision_credential_path(out, legacy_fallback=False).read_text())
 
         without_sig = {k: v for k, v in adc.items() if k != "signature"}
         canonical = to_jcs_bytes(without_sig)
@@ -404,5 +406,5 @@ class TestProofPackIntegration:
         out = pack.build(tmp_path / "pack", keystore=ks)
 
         manifest = json.loads((out / "pack_manifest.json").read_text())
-        adc = json.loads((out / "decision_credential.json").read_text())
+        adc = json.loads(get_decision_credential_path(out, legacy_fallback=False).read_text())
         assert adc["evidence_manifest_sha256"] == manifest["pack_root_sha256"]

@@ -2,6 +2,8 @@
 Assay CLI commands: Tamper-evident audit trails for AI systems.
 
 Commands:
+  assay try           - See what Assay does in 15 seconds (start here)
+  assay reviewer verify - Verify a Reviewer Packet and explain the settlement
   assay run           - Run a command and build a Proof Pack from receipts
   assay verify-pack   - Verify a Proof Pack's integrity
   assay verify-signer - Extract and verify signer identity from a proof pack
@@ -2314,6 +2316,14 @@ def verify_pack_cmd(
         False, "--check-expiry",
         help="Fail (exit 1) if attestation valid_until is in the past.",
     ),
+    html_out: Optional[str] = typer.Option(
+        None, "--html",
+        help="Write a self-contained HTML verification report to this path.",
+    ),
+    badge_out: Optional[str] = typer.Option(
+        None, "--badge",
+        help="Write an SVG verification badge to this path.",
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Verify a Proof Pack's integrity (manifest, signatures, file hashes).
@@ -2535,6 +2545,46 @@ def verify_pack_cmd(
     elif witness_failed:
         overall_status = "witness_failed"
 
+    # --- Artifact generation (does not affect exit codes) ---
+    _artifact_paths: Dict[str, str] = {}
+    if html_out or badge_out:
+        from assay.verification_status import classify_verdict
+        from assay.verify_render import render_verification_badge, render_verification_html
+
+        _verdict = classify_verdict(
+            integrity_passed=result.passed,
+            claim_check=claim_check,
+        )
+
+        if html_out:
+            from assay import __version__ as _assay_version
+
+            html_str = render_verification_html(
+                verdict=_verdict,
+                pack_id=att.get("pack_id", "unknown"),
+                run_id=att.get("run_id", "unknown"),
+                pack_dir=str(pack_path),
+                integrity_passed=result.passed,
+                claim_check=claim_check,
+                receipt_count=result.receipt_count,
+                signer_id=att.get("signer_id", "unknown"),
+                errors=[e.to_dict() for e in result.errors],
+                warnings=result.warnings,
+                head_hash=result.head_hash,
+                version=_assay_version,
+            )
+            html_path = Path(html_out)
+            html_path.parent.mkdir(parents=True, exist_ok=True)
+            html_path.write_text(html_str, encoding="utf-8")
+            _artifact_paths["html"] = str(html_path)
+
+        if badge_out:
+            svg_str = render_verification_badge(_verdict)
+            badge_path = Path(badge_out)
+            badge_path.parent.mkdir(parents=True, exist_ok=True)
+            badge_path.write_text(svg_str, encoding="utf-8")
+            _artifact_paths["badge"] = str(badge_path)
+
     if output_json:
         out = {
             "command": "verify-pack",
@@ -2552,7 +2602,15 @@ def verify_pack_cmd(
             out["coverage"] = coverage_result
         if witness_failed:
             out["witness_errors"] = witness_errors
+        if _artifact_paths:
+            out["artifacts"] = _artifact_paths
         _output_json(out)
+
+    # Print artifact paths in terminal mode
+    if _artifact_paths and not output_json:
+        for kind, apath in _artifact_paths.items():
+            label = "HTML report" if kind == "html" else "Badge"
+            console.print(f"  [dim]{label}:[/] {apath}")
 
     if lock_failed:
         console.print()
@@ -3044,8 +3102,10 @@ def witness_cmd(
 
     bundle_path = out_path or (pack_path / "witness_bundle.json")
 
-    # Update PACK_SUMMARY.md if it exists in the pack directory
-    summary_path = pack_path / "PACK_SUMMARY.md"
+    # Update PACK_SUMMARY.md if it exists in the unsigned sidecar dir
+    from assay.proof_pack import get_pack_summary_path
+
+    summary_path = get_pack_summary_path(pack_path)
     if summary_path.exists():
         summary = summary_path.read_text()
         old_line = "- That timestamps are externally anchored (local clock was used)"
@@ -4578,6 +4638,13 @@ vendorq_app = typer.Typer(
 )
 assay_app.add_typer(vendorq_app, name="vendorq")
 
+reviewer_app = typer.Typer(
+    name="reviewer",
+    help="Reviewer Packet verification and settlement inspection.",
+    no_args_is_help=True,
+)
+assay_app.add_typer(reviewer_app, name="reviewer")
+
 vendorq_lock_app = typer.Typer(
     name="lock",
     help="Manage vendorq.lock",
@@ -4827,6 +4894,129 @@ def vendorq_export_cmd(
         title="assay vendorq export",
     ))
     console.print()
+
+
+@vendorq_app.command("export-reviewer")
+def vendorq_export_reviewer_cmd(
+    proof_pack: str = typer.Option(..., "--proof-pack", help="Path to proof pack directory"),
+    boundary: str = typer.Option(..., "--boundary", help="Path to reviewer packet boundary JSON"),
+    mapping: str = typer.Option(..., "--mapping", help="Path to reviewer packet question mapping JSON"),
+    out: str = typer.Option(..., "--out", "-o", help="Output reviewer packet directory"),
+    baseline: Optional[str] = typer.Option(None, "--baseline", help="Optional baseline reviewer packet directory"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Experimental: compile a reviewer packet from a proof pack plus declarative packet inputs."""
+    from pathlib import Path
+
+    from assay.reviewer_packet_compile import compile_reviewer_packet
+    from assay.vendorq_models import VendorQInputError, load_json
+
+    try:
+        result = compile_reviewer_packet(
+            proof_pack_dir=Path(proof_pack),
+            boundary_payload=load_json(Path(boundary)),
+            mapping_payload=load_json(Path(mapping)),
+            out_dir=Path(out),
+            baseline_packet_dir=Path(baseline) if baseline else None,
+        )
+    except VendorQInputError as e:
+        if output_json:
+            _output_json({"command": "vendorq export-reviewer", "status": "error", "error": str(e)}, exit_code=3)
+        console.print(f"[red]Error:[/] {e}")
+        raise typer.Exit(3)
+
+    if output_json:
+        _output_json(
+            {
+                "command": "vendorq export-reviewer",
+                "status": "ok",
+                **result,
+            },
+            exit_code=0,
+        )
+
+    console.print()
+    console.print(Panel.fit(
+        f"[bold green]Reviewer Packet Compiled[/]\n\n"
+        f"Proof pack:        {proof_pack}\n"
+        f"Boundary:          {boundary}\n"
+        f"Mapping:           {mapping}\n"
+        f"Settlement:        {result['settlement_state']}\n"
+        f"Coverage rows:     {len(result['coverage_rows'])}\n"
+        f"Output directory:  {out}",
+        title="assay vendorq export-reviewer",
+    ))
+    console.print()
+
+
+@reviewer_app.command("verify")
+def reviewer_verify_cmd(
+    packet_dir: str = typer.Argument(..., help="Path to Reviewer Packet directory"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Verify a Reviewer Packet and derive a single reviewer-facing settlement verdict."""
+    from pathlib import Path
+
+    from assay.reviewer_packet_verify import verify_reviewer_packet
+    from assay.vendorq_models import VendorQInputError
+
+    try:
+        result = verify_reviewer_packet(Path(packet_dir))
+    except VendorQInputError as exc:
+        if output_json:
+            _output_json(
+                {
+                    "command": "reviewer verify",
+                    "status": "error",
+                    "error": str(exc),
+                },
+                exit_code=3,
+            )
+        console.print(f"[red]Error:[/] {exc}")
+        raise typer.Exit(3)
+
+    status = "ok" if result["packet_verified"] else "failed"
+    payload = {
+        "command": "reviewer verify",
+        "status": status,
+        **result,
+    }
+    if output_json:
+        _output_json(payload, exit_code=0 if result["packet_verified"] else 2)
+
+    coverage_summary = ", ".join(
+        f"{name}={count}"
+        for name, count in sorted(result["coverage_summary"].items())
+    ) or "none"
+    console.print()
+    console.print(Panel.fit(
+        f"[bold]{'Reviewer Packet Verified' if result['packet_verified'] else 'Reviewer Packet Failed'}[/]\n\n"
+        f"Packet:            {result['packet_id']}\n"
+        f"Settlement:        {result['settlement_state']}\n"
+        f"Interpretation:    {result['settlement_reason']}\n"
+        f"Nested proof pack: {'PASS' if result['proof_pack']['verified'] else 'FAIL'}\n"
+        f"Claims:            {result['claim_state']}\n"
+        f"Scope:             {result['scope_state']}\n"
+        f"Freshness:         {result['freshness_state']}\n"
+        f"Regression:        {result['regression_state']}\n"
+        f"Coverage:          {coverage_summary}",
+        title="assay reviewer verify",
+        border_style="green" if result["packet_verified"] else "red",
+    ))
+
+    if result["errors"]:
+        console.print()
+        console.print("[bold red]Errors:[/]")
+        for error in result["errors"][:10]:
+            console.print(f"  - {error}")
+
+    if result["warnings"]:
+        console.print()
+        console.print("[bold yellow]Warnings:[/]")
+        for warning in result["warnings"][:10]:
+            console.print(f"  - {warning}")
+
+    raise typer.Exit(0 if result["packet_verified"] else 2)
 
 
 @vendorq_lock_app.command("write")
@@ -8257,9 +8447,13 @@ def audit_bundle_cmd(
     generated_names = {"SIGNER_INFO.json", "PACK_SUMMARY.md", "VERIFY_INSTRUCTIONS.md", "VERIFY_RESULT.json"}
 
     with tarfile.open(str(out_path), "w:gz") as tar:
-        for file_path in sorted(pack_path.iterdir()):
-            if file_path.is_file() and file_path.name not in generated_names:
-                tar.add(str(file_path), arcname=file_path.name)
+        for file_path in sorted(pack_path.rglob("*")):
+            if not file_path.is_file():
+                continue
+            rel_path = file_path.relative_to(pack_path)
+            if len(rel_path.parts) == 1 and rel_path.name in generated_names:
+                continue
+            tar.add(str(file_path), arcname=str(rel_path))
 
         now = int(_time.time())
         for name, data in [
@@ -8274,7 +8468,11 @@ def audit_bundle_cmd(
             tar.addfile(ti, io.BytesIO(data))
 
     bundle_size = out_path.stat().st_size
-    file_count = sum(1 for f in pack_path.iterdir() if f.is_file() and f.name not in generated_names) + len(generated_names)
+    file_count = sum(
+        1
+        for f in pack_path.rglob("*")
+        if f.is_file() and not (len(f.relative_to(pack_path).parts) == 1 and f.name in generated_names)
+    ) + len(generated_names)
 
     if output_json:
         _output_json({
@@ -9077,6 +9275,167 @@ def pilot_closeout_cmd(
         f"| delta={delta_str}"
     )
     raise typer.Exit(0)
+
+
+# ---------------------------------------------------------------------------
+# assay try -- single canonical getting-started command
+# ---------------------------------------------------------------------------
+
+@assay_app.command("try")
+def try_cmd(
+    output_json: bool = typer.Option(False, "--json", help="Structured output"),
+):
+    """See what Assay does in 15 seconds.
+
+    Builds a proof pack, verifies it, tampers with one byte,
+    and verifies again. One command. No setup.
+
+    Examples:
+      pip install assay-ai
+      assay try
+    """
+    import hashlib
+    import shutil
+    import tempfile
+    from pathlib import Path
+
+    from assay.claim_verifier import ClaimSpec
+    from assay.integrity import verify_pack_manifest
+    from assay.keystore import AssayKeyStore
+    from assay.proof_pack import ProofPack
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        td = Path(tmpdir)
+        ks = AssayKeyStore(keys_dir=td / "keys")
+        ks.generate_key("try-demo")
+
+        receipts = [
+            {
+                "receipt_id": "r_try_001",
+                "type": "model_call",
+                "timestamp": "2026-03-08T12:00:00Z",
+                "schema_version": "3.0",
+                "seq": 0,
+                "model_id": "gpt-4o",
+                "provider": "openai",
+                "total_tokens": 2400,
+                "input_tokens": 1700,
+                "output_tokens": 700,
+                "latency_ms": 980,
+                "finish_reason": "stop",
+            },
+            {
+                "receipt_id": "r_try_002",
+                "type": "guardian_verdict",
+                "timestamp": "2026-03-08T12:00:01Z",
+                "schema_version": "3.0",
+                "seq": 1,
+                "verdict": "allow",
+                "action": "generate_report",
+                "reason": "Content within policy bounds",
+            },
+        ]
+
+        claims = [
+            ClaimSpec(
+                claim_id="model_called",
+                description="At least one model_call receipt",
+                check="receipt_type_present",
+                params={"receipt_type": "model_call"},
+            ),
+            ClaimSpec(
+                claim_id="guardian_ran",
+                description="Guardian verdict was issued",
+                check="receipt_type_present",
+                params={"receipt_type": "guardian_verdict"},
+            ),
+        ]
+
+        pack = ProofPack(
+            run_id="try-demo-run",
+            entries=receipts,
+            signer_id="try-demo",
+            claims=claims,
+            mode="shadow",
+        )
+        pack_dir = pack.build(td / "pack", keystore=ks)
+
+        # Verify the good pack
+        manifest = json.loads((pack_dir / "pack_manifest.json").read_text())
+        att = manifest["attestation"]
+        good_result = verify_pack_manifest(manifest, pack_dir, ks)
+
+        # Create tampered copy
+        tampered_dir = td / "tampered"
+        shutil.copytree(pack_dir, tampered_dir)
+        receipt_file = tampered_dir / "receipt_pack.jsonl"
+        data = bytearray(receipt_file.read_bytes())
+        target = b'"gpt-4o"'
+        idx = data.find(target)
+        if idx >= 0:
+            data[idx + 1 : idx + 6] = b"gpt-5x"
+        receipt_file.write_bytes(bytes(data))
+
+        tampered_manifest = json.loads(
+            (tampered_dir / "pack_manifest.json").read_text()
+        )
+        tampered_result = verify_pack_manifest(tampered_manifest, tampered_dir, ks)
+
+    good_pass = good_result.passed
+    tampered_pass = tampered_result.passed
+    tampered_err = (
+        tampered_result.errors[0].message if tampered_result.errors else "unknown"
+    )
+
+    if output_json:
+        _output_json(
+            {
+                "command": "try",
+                "status": "ok",
+                "good_result": "PASS" if good_pass else "FAIL",
+                "tampered_result": "PASS" if tampered_pass else "FAIL",
+                "tampered_error": tampered_err,
+                "receipts": len(receipts),
+                "claims": len(claims),
+            }
+        )
+        return
+
+    console.print()
+    console.print("[bold]assay try[/] — see what Assay does")
+    console.print()
+
+    # Step 1: good pack
+    console.print("  [bold]1.[/] Built a proof pack (2 receipts, 2 claims, Ed25519 signed)")
+    if good_pass:
+        console.print("  [bold]2.[/] Verified it: [bold green]PASS[/]")
+    else:
+        console.print("  [bold]2.[/] Verified it: [bold red]FAIL[/]")
+
+    console.print()
+
+    # Step 2: tamper
+    console.print("  [bold]3.[/] Changed one byte ([dim]gpt-4o → gpt-5x[/])")
+    if not tampered_pass:
+        console.print(f"  [bold]4.[/] Verified again: [bold red]FAIL[/] — {tampered_err}")
+    else:
+        console.print("  [bold]4.[/] Verified again: [bold green]PASS[/] (unexpected)")
+
+    console.print()
+    console.print("[bold]What happened:[/]")
+    console.print("  Assay hashes every receipt and signs the pack.")
+    console.print("  One changed byte breaks the chain. No server needed.")
+    console.print()
+    console.print("[bold]Next steps:[/]")
+    console.print("  [dim]Scan your project for uninstrumented LLM calls:[/]")
+    console.print("    assay scan .")
+    console.print()
+    console.print("  [dim]Verify a real proof pack and export a shareable report:[/]")
+    console.print("    assay verify-pack <path> --html report.html")
+    console.print()
+    console.print("  [dim]Generate a verification badge:[/]")
+    console.print("    assay verify-pack <path> --badge badge.svg")
+    console.print()
 
 
 def main():
