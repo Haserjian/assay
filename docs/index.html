@@ -694,6 +694,8 @@
       <a href="#threat-model">Threat Model</a>
       <a href="#regulation">Regulation</a>
       <a href="decision-escrow.md">Decision Escrow</a>
+      <a href="https://haserjian.github.io/assay-proof-gallery/verify.html" target="_blank">Verify Online</a>
+      <a href="https://haserjian.github.io/assay-proof-gallery/" target="_blank">Proof Gallery</a>
       <a href="https://github.com/Haserjian/assay#readme" target="_blank">Docs</a>
       <a href="https://github.com/Haserjian/assay" target="_blank">GitHub</a>
       <a href="https://pypi.org/project/assay-ai/" target="_blank">PyPI</a>
@@ -708,7 +710,7 @@
     <p class="subtitle">
       Wrap your LLM calls. Get cryptographically signed receipts.
       Hand them to an auditor who can verify offline -- no access to your server needed.
-      Two lines of code. Four exit codes. Done.
+      The artifact is the proof.
     </p>
     <p style="color: var(--text2); font-size: 14px; margin-bottom: 28px;">
       For teams shipping AI agents, RAG pipelines, and autonomous workflows.
@@ -724,7 +726,19 @@
 </section>
 
 <div class="container">
-  <div style="max-width: 760px; margin: 24px auto 18px; padding: 16px 18px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg2);">
+  <div style="max-width: 760px; margin: 24px auto 18px; padding: 14px 18px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg2); text-align: center;">
+    <p style="margin: 0 0 10px; font-size: 14px; color: var(--text);">
+      Don't want to install anything? <strong>Verify a proof pack in your browser.</strong>
+    </p>
+    <a href="https://haserjian.github.io/assay-proof-gallery/verify.html" target="_blank" style="display: inline-block; padding: 8px 20px; background: var(--accent); color: var(--bg); font-weight: 600; font-size: 14px; border-radius: 6px; text-decoration: none;">Open verifier</a>
+    <span style="display: inline-block; margin-left: 12px; font-size: 13px; color: var(--text2);">
+      or <a href="https://haserjian.github.io/assay-proof-gallery/" target="_blank" style="color: var(--accent); text-decoration: none;">browse the proof gallery</a>
+    </span>
+    <p style="margin: 8px 0 0; font-size: 12px; color: var(--text2);">
+      Client-side only. Nothing uploaded. Sample packs included.
+    </p>
+  </div>
+  <div style="max-width: 760px; margin: 12px auto 18px; padding: 16px 18px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg2);">
     <p style="margin: 0 0 8px; font-size: 14px; font-weight: 600; color: var(--text);">
       Installing Assay gives you the tools. Instrumentation makes receipts happen.
     </p>
@@ -911,7 +925,7 @@
     </div>
 
     <div style="margin-top: 48px;">
-      <h3 style="font-size: 20px; margin-bottom: 12px;">Four exit codes. That's the whole API.</h3>
+      <h3 style="font-size: 20px; margin-bottom: 12px;">Three verdicts. One exit code each.</h3>
       <table class="exit-table">
         <thead>
           <tr>
@@ -940,10 +954,10 @@
             <td><span class="exit-code exit-2">2</span></td>
             <td>Evidence has been tampered with</td>
           </tr>
-          <tr>
+          <tr style="opacity: 0.5;">
             <td colspan="2"><span class="badge badge-skip">--</span></td>
             <td><span class="exit-code exit-3">3</span></td>
-            <td>Input validation error (bad arguments, missing files)</td>
+            <td>Input error (bad arguments, missing files — not a verdict)</td>
           </tr>
         </tbody>
       </table>
