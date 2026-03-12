@@ -47,6 +47,11 @@ _ALLOWED_COVERAGE_STATUSES = {
     "HUMAN_ATTESTED",
     "OUT_OF_SCOPE",
 }
+_COVERAGE_STATUSES_REQUIRING_EVIDENCE_REFS = {
+    "EVIDENCED",
+    "PARTIAL",
+    "FAILED",
+}
 _COVERAGE_COLUMNS = ["Claim / Question", "Status", "Evidence", "Scope", "Notes"]
 _PACKET_REQUIRED_FILES = (
     "SETTLEMENT.json",
@@ -245,6 +250,9 @@ def _validate_coverage_rows(
                 errors.append(f"COVERAGE_MATRIX.md out-of-scope row not declared in SCOPE_MANIFEST.json: {question}")
         elif mapped_questions and question not in mapped_questions:
             errors.append(f"COVERAGE_MATRIX.md in-scope row not declared in SCOPE_MANIFEST.json: {question}")
+
+        if status not in _COVERAGE_STATUSES_REQUIRING_EVIDENCE_REFS:
+            continue
 
         for ref in _split_evidence_refs(row["Evidence"]):
             if "#" in ref:

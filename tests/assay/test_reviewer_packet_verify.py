@@ -307,6 +307,47 @@ def test_verify_reviewer_packet_handles_malformed_generated_at(tmp_path: Path) -
     assert any("SETTLEMENT.json generated_at must be ISO-8601" in error for error in result["errors"])
 
 
+def test_verify_reviewer_packet_accepts_human_attested_text_labels(tmp_path: Path) -> None:
+    proof_pack_dir, ks = _build_proof_pack(tmp_path / "proof_inputs", claim_pass=True)
+    boundary = _base_boundary()
+    mapping = {
+        "questions": [
+            {
+                "question_id": "offline_verify",
+                "prompt": "Can the reviewer verify the proof artifact offline?",
+                "scope": "Whole packet",
+                "status_rule": "ALL_EVIDENCE_REQUIRED",
+                "evidence": [{"type": "verify_report_field", "path": "claim_verification.passed"}],
+            },
+            {
+                "question_id": "governance_docs",
+                "prompt": "Is organizational governance documentation available?",
+                "scope": "Support workflow",
+                "status_rule": "HUMAN_ATTESTED",
+                "evidence_label": "Organizational governance documentation (human-attested)",
+            },
+        ]
+    }
+    packet_dir = tmp_path / "reviewer_packet"
+    compile_reviewer_packet(
+        proof_pack_dir=proof_pack_dir,
+        boundary_payload=boundary,
+        mapping_payload=mapping,
+        out_dir=packet_dir,
+        packet_overrides={
+            "generated_at": _TS,
+            "packet_id": f"rp_{tmp_path.name}",
+        },
+        keystore=ks,
+    )
+
+    result = verify_reviewer_packet(packet_dir, keystore=ks)
+    assert result["packet_verified"] is True
+    assert result["settlement_state"] == "VERIFIED_WITH_GAPS"
+    assert result["provided_settlement_state"] == "VERIFIED_WITH_GAPS"
+    assert result["errors"] == []
+
+
 @pytest.mark.parametrize(
     ("state", "claim_pass", "complete_coverage", "baseline_state", "all_out_of_scope", "should_verify"),
     [
