@@ -85,6 +85,7 @@ Open a PR and you'll see all three checks in your GitHub status checks.
 ## What's next
 
 - `assay explain ./proof_pack_*/` -- plain-English summary of any evidence pack
+- [Reviewer Packets](reviewer-packets.md) -- compile and verify a buyer-facing packet built around a proof pack
 - `assay diff` -- compare packs for cost/latency regressions
 - [CI integration](ci-integration.md) -- why CI matters and how to enforce evidence discipline
 - [Quickstart reference](README_quickstart.md) -- full command reference

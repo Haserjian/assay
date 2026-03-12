@@ -270,6 +270,44 @@ All three are independently verifiable without any account or API key.
 
 **Adversarial testing**: [16 attack scenarios, 16 catches, 0 false passes](docs/TRUST_UNDER_ATTACK.md).
 
+## Reviewer Packets
+
+Reviewer Packets are the buyer-facing wrapper around a signed proof pack.
+Assay produces the proof pack. The Reviewer Packet makes that proof usable
+across an organizational boundary: settlement, scope, coverage, and the
+nested proof-pack verification path in one forwardable artifact.
+
+```bash
+# Compile a reviewer packet from a proof pack plus declarative packet inputs
+assay vendorq export-reviewer \
+  --proof-pack tests/fixtures/reviewer_packet/sample_proof_pack \
+  --boundary tests/fixtures/reviewer_packet/sample_boundary.json \
+  --mapping tests/fixtures/reviewer_packet/sample_mapping.json \
+  --out reviewer_packet_demo
+
+# Verify the reviewer packet and derive the settlement
+assay reviewer verify reviewer_packet_demo
+assay reviewer verify reviewer_packet_demo --json
+```
+
+Canonical handoff flow:
+
+```text
+proof pack -> reviewer packet -> assay reviewer verify -> browser verify
+```
+
+Buyer verdicts and CLI exit codes are different layers:
+
+- **Buyer verdicts**: VERIFIED, VERIFIED_WITH_GAPS, INCOMPLETE_EVIDENCE, EVIDENCE_REGRESSION, TAMPERED, OUT_OF_SCOPE
+- **CLI exit codes**: 0/1/2/3 for PASS, HONEST_FAIL, TAMPERED, and bad input
+
+Use the proof pack when you need kernel-level verification. Use the Reviewer
+Packet when another team needs a bounded artifact they can inspect, forward,
+and challenge.
+
+**Verify online**: [Browser verifier](https://haserjian.github.io/assay-proof-gallery/verify.html) —
+drop in a proof pack or reviewer packet and check it client-side.
+
 ## AI Decision Credentials (ADC)
 
 ADC is a structured schema for packaging AI decision evidence into
@@ -441,6 +479,7 @@ Full command reference:
 ## Documentation
 
 - **[Start Here](docs/START_HERE.md) -- 6 steps from install to evidence in CI**
+- [Reviewer Packets](docs/reviewer-packets.md) -- compile, verify, and hand off buyer-facing packets
 - [Full Picture](docs/FULL_PICTURE.md) -- architecture, trust tiers, repo boundaries, release history
 - [Quickstart](docs/README_quickstart.md) -- install, golden path, command reference
 - [For Compliance Teams](docs/for-compliance.md) -- what auditors see, evidence artifacts, framework alignment
