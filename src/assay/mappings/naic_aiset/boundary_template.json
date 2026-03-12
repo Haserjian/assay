@@ -1,0 +1,38 @@
+{
+  "packet_version": "1.0",
+  "workflow_name": "Insurance claims intake workflow",
+  "workflow_description": "AI-assisted claims intake, triage, and initial assessment for insurance carrier submissions.",
+  "repo_or_system_in_scope": "REPLACE_WITH_YOUR_REPO_OR_SYSTEM",
+  "entrypoints_in_scope": [
+    "claims_api.submit",
+    "triage_worker.classify",
+    "assessment_engine.evaluate",
+    "escalation_handler.route"
+  ],
+  "callsites_identified": 6,
+  "callsites_instrumented": 5,
+  "controls_declared": [
+    "min_receipt_count",
+    "model_call_present",
+    "guardian_verdict_present"
+  ],
+  "excluded_components": [
+    "Admin-only backfill and migration paths",
+    "Legacy batch importer (pre-AI)",
+    "Internal reporting dashboards"
+  ],
+  "boundary_notes": [
+    "This boundary covers the AI-assisted claims intake path only.",
+    "Manual review and human-only processing paths are excluded.",
+    "Coverage is scoped to the declared entrypoints."
+  ],
+  "freshness_policy": {
+    "valid_for": "P30D",
+    "stale_after": "P90D",
+    "stale_behavior": "downgrade_to_verified_with_gaps"
+  },
+  "signer_expectation": {
+    "preferred_mode": "ci_oidc",
+    "minimum_trust_tier": "L2"
+  }
+}

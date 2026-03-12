@@ -1,0 +1,190 @@
+{
+  "mapping_id": "naic-aiset-v0.1",
+  "mapping_name": "NAIC AI Systems Evaluation Tool (AISET)",
+  "mapping_version": "0.1",
+  "source_standard": "NAIC AISET 2026 pilot draft",
+  "questions": [
+    {
+      "question_id": "aiset-1.1",
+      "category": "Part 1: AI Use",
+      "prompt": "Does the system use AI/ML in its decision-making or operations?",
+      "in_scope": true,
+      "status_rule": "ALL_EVIDENCE_REQUIRED",
+      "scope": "AI workflow execution",
+      "evidence": [
+        {
+          "type": "attestation_field",
+          "path": "receipt_integrity"
+        }
+      ],
+      "notes": "The proof pack contains receipts from an AI workflow execution, confirming AI is in use."
+    },
+    {
+      "question_id": "aiset-1.2",
+      "category": "Part 1: AI Use",
+      "prompt": "Are AI model calls documented with inputs, outputs, and timing?",
+      "in_scope": true,
+      "status_rule": "ALL_EVIDENCE_REQUIRED",
+      "scope": "AI workflow execution",
+      "evidence": [
+        {
+          "type": "verify_report_field",
+          "path": "receipt_count"
+        }
+      ],
+      "notes": "Receipt count confirms model call receipts exist. Each receipt records arguments, responses, latency, and model identity in receipt_pack.jsonl."
+    },
+    {
+      "question_id": "aiset-1.3",
+      "category": "Part 1: AI Use",
+      "prompt": "Is there a count of AI call sites and their instrumentation coverage?",
+      "in_scope": true,
+      "status_rule": "PARTIAL_IF_RATIO_LT_1",
+      "scope": "Declared workflow boundary",
+      "numerator_field": "callsites_instrumented",
+      "denominator_field": "callsites_identified"
+    },
+    {
+      "question_id": "aiset-2.1",
+      "category": "Part 2: Governance & Risk",
+      "prompt": "Is there a governance framework for AI oversight?",
+      "in_scope": true,
+      "status_rule": "HUMAN_ATTESTED",
+      "scope": "Organizational",
+      "evidence_label": "Organizational governance documentation (human-attested)",
+      "notes": "Governance framework existence is an organizational fact. Assay can evidence runtime controls but not board-level governance structure."
+    },
+    {
+      "question_id": "aiset-2.2",
+      "category": "Part 2: Governance & Risk",
+      "prompt": "Are runtime controls applied to AI decisions (guardrails, validators, policy checks)?",
+      "in_scope": true,
+      "status_rule": "ALL_EVIDENCE_REQUIRED",
+      "scope": "AI workflow execution",
+      "evidence": [
+        {
+          "type": "verify_report_field",
+          "path": "claim_verification.passed"
+        }
+      ],
+      "notes": "Claim verification confirms runtime controls (guardian verdicts, policy checks) were applied and their outcomes recorded."
+    },
+    {
+      "question_id": "aiset-2.3",
+      "category": "Part 2: Governance & Risk",
+      "prompt": "Is there an audit trail for AI decisions that an independent reviewer can verify?",
+      "in_scope": true,
+      "status_rule": "ALL_EVIDENCE_REQUIRED",
+      "scope": "Whole packet",
+      "evidence": [
+        {
+          "type": "attestation_field",
+          "path": "receipt_integrity"
+        },
+        {
+          "type": "verify_report_field",
+          "path": "claim_verification.passed"
+        }
+      ],
+      "notes": "The proof pack is a signed, independently verifiable audit trail. Integrity and claims are checked offline by anyone."
+    },
+    {
+      "question_id": "aiset-2.4",
+      "category": "Part 2: Governance & Risk",
+      "prompt": "Can the evidence be verified without access to the vendor's systems?",
+      "in_scope": true,
+      "status_rule": "ALL_EVIDENCE_REQUIRED",
+      "scope": "Whole packet",
+      "evidence": [
+        {
+          "type": "attestation_field",
+          "path": "proof_tier"
+        }
+      ],
+      "notes": "Proof packs are offline-verifiable by design: Ed25519 signature, SHA-256 hashes, no server dependency."
+    },
+    {
+      "question_id": "aiset-2.5",
+      "category": "Part 2: Governance & Risk",
+      "prompt": "Is tamper detection in place for AI evidence and audit records?",
+      "in_scope": true,
+      "status_rule": "ALL_EVIDENCE_REQUIRED",
+      "scope": "Whole packet",
+      "evidence": [
+        {
+          "type": "attestation_field",
+          "path": "canon_version"
+        }
+      ],
+      "notes": "Tamper detection is the core Assay property: JCS canonicalization, SHA-256 hashes, Ed25519 signatures. One changed byte breaks verification."
+    },
+    {
+      "question_id": "aiset-3.1",
+      "category": "Part 3: High-Risk Model Details",
+      "prompt": "Is the model identity recorded for each AI call?",
+      "in_scope": true,
+      "status_rule": "ALL_EVIDENCE_REQUIRED",
+      "scope": "AI workflow execution",
+      "evidence": [
+        {
+          "type": "attestation_field",
+          "path": "n_receipts"
+        }
+      ],
+      "notes": "Each model call receipt in receipt_pack.jsonl includes model identity, version, and provider. Receipt count confirms calls were recorded."
+    },
+    {
+      "question_id": "aiset-3.2",
+      "category": "Part 3: High-Risk Model Details",
+      "prompt": "Are model risk classifications documented?",
+      "in_scope": true,
+      "status_rule": "HUMAN_ATTESTED",
+      "scope": "Organizational",
+      "evidence_label": "Model risk classification documentation (human-attested)",
+      "notes": "Risk classification is an organizational judgment. Assay records which models were used but does not classify their risk level."
+    },
+    {
+      "question_id": "aiset-3.3",
+      "category": "Part 3: High-Risk Model Details",
+      "prompt": "Is there evidence of model validation or testing?",
+      "in_scope": true,
+      "status_rule": "ALL_EVIDENCE_REQUIRED",
+      "scope": "AI workflow execution",
+      "evidence": [
+        {
+          "type": "attestation_field",
+          "path": "claim_check"
+        }
+      ],
+      "notes": "Claim checks in the proof pack attest whether declared behavioral standards passed or failed at runtime."
+    },
+    {
+      "question_id": "aiset-4.1",
+      "category": "Part 4: Model & Data Details",
+      "prompt": "Is training data provenance documented?",
+      "in_scope": false,
+      "status_rule": "OUT_OF_SCOPE",
+      "scope": "Out of scope for runtime evidence",
+      "out_of_scope_note": "Training data provenance is a pre-deployment concern. Assay covers post-deployment runtime evidence, not training pipelines."
+    },
+    {
+      "question_id": "aiset-4.2",
+      "category": "Part 4: Model & Data Details",
+      "prompt": "Are data retention and deletion policies in place for AI inputs/outputs?",
+      "in_scope": true,
+      "status_rule": "HUMAN_ATTESTED",
+      "scope": "Organizational",
+      "evidence_label": "Data retention policy documentation (human-attested)",
+      "notes": "Data retention is organizational policy. Assay receipts record what was processed but do not enforce retention schedules."
+    },
+    {
+      "question_id": "aiset-4.3",
+      "category": "Part 4: Model & Data Details",
+      "prompt": "Does this evidence packet establish legal or regulatory compliance?",
+      "in_scope": false,
+      "status_rule": "OUT_OF_SCOPE",
+      "scope": "Out of scope",
+      "out_of_scope_note": "This packet provides tamper-evident execution evidence, not legal conclusions. Compliance determination requires legal counsel and regulatory review."
+    }
+  ]
+}
