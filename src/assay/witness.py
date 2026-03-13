@@ -40,6 +40,7 @@ class WitnessVerifyResult:
     passed: bool
     errors: List[str] = field(default_factory=list)
     gen_time: Optional[str] = None
+    sufficiency: float = 0.0
 
 
 class WitnessError(Exception):
@@ -301,15 +302,21 @@ def verify_witness_bundle(
         WitnessVerifyResult with passed/errors.
     """
     errors: List[str] = []
+    checks_total = 0
+    checks_passed = 0
 
     # 1. Schema version
+    checks_total += 1
     if bundle.get("schema_version") != SCHEMA_VERSION:
         errors.append(
             f"Unknown schema_version: {bundle.get('schema_version')!r} "
             f"(expected {SCHEMA_VERSION!r})"
         )
+    else:
+        checks_passed += 1
 
     # 2. D12 invariant
+    checks_total += 1
     b_root = bundle.get("pack_root_sha256", "")
     b_att = bundle.get("attestation_sha256", "")
     if b_root and b_att and b_root != b_att:
@@ -317,15 +324,21 @@ def verify_witness_bundle(
             f"D12 invariant violated: pack_root_sha256 ({b_root[:16]}...) "
             f"!= attestation_sha256 ({b_att[:16]}...)"
         )
+    else:
+        checks_passed += 1
 
     # 3. Pack root match
+    checks_total += 1
     if b_root != pack_root_sha256:
         errors.append(
             f"Pack root mismatch: bundle references {b_root[:16]}..., "
             f"expected {pack_root_sha256[:16]}..."
         )
+    else:
+        checks_passed += 1
 
     # 4. Token verification
+    checks_total += 1
     witness_type = bundle.get("witness_type", "")
     gen_time = bundle.get("gen_time")
 
@@ -370,6 +383,8 @@ def verify_witness_bundle(
                     if result.returncode != 0:
                         stderr = result.stderr.decode().strip()
                         errors.append(f"RFC 3161 verification failed: {stderr}")
+                    else:
+                        checks_passed += 1
             except Exception as e:
                 errors.append(f"RFC 3161 verification error: {e}")
 
@@ -378,10 +393,13 @@ def verify_witness_bundle(
     else:
         errors.append(f"Unknown witness_type: {witness_type!r}")
 
+    sufficiency = checks_passed / checks_total if checks_total > 0 else 0.0
+
     return WitnessVerifyResult(
         passed=len(errors) == 0,
         errors=errors,
         gen_time=gen_time,
+        sufficiency=round(sufficiency, 3),
     )
 
 

@@ -2505,10 +2505,12 @@ def verify_pack_cmd(
     # Witness verification (T2 trust)
     witness_failed = False
     witness_errors: list = []
+    witness_sufficiency: Optional[float] = None
     if require_witness:
         from assay.witness import verify_witness_from_pack
 
         witness_result = verify_witness_from_pack(pack_path)
+        witness_sufficiency = witness_result.sufficiency
         if not witness_result.passed:
             witness_failed = True
             witness_errors = witness_result.errors
@@ -2551,9 +2553,13 @@ def verify_pack_cmd(
         from assay.verification_status import classify_verdict
         from assay.verify_render import render_verification_badge, render_verification_html
 
+        _ws_art: Optional[bool] = None
+        if require_witness:
+            _ws_art = not witness_failed
         _verdict = classify_verdict(
             integrity_passed=result.passed,
             claim_check=claim_check,
+            witness_sufficient=_ws_art,
         )
 
         if html_out:
@@ -2586,9 +2592,21 @@ def verify_pack_cmd(
             _artifact_paths["badge"] = str(badge_path)
 
     if output_json:
+        from assay.verification_status import classify_verdict
+
+        # Compute verdict: witness_sufficient is None unless --require-witness
+        _ws: Optional[bool] = None
+        if require_witness:
+            _ws = not witness_failed
+        _verdict = classify_verdict(
+            integrity_passed=result.passed,
+            claim_check=claim_check,
+            witness_sufficient=_ws,
+        )
         out = {
             "command": "verify-pack",
             "status": overall_status,
+            "verdict": _verdict,
             "claim_check": claim_check,
             **result.to_dict(),
         }
@@ -2602,6 +2620,8 @@ def verify_pack_cmd(
             out["coverage"] = coverage_result
         if witness_failed:
             out["witness_errors"] = witness_errors
+        if witness_sufficiency is not None:
+            out["witness_sufficiency"] = witness_sufficiency
         if _artifact_paths:
             out["artifacts"] = _artifact_paths
         _output_json(out)
@@ -4903,6 +4923,7 @@ def vendorq_export_reviewer_cmd(
     mapping: str = typer.Option(..., "--mapping", help="Path to reviewer packet question mapping JSON"),
     out: str = typer.Option(..., "--out", "-o", help="Output reviewer packet directory"),
     baseline: Optional[str] = typer.Option(None, "--baseline", help="Optional baseline reviewer packet directory"),
+    challenge_receipt: Optional[str] = typer.Option(None, "--challenge-receipt", help="Optional challenge receipt path for refreshed packets"),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Experimental: compile a reviewer packet from a proof pack plus declarative packet inputs."""
@@ -4918,6 +4939,14 @@ def vendorq_export_reviewer_cmd(
             mapping_payload=load_json(Path(mapping)),
             out_dir=Path(out),
             baseline_packet_dir=Path(baseline) if baseline else None,
+            packet_overrides=(
+                {
+                    "challenge_receipt_ref": challenge_receipt,
+                    "challenge_status": "REFRESHED",
+                }
+                if challenge_receipt
+                else None
+            ),
         )
     except VendorQInputError as e:
         if output_json:
@@ -4935,6 +4964,7 @@ def vendorq_export_reviewer_cmd(
             exit_code=0,
         )
 
+    ratio = result["packet_summary"]["machine_coverage_ratio"]
     console.print()
     console.print(Panel.fit(
         f"[bold green]Reviewer Packet Compiled[/]\n\n"
@@ -4942,6 +4972,8 @@ def vendorq_export_reviewer_cmd(
         f"Boundary:          {boundary}\n"
         f"Mapping:           {mapping}\n"
         f"Settlement:        {result['settlement_state']}\n"
+        f"Challenge status:  {result['challenge_status']}\n"
+        f"Machine coverage:  {ratio['numerator']}/{ratio['denominator']} ({ratio['value']:.2%})\n"
         f"Coverage rows:     {len(result['coverage_rows'])}\n"
         f"Output directory:  {out}",
         title="assay vendorq export-reviewer",
@@ -4988,6 +5020,7 @@ def reviewer_verify_cmd(
         f"{name}={count}"
         for name, count in sorted(result["coverage_summary"].items())
     ) or "none"
+    ratio = result["packet_summary"]["machine_coverage_ratio"]
     console.print()
     console.print(Panel.fit(
         f"[bold]{'Reviewer Packet Verified' if result['packet_verified'] else 'Reviewer Packet Failed'}[/]\n\n"
@@ -4998,7 +5031,9 @@ def reviewer_verify_cmd(
         f"Claims:            {result['claim_state']}\n"
         f"Scope:             {result['scope_state']}\n"
         f"Freshness:         {result['freshness_state']}\n"
+        f"Challenge:         {result['challenge_status']}\n"
         f"Regression:        {result['regression_state']}\n"
+        f"Machine coverage:  {ratio['numerator']}/{ratio['denominator']} ({ratio['value']:.2%})\n"
         f"Coverage:          {coverage_summary}",
         title="assay reviewer verify",
         border_style="green" if result["packet_verified"] else "red",
@@ -5017,6 +5052,109 @@ def reviewer_verify_cmd(
             console.print(f"  - {warning}")
 
     raise typer.Exit(0 if result["packet_verified"] else 2)
+
+
+@reviewer_app.command("challenge")
+def reviewer_challenge_cmd(
+    packet_dir: str = typer.Argument(..., help="Path to Reviewer Packet directory"),
+    reason: str = typer.Option(..., "--reason", help="Why the reviewer is challenging the packet"),
+    claim_ref: Optional[str] = typer.Option(None, "--claim-ref", help="Optional claim or question reference"),
+    out: Optional[str] = typer.Option(None, "--out", "-o", help="Optional output challenge receipt path"),
+    signer_id: Optional[str] = typer.Option(None, "--signer-id", help="Signer identity for the challenge receipt"),
+    keys_dir: Optional[str] = typer.Option(None, "--keys-dir", help="Optional keystore directory"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Create a signed reviewer challenge receipt without introducing workflow software."""
+    from pathlib import Path
+
+    from assay.keystore import AssayKeyStore
+    from assay.reviewer_packet_events import build_reviewer_challenge, write_reviewer_challenge
+
+    keystore = AssayKeyStore(Path(keys_dir)) if keys_dir else AssayKeyStore()
+    payload = build_reviewer_challenge(
+        packet_dir=Path(packet_dir),
+        reason=reason,
+        claim_ref=claim_ref,
+        signer_id=signer_id,
+        keystore=keystore,
+    )
+    destination = write_reviewer_challenge(Path(packet_dir), payload, out_path=Path(out) if out else None)
+
+    if output_json:
+        _output_json(
+            {
+                "command": "reviewer challenge",
+                "status": "ok",
+                "receipt_path": str(destination),
+                "challenge_id": payload["challenge_id"],
+                "packet_ref": payload["packet_ref"],
+            },
+            exit_code=0,
+        )
+
+    console.print()
+    console.print(Panel.fit(
+        f"[bold green]Reviewer Challenge Created[/]\n\n"
+        f"Packet:       {packet_dir}\n"
+        f"Challenge ID: {payload['challenge_id']}\n"
+        f"Reason:       {reason}\n"
+        f"Receipt:      {destination}",
+        title="assay reviewer challenge",
+    ))
+    console.print()
+    raise typer.Exit(0)
+
+
+@assay_app.command("attest")
+def attest_cmd(
+    question: str = typer.Option(..., "--question", help="Reviewer-facing question or claim"),
+    assertion: str = typer.Option(..., "--assertion", help="Human assertion to package"),
+    attester: str = typer.Option(..., "--attester", help="Named human attester"),
+    pack: str = typer.Option(..., "--pack", help="Proof-pack or packet directory to attach the attestation beside"),
+    out: Optional[str] = typer.Option(None, "--out", "-o", help="Optional output attestation path"),
+    signer_id: Optional[str] = typer.Option(None, "--signer-id", help="Signer identity for the attestation receipt"),
+    keys_dir: Optional[str] = typer.Option(None, "--keys-dir", help="Optional keystore directory"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Create a thin HUMAN_ATTESTED receipt that stays visibly separate from machine evidence."""
+    from pathlib import Path
+
+    from assay.keystore import AssayKeyStore
+    from assay.reviewer_packet_events import build_human_attestation, write_human_attestation
+
+    keystore = AssayKeyStore(Path(keys_dir)) if keys_dir else AssayKeyStore()
+    payload = build_human_attestation(
+        question=question,
+        assertion=assertion,
+        attester=attester,
+        signer_id=signer_id,
+        keystore=keystore,
+    )
+    destination = write_human_attestation(Path(pack), payload, out_path=Path(out) if out else None)
+
+    if output_json:
+        _output_json(
+            {
+                "command": "attest",
+                "status": "ok",
+                "receipt_path": str(destination),
+                "attestation_id": payload["attestation_id"],
+                "evidence_type": payload["evidence_type"],
+            },
+            exit_code=0,
+        )
+
+    console.print()
+    console.print(Panel.fit(
+        f"[bold green]Human Attestation Created[/]\n\n"
+        f"Question:      {question}\n"
+        f"Attester:      {attester}\n"
+        f"Evidence type: {payload['evidence_type']}\n"
+        f"Receipt:       {destination}",
+        title="assay attest",
+    ))
+    console.print()
+    raise typer.Exit(0)
 
 
 @vendorq_lock_app.command("write")
