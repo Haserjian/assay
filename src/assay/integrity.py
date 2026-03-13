@@ -29,6 +29,7 @@ E_PACK_STALE = "E_PACK_STALE"
 E_CI_BINDING_MISSING = "E_CI_BINDING_MISSING"
 E_CI_BINDING_MISMATCH = "E_CI_BINDING_MISMATCH"
 
+
 @dataclass
 class VerifyError:
     """A single verification error."""
@@ -37,6 +38,12 @@ class VerifyError:
     message: str
     receipt_index: Optional[int] = None
     field: Optional[str] = None
+    failure_mechanism: Optional[str] = None
+
+    def __post_init__(self):
+        if self.failure_mechanism is None:
+            from assay.failure_mechanisms import mechanism_for_code
+            self.failure_mechanism = mechanism_for_code(self.code)
 
     def to_dict(self) -> Dict[str, Any]:
         d: Dict[str, Any] = {"code": self.code, "message": self.message}
@@ -44,6 +51,8 @@ class VerifyError:
             d["receipt_index"] = self.receipt_index
         if self.field is not None:
             d["field"] = self.field
+        if self.failure_mechanism is not None:
+            d["failure_mechanism"] = self.failure_mechanism
         return d
 @dataclass
 class VerifyResult:
@@ -55,14 +64,22 @@ class VerifyResult:
     receipt_count: int = 0
     head_hash: Optional[str] = None
 
+    @property
+    def failure_mechanisms(self) -> Dict[str, int]:
+        """Count of errors grouped by failure mechanism family."""
+        c: Dict[str, int] = {}
+        for e in self.errors:
+            if e.failure_mechanism:
+                c[e.failure_mechanism] = c.get(e.failure_mechanism, 0) + 1
+        return c
+
     def to_dict(self) -> Dict[str, Any]:
-        return {
-            "passed": self.passed,
-            "errors": [e.to_dict() for e in self.errors],
-            "warnings": self.warnings,
-            "receipt_count": self.receipt_count,
-            "head_hash": self.head_hash,
-        }
+        d: Dict[str, Any] = {"passed": self.passed, "errors": [e.to_dict() for e in self.errors],
+                              "warnings": self.warnings, "receipt_count": self.receipt_count,
+                              "head_hash": self.head_hash}
+        if self.failure_mechanisms:
+            d["failure_mechanisms"] = self.failure_mechanisms
+        return d
 def _sha256_hex(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 

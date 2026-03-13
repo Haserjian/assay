@@ -58,11 +58,12 @@ def render_verification_html(
     # Error rows
     error_rows = ""
     if errors:
-        error_rows = "<h3>Failure Details</h3><table><tr><th>Code</th><th>Message</th></tr>"
+        error_rows = "<h3>Failure Details</h3><table><tr><th>Code</th><th>Mechanism</th><th>Message</th></tr>"
         for err in errors:
             e_code = html.escape(str(err.get("code", "")))
+            e_mech = html.escape(str(err.get("failure_mechanism", "")))
             e_msg = html.escape(str(err.get("message", "")))
-            error_rows += f"<tr><td><code>{e_code}</code></td><td>{e_msg}</td></tr>"
+            error_rows += f"<tr><td><code>{e_code}</code></td><td>{e_mech}</td><td>{e_msg}</td></tr>"
         error_rows += "</table>"
 
     # Warning rows
