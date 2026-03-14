@@ -59,6 +59,20 @@ class TestManifestConsistency:
                 f"Case id '{case.id}' does not follow TG-NNN format"
             )
 
+    def test_every_linked_test_follows_naming_convention(self):
+        """linked_test must be a class name following the Test* convention.
+
+        This encodes the contract: linked_test means "test class name."
+        If we later move to function-based or parametrized cases, this
+        assertion should be updated to reflect the new contract explicitly.
+        """
+        for case in _load():
+            assert case.linked_test.startswith("Test"), (
+                f"{case.id}: linked_test='{case.linked_test}' does not follow "
+                "the TestClassName naming convention. "
+                "linked_test must be a test class name (starts with 'Test')."
+            )
+
     def test_every_linked_test_is_a_real_class_in_scenario_file(self):
         """
         Primary drift alarm. Uses AST parsing — not substring matching.
