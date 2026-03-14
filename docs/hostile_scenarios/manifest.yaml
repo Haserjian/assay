@@ -52,7 +52,7 @@ cases:
       - "downstream model behavior was governed"
       - "the injection was blocked"
     policy_dependency: "deny_patterns on tool constraints (for argument-side only)"
-    linked_test: "test_instruction_injection_is_attributable_not_blocked"
+    linked_test: "TestInstructionInjection"
     target_version: "v0"
 
   - id: TG-002
@@ -87,7 +87,7 @@ cases:
       - "receipt existence implies semantic contract compliance"
     policy_dependency: none
     known_gap_tracker: "mcp_skip_matrix.yaml MUST-7, target v2.0.0"
-    linked_test: "test_schema_drift_is_gap_receipt_existence_not_conformance"
+    linked_test: "TestSchemaDrift"
     target_version: "v2.0.0"
 
   - id: TG-003
@@ -129,5 +129,5 @@ cases:
       - "tool capability is constrained by default without policy"
       - "declared read-only intent prevents write invocation without policy"
     policy_dependency: "deny_patterns on tool constraint (required for enforcement)"
-    linked_test: "test_capability_escalation_caught_with_policy_gap_without"
+    linked_test: "TestCapabilityEscalation"
     target_version: "v0"
