@@ -1,5 +1,5 @@
 """
-Assay CLI commands: Tamper-evident audit trails for AI systems.
+Assay CLI commands: AI evidence that's harder to fake and easier to verify.
 
 Commands:
   assay try           - See what Assay does in 15 seconds (start here)
@@ -468,7 +468,7 @@ def run_demo(
 
     if not silent:
         console.print(f"[bold cyan]Assay {__version__} Demo[/]")
-        console.print("Tamper-evident audit trails for AI systems")
+        console.print("AI evidence that's harder to fake and easier to verify")
         console.print(f"[dim]Trace: {trace_id}[/]\n")
 
     if scenario in ("all", "incomplete"):
@@ -1590,7 +1590,7 @@ def show_version(
         })
 
     console.print(f"[bold]Assay {__version__}[/]")
-    console.print("Tamper-evident audit trails for AI systems")
+    console.print("AI evidence that's harder to fake and easier to verify")
     console.print()
     console.print("Capabilities:")
     console.print("  - Scan: find uninstrumented LLM call sites")
@@ -5052,6 +5052,39 @@ def reviewer_verify_cmd(
             console.print(f"  - {warning}")
 
     raise typer.Exit(0 if result["packet_verified"] else 2)
+
+
+@reviewer_app.command("packet")
+def reviewer_packet_cmd(
+    input_dir: str = typer.Option(..., "--input", "-i", help="Path to compiled Reviewer Packet directory"),
+    output: str = typer.Option(..., "--output", "-o", help="Output HTML file path"),
+):
+    """Render a compiled Reviewer Packet as a self-contained HTML file."""
+    from pathlib import Path
+
+    from assay.packet_render import PacketRenderError, render_packet_html
+
+    packet_dir = Path(input_dir)
+    output_path = Path(output)
+
+    try:
+        html = render_packet_html(packet_dir)
+    except PacketRenderError as exc:
+        console.print(f"[red]Error:[/] {exc}")
+        raise typer.Exit(3)
+    except Exception as exc:
+        console.print(f"[red]Unexpected error:[/] {exc}")
+        raise typer.Exit(1)
+
+    output_path.write_text(html, encoding="utf-8")
+
+    console.print()
+    console.print(Panel.fit(
+        f"[bold green]Reviewer Packet HTML rendered[/]\n\n"
+        f"Input:  {packet_dir}\n"
+        f"Output: {output_path}",
+        title="assay reviewer packet",
+    ))
 
 
 @reviewer_app.command("challenge")
