@@ -191,3 +191,75 @@ def test_no_external_links_in_output(tmp_path):
     assert "googleapis.com" not in html
     assert 'src="http' not in html
     assert "<link rel=" not in html or "stylesheet" not in html  # no external stylesheet
+
+
+# ---------------------------------------------------------------------------
+# 7. Gallery specimen snapshot — freeze the real artifact shape
+#    Skipped automatically when assay-proof-gallery is not present (e.g. CI)
+# ---------------------------------------------------------------------------
+
+_GALLERY_PACKET = Path.home() / "assay-proof-gallery/gallery/05-reviewer-packet-gaps/reviewer_packet"
+
+gallery_present = pytest.mark.skipif(
+    not _GALLERY_PACKET.exists(),
+    reason="assay-proof-gallery not present in this environment",
+)
+
+
+@gallery_present
+def test_gallery_packet_renders_without_error():
+    html = render_packet_html(_GALLERY_PACKET)
+    assert "<!DOCTYPE html>" in html
+    assert len(html) > 2000  # sanity: not a stub
+
+
+@gallery_present
+def test_gallery_packet_title_uses_workflow_name():
+    html = render_packet_html(_GALLERY_PACKET)
+    # SCOPE_MANIFEST.json workflow_name
+    assert "AcmeSaaS support workflow sample" in html
+
+
+@gallery_present
+def test_gallery_packet_settlement_state_present():
+    html = render_packet_html(_GALLERY_PACKET)
+    # settlement_state = "VERIFIED_WITH_GAPS" → rendered as "Verified With Gaps"
+    assert "Verified With Gaps" in html or "VERIFIED_WITH_GAPS" in html
+
+
+@gallery_present
+def test_gallery_packet_packet_id_present():
+    html = render_packet_html(_GALLERY_PACKET)
+    assert "rp_pack_20260304T061703_2c002032" in html
+
+
+@gallery_present
+def test_gallery_packet_coverage_status_classes_present():
+    html = render_packet_html(_GALLERY_PACKET)
+    # Coverage matrix has EVIDENCED, PARTIAL, OUT_OF_SCOPE rows
+    assert "status-pass" in html or "status-attested" in html  # EVIDENCED
+    assert "status-warn" in html   # PARTIAL
+    assert "status-oos" in html    # OUT_OF_SCOPE
+
+
+@gallery_present
+def test_gallery_packet_major_sections_present():
+    html = render_packet_html(_GALLERY_PACKET)
+    # All five optional doc files exist in this packet
+    assert "Summary" in html          # EXECUTIVE_SUMMARY.md section
+    assert "Coverage" in html         # COVERAGE_MATRIX.md section
+    assert "Reviewer guide" in html   # REVIEWER_GUIDE.md section
+
+
+@gallery_present
+def test_gallery_packet_signer_identity_present():
+    html = render_packet_html(_GALLERY_PACKET)
+    assert "assay-local" in html
+
+
+@gallery_present
+def test_gallery_packet_no_external_assets():
+    html = render_packet_html(_GALLERY_PACKET)
+    assert "cdn." not in html
+    assert "googleapis.com" not in html
+    assert 'src="http' not in html
