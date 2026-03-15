@@ -1,14 +1,18 @@
 # Assay
 
-Tamper-evident audit trails for AI systems.
+AI evidence that's harder to fake and easier to verify.
+
+Assay turns AI execution claims into portable proof artifacts a buyer
+can verify offline -- without trusting your server. Change one byte,
+verification fails. Drop a locked check, the mismatch is exposed.
+Skip a contracted call site, completeness checks catch it.
+
+Assay doesn't make fraud impossible. It makes fraud expensive, fragile,
+and much easier to catch.
 
 We scanned 30 popular AI projects and found 202 high-confidence LLM call
 sites. Zero had tamper-evident audit trails.
 [Full results](scripts/scan_study/results/report.md).
-
-Assay adds independently verifiable execution evidence to AI systems:
-cryptographically signed receipt bundles that a third party can verify
-offline without trusting your server logs. Two lines of code. Four exit codes.
 
 ```bash
 # macOS / Linux
@@ -31,10 +35,11 @@ If `pip` isn't on your PATH, use the Python launcher (`python3 -m pip` on macOS/
 Prefer a deterministic setup path? Start here:
 [docs/START_HERE.md](docs/START_HERE.md)
 
-> **Boundary:** Assay proves tamper-evident internal consistency and
-> completeness relative to scanned call sites. It does not prevent a fully
-> compromised machine from fabricating a consistent story. That's what
-> [trust tiers](docs/FULL_PICTURE.md#trust-tiers) are for.
+> **Boundary:** Assay proves the evidence artifact has not been quietly
+> changed after the fact. It does not, by itself, prove every upstream
+> component was honest. Stronger deployment patterns (CI-held signing keys,
+> transparency logs, external timestamping) raise the cost of full fabrication.
+> See [trust tiers](docs/FULL_PICTURE.md#trust-tiers).
 
 > **Not this:** Assay is not a logging framework, an observability dashboard,
 > or a monitoring tool. It produces signed evidence bundles that a third party
@@ -96,8 +101,11 @@ Act 2 is an **honest failure** -- authentic evidence proving the run violated
 its declared standards. The evidence is real. The failure is real. Nobody can
 edit the history. Exit code 1.
 
-Exit 1 is **audit gold**: a control failed, but the failure is detectable and
-retained. Auditors love that more than systems that always claim to pass.
+**Honest failure is a feature, not an embarrassment.** Exit 1 is audit gold:
+a control failed, the failure is detectable and retained, and the evidence is
+authentic. A signed failure is stronger evidence than a vague pass. Auditors,
+regulators, and buyers trust systems that can show what went wrong -- not
+systems that only ever claim success.
 
 ### How that works
 
@@ -308,6 +316,65 @@ and challenge.
 **Verify online**: [Browser verifier](https://haserjian.github.io/assay-proof-gallery/verify.html) —
 drop in a proof pack or reviewer packet and check it client-side.
 
+## Passports: Portable Signed Evidence
+
+A passport is a signed, content-addressed JSON object that summarizes what
+was verified about an AI system: claims, coverage, reliance class, and a
+validity window. Built from proof pack evidence, not asserted by hand.
+
+```bash
+# Mint a passport from a proof pack, sign it, verify it
+assay passport mint --pack ./proof_pack/ --subject-name "MyApp" \
+  --system-id "my.app.v1" --owner "My Org" --output passport.json
+assay passport sign passport.json
+assay passport verify passport.json
+
+# Check reliance posture under a policy mode
+assay passport status passport.json --mode buyer-safe --json
+
+# X-Ray diagnostic: structural grade (A-F) and improvement path
+assay passport xray passport.json --report xray.html
+```
+
+Lifecycle governance is cryptographically backed:
+
+```bash
+# Challenge a passport (any identified signer)
+assay passport challenge passport.json --reason "Missing coverage"
+
+# Supersede with a new version
+assay passport supersede old.json new.json --reason "Addressed gap"
+
+# Compare two passports — flags regressions
+assay passport diff old.json new.json --report diff.html
+```
+
+`verify` answers structural validity (signature, content-addressed ID).
+`status` answers reliance posture under a configurable policy mode.
+
+Run the full 10-step lifecycle demo:
+
+```bash
+assay passport demo
+```
+
+**Worked example**: [Seeded referee gallery](docs/passport/gallery/) —
+pre-built signed passports, governance receipts, X-Ray diagnostic, and
+trust diff. All artifacts are regenerable via
+`python3 docs/passport/generate_gallery.py`.
+
+**What this proves today:**
+- Signed, content-addressed passport artifacts with Ed25519 signatures
+- Deterministic lifecycle governance: challenge, supersede, revoke, diff
+- Reproducible worked examples on seeded reference artifacts
+- Offline verification without network access
+
+**What is future scope:**
+- Arbitrary external trust-surface scanning (URLs, PDFs, vendor pages)
+- Minting from external vendor documents (currently proof-pack only)
+- Generalized trust analysis across messy real-world inputs
+- Enterprise diff workflows (primitive exists, product does not)
+
 ## AI Decision Credentials (ADC)
 
 ADC is a structured schema for packaging AI decision evidence into
@@ -326,32 +393,39 @@ assay verify-pack ./proof_pack_*/ --check-expiry
 The conformance corpus includes 10 canonical packs (including `stale_01`
 for expired credentials and `superseded_01` for replaced decisions).
 
-## Trust Model
+## What Becomes Harder to Fake
 
-What Assay detects, what it doesn't, and how to strengthen guarantees.
+Assay is not a truth oracle. It is an evidence-hardening layer.
 
-**Assay detects:**
-- Retroactive tampering (edit one byte, verification fails)
-- Selective omission under a completeness contract
-- Claiming checks that were never run
-- Policy drift from a locked baseline
+| If someone tries to... | Without Assay | With Assay |
+|------------------------|---------------|------------|
+| Edit evidence after a run | Hard to notice | Verification fails |
+| Drop or weaken locked checks | Easy to hide | Lock mismatch exposes it |
+| Omit covered call sites | Easy to hand-wave | Completeness checks catch it |
+| Hand buyer internal logs, ask for trust | Buyer must trust the operator | Buyer verifies offline |
+| Fabricate a complete run from scratch | Possible | Still possible at base tier; stronger deployment raises the cost |
 
-**Assay does not prevent:**
-- A fully fabricated false run (attacker controls the machine)
-- Dishonest receipt content (receipts are self-attested)
-- Timestamp fraud without an external time anchor
+**Why there is no quiet edit.** Every file in a proof pack is fingerprinted.
+The fingerprints are recorded in a manifest. The manifest is digitally signed.
+Change a file -- the fingerprint won't match. Fix the manifest to cover it --
+the signature breaks. Re-sign the manifest -- the signer identity changes.
+Every path to tampering leaves a visible trace.
 
-Completeness is enforced relative to the call sites enumerated by the scanner
+**Assay proves the evidence artifact has not been quietly changed after the
+fact. It does not, by itself, prove every upstream component was honest.**
+
+**Deployment ladder -- start at Base, strengthen as your trust requirements grow:**
+
+- **Base** -- self-signed artifact, offline-verifiable, tamper-evident
+- **Hardened** -- CI-held signing key + branch protection (separates signer from developer)
+- **Anchored** -- [transparency ledger](https://github.com/Haserjian/assay-ledger) + external timestamping (RFC 3161)
+
+Completeness is enforced relative to call sites enumerated by the scanner
 and/or declared by policy. Undetected call sites are a known residual risk,
 reduced via multi-detector scanning and CI gating.
 
-**To strengthen guarantees:**
-- [Transparency ledger](https://github.com/Haserjian/assay-ledger) (independent witness)
-- CI-held org key + branch protection (separation of signer and committer)
-- External timestamping (RFC 3161)
-
-The cost of cheating scales with the complexity of the lie. Assay doesn't
-make fraud impossible -- it makes fraud expensive.
+Assay doesn't make fraud impossible -- it makes fraud expensive, fragile,
+and much easier to catch.
 
 ## The Evidence Compiler
 

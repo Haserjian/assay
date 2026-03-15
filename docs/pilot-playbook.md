@@ -170,6 +170,145 @@ Deliver the [closeout report](pilot/closeout-template.md) with:
 2. Demonstrate offline verification (download pack, verify on a different machine)
 3. Discuss ongoing support options (retainer vs. self-service)
 
+## Optional: Passport Workflow
+
+Add this module when the prospect needs a portable trust object that travels
+beyond CI gates — for reviewer packets, vendor questionnaires, or ongoing
+reliance decisions. Requires proof packs from Week 1.
+
+**Prerequisites:** at least one verified proof pack and a signing key (`assay key rotate`).
+
+### What a passport is
+
+A passport is a signed, content-addressed JSON object that summarizes:
+- subject identity (what system, who owns it)
+- claims (what was verified, what passed/failed)
+- coverage (how many call sites are covered)
+- reliance class (R0-R3, based on evidence strength)
+- validity window (issued_at, valid_until)
+
+It is built from proof pack evidence, not asserted by hand.
+
+### What `verify` and `status` answer
+
+These are intentionally separate questions:
+
+| Command | Question | Exit codes |
+|---------|----------|------------|
+| `assay passport verify` | Is this artifact structurally valid? Signature intact? ID untampered? | 0=valid, 1=invalid/stale, 2=tampered |
+| `assay passport status` | Given verified evidence and a policy mode, should I rely on this? | 0=PASS, 1=WARN, 2=FAIL |
+
+`verify` is about object truth. `status` is about reliance posture.
+
+### Passport pilot workflow
+
+**Step 1: Mint a draft from a proof pack**
+
+```bash
+assay passport mint \
+  --pack ./proof_pack_20260314/ \
+  --subject-name "CustomerApp" \
+  --system-id "customer.app.v1" \
+  --owner "Customer Inc." \
+  --output passport.json
+```
+
+Review the draft. Claims are extracted from the proof pack's verify report.
+
+**Step 2: Sign**
+
+```bash
+assay passport sign passport.json
+```
+
+The passport is now content-addressed (passport_id = SHA-256 of JCS body)
+and Ed25519-signed. It is immutable from this point forward.
+
+**Step 3: Verify + Status**
+
+```bash
+# Object validity
+assay passport verify passport.json --json
+
+# Reliance posture under buyer-safe policy
+assay passport status passport.json --mode buyer-safe --json
+```
+
+**Step 4: X-Ray diagnostic**
+
+```bash
+assay passport xray passport.json --report xray.html
+```
+
+Shows grade (A-F), findings, and what's missing for the next grade.
+
+**Step 5: Demonstrate lifecycle governance**
+
+Challenge a passport (any identified signer may challenge):
+```bash
+assay passport challenge passport.json --reason "Missing admin override coverage"
+```
+
+Verify that status degrades:
+```bash
+assay passport status passport.json --mode buyer-safe --json
+# governance_status: "challenged", verdict: FAIL in buyer-safe mode
+```
+
+Mint v2, sign, supersede:
+```bash
+assay passport mint --pack ./proof_pack_v2/ --output passport_v2.json \
+  --subject-name "CustomerApp" --system-id "customer.app.v1" --owner "Customer Inc."
+assay passport sign passport_v2.json
+assay passport supersede passport.json passport_v2.json --reason "Addressed coverage gap"
+```
+
+Diff the two versions:
+```bash
+assay passport diff passport.json passport_v2.json --report trust_diff.html
+```
+
+### Deliverables
+
+- Signed passport for at least one proof pack
+- HTML render (`assay passport render passport.json --verify`)
+- X-Ray report showing grade and improvement path
+- If applicable: one challenge/supersede cycle demonstrating governance
+
+### What is pilot-safe
+
+| Surface | Pilot-safe | Notes |
+|---------|-----------|-------|
+| Mint from proof pack | Yes | This is the supported minting path |
+| Sign + verify + status | Yes | Core passport workflow |
+| X-Ray on passport JSON | Yes | Structural diagnostic, not a general scanner |
+| Challenge / supersede / revoke | Yes | Signed by default, demo mode via `--demo` |
+| Trust Diff between two passports | Yes | Shows what changed, flags regressions |
+| Render passport HTML | Yes | Self-contained visual |
+
+### What is not being claimed
+
+- **X-Ray does not scan arbitrary trust pages or PDFs.** It analyzes passport
+  JSON structure. General trust-surface scanning is future work.
+- **Mint does not ingest external vendor documents.** It builds from Assay
+  proof packs. Ingestion from external artifacts is future work.
+- **Trust Diff is a primitive, not a product workflow.** It compares two
+  passport files. Enterprise diff workflows are future work.
+- **Authority delegation is limited.** Supersession and revocation require
+  the original issuer's signing key. Broader delegated authority semantics
+  are reserved, not implemented.
+
+### Decision point
+
+If the prospect responds well to passports, this signals readiness for:
+- **Reviewer packets with passport backing** (portable trust + evidence summary)
+- **Ongoing passport lifecycle** (quarterly renewal, challenge-driven remediation)
+- **Vendor verification** (receive and verify passports from third parties)
+
+If they don't engage with passports, the proof-pack + CI gate story
+is already complete and does not require this layer.
+
+
 ## Escalation Paths
 
 | Issue | Response |

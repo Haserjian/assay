@@ -1,0 +1,94 @@
+{
+  "passport_version": "0.1",
+  "issued_at": "2026-03-15T03:35:16+00:00",
+  "valid_until": "2026-04-14T03:35:16+00:00",
+  "observation_window": {
+    "start": "2026-03-15T03:35:16+00:00",
+    "end": "2026-03-15T03:35:16+00:00",
+    "note": "Draft passport — observation window matches issuance"
+  },
+  "status": {
+    "state": "FRESH",
+    "reason": "Draft passport — not yet signed.",
+    "checked_at": "2026-03-15T03:35:16+00:00"
+  },
+  "reliance": {
+    "class": "R0",
+    "label": "Unsigned or minimal evidence",
+    "verdict": "Draft passport for AcmeSaaS. Sign to finalize.",
+    "limits": [],
+    "freshness_note": "Draft issued at 2026-03-15T03:35:16+00:00. Valid for 30 days."
+  },
+  "trust_posture": {
+    "freshness": "current",
+    "signature": "unsigned",
+    "coverage": "unknown",
+    "evidence_mix": "0 machine / 0 human",
+    "challenges": "none",
+    "scope_class": "unknown"
+  },
+  "subject": {
+    "name": "AcmeSaaS",
+    "system_id": "acme.saas.v1",
+    "type": "ai_workflow",
+    "description": "",
+    "owner": "Acme Corp.",
+    "version": "1.0",
+    "environment": "",
+    "sample_boundary": ""
+  },
+  "scope": {
+    "in_scope": [],
+    "not_covered": [],
+    "not_observed": [],
+    "not_concluded": [],
+    "boundary_notes": []
+  },
+  "claims": [],
+  "evidence_summary": {
+    "total_claims": 0,
+    "machine_verified": 0,
+    "human_attested": 0,
+    "core_claims_passed": "0/0",
+    "conditional_claims": "0/0",
+    "coverage_gaps": 0
+  },
+  "relationships": {
+    "proof_pack_ref": null,
+    "reviewer_packet_ref": null,
+    "supersedes": null,
+    "superseded_by": null,
+    "challenge_refs": [],
+    "revocation_ref": null
+  },
+  "verification": {
+    "how_to_verify": "assay passport verify ./passport.json",
+    "what_is_checked": [
+      "passport_id matches SHA-256 of passport body",
+      "Ed25519 signature is valid (if signed)",
+      "valid_until has not passed",
+      "No active challenge, supersession, or revocation receipts"
+    ]
+  },
+  "challenge": {
+    "how_to_challenge": "assay passport challenge ./passport.json --reason \"<your reason>\"",
+    "what_happens": [
+      "A timestamped challenge receipt is created in the passport directory.",
+      "Passport status becomes CHALLENGED on next verification.",
+      "The issuer can respond by superseding or revoking."
+    ]
+  },
+  "chain": {
+    "issuer": "",
+    "issuer_fingerprint": ""
+  },
+  "passport_id": "sha256:446cfa2d95c54a18e10a66630b188c4514bf13868c722d19baefebd6c5229fab",
+  "signature": {
+    "algorithm": "Ed25519",
+    "signature": "xMc7pB0OYyhdvxJRZo2puOh9oNz04RrsI7osEGMirP3AZbMdRW8ANpb7k28u1R5jtTLbyQTx+eZloQLWvudUCg==",
+    "key_id": "gallery-signer",
+    "key_fingerprint": "d4e0857b14ed6810ea7ffa66d501bd89fcbf3f18eb08ee7835ae36d1f124a17a",
+    "signed_at": "2026-03-15T03:35:16+00:00",
+    "scope": "jcs_rfc8785_without_signature"
+  }
+}

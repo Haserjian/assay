@@ -13,10 +13,11 @@ your cost budget," the answer today is "trust our server logs."
 
 That's not evidence. That's a claim.
 
-Assay produces **tamper-evident audit trails** -- cryptographically signed
+Assay turns that into portable proof artifacts -- cryptographically signed
 bundles of receipts that a third party can verify offline, on their own
 machine, without trusting you. Edit one byte and verification fails. Skip
-a call site and the completeness contract catches it.
+a call site and the completeness contract catches it. Assay doesn't make
+fraud impossible -- it makes fraud expensive, fragile, and much easier to catch.
 
 ## The four-layer architecture
 

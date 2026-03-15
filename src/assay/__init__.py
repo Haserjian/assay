@@ -1,5 +1,5 @@
 """
-Assay: Tamper-evident audit trails for AI systems.
+Assay: AI evidence that's harder to fake and easier to verify.
 
 - Scan codebases for uninstrumented LLM call sites
 - Instrument SDKs (OpenAI, Anthropic, LangChain) with 2-line patches

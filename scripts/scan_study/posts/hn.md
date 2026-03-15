@@ -6,7 +6,7 @@ Show HN: I scanned 30 popular AI projects for tamper-evident LLM evidence. 0 had
 
 ## Body
 
-Assay produces tamper-evident audit trails for AI systems. Whoever controls the server controls the story -- logs aren't proof. Try it on your own repo:
+Assay makes AI evidence harder to fake and easier to verify. Whoever controls the server controls the story -- logs aren't proof. Try it on your own repo:
 
     python3 -m pip install assay-ai && assay scan . --report
 

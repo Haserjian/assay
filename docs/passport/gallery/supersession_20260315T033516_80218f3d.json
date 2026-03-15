@@ -1,0 +1,34 @@
+{
+  "receipt_version": "0.1",
+  "event_type": "supersession",
+  "issued_at": "2026-03-15T03:35:16+00:00",
+  "issuer": {
+    "id": "gallery-signer",
+    "fingerprint": "d4e0857b14ed6810ea7ffa66d501bd89fcbf3f18eb08ee7835ae36d1f124a17a",
+    "role": "issuer",
+    "pubkey": "6BRbQyVyPCj/03Kcg9kbfpIISZkS3WRNnFSIXuIAXgs="
+  },
+  "target": {
+    "passport_id": "sha256:446cfa2d95c54a18e10a66630b188c4514bf13868c722d19baefebd6c5229fab",
+    "subject_system_id": ""
+  },
+  "reason": {
+    "code": "remediation",
+    "summary": "Addressed coverage gap"
+  },
+  "evidence_refs": [],
+  "prior_event_refs": [],
+  "supersession": {
+    "new_passport_id": "sha256:3e5776ae2bbc42b22b6eb9eb96670faaee7612960c8acffe6704e0ea328b0d3a",
+    "challenge_refs_addressed": []
+  },
+  "event_id": "sha256:80218f3d5ce144bb70a292cc940f17a375d32ddef0a88ccdca1dac1bef5402e7",
+  "signature": {
+    "algorithm": "Ed25519",
+    "signature": "dbB+Y2QK1M9HnSBGbmw7w8oTKweSK2IyG1JJW8CVXGUPyN9DVwJ9h68aFcTBXA4D6vWn4Z/ZhwfNz5QO/cKpDw==",
+    "key_id": "gallery-signer",
+    "key_fingerprint": "d4e0857b14ed6810ea7ffa66d501bd89fcbf3f18eb08ee7835ae36d1f124a17a",
+    "signed_at": "2026-03-15T03:35:16+00:00",
+    "scope": "jcs_rfc8785_without_signature"
+  }
+}

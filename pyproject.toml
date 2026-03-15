@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "assay-ai"
 version = "1.16.1"
-description = "Tamper-evident audit trails for AI systems"
+description = "AI evidence that's harder to fake and easier to verify"
 authors = [
     { name = "Tim Bhaserjian", email = "tim2208@gmail.com" }
 ]

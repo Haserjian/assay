@@ -48,3 +48,9 @@ examples/vendorq/.keys/
 
 # Scan study clones (large, reproducible via run_study.sh)
 scripts/scan_study/clones/
+
+# Floating diagnostic artifacts (regenerable)
+evidence_gap_report.*
+
+# Local Assay runtime state
+.assay/

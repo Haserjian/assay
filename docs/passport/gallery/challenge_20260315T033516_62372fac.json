@@ -1,0 +1,30 @@
+{
+  "receipt_version": "0.1",
+  "event_type": "challenge",
+  "issued_at": "2026-03-15T03:35:16+00:00",
+  "issuer": {
+    "id": "gallery-signer",
+    "fingerprint": "d4e0857b14ed6810ea7ffa66d501bd89fcbf3f18eb08ee7835ae36d1f124a17a",
+    "role": "challenger",
+    "pubkey": "6BRbQyVyPCj/03Kcg9kbfpIISZkS3WRNnFSIXuIAXgs="
+  },
+  "target": {
+    "passport_id": "sha256:446cfa2d95c54a18e10a66630b188c4514bf13868c722d19baefebd6c5229fab",
+    "subject_system_id": ""
+  },
+  "reason": {
+    "code": "coverage_gap",
+    "summary": "Missing admin override coverage"
+  },
+  "evidence_refs": [],
+  "prior_event_refs": [],
+  "event_id": "sha256:62372fac6f2001f3c28d2246e12416697e5cbc92f6428ddd3e69799629767239",
+  "signature": {
+    "algorithm": "Ed25519",
+    "signature": "1JelmqScLXG2LUuFLZb0AAKxpKyogjMNAAamLEsGe2PGUMB08Qsg5cR+HnYKjFEu/Ve6XS96A6FxXGnyBfIzAA==",
+    "key_id": "gallery-signer",
+    "key_fingerprint": "d4e0857b14ed6810ea7ffa66d501bd89fcbf3f18eb08ee7835ae36d1f124a17a",
+    "signed_at": "2026-03-15T03:35:16+00:00",
+    "scope": "jcs_rfc8785_without_signature"
+  }
+}

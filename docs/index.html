@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Assay - Tamper-Evident Audit Trails for AI Systems</title>
-<meta name="description" content="Tamper-evident audit trails for AI systems. Make the record independently verifiable -- not just server logs.">
+<title>Assay - AI Evidence That's Harder to Fake and Easier to Verify</title>
+<meta name="description" content="Assay turns AI execution claims into portable proof artifacts a buyer can verify offline — without trusting your server.">
 <style>
   :root {
     --bg: #0d1117;
@@ -691,7 +691,7 @@
       <a href="#completeness">Coverage</a>
       <a href="#gap-map">Gap Map</a>
       <a href="#faq">FAQ</a>
-      <a href="#threat-model">Threat Model</a>
+      <a href="#threat-model">Trust &amp; Limits</a>
       <a href="#regulation">Regulation</a>
       <a href="decision-escrow.md">Decision Escrow</a>
       <a href="https://haserjian.github.io/assay-proof-gallery/verify.html" target="_blank">Verify Online</a>
@@ -706,11 +706,11 @@
 
 <section class="hero">
   <div class="container">
-    <h1>Tamper-evident audit trails<br><span>for AI systems.</span></h1>
+    <h1>AI evidence that's harder to fake<br><span>and easier to verify.</span></h1>
     <p class="subtitle">
-      Wrap your LLM calls. Get cryptographically signed receipts.
-      Hand them to an auditor who can verify offline -- no access to your server needed.
-      The artifact is the proof.
+      Assay turns AI execution claims into portable proof artifacts
+      a buyer can verify offline -- without trusting your server.
+      Change one byte, verification fails.
     </p>
     <p style="color: var(--text2); font-size: 14px; margin-bottom: 28px;">
       For teams shipping AI agents, RAG pipelines, and autonomous workflows.
@@ -802,10 +802,10 @@
     </div>
 
     <p style="color: var(--text2); font-size: 14px; margin-top: 20px; max-width: 640px;">
-      Assay makes this harder to fake. Every LLM call gets a cryptographically signed receipt
-      bundled into a portable proof pack. Edit one byte and verification fails.
-      Skip a contracted call site (for supported frameworks) and completeness checks catch it.
-      The verifier doesn't need access to your server, your database, or your trust.
+      Assay turns that into a portable proof artifact another party can verify themselves.
+      Edit one byte, verification fails. Drop a locked check, the mismatch is exposed.
+      Skip a contracted call site, completeness checks catch it.
+      The verifier needs no access to your server, your database, or your trust.
     </p>
   </div>
 </section>
@@ -925,7 +925,7 @@
     </div>
 
     <div style="margin-top: 48px;">
-      <h3 style="font-size: 20px; margin-bottom: 12px;">Three verdicts. One exit code each.</h3>
+      <h3 style="font-size: 20px; margin-bottom: 12px;">Four exit codes. Three are verdicts.</h3>
       <table class="exit-table">
         <thead>
           <tr>
@@ -964,6 +964,24 @@
       <p style="color: var(--text2); font-size: 14px; margin-top: 16px;">
         The split is the point. Systems that can prove they failed honestly are more
         trustworthy than systems that always claim to pass.
+      </p>
+    </div>
+
+    <div style="margin-top: 48px; max-width: 720px;">
+      <h3 style="font-size: 20px; margin-bottom: 12px;">Honest failure is a feature, not an embarrassment.</h3>
+      <p style="color: var(--text2); font-size: 14px; line-height: 1.7; margin-bottom: 16px;">
+        Most tools only look trustworthy when everything passes. Assay also proves when a
+        declared check failed -- without breaking the integrity of the evidence. The failure
+        is sealed at runtime. Nobody can rewrite it after signing.
+      </p>
+      <p style="color: var(--text2); font-size: 14px; line-height: 1.7; margin-bottom: 16px;">
+        A signed failure is stronger evidence than a vague pass. Auditors, regulators, and
+        buyers trust systems that can show what went wrong -- not systems that only ever claim
+        success.
+      </p>
+      <p style="color: var(--text); font-size: 14px; font-weight: 500;">
+        Exit 1 is audit gold: a control failed, the failure is detectable and retained, and
+        the evidence is authentic.
       </p>
     </div>
   </div>
@@ -1190,45 +1208,127 @@ assay verify-signer ./proof_pack_*/</span></pre>
 
 <section class="threat-model-section" id="threat-model">
   <div class="container">
-    <h2>Threat model</h2>
+    <h2>What becomes harder to fake with Assay</h2>
     <p class="section-sub">
-      Assay is an evidence integrity and completeness layer, not a lie detector.
-      Here's exactly what it catches and what it doesn't.
+      Assay is not a truth oracle. It is an evidence-hardening layer.
+      It makes post-hoc tampering, silent weakening, and selective evidence presentation
+      much harder to pull off without detection.
+    </p>
+
+    <p style="color: var(--text); font-size: 15px; font-weight: 500; margin-bottom: 8px;">
+      Assay doesn't make fraud impossible. It makes fraud expensive, fragile, and much easier to catch.
+    </p>
+    <p style="color: var(--text2); font-size: 14px; margin-bottom: 32px; max-width: 640px;">
+      Assay proves the evidence artifact has not been quietly changed after the fact.
+      It does not, by itself, prove every upstream component was honest.
+      Each gap has a named upgrade path.
+    </p>
+
+    <!-- Attacker story table -->
+    <div style="margin-bottom: 32px; overflow-x: auto;">
+      <table class="exit-table" style="min-width: 600px;">
+        <thead>
+          <tr>
+            <th>If someone tries to...</th>
+            <th>Without Assay</th>
+            <th>With Assay</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Edit evidence after a run</td>
+            <td style="color: var(--text2);">Hard to notice</td>
+            <td style="color: var(--green);">Verification fails</td>
+          </tr>
+          <tr>
+            <td>Drop or weaken locked checks</td>
+            <td style="color: var(--text2);">Easy to hide</td>
+            <td style="color: var(--green);">Lock mismatch exposes it</td>
+          </tr>
+          <tr>
+            <td>Omit covered call sites</td>
+            <td style="color: var(--text2);">Easy to hand-wave</td>
+            <td style="color: var(--green);">Completeness checks catch it</td>
+          </tr>
+          <tr>
+            <td>Hand buyer internal logs, ask for trust</td>
+            <td style="color: var(--text2);">Buyer must trust the operator</td>
+            <td style="color: var(--green);">Buyer verifies offline</td>
+          </tr>
+          <tr>
+            <td>Fabricate a complete run from scratch</td>
+            <td style="color: var(--text2);">Possible</td>
+            <td style="color: var(--yellow);">Still possible at base tier; stronger deployment raises the cost</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p style="color: var(--text2); font-size: 14px; margin: 24px 0 32px; max-width: 640px; line-height: 1.7;">
+      <strong style="color: var(--text);">Why there is no quiet edit.</strong>
+      Every file in a proof pack is fingerprinted. The fingerprints are recorded in a manifest.
+      The manifest is digitally signed. Change a file -- the fingerprint won't match. Fix the
+      manifest to cover it -- the signature breaks. Re-sign the manifest -- the signer identity
+      changes. Every path to tampering leaves a visible trace.
     </p>
 
     <div class="threat-grid">
       <div class="threat-card threat-detects">
-        <h3>Assay detects</h3>
+        <h3>Assay catches</h3>
         <ul>
-          <li>Retroactive tampering (edit, append, truncate, replace)</li>
+          <li>Editing, appending, truncating, or replacing evidence after a run</li>
           <li>Selective omission of call sites under a completeness contract</li>
           <li>Claiming checks passed that were never run</li>
-          <li>Policy drift between locked baseline and current run</li>
+          <li>Weakening locked verification policy between runs</li>
         </ul>
       </div>
 
       <div class="threat-card threat-does-not">
-        <h3>Assay does not prevent</h3>
+        <h3>Assay does not catch by itself</h3>
         <ul>
-          <li>A malicious operator fabricating a complete false run from scratch</li>
-          <li>Receipts that misrepresent what actually happened at the SDK level</li>
-          <li>Timestamp fraud (local clock, no external anchor in base tier)</li>
+          <li>A fully fabricated run created from scratch by a malicious operator</li>
+          <li>False receipts generated at the source (receipts are self-attested)</li>
+          <li>Forged timestamps in the base self-signed tier (local clock)</li>
         </ul>
       </div>
 
       <div class="threat-card threat-upgrade">
-        <h3>To strengthen guarantees</h3>
+        <h3>Raise the bar further</h3>
         <ul>
-          <li>Transparency log -- external append-only timestamp anchor (<a href="https://github.com/Haserjian/assay-ledger" style="color: var(--accent);">assay-ledger</a>)</li>
-          <li>CI-held org key + branch protection -- separates signer from developer</li>
+          <li>Sign in CI with an org-controlled key + branch protection -- separates signer from developer</li>
+          <li>Transparency log -- external append-only anchor (<a href="https://github.com/Haserjian/assay-ledger" style="color: var(--accent);">assay-ledger</a>)</li>
           <li>External timestamping (RFC 3161) -- proves "before this date"</li>
         </ul>
       </div>
     </div>
 
-    <p style="color: var(--text2); font-size: 14px; margin-top: 24px;">
-      The cost of cheating scales with the complexity of the lie.
-      Assay doesn't make fraud impossible -- it makes fraud expensive.
+    <!-- Deployment ladder -->
+    <div style="margin-top: 32px;">
+      <h3 style="font-size: 18px; margin-bottom: 16px;">Deployment ladder</h3>
+      <p style="color: var(--text2); font-size: 14px; margin-bottom: 16px;">
+        Start at Base. Strengthen as your trust requirements grow.
+      </p>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+        <div style="background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 20px;">
+          <div style="font-family: var(--mono); font-size: 12px; color: var(--green); font-weight: 700; margin-bottom: 6px;">BASE</div>
+          <div style="font-size: 15px; font-weight: 600; margin-bottom: 6px;">Self-signed artifact</div>
+          <div style="color: var(--text2); font-size: 13px; line-height: 1.5;">Offline-verifiable, tamper-evident. Operator controls the signing key.</div>
+        </div>
+        <div style="background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 20px;">
+          <div style="font-family: var(--mono); font-size: 12px; color: var(--yellow); font-weight: 700; margin-bottom: 6px;">HARDENED</div>
+          <div style="font-size: 15px; font-weight: 600; margin-bottom: 6px;">CI-held signing + branch protection</div>
+          <div style="color: var(--text2); font-size: 13px; line-height: 1.5;">Separates signer from developer. No one person controls both code and evidence.</div>
+        </div>
+        <div style="background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 20px;">
+          <div style="font-family: var(--mono); font-size: 12px; color: var(--accent); font-weight: 700; margin-bottom: 6px;">ANCHORED</div>
+          <div style="font-size: 15px; font-weight: 600; margin-bottom: 6px;">Transparency log + external timestamping</div>
+          <div style="color: var(--text2); font-size: 13px; line-height: 1.5;">Independent witness. Proves the artifact existed before a given date. Full fabrication becomes materially harder.</div>
+        </div>
+      </div>
+    </div>
+
+    <p style="color: var(--text2); font-size: 13px; margin-top: 20px; font-style: italic;">
+      Threat model details: <a href="https://github.com/Haserjian/assay/blob/main/docs/TRUST_UNDER_ATTACK.md" style="color: var(--accent);">16 attack scenarios, 16 catches, 0 false passes</a>
     </p>
   </div>
 </section>
