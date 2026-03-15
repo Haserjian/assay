@@ -1,53 +1,54 @@
 # Assay
 
-AI evidence that's harder to fake and easier to verify.
+Signed evidence for AI systems that a third party can verify offline.
 
-Assay turns AI execution claims into portable proof artifacts a buyer
-can verify offline -- without trusting your server. Change one byte,
-verification fails. Drop a locked check, the mismatch is exposed.
-Skip a contracted call site, completeness checks catch it.
+```bash
+pip install assay-ai
+assay try
+```
+
+You'll see Assay build a proof pack, sign it, tamper one byte, and catch
+the break. No API key. No repo context. 15 seconds.
+
+**Then:** `assay start` to set up your project, or `assay passport demo`
+for the governance lifecycle.
+
+---
 
 Assay doesn't make fraud impossible. It makes fraud expensive, fragile,
-and much easier to catch.
+and much easier to catch. Change one byte, verification fails. Drop a
+locked check, the mismatch is exposed.
 
 We scanned 30 popular AI projects and found 202 high-confidence LLM call
 sites. Zero had tamper-evident audit trails.
 [Full results](scripts/scan_study/results/report.md).
 
-```bash
-# macOS / Linux
-python3 -m pip install assay-ai
-```
+> **Boundary:** Assay proves the evidence artifact has not been quietly
+> changed after the fact. It does not, by itself, prove every upstream
+> component was honest. See [trust tiers](docs/FULL_PICTURE.md#trust-tiers).
+
+> **Not this:** Assay is not a logging framework or observability dashboard.
+> It produces signed evidence bundles that a third party can verify offline.
+
+<details>
+<summary>Install details (Windows, PATH issues, deterministic setup)</summary>
 
 ```powershell
 # Windows
 py -m pip install assay-ai
 ```
 
-Requires Python 3.9+. Verify the CLI is on PATH:
+Requires Python 3.9+. If `pip` isn't on your PATH, use `python3 -m pip`
+(macOS/Linux) or `py -m pip` (Windows).
 
-```bash
-assay version
-```
+Deterministic setup: [docs/START_HERE.md](docs/START_HERE.md)
 
-If `pip` isn't on your PATH, use the Python launcher (`python3 -m pip` on macOS/Linux, `py -m pip` on Windows).
-
-Prefer a deterministic setup path? Start here:
-[docs/START_HERE.md](docs/START_HERE.md)
-
-> **Boundary:** Assay proves the evidence artifact has not been quietly
-> changed after the fact. It does not, by itself, prove every upstream
-> component was honest. Stronger deployment patterns (CI-held signing keys,
-> transparency logs, external timestamping) raise the cost of full fabrication.
-> See [trust tiers](docs/FULL_PICTURE.md#trust-tiers).
-
-> **Not this:** Assay is not a logging framework, an observability dashboard,
-> or a monitoring tool. It produces signed evidence bundles that a third party
-> can verify offline. If you need Datadog, this isn't it.
+</details>
 
 ## See It -- Then Understand It
 
-Try it now (no API key needed -- demos use synthetic data; with real calls, Assay instruments OpenAI, Anthropic, Gemini, LiteLLM, LangChain, and local models):
+No API key needed. Demos use synthetic data. With real calls, Assay
+instruments OpenAI, Anthropic, Gemini, LiteLLM, LangChain, and local models.
 
 ```bash
 python3 -m pip install assay-ai

@@ -59,7 +59,7 @@ console = Console()
 
 assay_app = typer.Typer(
     name="assay",
-    help="Evidence compiler for AI code changes. Install with python3 -m pip install assay-ai. Works standalone.",
+    help="Signed evidence for AI systems. Start with: assay try",
     no_args_is_help=True,
 )
 
@@ -1566,7 +1566,168 @@ def launch_check(
         raise typer.Exit(2)
 
 
-@assay_app.command("version")
+# --- Start Here commands registered first so panel appears at top of --help ---
+# The actual implementations are below; this forward declaration just claims
+# panel ordering in Typer's registration-order layout.
+_TRY_PANEL = "Start Here"
+
+
+@assay_app.command("try", rich_help_panel=_TRY_PANEL)
+def try_cmd(
+    output_json: bool = typer.Option(False, "--json", help="Structured output"),
+):
+    """See what Assay does in 15 seconds.
+
+    Builds a proof pack, verifies it, tampers with one byte,
+    and verifies again. One command. No setup.
+
+    Examples:
+      pip install assay-ai
+      assay try
+    """
+    import hashlib
+    import shutil
+    import tempfile
+    from pathlib import Path
+
+    from assay.claim_verifier import ClaimSpec
+    from assay.integrity import verify_pack_manifest
+    from assay.keystore import AssayKeyStore
+    from assay.proof_pack import ProofPack
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        td = Path(tmpdir)
+        ks = AssayKeyStore(keys_dir=td / "keys")
+        ks.generate_key("try-demo")
+
+        receipts = [
+            {
+                "receipt_id": "r_try_001",
+                "type": "model_call",
+                "timestamp": "2026-03-08T12:00:00Z",
+                "schema_version": "3.0",
+                "seq": 0,
+                "model_id": "gpt-4o",
+                "provider": "openai",
+                "total_tokens": 2400,
+                "input_tokens": 1700,
+                "output_tokens": 700,
+                "latency_ms": 980,
+                "finish_reason": "stop",
+            },
+            {
+                "receipt_id": "r_try_002",
+                "type": "guardian_verdict",
+                "timestamp": "2026-03-08T12:00:01Z",
+                "schema_version": "3.0",
+                "seq": 1,
+                "verdict": "allow",
+                "action": "generate_report",
+                "reason": "Content within policy bounds",
+            },
+        ]
+
+        claims = [
+            ClaimSpec(
+                claim_id="model_called",
+                description="At least one model_call receipt",
+                check="receipt_type_present",
+                params={"receipt_type": "model_call"},
+            ),
+            ClaimSpec(
+                claim_id="guardian_ran",
+                description="Guardian verdict was issued",
+                check="receipt_type_present",
+                params={"receipt_type": "guardian_verdict"},
+            ),
+        ]
+
+        pack = ProofPack(
+            run_id="try-demo-run",
+            entries=receipts,
+            signer_id="try-demo",
+            claims=claims,
+            mode="shadow",
+        )
+        pack_dir = pack.build(td / "pack", keystore=ks)
+
+        # Verify the good pack
+        manifest = json.loads((pack_dir / "pack_manifest.json").read_text())
+        att = manifest["attestation"]
+        good_result = verify_pack_manifest(manifest, pack_dir, ks)
+
+        # Create tampered copy
+        tampered_dir = td / "tampered"
+        shutil.copytree(pack_dir, tampered_dir)
+        receipt_file = tampered_dir / "receipt_pack.jsonl"
+        data = bytearray(receipt_file.read_bytes())
+        target = b'"gpt-4o"'
+        idx = data.find(target)
+        if idx >= 0:
+            data[idx + 1 : idx + 6] = b"gpt-5x"
+        receipt_file.write_bytes(bytes(data))
+
+        tampered_manifest = json.loads(
+            (tampered_dir / "pack_manifest.json").read_text()
+        )
+        tampered_result = verify_pack_manifest(tampered_manifest, tampered_dir, ks)
+
+    good_pass = good_result.passed
+    tampered_pass = tampered_result.passed
+    tampered_err = (
+        tampered_result.errors[0].message if tampered_result.errors else "unknown"
+    )
+
+    if output_json:
+        _output_json(
+            {
+                "command": "try",
+                "status": "ok",
+                "good_result": "PASS" if good_pass else "FAIL",
+                "tampered_result": "PASS" if tampered_pass else "FAIL",
+                "tampered_error": tampered_err,
+                "receipts": len(receipts),
+                "claims": len(claims),
+            }
+        )
+        return
+
+    console.print()
+    console.print("[bold]assay try[/] — see what Assay does")
+    console.print()
+
+    # Step 1: good pack
+    console.print("  [bold]1.[/] Built a proof pack (2 receipts, 2 claims, Ed25519 signed)")
+    if good_pass:
+        console.print("  [bold]2.[/] Verified it: [bold green]PASS[/]")
+    else:
+        console.print("  [bold]2.[/] Verified it: [bold red]FAIL[/]")
+
+    console.print()
+
+    # Step 2: tamper
+    console.print("  [bold]3.[/] Changed one byte ([dim]gpt-4o → gpt-5x[/])")
+    if not tampered_pass:
+        console.print(f"  [bold]4.[/] Verified again: [bold red]FAIL[/] — {tampered_err}")
+    else:
+        console.print("  [bold]4.[/] Verified again: [bold green]PASS[/] (unexpected)")
+
+    console.print()
+    console.print("[bold]What happened:[/]")
+    console.print("  Assay hashes every receipt and signs the pack.")
+    console.print("  One changed byte breaks the chain. No server needed.")
+    console.print()
+    console.print("[bold]Next:[/]")
+    console.print("  Set up Assay in your project:")
+    console.print("    [bold]assay start[/]")
+    console.print()
+    console.print("  [dim]Or explore the governance lifecycle: assay passport demo[/]")
+
+
+# --- End of early Start Here registration ---
+
+
+@assay_app.command("version", rich_help_panel="Operate")
 def show_version(
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
@@ -1601,7 +1762,7 @@ def show_version(
     console.print(f"Storage: {store.base_dir}")
 
 
-@assay_app.command("status")
+@assay_app.command("status", hidden=True, rich_help_panel="Measure")
 def status_cmd(
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
@@ -1763,7 +1924,7 @@ def status_cmd(
         console.print("\n  [yellow]SETUP NEEDED[/]  Run: assay quickstart\n")
 
 
-@assay_app.command("score")
+@assay_app.command("score", rich_help_panel="Measure")
 def score_cmd(
     path: str = typer.Argument(".", help="Repository directory to score"),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
@@ -1905,7 +2066,7 @@ def score_cmd(
 # ---------------------------------------------------------------------------
 
 
-@assay_app.command("report")
+@assay_app.command("report", hidden=True, rich_help_panel="Measure")
 def report_cmd(
     path: str = typer.Argument(".", help="Repository directory to report on"),
     output_path: Optional[str] = typer.Option(
@@ -2025,7 +2186,7 @@ start_app = typer.Typer(
     help="Guided setup for your use case",
     no_args_is_help=True,
 )
-assay_app.add_typer(start_app, name="start")
+assay_app.add_typer(start_app, name="start", rich_help_panel="Start Here")
 
 
 @start_app.command("demo")
@@ -2191,7 +2352,7 @@ def start_mcp_cmd(
     console.print("    - Privacy-by-default (hash-only unless opt-in)\n")
 
 
-@assay_app.command("proof-pack")
+@assay_app.command("proof-pack", rich_help_panel="Build & Verify")
 def proof_pack_cmd(
     trace_id: str = typer.Argument(..., help="Trace ID to package"),
     output_dir: str = typer.Option(None, "--output", "-o", help="Output directory"),
@@ -2277,7 +2438,7 @@ def proof_pack_cmd(
     console.print(f"Next: [bold]assay verify-pack {result_dir}[/]")
 
 
-@assay_app.command("verify-pack")
+@assay_app.command("verify-pack", rich_help_panel="Build & Verify")
 def verify_pack_cmd(
     pack_dir: str = typer.Argument(..., help="Path to Proof Pack directory"),
     require_claim_pass: bool = typer.Option(
@@ -2747,7 +2908,7 @@ def verify_pack_cmd(
         raise typer.Exit(1)
 
 
-@assay_app.command("replay-judge")
+@assay_app.command("replay-judge", hidden=True)
 def replay_judge_cmd(
     expected_pack: str = typer.Option(
         ..., "--expected-pack", "-e",
@@ -2849,7 +3010,7 @@ def replay_judge_cmd(
     raise typer.Exit(result.exit_code)
 
 
-@assay_app.command("accept")
+@assay_app.command("accept", hidden=True, rich_help_panel="Advanced")
 def accept_cmd(
     pack_dir: str = typer.Argument(..., help="Path to verified Proof Pack directory"),
     output: Optional[str] = typer.Option(
@@ -3002,7 +3163,7 @@ def accept_cmd(
     raise typer.Exit(exit_code)
 
 
-@assay_app.command("verify-acceptance")
+@assay_app.command("verify-acceptance", hidden=True, rich_help_panel="Advanced")
 def verify_acceptance_cmd(
     receipt_path: str = typer.Argument(..., help="Path to ACCEPTANCE_RECEIPT.json"),
     expected_pack_root: Optional[str] = typer.Option(
@@ -3062,7 +3223,7 @@ def verify_acceptance_cmd(
     raise typer.Exit(0 if result.passed else 2)
 
 
-@assay_app.command("witness")
+@assay_app.command("witness", hidden=True, rich_help_panel="Advanced")
 def witness_cmd(
     pack_dir: str = typer.Argument(..., help="Path to Proof Pack directory"),
     witness_type: str = typer.Option(
@@ -3158,7 +3319,7 @@ def witness_cmd(
     raise typer.Exit(0)
 
 
-@assay_app.command("verify-witness")
+@assay_app.command("verify-witness", hidden=True, rich_help_panel="Advanced")
 def verify_witness_cmd(
     pack_dir: str = typer.Argument(..., help="Path to Proof Pack directory"),
     bundle: Optional[str] = typer.Option(
@@ -3207,7 +3368,7 @@ def verify_witness_cmd(
     raise typer.Exit(0 if result.passed else 2)
 
 
-@assay_app.command("verify-signer")
+@assay_app.command("verify-signer", hidden=True, rich_help_panel="Advanced")
 def verify_signer_cmd(
     pack_dir: str = typer.Argument(..., help="Path to Proof Pack directory"),
     expected: Optional[str] = typer.Option(
@@ -3332,7 +3493,7 @@ def verify_signer_cmd(
         raise typer.Exit(1)
 
 
-@assay_app.command("demo-pack")
+@assay_app.command("demo-pack", hidden=True, rich_help_panel="Advanced")
 def demo_pack_cmd(
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
@@ -3532,7 +3693,7 @@ def demo_pack_cmd(
         console.print("  CI gate:                       [bold]assay verify-pack <dir> --require-claim-pass[/]")
 
 
-@assay_app.command("run", context_settings={"allow_extra_args": True, "allow_interspersed_args": False})
+@assay_app.command("run", context_settings={"allow_extra_args": True, "allow_interspersed_args": False}, rich_help_panel="Build & Verify")
 def run_cmd(
     ctx: typer.Context,
     run_card: Optional[List[str]] = typer.Option(
@@ -3789,7 +3950,7 @@ key_app = typer.Typer(
     help="Manage local signing keys",
     no_args_is_help=True,
 )
-assay_app.add_typer(key_app, name="key")
+assay_app.add_typer(key_app, name="key", hidden=True, rich_help_panel="Operate")
 
 
 @key_app.command("list")
@@ -4400,7 +4561,7 @@ lock_app = typer.Typer(
     help="Manage verifier lockfile (assay.lock)",
     no_args_is_help=True,
 )
-assay_app.add_typer(lock_app, name="lock")
+assay_app.add_typer(lock_app, name="lock", hidden=True, rich_help_panel="Operate")
 
 
 @lock_app.command("write")
@@ -4653,10 +4814,10 @@ def lock_init_cmd(
 
 from assay.passport_commands import passport_app
 
-assay_app.add_typer(passport_app, name="passport")
+assay_app.add_typer(passport_app, name="passport", rich_help_panel="Advanced")
 
 
-@assay_app.command("xray")
+@assay_app.command("xray", hidden=True, rich_help_panel="Advanced")
 def xray_alias_cmd(
     passport_file: str = typer.Argument(..., help="Path to passport.json"),
     report: Optional[str] = typer.Option(None, "--report", "-r", help="Output HTML report path"),
@@ -4676,14 +4837,14 @@ vendorq_app = typer.Typer(
     help="Verifiable Vendor Packet: compile and verify questionnaire answers from proof packs",
     no_args_is_help=True,
 )
-assay_app.add_typer(vendorq_app, name="vendorq")
+assay_app.add_typer(vendorq_app, name="vendorq", hidden=True, rich_help_panel="Compliance & Audit")
 
 reviewer_app = typer.Typer(
     name="reviewer",
     help="Reviewer Packet verification and settlement inspection.",
     no_args_is_help=True,
 )
-assay_app.add_typer(reviewer_app, name="reviewer")
+assay_app.add_typer(reviewer_app, name="reviewer", hidden=True, rich_help_panel="Compliance & Audit")
 
 vendorq_lock_app = typer.Typer(
     name="lock",
@@ -5158,7 +5319,7 @@ def reviewer_challenge_cmd(
     raise typer.Exit(0)
 
 
-@assay_app.command("attest")
+@assay_app.command("attest", hidden=True, rich_help_panel="Advanced")
 def attest_cmd(
     question: str = typer.Option(..., "--question", help="Reviewer-facing question or claim"),
     assertion: str = typer.Option(..., "--assertion", help="Human assertion to package"),
@@ -5262,7 +5423,7 @@ ci_app = typer.Typer(
     help="Generate CI workflows for Assay verification",
     no_args_is_help=True,
 )
-assay_app.add_typer(ci_app, name="ci")
+assay_app.add_typer(ci_app, name="ci", hidden=True, rich_help_panel="Operate")
 
 
 # ---------------------------------------------------------------------------
@@ -5278,7 +5439,7 @@ packs_app = typer.Typer(
     help="Browse and manage local proof packs",
     no_args_is_help=True,
 )
-assay_app.add_typer(packs_app, name="packs")
+assay_app.add_typer(packs_app, name="packs", hidden=True, rich_help_panel="Operate")
 
 
 def _discover_packs(search_dir: Optional[str] = None):
@@ -5535,7 +5696,7 @@ baseline_app = typer.Typer(
     help="Manage the diff baseline pack pointer (.assay/baseline.json)",
     no_args_is_help=True,
 )
-assay_app.add_typer(baseline_app, name="baseline")
+assay_app.add_typer(baseline_app, name="baseline", hidden=True, rich_help_panel="Operate")
 
 
 @baseline_app.command("set")
@@ -5607,7 +5768,7 @@ gate_app = typer.Typer(
     help="CI enforcement for evidence quality (use `assay score` for diagnostics)",
     no_args_is_help=True,
 )
-assay_app.add_typer(gate_app, name="gate")
+assay_app.add_typer(gate_app, name="gate", hidden=True, rich_help_panel="Advanced")
 
 
 def _gate_error(msg: str, *, command: str = "assay gate", output_json: bool) -> None:
@@ -5892,7 +6053,7 @@ cards_app = typer.Typer(
     help="Inspect built-in and custom run cards",
     no_args_is_help=True,
 )
-assay_app.add_typer(cards_app, name="cards")
+assay_app.add_typer(cards_app, name="cards", hidden=True, rich_help_panel="Operate")
 
 
 @cards_app.command("list")
@@ -6227,7 +6388,7 @@ def ci_doctor_cmd(
     _render_doctor_report(report, strict)
 
 
-@assay_app.command("onboard")
+@assay_app.command("onboard", rich_help_panel="Operate", hidden=True)
 def onboard_cmd(
     path: str = typer.Argument(".", help="Project directory to onboard"),
     run_command: Optional[str] = typer.Option(
@@ -6324,7 +6485,7 @@ def onboard_cmd(
     console.print()
 
 
-@assay_app.command("patch")
+@assay_app.command("patch", rich_help_panel="Build & Verify", hidden=True)
 def patch_cmd(
     path: str = typer.Argument(".", help="Directory to scan and patch"),
     entrypoint: Optional[str] = typer.Option(
@@ -6458,7 +6619,7 @@ def patch_cmd(
     console.print(f"\nNext: [bold]assay run -c receipt_completeness -- python {plan.entrypoint}[/]")
 
 
-@assay_app.command("scan")
+@assay_app.command("scan", rich_help_panel="Build & Verify")
 def scan_cmd(
     path: str = typer.Argument(".", help="Directory to scan"),
     output_json: bool = typer.Option(False, "--json", help="Machine-readable JSON output"),
@@ -6667,7 +6828,7 @@ def scan_cmd(
     raise typer.Exit(0)
 
 
-@assay_app.command("doctor")
+@assay_app.command("doctor", rich_help_panel="Operate")
 def doctor_cmd(
     profile: str = typer.Option(
         "local", "--profile", "-p",
@@ -6816,7 +6977,7 @@ def _render_doctor_report(report, strict: bool = False) -> None:
     raise typer.Exit(exit_code)
 
 
-@assay_app.command("explain")
+@assay_app.command("explain", rich_help_panel="Operate", hidden=True)
 def explain_cmd(
     pack_dir: str = typer.Argument(..., help="Path to proof pack directory"),
     output_format: str = typer.Option("text", "--format", "-f", help="Output format: text, md, json"),
@@ -6890,7 +7051,7 @@ def explain_cmd(
         console.print(render_causal_text(causal_data))
 
 
-@assay_app.command("demo-incident")
+@assay_app.command("demo-incident", rich_help_panel="Start Here")
 def demo_incident_cmd(
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
@@ -7129,7 +7290,7 @@ def demo_incident_cmd(
         console.print()
 
 
-@assay_app.command("quickstart")
+@assay_app.command("quickstart", rich_help_panel="Operate", hidden=True)
 def quickstart_cmd(
     path: str = typer.Argument(".", help="Project directory to explore"),
     skip_demo: bool = typer.Option(False, "--skip-demo", help="Skip demo-challenge generation"),
@@ -7336,7 +7497,7 @@ def quickstart_cmd(
         _output_json(results, exit_code=0)
 
 
-@assay_app.command("demo-challenge")
+@assay_app.command("demo-challenge", rich_help_panel="Start Here")
 def demo_challenge_cmd(
     output_dir: str = typer.Option("./challenge_pack", "--output", "-o", help="Output directory"),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
@@ -7555,7 +7716,7 @@ def demo_challenge_cmd(
     console.print()
 
 
-@assay_app.command("analyze")
+@assay_app.command("analyze", rich_help_panel="Operate", hidden=True)
 def analyze_cmd(
     pack_dir: Optional[str] = typer.Argument(None, help="Path to proof pack directory"),
     history: bool = typer.Option(False, "--history", help="Analyze local trace history instead of a pack"),
@@ -7788,7 +7949,7 @@ def _render_regime(report) -> None:
     ))
 
 
-@assay_app.command("diff")
+@assay_app.command("diff", hidden=True, rich_help_panel="Advanced")
 def diff_cmd(
     pack_a: str = typer.Argument(..., help="Baseline pack directory (or current pack with --against-previous)"),
     pack_b: Optional[str] = typer.Argument(None, help="Current pack directory"),
@@ -8186,7 +8347,7 @@ mcp_app = typer.Typer(
     help="MCP tool-call auditing: policy templates and proxy.",
     no_args_is_help=True,
 )
-assay_app.add_typer(mcp_app, name="mcp")
+assay_app.add_typer(mcp_app, name="mcp", hidden=True, rich_help_panel="Advanced")
 
 mcp_policy_app = typer.Typer(
     help="MCP policy file management.",
@@ -8392,7 +8553,7 @@ def mcp_policy_validate_cmd(
     console.print()
 
 
-@assay_app.command("mcp-proxy", context_settings={"allow_extra_args": True, "allow_interspersed_args": False})
+@assay_app.command("mcp-proxy", context_settings={"allow_extra_args": True, "allow_interspersed_args": False}, hidden=True, rich_help_panel="Advanced")
 def mcp_proxy_cmd(
     ctx: typer.Context,
     audit_dir: str = typer.Option(".assay/mcp", "--audit-dir", help="Directory for receipts and packs"),
@@ -8548,7 +8709,7 @@ audit_app = typer.Typer(
     help="Auditor handoff: bundle and verify evidence packs",
     no_args_is_help=True,
 )
-assay_app.add_typer(audit_app, name="audit")
+assay_app.add_typer(audit_app, name="audit", hidden=True, rich_help_panel="Compliance & Audit")
 
 
 @audit_app.command("bundle")
@@ -8703,7 +8864,7 @@ flow_app = typer.Typer(
     help="Executable guided workflows (no more copy-paste)",
     no_args_is_help=True,
 )
-assay_app.add_typer(flow_app, name="flow")
+assay_app.add_typer(flow_app, name="flow", hidden=True, rich_help_panel="Workflows")
 
 
 @flow_app.command("try")
@@ -8839,7 +9000,7 @@ compliance_app = typer.Typer(
     help="Compliance assessment: map evidence packs to regulatory frameworks",
     no_args_is_help=True,
 )
-assay_app.add_typer(compliance_app, name="compliance")
+assay_app.add_typer(compliance_app, name="compliance", hidden=True, rich_help_panel="Compliance & Audit")
 
 
 @compliance_app.command("report")
@@ -8954,7 +9115,7 @@ incident_app = typer.Typer(
     help="Incident forensics and timeline analysis",
     no_args_is_help=True,
 )
-assay_app.add_typer(incident_app, name="incident")
+assay_app.add_typer(incident_app, name="incident", hidden=True, rich_help_panel="Compliance & Audit")
 
 
 @incident_app.command("timeline")
@@ -9096,7 +9257,7 @@ policy_app = typer.Typer(
     help="Policy management and impact analysis",
     no_args_is_help=True,
 )
-assay_app.add_typer(policy_app, name="policy")
+assay_app.add_typer(policy_app, name="policy", hidden=True, rich_help_panel="Compliance & Audit")
 
 
 @policy_app.command("impact")
@@ -9248,7 +9409,7 @@ pilot_app = typer.Typer(
     help="End-to-end pilot run, verify, and closeout",
     no_args_is_help=True,
 )
-assay_app.add_typer(pilot_app, name="pilot")
+assay_app.add_typer(pilot_app, name="pilot", hidden=True, rich_help_panel="Workflows")
 
 
 @pilot_app.command("run")
@@ -9466,167 +9627,6 @@ def pilot_closeout_cmd(
         f"| delta={delta_str}"
     )
     raise typer.Exit(0)
-
-
-# ---------------------------------------------------------------------------
-# assay try -- single canonical getting-started command
-# ---------------------------------------------------------------------------
-
-@assay_app.command("try")
-def try_cmd(
-    output_json: bool = typer.Option(False, "--json", help="Structured output"),
-):
-    """See what Assay does in 15 seconds.
-
-    Builds a proof pack, verifies it, tampers with one byte,
-    and verifies again. One command. No setup.
-
-    Examples:
-      pip install assay-ai
-      assay try
-    """
-    import hashlib
-    import shutil
-    import tempfile
-    from pathlib import Path
-
-    from assay.claim_verifier import ClaimSpec
-    from assay.integrity import verify_pack_manifest
-    from assay.keystore import AssayKeyStore
-    from assay.proof_pack import ProofPack
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        td = Path(tmpdir)
-        ks = AssayKeyStore(keys_dir=td / "keys")
-        ks.generate_key("try-demo")
-
-        receipts = [
-            {
-                "receipt_id": "r_try_001",
-                "type": "model_call",
-                "timestamp": "2026-03-08T12:00:00Z",
-                "schema_version": "3.0",
-                "seq": 0,
-                "model_id": "gpt-4o",
-                "provider": "openai",
-                "total_tokens": 2400,
-                "input_tokens": 1700,
-                "output_tokens": 700,
-                "latency_ms": 980,
-                "finish_reason": "stop",
-            },
-            {
-                "receipt_id": "r_try_002",
-                "type": "guardian_verdict",
-                "timestamp": "2026-03-08T12:00:01Z",
-                "schema_version": "3.0",
-                "seq": 1,
-                "verdict": "allow",
-                "action": "generate_report",
-                "reason": "Content within policy bounds",
-            },
-        ]
-
-        claims = [
-            ClaimSpec(
-                claim_id="model_called",
-                description="At least one model_call receipt",
-                check="receipt_type_present",
-                params={"receipt_type": "model_call"},
-            ),
-            ClaimSpec(
-                claim_id="guardian_ran",
-                description="Guardian verdict was issued",
-                check="receipt_type_present",
-                params={"receipt_type": "guardian_verdict"},
-            ),
-        ]
-
-        pack = ProofPack(
-            run_id="try-demo-run",
-            entries=receipts,
-            signer_id="try-demo",
-            claims=claims,
-            mode="shadow",
-        )
-        pack_dir = pack.build(td / "pack", keystore=ks)
-
-        # Verify the good pack
-        manifest = json.loads((pack_dir / "pack_manifest.json").read_text())
-        att = manifest["attestation"]
-        good_result = verify_pack_manifest(manifest, pack_dir, ks)
-
-        # Create tampered copy
-        tampered_dir = td / "tampered"
-        shutil.copytree(pack_dir, tampered_dir)
-        receipt_file = tampered_dir / "receipt_pack.jsonl"
-        data = bytearray(receipt_file.read_bytes())
-        target = b'"gpt-4o"'
-        idx = data.find(target)
-        if idx >= 0:
-            data[idx + 1 : idx + 6] = b"gpt-5x"
-        receipt_file.write_bytes(bytes(data))
-
-        tampered_manifest = json.loads(
-            (tampered_dir / "pack_manifest.json").read_text()
-        )
-        tampered_result = verify_pack_manifest(tampered_manifest, tampered_dir, ks)
-
-    good_pass = good_result.passed
-    tampered_pass = tampered_result.passed
-    tampered_err = (
-        tampered_result.errors[0].message if tampered_result.errors else "unknown"
-    )
-
-    if output_json:
-        _output_json(
-            {
-                "command": "try",
-                "status": "ok",
-                "good_result": "PASS" if good_pass else "FAIL",
-                "tampered_result": "PASS" if tampered_pass else "FAIL",
-                "tampered_error": tampered_err,
-                "receipts": len(receipts),
-                "claims": len(claims),
-            }
-        )
-        return
-
-    console.print()
-    console.print("[bold]assay try[/] — see what Assay does")
-    console.print()
-
-    # Step 1: good pack
-    console.print("  [bold]1.[/] Built a proof pack (2 receipts, 2 claims, Ed25519 signed)")
-    if good_pass:
-        console.print("  [bold]2.[/] Verified it: [bold green]PASS[/]")
-    else:
-        console.print("  [bold]2.[/] Verified it: [bold red]FAIL[/]")
-
-    console.print()
-
-    # Step 2: tamper
-    console.print("  [bold]3.[/] Changed one byte ([dim]gpt-4o → gpt-5x[/])")
-    if not tampered_pass:
-        console.print(f"  [bold]4.[/] Verified again: [bold red]FAIL[/] — {tampered_err}")
-    else:
-        console.print("  [bold]4.[/] Verified again: [bold green]PASS[/] (unexpected)")
-
-    console.print()
-    console.print("[bold]What happened:[/]")
-    console.print("  Assay hashes every receipt and signs the pack.")
-    console.print("  One changed byte breaks the chain. No server needed.")
-    console.print()
-    console.print("[bold]Next steps:[/]")
-    console.print("  [dim]Scan your project for uninstrumented LLM calls:[/]")
-    console.print("    assay scan .")
-    console.print()
-    console.print("  [dim]Verify a real proof pack and export a shareable report:[/]")
-    console.print("    assay verify-pack <path> --html report.html")
-    console.print()
-    console.print("  [dim]Generate a verification badge:[/]")
-    console.print("    assay verify-pack <path> --badge badge.svg")
-    console.print()
 
 
 def main():
