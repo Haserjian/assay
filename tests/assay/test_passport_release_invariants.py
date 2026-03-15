@@ -213,6 +213,9 @@ class TestDemoCommand:
             assert result.exit_code == 0, (
                 f"Demo exited {result.exit_code}:\n{result.output}"
             )
+            assert "Verify checks integrity;" in result.output
+            assert "status checks reliance posture" in result.output
+            assert "This is diagnostic quality" in result.output
             # Verify the demo produced artifacts
             assert (tmp / "passport_v1.json").is_file()
             assert (tmp / "passport_v2.json").is_file()

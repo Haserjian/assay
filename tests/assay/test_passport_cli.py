@@ -214,6 +214,8 @@ class TestPassportChallenge:
         ])
         assert result.exit_code == 0
         assert "Challenged" in result.output
+        assert "passport verify" in result.output
+        assert "passport status" in result.output
 
         # Verify receipt was created
         parent = unsigned_passport.parent
@@ -274,6 +276,7 @@ class TestPassportSupersede:
             "--reason", "Upgraded",
         ])
         assert result.exit_code == 0
+        assert "passport diff" in result.output
 
         # Check relationship updates
         p1_data = json.loads(p1_path.read_text(encoding="utf-8"))
@@ -299,3 +302,24 @@ class TestXRayAlias:
         result = runner.invoke(assay_app, ["xray", str(unsigned_passport)])
         # Should work as top-level alias
         assert result.exit_code in (0, 1, 2)
+
+
+class TestPassportCliGuidance:
+    def test_status_output_explains_verify_vs_status(
+        self, unsigned_passport: Path, assay_home_tmp: Path
+    ) -> None:
+        result = runner.invoke(assay_app, [
+            "passport", "status", str(unsigned_passport),
+        ])
+        assert result.exit_code in (0, 1, 2)
+        assert "Verify checks artifact integrity" in result.output
+        assert "passport verify" in result.output
+
+    def test_xray_output_explains_grade_is_diagnostic(
+        self, unsigned_passport: Path, assay_home_tmp: Path
+    ) -> None:
+        result = runner.invoke(assay_app, [
+            "passport", "xray", str(unsigned_passport),
+        ])
+        assert result.exit_code in (0, 1, 2)
+        assert "diagnostic grade" in result.output

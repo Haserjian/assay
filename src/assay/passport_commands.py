@@ -42,6 +42,11 @@ def _output_json(data: dict, exit_code: int = 0) -> None:
     raise typer.Exit(exit_code)
 
 
+def _display_path(path: Path) -> str:
+    """Return a user-facing path string."""
+    return str(path)
+
+
 # ---------------------------------------------------------------------------
 # show
 # ---------------------------------------------------------------------------
@@ -432,9 +437,11 @@ def passport_status_cmd(
         f"Verdict: [bold {vc}]{result.verdict}[/]\n"
         f"Mode: {mode}\n"
         f"Reason: {result.reason}\n\n"
+        f"[dim]Verify checks artifact integrity. Status answers whether to rely on it under this policy.[/]\n\n"
         f"Signature: {dims.signature_valid}  |  Schema: {dims.schema_valid}\n"
         f"Content ID: {dims.content_hash_valid}  |  Freshness: {dims.freshness_status}\n"
-        f"Governance: {dims.governance_status}  |  Events: {dims.event_integrity}",
+        f"Governance: {dims.governance_status}  |  Events: {dims.event_integrity}\n\n"
+        f"[bold]Compare:[/] assay passport verify {_display_path(path)}",
         title="Passport Status",
     ))
 
@@ -481,7 +488,8 @@ def passport_xray_cmd(
         f"State: {result.state.state if result.state else 'UNKNOWN'}\n"
         f"Findings: {sum(1 for f in result.findings if f.severity == 'pass')} pass, "
         f"{sum(1 for f in result.findings if f.severity == 'warn')} warn, "
-        f"{sum(1 for f in result.findings if f.severity == 'fail')} fail",
+        f"{sum(1 for f in result.findings if f.severity == 'fail')} fail\n\n"
+        f"[dim]X-Ray is a diagnostic grade, not a separate integrity verdict. A weak grade can still be a valid signed artifact.[/]",
         title="Passport X-Ray",
     ))
 
@@ -641,7 +649,9 @@ def passport_challenge_cmd(
         f"Challenge issued{' (signed)' if not demo else ' (demo/unsigned)'}.\n"
         f"Receipt: [bold]{receipt_path.name}[/]\n"
         f"Reason: {reason}\n"
-        f"Passport: {passport_id or 'unsigned'}",
+        f"Passport: {passport_id or 'unsigned'}\n\n"
+        f"[bold]Next:[/] assay passport verify {_display_path(path)} --require-fresh\n"
+        f"[bold]Policy view:[/] assay passport status {_display_path(path)} --mode buyer-safe",
         title="[yellow]Challenged[/]",
     ))
 
@@ -753,7 +763,9 @@ def passport_supersede_cmd(
         f"Old: {old_passport_id or old_path.name}\n"
         f"New: {new_passport_id or new_path.name}\n"
         f"Receipt: {receipt_path.name}\n"
-        f"Reason: {reason}{sig_note}",
+        f"Reason: {reason}{sig_note}\n\n"
+        f"[bold]Next:[/] assay passport verify {_display_path(old_path)}\n"
+        f"[bold]Inspect the change:[/] assay passport diff {_display_path(old_path)} {_display_path(new_path)}",
         title="[dim]Superseded[/]",
     ))
 
@@ -921,6 +933,7 @@ def passport_demo_cmd(
     demo_dir.mkdir(parents=True, exist_ok=True)
 
     console.print("[bold]Assay Passport Demo[/]\n")
+    console.print("[dim]This demo shows the full lifecycle on seeded artifacts. Verify checks integrity; status checks reliance posture; X-Ray explains artifact quality.[/]\n")
 
     # Set up a temporary keystore
     tmp_keys = Path(tempfile.mkdtemp(prefix="assay_demo_keys_"))
@@ -974,7 +987,10 @@ def _run_demo(demo_dir: Path, ks: "AssayKeyStore") -> None:
     # Step 4: X-Ray
     console.print("[bold]Step 4:[/] X-Ray diagnostic")
     xr = xray_passport(p1_path, keystore=ks, verify=True)
-    console.print(f"  → Grade: {xr.overall_grade} ({len(xr.findings)} findings)")
+    console.print(
+        f"  → Grade: {xr.overall_grade} ({len(xr.findings)} findings). "
+        "This is diagnostic quality, not a separate signature check."
+    )
 
     # Step 5: Challenge (signed)
     console.print("[bold]Step 5:[/] Challenge passport (signed)")
@@ -997,6 +1013,7 @@ def _run_demo(demo_dir: Path, ks: "AssayKeyStore") -> None:
     console.print(f"  → Governance: {gov['governance_status']} "
                   f"(integrity: {gov['event_integrity']}, "
                   f"verified: {gov['signed_valid']}/{gov['signed_total']})")
+    console.print("  → If this were a live handoff, verify would now fail --require-fresh and status would warn or fail depending on policy.")
 
     # Step 7: Mint v2 (address the challenge by adding coverage claim)
     console.print("[bold]Step 7:[/] Mint v2 (address challenge)")
@@ -1058,8 +1075,11 @@ def _run_demo(demo_dir: Path, ks: "AssayKeyStore") -> None:
     console.print(f"  → {diff_html_path} (regression: {diff_result.has_regression})")
 
     console.print(f"\n[bold green]Demo complete.[/] Output in {demo_dir}/")
+    console.print("[dim]A successful run should leave you with: a signed v1 passport, a signed challenge, a signed supersession, a signed v2 passport, and a trust diff you can inspect offline.[/]")
     console.print(f"  passport_v1.json, passport_v1.html")
     console.print(f"  passport_v2.json")
     console.print(f"  {challenge_path.name} (signed challenge)")
     console.print(f"  {sup_path.name} (signed supersession)")
     console.print(f"  trust_diff.html")
+    console.print(f"\n[bold]Try next:[/] assay passport status {_display_path(p1_path)} --mode buyer-safe")
+    console.print(f"[bold]Then compare:[/] assay passport diff {_display_path(p1_path)} {_display_path(p2_path)}")
