@@ -25,6 +25,11 @@ The fastest place to start is the seeded referee gallery:
 - [gallery/](gallery/)
 - Regenerate it with `python3 docs/passport/generate_gallery.py`
 
+If you are packaging this surface for a release, post, or customer demo,
+use the commercial launch packet:
+
+- [../commercial/PASSPORT_LAUNCH_PACKET.md](../commercial/PASSPORT_LAUNCH_PACKET.md)
+
 ## Core Commands
 
 ```bash
@@ -93,6 +98,31 @@ Run it directly:
 
 ```bash
 assay passport demo
+```
+
+Expected output (timestamps and IDs will differ):
+
+```
+Step 1: Mint passport draft
+  → passport_v1.json
+Step 2: Sign passport
+  → ID: sha256:1d1c507f...
+Step 3: Render HTML
+  → passport_v1.html (28,685 bytes)
+Step 4: X-Ray diagnostic
+  → Grade: D (6 findings)
+Step 5: Challenge passport (signed)
+  → challenge_20260315_cb77f69d.json (signed)
+Step 6: Verify (expect CHALLENGED)
+  → Governance: challenged (integrity: all_valid, verified: 1/1)
+Step 7: Mint v2 (address challenge)
+  → passport_v2.json (added admin override coverage claim)
+Step 8: Sign v2
+  → ID: sha256:45b9500b...
+Step 9: Supersede v1 → v2 (signed)
+  → supersession_20260315_d19b17c8.json (signed)
+Step 10: Trust Diff
+  → trust_diff.html (regression: False)
 ```
 
 The demo is deterministic enough to function as a worked reference flow, and
