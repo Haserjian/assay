@@ -4,6 +4,10 @@ Reviewer Packets are the buyer-facing artifact built on top of an Assay proof
 pack. The proof pack remains the trust root. The Reviewer Packet makes that
 proof usable across an organizational boundary by packaging:
 
+Recent proof note:
+
+- [release/2026-03-15-cli-smoke-proof-note.md](release/2026-03-15-cli-smoke-proof-note.md)
+
 - settlement
 - scope
 - coverage
