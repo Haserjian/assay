@@ -3,6 +3,11 @@
 Seeded reference artifacts demonstrating the passport lifecycle.
 All artifacts are deterministic and regenerable.
 
+See also:
+
+- [Passport guide](../README.md)
+- [Passport release note](../RELEASE_NOTE.md)
+
 ## Regeneration
 
 ```bash
@@ -42,3 +47,6 @@ The gallery regenerates cleanly from `generate_gallery.py`.
 
 The gallery demonstrates the passport lifecycle on controlled inputs.
 Broader ingestion and scanning are future scope.
+
+For the bounded public explanation of what the passport surface proves today,
+start with [../README.md](../README.md).
