@@ -169,8 +169,9 @@ See [compliance citations](compliance-citations.md) for exact regulatory referen
 | v1.6.0 | Flow commands, audit bundle, verify-signer, Gemini + LiteLLM, key lifecycle UX, pack lifecycle | Live (PyPI) |
 | v1.13.0 | Truth-claim hardening, pilot orchestration | Live (PyPI) |
 | v1.16.0 | VendorQ, ADC v0.1 schema, --check-expiry, stale/superseded verifiers, conformance corpus (10 packs) | Live (PyPI) |
-| v1.7.0+ | Regime detection + drift (`analyze --history --regime-detect`) | Phase 1 (Mar) |
-| v1.8.0+ | MCP Guard profile + policy enforcement | Phase 2 (late Mar) |
+| v1.17.0 | Passport lifecycle (12 commands), signed governance receipts, referee gallery, first-run narration | Live (PyPI) |
+| v1.18.0+ | Regime detection + drift (`analyze --history --regime-detect`) | Phase 1 |
+| v1.19.0+ | MCP Guard profile + policy enforcement | Phase 2 |
 | v2.0.0 | Decision Escrow (breaking: new receipt types) | Q2-Q3 |
 
 ---
