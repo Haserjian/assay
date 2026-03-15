@@ -363,6 +363,10 @@ pre-built signed passports, governance receipts, X-Ray diagnostic, and
 trust diff. All artifacts are regenerable via
 `python3 docs/passport/generate_gallery.py`.
 
+**Passport guide**: See [docs/passport/README.md](docs/passport/README.md)
+for the bounded public story: what you can inspect today, what `verify`
+and `status` mean, and what remains future scope.
+
 **What this proves today:**
 - Signed, content-addressed passport artifacts with Ed25519 signatures
 - Deterministic lifecycle governance: challenge, supersede, revoke, diff
