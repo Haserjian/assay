@@ -5,6 +5,7 @@ Assay: AI evidence that's harder to fake and easier to verify.
 - Instrument SDKs (OpenAI, Anthropic, LangChain) with 2-line patches
 - Produce signed proof packs (receipts, manifest, Ed25519 signature)
 - Verify evidence integrity (exit 0/1/2/3: pass / honest failure / tampered / bad input)
+- Passport lifecycle: mint, sign, verify, status, challenge, supersede, diff
 """
 
 from importlib.metadata import version, PackageNotFoundError
