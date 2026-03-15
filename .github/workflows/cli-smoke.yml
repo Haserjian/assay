@@ -3,19 +3,23 @@ name: CLI Smoke
 on:
   pull_request:
     paths:
+      - ".gitattributes"
       - "pyproject.toml"
       - "README.md"
       - "docs/START_HERE.md"
       - "docs/README_quickstart.md"
+      - "tests/fixtures/reviewer_packet/**"
       - "src/assay/**"
       - ".github/workflows/cli-smoke.yml"
   push:
     branches: [main]
     paths:
+      - ".gitattributes"
       - "pyproject.toml"
       - "README.md"
       - "docs/START_HERE.md"
       - "docs/README_quickstart.md"
+      - "tests/fixtures/reviewer_packet/**"
       - "src/assay/**"
       - ".github/workflows/cli-smoke.yml"
   workflow_dispatch:
