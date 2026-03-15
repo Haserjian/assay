@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Assay Passport — AcmeSaaS AI Support Workflow</title>
+  <style>*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    background: #fcfcfb;
+    color: #161616;
+    line-height: 1.65;
+    font-size: 15px;
+}
+
+/* --- Page-top state stripe --- */
+
+.state-stripe {
+    height: 3px;
+    width: 100%;
+}
+.state-stripe-fresh      { background: #1f7a4d; }
+.state-stripe-stale       { background: #a56a00; }
+.state-stripe-challenged  { background: #b42318; }
+.state-stripe-superseded  { background: #8d8d8d; }
+.state-stripe-revoked     { background: #b42318; }
+.state-stripe-unknown     { background: #6b7280; }
+
+.shell {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 48px 28px 96px;
+}
+
+/* --- Triad cards --- */
+
+.triad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 20px;
+}
+.triad-card {
+    text-align: center;
+    padding: 14px 12px 10px;
+    border: 1.5px solid #d7d9dd;
+    border-radius: 8px;
+    background: #f6f5f2;
+}
+.triad-label {
+    display: block;
+    font-size: .6rem;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: #6b7280;
+    margin-bottom: 2px;
+}
+.triad-value {
+    display: block;
+    font-size: 1.3rem;
+    font-weight: 700;
+    letter-spacing: .02em;
+    color: #161616;
+}
+.triad-sub {
+    display: block;
+    font-size: .72rem;
+    color: #6b7280;
+    margin-top: 1px;
+}
+.triad-good { border-color: #1f7a4d; }
+.triad-good .triad-value { color: #1f7a4d; }
+.triad-qualified { border-color: #a56a00; }
+.triad-qualified .triad-value { color: #a56a00; }
+.triad-warn { border-color: #a56a00; }
+.triad-warn .triad-value { color: #a56a00; }
+.triad-alert { border-color: #b42318; }
+.triad-alert .triad-value { color: #b42318; }
+
+/* --- Decision summary --- */
+
+.decision-summary {
+    background: #f6f5f2;
+    border: 1.5px solid #161616;
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin-bottom: 20px;
+}
+.decision-summary h2 {
+    font-size: .72rem;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: #6b7280;
+    font-weight: 600;
+    margin-bottom: 12px;
+}
+.ds-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 14px;
+}
+.ds-line {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+}
+.ds-key {
+    min-width: 120px;
+    font-size: .72rem;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: #6b7280;
+    flex-shrink: 0;
+}
+.ds-val {
+    font-size: .88rem;
+    color: #333;
+}
+.ds-val strong {
+    font-weight: 700;
+}
+.ds-gap {
+    color: #a56a00;
+    font-weight: 600;
+}
+.ds-synthesis {
+    font-size: .86rem;
+    line-height: 1.65;
+    color: #525252;
+    padding-top: 10px;
+    border-top: 1px solid #d7d9dd;
+}
+
+/* --- Header --- */
+
+header { margin-bottom: 20px; }
+
+.eyebrow {
+    font-size: 11px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: #6b7280;
+    margin-bottom: 8px;
+}
+
+h1 {
+    font-size: clamp(1.6rem, 4vw, 2.2rem);
+    line-height: 1.2;
+    font-weight: 700;
+    margin-bottom: 10px;
+    letter-spacing: -.02em;
+}
+
+.subject-desc {
+    color: #525252;
+    font-size: .92rem;
+    margin-bottom: 20px;
+    max-width: 620px;
+}
+
+/* --- Status band (legacy) --- */
+
+.status-band {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.status-badge {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 14px 22px;
+    border-radius: 8px;
+    color: #fff;
+    max-width: 440px;
+}
+.status-badge strong { font-size: 1.1rem; font-weight: 700; letter-spacing: .04em; }
+.next-action { font-size: .85rem; opacity: .92; line-height: 1.5; }
+
+.status-fresh      { background: #1f7a4d; }
+.status-stale       { background: #a56a00; }
+.status-challenged  { background: #b42318; }
+.status-superseded  { background: #6b7280; }
+.status-revoked     { background: #b42318; }
+.status-unknown     { background: #6b7280; }
+
+.reliance-class-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px;
+    border: 1.5px solid #d7d9dd;
+    border-radius: 8px;
+    background: #f6f5f2;
+}
+.rc-code {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #161616;
+    letter-spacing: .04em;
+}
+.rc-label {
+    font-size: .88rem;
+    color: #6b7280;
+}
+
+/* --- Reliance boundaries --- */
+
+.reliance-boundaries {
+    background: #fcfcfb;
+    border: 1px solid #d7d9dd;
+    border-left: 3px solid #a56a00;
+    border-radius: 2px 8px 8px 2px;
+    padding: 18px 22px;
+    margin-bottom: 24px;
+}
+.reliance-boundaries h2 {
+    font-size: .72rem;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: #a56a00;
+    font-weight: 600;
+    margin-bottom: 10px;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+.rb-limits {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 10px;
+}
+.rb-limits li {
+    padding: 5px 0;
+    font-size: .86rem;
+    color: #525252;
+    line-height: 1.6;
+    border-bottom: 1px solid #e8e8e8;
+}
+.rb-limits li:last-child { border-bottom: none; }
+
+/* Legacy reliance block (kept for backward compat) */
+
+.reliance-block {
+    background: #f6f5f2;
+    border: 1px solid #d7d9dd;
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin-bottom: 24px;
+}
+.reliance-verdict p {
+    font-size: .92rem;
+    line-height: 1.75;
+    color: #333;
+    margin-bottom: 16px;
+}
+.reliance-limits {
+    background: #fcfcfb;
+    border: 1px solid #d7d9dd;
+    border-left: 3px solid #a56a00;
+    border-radius: 2px 6px 6px 2px;
+    padding: 14px 18px;
+    margin-bottom: 10px;
+}
+.reliance-limits h3 {
+    font-size: .72rem;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: #a56a00;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+.reliance-limits ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.reliance-limits li {
+    padding: 4px 0;
+    font-size: .86rem;
+    color: #525252;
+    line-height: 1.6;
+    border-bottom: 1px solid #e8e8e8;
+}
+.reliance-limits li:last-child { border-bottom: none; }
+.freshness-note {
+    font-size: .82rem;
+    color: #6b7280;
+    line-height: 1.6;
+    font-style: italic;
+}
+.rclass-details {
+    margin-top: 12px;
+    border: 1px solid #d7d9dd;
+    border-radius: 6px;
+    margin-bottom: 10px;
+}
+.rclass-details summary {
+    padding: 8px 14px;
+    cursor: pointer;
+    font-size: .72rem;
+    color: #6b7280;
+    font-weight: 600;
+    letter-spacing: .02em;
+    user-select: none;
+}
+.rclass-details summary:hover { color: #161616; }
+.rclass-details[open] summary {
+    border-bottom: 1px solid #d7d9dd;
+}
+.rclass-table { font-size: .8rem; }
+.rclass-table th { font-size: .7rem; padding: 8px 10px; }
+.rclass-table td { padding: 8px 10px; font-size: .8rem; line-height: 1.5; }
+.rclass-code { white-space: nowrap; }
+.rclass-current td {
+    background: #eef5f0 !important;
+    border-left: 3px solid #1f7a4d;
+}
+.rclass-marker {
+    display: inline-block;
+    font-size: .6rem;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: #fff;
+    background: #1f7a4d;
+    padding: 1px 5px;
+    border-radius: 3px;
+    margin-left: 4px;
+    vertical-align: middle;
+}
+
+/* --- Trust posture strip (legacy) --- */
+
+.posture-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 24px;
+}
+.posture-cell {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #f6f5f2;
+    border: 1px solid #d7d9dd;
+    border-radius: 6px;
+    padding: 6px 14px;
+}
+.posture-label {
+    font-size: .72rem;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: #6b7280;
+}
+.posture-value {
+    font-size: .84rem;
+    font-weight: 600;
+    color: #525252;
+}
+.posture-good { color: #1f7a4d; }
+.posture-alert { color: #b42318; }
+
+/* --- Verifier status strip --- */
+
+.verifier-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0;
+    margin-bottom: 24px;
+    border: 1px solid #2a2a2a;
+    border-radius: 6px;
+    overflow: hidden;
+    font-family: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+}
+.vstrip-cell {
+    flex: 1 1 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 10px 14px;
+    background: #1e1e1e;
+    border-right: 1px solid #2a2a2a;
+}
+.vstrip-cell:last-child { border-right: none; }
+.vstrip-label {
+    font-size: .62rem;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: #707070;
+}
+.vstrip-value {
+    font-size: .8rem;
+    font-weight: 600;
+    letter-spacing: .04em;
+}
+.vstrip-pass { color: #5cb87a; }
+.vstrip-warn { color: #d4a244; }
+.vstrip-fail { color: #d06b6b; }
+.vstrip-unchecked { color: #707070; }
+
+/* --- Meta strip --- */
+
+.meta-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+    margin: 0 0 40px;
+}
+
+.meta-cell {
+    background: #f6f5f2;
+    border: 1px solid #d7d9dd;
+    border-radius: 6px;
+    padding: 12px 14px;
+}
+.label {
+    display: block;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    color: #6b7280;
+    margin-bottom: 4px;
+}
+.meta-cell strong, .meta-cell code, .meta-cell span { display: block; }
+.mono-sm {
+    font-size: .78rem;
+    word-break: break-all;
+    color: #525252;
+    font-family: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+}
+.meta-cell-obs { border-color: #b8c8d2; }
+.obs-note { font-size: .82rem; color: #6b7280; font-style: italic; }
+
+/* --- Sections --- */
+
+.section {
+    margin-bottom: 48px;
+}
+.section h2 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #d7d9dd;
+    letter-spacing: -.01em;
+}
+.section-subtitle {
+    font-size: .82rem;
+    color: #6b7280;
+    margin-bottom: 16px;
+    line-height: 1.5;
+}
+.section h3 {
+    font-size: .92rem;
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: #525252;
+}
+.section h4 {
+    font-size: .84rem;
+    font-weight: 600;
+    color: #6b7280;
+    margin: 12px 0 6px;
+}
+.section ul, .section ol {
+    padding-left: 22px;
+    margin-bottom: 12px;
+}
+.section li {
+    margin-bottom: 6px;
+    line-height: 1.6;
+    font-size: .92rem;
+}
+.section pre {
+    background: #1e1e1e;
+    color: #c8d0c8;
+    padding: 14px 18px;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-size: .85rem;
+    margin-bottom: 14px;
+    font-family: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+}
+.section code {
+    font-family: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+}
+
+/* --- Scope --- */
+
+.scope-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+.scope-col {
+    background: #f6f5f2;
+    border: 1px solid #d7d9dd;
+    border-radius: 6px;
+    padding: 16px 18px;
+}
+.scope-excluded {
+    background: #fcfcfb;
+    border-color: #d7d9dd;
+    border-left: 3px solid #a56a00;
+    border-radius: 2px 6px 6px 2px;
+}
+.scope-excluded h3 { color: #a56a00; }
+.excl-cat {
+    font-size: .72rem;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: #a56a00;
+    margin: 14px 0 6px;
+    padding-bottom: 3px;
+    border-bottom: 1px solid #e8e8e8;
+}
+.excl-cat:first-child { margin-top: 0; }
+.scope-col ul { list-style: none; padding-left: 0; }
+.scope-col li {
+    padding: 5px 0;
+    border-bottom: 1px solid #e8e8e8;
+    font-size: .88rem;
+}
+.scope-col li:last-child { border-bottom: none; }
+.boundary-notes {
+    background: #f6f5f2;
+    border: 1px dashed #d7d9dd;
+    border-radius: 6px;
+    padding: 14px 18px;
+    margin-top: 4px;
+}
+.boundary-notes h3 { font-size: .82rem; color: #6b7280; text-transform: uppercase; letter-spacing: .06em; }
+.boundary-notes li { font-size: .86rem; color: #6b7280; }
+
+/* --- Claims table --- */
+
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+thead tr { background: #161616; }
+th {
+    color: #d7d9dd;
+    padding: 10px 14px;
+    text-align: left;
+    font-weight: 600;
+    font-size: .72rem;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+td { padding: 12px 14px; border-bottom: 1px solid #d7d9dd; vertical-align: top; }
+tr:nth-child(even) td { background: #f6f5f2; }
+.claim-topic { white-space: nowrap; }
+.claim-applies {
+    font-size: .72rem;
+    color: #6b7280;
+    margin-top: 3px;
+    font-family: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+}
+.impact-cell {
+    font-size: .82rem;
+    color: #525252;
+    font-style: italic;
+    min-width: 140px;
+}
+.claim-mode-badges {
+    display: block;
+    font-size: .7rem;
+    color: #6b7280;
+    margin-top: 3px;
+}
+.claim-qualification {
+    margin-top: 6px;
+    padding: 5px 10px;
+    background: #f6f5f2;
+    border-left: 3px solid #d7d9dd;
+    border-radius: 0 4px 4px 0;
+    font-size: .82rem;
+    color: #6b7280;
+    line-height: 1.5;
+}
+.claim-boundary {
+    margin-top: 4px;
+    padding: 5px 10px;
+    background: #fcfcfb;
+    border-left: 3px solid #a56a00;
+    border-radius: 0 4px 4px 0;
+    font-size: .82rem;
+    color: #a56a00;
+    line-height: 1.5;
+}
+/* --- Claim evidence anchors --- */
+
+.claim-anchors {
+    margin-top: 8px;
+    border: 1px solid #d7d9dd;
+    border-radius: 4px;
+    font-size: .78rem;
+    background: #f6f5f2;
+}
+.claim-anchors summary {
+    padding: 5px 10px;
+    cursor: pointer;
+    color: #6b7280;
+    font-family: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+    font-size: .72rem;
+    letter-spacing: .02em;
+    user-select: none;
+}
+.claim-anchors summary:hover { color: #161616; }
+.claim-anchors[open] summary {
+    border-bottom: 1px solid #d7d9dd;
+    color: #525252;
+}
+.anchor-detail {
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+.anchor-refs {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.anchor-ref {
+    font-family: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+    font-size: .72rem;
+    color: #525252;
+    word-break: break-all;
+    padding: 1px 4px;
+    background: #e8e8e8;
+    border-radius: 2px;
+    display: inline-block;
+}
+.anchor-receipt {
+    font-family: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+    font-size: .72rem;
+    color: #1f7a4d;
+    padding: 1px 4px;
+    background: #eef5f0;
+    border-radius: 2px;
+}
+.anchor-field {
+    font-size: .68rem;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: #6b7280;
+    margin-right: 4px;
+}
+.anchor-digest, .anchor-window, .anchor-receipts {
+    font-size: .74rem;
+    color: #6b7280;
+}
+
+.result-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 10px;
+    font-size: .72rem;
+    font-weight: 600;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+.result-pass { color: #1f7a4d; background: #eef5f0; }
+.result-partial { color: #a56a00; background: #faf3e8; }
+.result-present { color: #355c7d; background: #edf2f7; }
+.result-fail { color: #b42318; background: #faeae8; }
+.ev-machine { color: #1f7a4d; font-weight: 600; }
+.ev-human { color: #355c7d; font-weight: 600; }
+.tier-core { font-weight: 600; }
+.tier-claim { color: #6b7280; }
+.tier-court { color: #5a2d7a; font-weight: 600; }
+
+/* --- Evidence summary --- */
+
+.evidence-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 14px;
+}
+.ev-card {
+    text-align: center;
+    padding: 18px 12px;
+    background: #f6f5f2;
+    border: 1px solid #d7d9dd;
+    border-radius: 8px;
+}
+.ev-number {
+    display: block;
+    font-size: 1.8rem;
+    font-weight: 700;
+    line-height: 1.1;
+    margin-bottom: 4px;
+    color: #161616;
+}
+.ev-label {
+    display: block;
+    font-size: .72rem;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: #6b7280;
+}
+.ev-machine-card { border-color: #c0d8c8; }
+.ev-machine-card .ev-number { color: #1f7a4d; }
+.ev-human-card { border-color: #b8c8d8; }
+.ev-human-card .ev-number { color: #355c7d; }
+.ev-details {
+    font-size: .84rem;
+    color: #6b7280;
+    margin-top: 8px;
+}
+.ev-details strong { color: #161616; }
+
+/* --- Coverage map --- */
+
+.cov-summary {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+.cov-ratio {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #161616;
+    font-family: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+}
+.cov-pct {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #161616;
+}
+.cov-detail {
+    font-size: .88rem;
+    color: #6b7280;
+}
+.cov-covered { color: #1f7a4d; font-weight: 600; }
+.cov-missing { color: #b42318; font-weight: 600; }
+.cov-reason {
+    font-size: .78rem;
+    color: #a56a00;
+    font-weight: 400;
+    margin-top: 2px;
+}
+.cov-provenance {
+    background: #f6f5f2;
+    border: 1px solid #d7d9dd;
+    border-radius: 6px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    font-family: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+}
+.prov-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 8px;
+}
+.prov-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.prov-label {
+    font-size: .6rem;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: #6b7280;
+    font-family: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+}
+.prov-value {
+    font-size: .82rem;
+    color: #525252;
+    font-family: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+}
+.prov-notes {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.prov-notes li {
+    font-size: .78rem;
+    color: #6b7280;
+    line-height: 1.5;
+    padding: 3px 0;
+    border-top: 1px solid #e8e8e8;
+    font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+.prov-notes li:first-child { border-top: none; }
+
+/* --- Signature --- */
+
+.sig-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 10px;
+    margin-bottom: 10px;
+}
+.sig-value {
+    margin-top: 6px;
+    padding: 10px 14px;
+    background: #f6f5f2;
+    border: 1px solid #d7d9dd;
+    border-radius: 6px;
+}
+.sig-value .label { margin-bottom: 6px; }
+
+/* --- Relationships / Lineage --- */
+
+.rel-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+}
+.rel-cell {
+    background: #f6f5f2;
+    border: 1px solid #d7d9dd;
+    border-radius: 6px;
+    padding: 12px 14px;
+}
+.rel-challenge { border-color: #a56a00; border-left: 3px solid #a56a00; background: #fcfcfb; }
+
+/* --- Challenge section --- */
+
+.section-challenge {
+    background: #f6f5f2;
+    border: 1px solid #d7d9dd;
+    border-left: 3px solid #a56a00;
+    border-radius: 2px 8px 8px 2px;
+    padding: 20px 22px;
+}
+.section-challenge h2 { border-bottom-color: #d7d9dd; }
+.section-challenge ol { padding-left: 22px; }
+.section-challenge li { font-size: .9rem; margin-bottom: 8px; }
+
+/* --- Chain / Issuer --- */
+
+.chain-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 10px;
+}
+
+/* --- Verification details (collapsible) --- */
+
+.verification-details {
+    margin-bottom: 48px;
+    border: 1px solid #d7d9dd;
+    border-radius: 8px;
+    background: #f6f5f2;
+}
+.verification-details > summary {
+    padding: 14px 20px;
+    cursor: pointer;
+    font-size: .86rem;
+    font-weight: 600;
+    color: #6b7280;
+    letter-spacing: .02em;
+    user-select: none;
+}
+.verification-details > summary:hover { color: #161616; }
+.verification-details[open] > summary {
+    border-bottom: 1px solid #d7d9dd;
+    color: #525252;
+}
+.vd-content {
+    padding: 20px;
+}
+
+/* --- Tones --- */
+
+.tone-warn { color: #a56a00; font-weight: 600; }
+.tone-dim { color: #6b7280; }
+
+/* --- Footer --- */
+
+footer {
+    margin-top: 64px;
+    padding-top: 18px;
+    border-top: 1px solid #d7d9dd;
+    color: #6b7280;
+    font-size: .82rem;
+}
+.footer-id { margin-top: 4px; }
+.footer-id code {
+    background: #f6f5f2;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: .72rem;
+    word-break: break-all;
+    font-family: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+}
+
+/* --- Responsive --- */
+
+@media (max-width: 600px) {
+    .meta-strip { grid-template-columns: repeat(2, 1fr); }
+    .scope-grid { grid-template-columns: 1fr; }
+    .evidence-grid { grid-template-columns: 1fr; }
+    .rel-grid { grid-template-columns: 1fr; }
+    .triad { grid-template-columns: 1fr; }
+    .ds-line { flex-direction: column; gap: 2px; }
+    .ds-key { min-width: auto; }
+    .posture-strip { flex-direction: column; }
+    .verifier-strip { flex-direction: column; }
+    .vstrip-cell { flex-direction: row; justify-content: space-between; border-right: none; border-bottom: 1px solid #2a2a2a; }
+    .vstrip-cell:last-child { border-bottom: none; }
+    h1 { font-size: 1.4rem; }
+}
+</style>
+</head>
+<body>
+  <div class="state-stripe state-stripe-fresh"></div>
+  <div class="shell">
+
+    <!-- Band A: Decision-critical -->
+
+    <header>
+      <p class="eyebrow">Assay Passport</p>
+      <h1>AcmeSaaS AI Support Workflow</h1>
+      <p class="subject-desc">AI-powered customer support workflow: ticket classification, response generation, sentiment analysis, and escalation routing.</p>
+      <div class="triad"><div class="triad-card triad-good"><span class="triad-label">State</span><span class="triad-value">FRESH</span></div><div class="triad-card triad-qualified"><span class="triad-label">Reliance</span><span class="triad-value">R2</span><span class="triad-sub">Signed, partial coverage</span></div><div class="triad-card triad-warn"><span class="triad-label">Coverage</span><span class="triad-value">4/5</span><span class="triad-sub">Partial</span></div></div>
+    </header>
+
+    <section class="decision-summary"><h2>Decision summary</h2><div class="ds-lines"><div class="ds-line"><span class="ds-key">Reliance</span><span class="ds-val"><strong>R2</strong> — signed, partial coverage</span></div><div class="ds-line"><span class="ds-key">Observed scope</span><span class="ds-val">4 of 5 identified AI call sites covered</span></div><div class="ds-line"><span class="ds-key">Key gap</span><span class="ds-val ds-gap">1 call site not instrumented</span></div><div class="ds-line"><span class="ds-key">Use meaning</span><span class="ds-val">suitable for scoped review and bounded third-party assessment</span></div></div><p class="ds-synthesis">This passport supports bounded reliance for 4 observed AI call sites in a redacted commercial sample. 1 call site not instrumented; it is signed, current, and challengeable, but does not establish full-system assurance.</p></section>
+    <section class="verifier-strip"><div class="vstrip-cell"><span class="vstrip-label">Passport ID</span><span class="vstrip-value vstrip-unchecked">NOT CHECKED</span></div><div class="vstrip-cell"><span class="vstrip-label">Signature</span><span class="vstrip-value vstrip-unchecked">PRESENT</span></div><div class="vstrip-cell"><span class="vstrip-label">Freshness</span><span class="vstrip-value vstrip-pass">CURRENT</span></div><div class="vstrip-cell"><span class="vstrip-label">Challenge</span><span class="vstrip-value vstrip-pass">NONE</span></div><div class="vstrip-cell"><span class="vstrip-label">Coverage</span><span class="vstrip-value vstrip-warn">PARTIAL 4/5</span></div></section>
+    <section class="reliance-boundaries"><h2>Reliance boundaries</h2><ul class="rb-limits"><li>Coverage is partial: 4 of 5 identified call sites</li><li>Evidence applies to a redacted sample, not full production deployment</li><li>Model version attribution is self-reported by integration, not independently verified</li><li>No legal or regulatory conclusions are made</li></ul><details class="rclass-details"><summary>Reliance class reference (R0 — R4)</summary><div class="table-wrap"><table class="rclass-table"><thead><tr><th>Class</th><th>Label</th><th>Requirements</th><th>Suitable for</th></tr></thead><tbody><tr class=""><td class="rclass-code"><strong>R0</strong></td><td>Informational</td><td>Passport structure only. No evidence, no signature.</td><td>Internal reference. Not suitable for reliance decisions.</td></tr><tr class=""><td class="rclass-code"><strong>R1</strong></td><td>Unsigned evidence</td><td>At least one claim with supporting evidence. No cryptographic signature.</td><td>Internal review where trust context is already established.</td></tr><tr class="rclass-current"><td class="rclass-code"><strong>R2</strong> <span class="rclass-marker">current</span></td><td>Signed, partial coverage</td><td>Valid Ed25519 signature. At least one core claim passes. Coverage &lt; 100% of identified call sites.</td><td>Internal review and bounded third-party assessment within declared scope.</td></tr><tr class=""><td class="rclass-code"><strong>R3</strong></td><td>Signed, full coverage</td><td>Valid Ed25519 signature. All core claims pass. 100% coverage of identified call sites.</td><td>Third-party assessment. Formal review within declared scope and observation window.</td></tr><tr class=""><td class="rclass-code"><strong>R4</strong></td><td>Externally anchored</td><td>All R3 requirements. External timestamp authority or independent third-party attestation.</td><td>Regulatory submission. Cross-organizational reliance. Audit trail.</td></tr></tbody></table></div></details><p class="freshness-note">Passport issued within the last 30 days and not past valid_until. This does not guarantee the underlying system has not changed since issuance.</p></section>
+
+    <section class="meta-strip">
+      <div class="meta-cell">
+        <span class="label">Passport ID</span>
+        <code class="mono-sm">sha256:e7bd71f6cf65b72189aef008c…</code>
+      </div>
+      <div class="meta-cell"><span class="label">System</span><code class="mono-sm">workflow.support.v1</code></div>
+      <div class="meta-cell"><span class="label">Owner</span><span>AcmeSaaS Inc.</span></div>
+      <div class="meta-cell"><span class="label">Version</span><span>1.0</span></div>
+      <div class="meta-cell"><span class="label">Environment</span><span>redacted commercial sample</span></div>
+      <div class="meta-cell">
+        <span class="label">Issued</span>
+        <span>2026-03-14</span>
+      </div>
+      <div class="meta-cell">
+        <span class="label">Valid until</span>
+        <span class="">2026-04-13</span>
+      </div>
+      <div class="meta-cell meta-cell-obs"><span class="label">Evidence observed</span><span>2026-03-04</span></div><div class="meta-cell meta-cell-obs"><span class="label">Observation note</span><span class="obs-note">Evidence collected during single sample capture session</span></div>
+    </section>
+
+    <!-- Band B: Substantiating evidence -->
+
+    <section class="section"><h2>Scope</h2><p class="section-subtitle">What is covered and what is explicitly excluded?</p><div class="scope-grid"><div class="scope-col"><h3>In scope</h3><ul><li>Ticket classification model calls</li><li>Response generation pipeline</li><li>Sentiment analysis at intake</li><li>Escalation decision logic</li></ul></div><div class="scope-col scope-excluded"><h3>Exclusions</h3><h4 class="excl-cat">Not covered</h4><ul><li>Admin escalation override call site (not instrumented in this sample)</li></ul><h4 class="excl-cat">Not observed</h4><ul><li>Live production infrastructure beyond the redacted sample boundary</li></ul><h4 class="excl-cat">Not concluded</h4><ul><li>Legal or regulatory compliance — this passport provides evidence, not legal conclusions</li></ul></div></div><div class="boundary-notes"><h3>Boundary notes</h3><ul><li>Evidence covers a redacted commercial sample, not a full production deployment.</li><li>Coverage is partial: 4 of 5 identified AI call sites are instrumented.</li></ul></div></section>
+    <section class="section"><h2>Claims</h2><p class="section-subtitle">What assertions were tested and what result was reached?</p><div class="table-wrap"><table><thead><tr><th>Claim</th><th>Result</th><th>Assertion</th><th>Reliance impact</th></tr></thead><tbody><tr><td class="claim-topic"><strong>Offline verifiability</strong><div class="claim-applies">proof_pack</div><span class="claim-mode-badges"><span class="ev-machine">Machine</span> · <span>Core</span></span></td><td><span class="result-badge result-pass">Pass</span></td><td>The proof artifact can be verified offline without network access or external service calls.<details class="claim-anchors"><summary>1 ref · observed 2026-03-04</summary><div class="anchor-detail"><div class="anchor-refs"><code class="anchor-ref">proof_pack/verify_report.json#claim_verification.passed</code></div><div class="anchor-digest"><span class="anchor-field">Pack:</span> <code class="anchor-ref">sha256:b605abbfee5e8dcce…</code></div><div class="anchor-window"><span class="anchor-field">Observed:</span> <span>2026-03-04T06:17:03</span></div></div></details></td><td class="impact-cell">Supports scoped reliance</td></tr><tr><td class="claim-topic"><strong>AI call-site coverage</strong><div class="claim-applies">workflow.support.v1</div><span class="claim-mode-badges"><span class="ev-machine">Machine</span> · <span>Core</span></span></td><td><span class="result-badge result-partial">Partial</span></td><td>4 of 5 identified AI call sites produce receipted evidence.<div class="claim-qualification">Coverage is partial by design — this is a redacted sample.</div><div class="claim-boundary">Admin escalation override call site is not instrumented in this sample.</div><details class="claim-anchors"><summary>5 refs · 4 receipts · observed 2026-03-04</summary><div class="anchor-detail"><div class="anchor-refs"><code class="anchor-ref">SCOPE_MANIFEST.json#callsites_instrumented</code><code class="anchor-ref">proof_pack/receipts/reply_generate.json</code><code class="anchor-ref">proof_pack/receipts/conversation_summary.json</code><code class="anchor-ref">proof_pack/receipts/triage_classify.json</code><code class="anchor-ref">proof_pack/receipts/sentiment_intake.json</code></div><div class="anchor-receipts"><span class="anchor-field">Receipts:</span> <code class="anchor-receipt">reply_generate</code>, <code class="anchor-receipt">conversation_summary</code>, <code class="anchor-receipt">triage_classify</code>, <code class="anchor-receipt">sentiment_intake</code></div><div class="anchor-digest"><span class="anchor-field">Pack:</span> <code class="anchor-ref">sha256:b605abbfee5e8dcce…</code></div><div class="anchor-window"><span class="anchor-field">Observed:</span> <span>2026-03-04T06:00:00 — 2026-03-04T06:17:03</span></div></div></details></td><td class="impact-cell">Rely with noted limitation</td></tr><tr><td class="claim-topic"><strong>Receipt integrity</strong><div class="claim-applies">proof_pack</div><span class="claim-mode-badges"><span class="ev-machine">Machine</span> · <span>Core</span></span></td><td><span class="result-badge result-pass">Pass</span></td><td>All receipts in the proof pack pass SHA-256 hash-chain integrity verification.<details class="claim-anchors"><summary>2 refs · observed 2026-03-04</summary><div class="anchor-detail"><div class="anchor-refs"><code class="anchor-ref">proof_pack/verify_report.json#integrity</code><code class="anchor-ref">proof_pack/verify_report.json#hash_chain</code></div><div class="anchor-digest"><span class="anchor-field">Pack:</span> <code class="anchor-ref">sha256:b605abbfee5e8dcce…</code></div><div class="anchor-window"><span class="anchor-field">Observed:</span> <span>2026-03-04T06:17:03</span></div></div></details></td><td class="impact-cell">Supports scoped reliance</td></tr><tr><td class="claim-topic"><strong>Model attribution</strong><div class="claim-applies">workflow.support.v1</div><span class="claim-mode-badges"><span class="ev-human">Human</span> · <span>Claim</span></span></td><td><span class="result-badge result-present">Present</span></td><td>Each AI call site identifies the model provider and model version used.<div class="claim-qualification">Model version is self-reported by the integration.</div><div class="claim-boundary">Not independently verified by Assay. If upstream adapter misreports, this claim may be false.</div><details class="claim-anchors"><summary>1 ref · observed 2026-03-04</summary><div class="anchor-detail"><div class="anchor-refs"><code class="anchor-ref">REVIEWER_GUIDE.md</code></div><div class="anchor-digest"><span class="anchor-field">Pack:</span> <code class="anchor-ref">sha256:b605abbfee5e8dcce…</code></div><div class="anchor-window"><span class="anchor-field">Observed:</span> <span>2026-03-04T00:00:00 — 2026-03-04T06:17:03 (Reviewer assessment period)</span></div></div></details></td><td class="impact-cell">Informational, not assurance-bearing</td></tr></tbody></table></div></section>
+    <section class="section"><h2>Coverage map</h2><p class="section-subtitle">Which AI call sites were observed, and what is missing?</p><div class="cov-summary"><span class="cov-ratio">4 of 5</span><span class="cov-detail">identified call sites produce receipted evidence</span></div><div class="cov-provenance"><div class="prov-grid"><div class="prov-cell"><span class="prov-label">Discovery</span><strong class="prov-value">Static Declaration</strong></div><div class="prov-cell"><span class="prov-label">Source</span><code class="mono-sm">SCOPE_MANIFEST.json</code></div><div class="prov-cell"><span class="prov-label">Declared by</span><span class="prov-value">System Integrator</span></div><div class="prov-cell"><span class="prov-label">Verified by</span><span class="prov-value">Receipt Presence</span></div></div><ul class="prov-notes"><li>Call sites declared in SCOPE_MANIFEST.json by system integrator. Not independently discovered by static analysis or runtime instrumentation.</li><li>Coverage status determined by presence of matching receipts in proof pack. Missing sites confirmed by absence.</li></ul></div><div class="table-wrap"><table><thead><tr><th>Call site</th><th>Function</th><th>Status</th></tr></thead><tbody><tr><td><code class="mono-sm">support.reply.generate.v1</code></td><td>Draft reply generation</td><td class="cov-covered">Covered</td></tr><tr><td><code class="mono-sm">support.summary.v1</code></td><td>Conversation summary</td><td class="cov-covered">Covered</td></tr><tr><td><code class="mono-sm">support.routing.classify.v1</code></td><td>Triage classification</td><td class="cov-covered">Covered</td></tr><tr><td><code class="mono-sm">support.sentiment.v1</code></td><td>Sentiment analysis at intake</td><td class="cov-covered">Covered</td></tr><tr><td><code class="mono-sm">admin_override.escalation.v1</code></td><td>Escalation override</td><td class="cov-missing">Missing<div class="cov-reason">Not instrumented in this redacted sample</div></td></tr></tbody></table></div></section>
+    <section class="section"><h2>Evidence summary</h2><p class="section-subtitle">How many claims were tested, and by what method?</p><div class="evidence-grid"><div class="ev-card"><span class="ev-number">4</span><span class="ev-label">Total claims</span></div><div class="ev-card ev-machine-card"><span class="ev-number">3</span><span class="ev-label">Machine verified</span></div><div class="ev-card ev-human-card"><span class="ev-number">1</span><span class="ev-label">Human attested</span></div></div><p class="ev-details">Core claims passed: <strong>3/3</strong> &middot; Conditional claims: <strong>1/1</strong> &middot; Coverage gaps: <strong class="tone-warn">1</strong></p></section>
+
+    <!-- Band C: Verification & reference -->
+
+    <details class="verification-details">
+      <summary>Verification details</summary>
+      <div class="vd-content">
+        <section class="section"><h2>How to verify</h2><p class="section-subtitle">How can an independent reviewer validate this passport?</p><pre><code>assay passport verify ./passport.json</code></pre><ul><li>passport_id matches SHA-256 of passport body (content-addressed identity)</li><li>Ed25519 signature is valid (if signed)</li><li>valid_until has not passed</li><li>Referenced proof pack passes integrity verification</li><li>No active challenge, supersession, or revocation receipts in passport directory</li></ul></section>
+        <section class="section section-challenge"><h2>How to challenge</h2><p class="section-subtitle">How is this artifact disputed, updated, or revoked?</p><pre><code>assay passport challenge ./passport.json --reason &quot;&lt;your reason&gt;&quot;</code></pre><ol><li>A timestamped challenge receipt is created in the passport directory.</li><li>Passport status becomes CHALLENGED on next verification.</li><li>The challenge reason and timestamp are immutably recorded.</li><li>The issuer can respond by superseding (issuing a new passport that addresses the challenge) or revoking.</li></ol></section>
+        <section class="section"><h2>Lineage</h2><div class="rel-grid"><div class="rel-cell"><span class="label">Proof pack</span><code class="mono-sm">sha256:b605abbfee5e8dcced0b3cd29f39f…</code></div><div class="rel-cell"><span class="label">Reviewer packet</span><code class="mono-sm">rp_pack_20260304T061703_2c002032</code></div><div class="rel-cell"><span class="label">Active challenges</span><span>None</span></div></div></section>
+        <section class="section"><h2>Signature</h2><div class="sig-grid"><div class="meta-cell"><span class="label">Algorithm</span><strong>Ed25519</strong></div><div class="meta-cell"><span class="label">Key ID</span><strong>assay-local</strong></div><div class="meta-cell"><span class="label">Fingerprint</span><code class="mono-sm">baaf5c953f29e840b0b066c4…</code></div><div class="meta-cell"><span class="label">Signed at</span><span>2026-03-15T01:12:05</span></div></div><div class="sig-value"><span class="label">Signature value</span><code class="mono-sm">W3g0km18z2yRCvvvLm4WJh8K6UVMPWPO2Ug8taX2I903uP/Z…</code></div></section>
+        <section class="section"><h2>Issuer</h2><div class="chain-grid"><div class="meta-cell"><span class="label">Issuer</span><strong>assay-local</strong></div><div class="meta-cell"><span class="label">Fingerprint</span><code class="mono-sm">5910f35f991d2137…</code></div></div></section>
+      </div>
+    </details>
+
+    <footer>
+      <p>Generated by Assay &middot; Passport v0.1</p>
+      <p class="footer-id"><code>sha256:e7bd71f6cf65b72189aef008cde6667f2d257cb0d37dbc2059afd7eaf96905b8</code></p>
+    </footer>
+
+  </div>
+</body>
+</html>

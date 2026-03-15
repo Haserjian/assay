@@ -1,0 +1,256 @@
+{
+  "passport_version": "0.1",
+  "issued_at": "2026-03-14T00:00:00+00:00",
+  "valid_until": "2026-04-13T00:00:00+00:00",
+  "observation_window": {
+    "start": "2026-03-04T06:00:00+00:00",
+    "end": "2026-03-04T06:17:03+00:00",
+    "note": "Evidence collected during single sample capture session"
+  },
+  "status": {
+    "state": "FRESH",
+    "reason": "Valid, no active challenges, not superseded.",
+    "checked_at": "2026-03-14T00:00:00+00:00"
+  },
+  "reliance": {
+    "class": "R2",
+    "label": "Signed, partial coverage",
+    "verdict": "This passport provides Ed25519-signed, machine-verifiable integrity and partial coverage evidence for a redacted sample of the AcmeSaaS AI Support Workflow. Suitable for internal review and bounded third-party assessment within scope. Reliance is constrained by incomplete call-site coverage and self-reported model attribution.",
+    "limits": [
+      "Coverage is partial: 4 of 5 identified call sites",
+      "Evidence applies to a redacted sample, not full production deployment",
+      "Model version attribution is self-reported by integration, not independently verified",
+      "No legal or regulatory conclusions are made"
+    ],
+    "freshness_note": "Passport issued within the last 30 days and not past valid_until. This does not guarantee the underlying system has not changed since issuance."
+  },
+  "trust_posture": {
+    "freshness": "current",
+    "signature": "signed",
+    "coverage": "4 of 5 call sites",
+    "evidence_mix": "3 machine / 1 human",
+    "challenges": "none",
+    "scope_class": "partial sample"
+  },
+  "subject": {
+    "name": "AcmeSaaS AI Support Workflow",
+    "system_id": "workflow.support.v1",
+    "type": "ai_workflow",
+    "description": "AI-powered customer support workflow: ticket classification, response generation, sentiment analysis, and escalation routing.",
+    "owner": "AcmeSaaS Inc.",
+    "version": "1.0",
+    "environment": "redacted commercial sample",
+    "sample_boundary": "5 identified call sites, 4 instrumented"
+  },
+  "scope": {
+    "in_scope": [
+      "Ticket classification model calls",
+      "Response generation pipeline",
+      "Sentiment analysis at intake",
+      "Escalation decision logic"
+    ],
+    "not_covered": [
+      "Admin escalation override call site (not instrumented in this sample)"
+    ],
+    "not_observed": [
+      "Live production infrastructure beyond the redacted sample boundary"
+    ],
+    "not_concluded": [
+      "Legal or regulatory compliance — this passport provides evidence, not legal conclusions"
+    ],
+    "boundary_notes": [
+      "Evidence covers a redacted commercial sample, not a full production deployment.",
+      "Coverage is partial: 4 of 5 identified AI call sites are instrumented."
+    ]
+  },
+  "claims": [
+    {
+      "claim_id": "C-001",
+      "topic": "Offline verifiability",
+      "claim_type": "integrity",
+      "applies_to": "proof_pack",
+      "assertion": "The proof artifact can be verified offline without network access or external service calls.",
+      "result": "pass",
+      "evidence_type": "machine_verified",
+      "proof_tier": "core",
+      "evidence_refs": [
+        "proof_pack/verify_report.json#claim_verification.passed"
+      ],
+      "proof_pack_digest": "sha256:b605abbfee5e8dcced0b3cd29f39f1019b8fa88987028128165857da899e198f",
+      "observation_window": {
+        "start": "2026-03-04T06:17:03+00:00",
+        "end": "2026-03-04T06:17:03+00:00"
+      },
+      "qualification": null,
+      "boundary": null
+    },
+    {
+      "claim_id": "C-002",
+      "topic": "AI call-site coverage",
+      "claim_type": "coverage",
+      "applies_to": "workflow.support.v1",
+      "assertion": "4 of 5 identified AI call sites produce receipted evidence.",
+      "result": "partial",
+      "evidence_type": "machine_verified",
+      "proof_tier": "core",
+      "evidence_refs": [
+        "SCOPE_MANIFEST.json#callsites_instrumented",
+        "proof_pack/receipts/reply_generate.json",
+        "proof_pack/receipts/conversation_summary.json",
+        "proof_pack/receipts/triage_classify.json",
+        "proof_pack/receipts/sentiment_intake.json"
+      ],
+      "receipt_set_ids": [
+        "reply_generate",
+        "conversation_summary",
+        "triage_classify",
+        "sentiment_intake"
+      ],
+      "proof_pack_digest": "sha256:b605abbfee5e8dcced0b3cd29f39f1019b8fa88987028128165857da899e198f",
+      "observation_window": {
+        "start": "2026-03-04T06:00:00+00:00",
+        "end": "2026-03-04T06:17:03+00:00"
+      },
+      "qualification": "Coverage is partial by design — this is a redacted sample.",
+      "boundary": "Admin escalation override call site is not instrumented in this sample."
+    },
+    {
+      "claim_id": "C-003",
+      "topic": "Receipt integrity",
+      "claim_type": "integrity",
+      "applies_to": "proof_pack",
+      "assertion": "All receipts in the proof pack pass SHA-256 hash-chain integrity verification.",
+      "result": "pass",
+      "evidence_type": "machine_verified",
+      "proof_tier": "core",
+      "evidence_refs": [
+        "proof_pack/verify_report.json#integrity",
+        "proof_pack/verify_report.json#hash_chain"
+      ],
+      "proof_pack_digest": "sha256:b605abbfee5e8dcced0b3cd29f39f1019b8fa88987028128165857da899e198f",
+      "observation_window": {
+        "start": "2026-03-04T06:17:03+00:00",
+        "end": "2026-03-04T06:17:03+00:00"
+      },
+      "qualification": null,
+      "boundary": null
+    },
+    {
+      "claim_id": "C-004",
+      "topic": "Model attribution",
+      "claim_type": "attribution",
+      "applies_to": "workflow.support.v1",
+      "assertion": "Each AI call site identifies the model provider and model version used.",
+      "result": "present",
+      "evidence_type": "human_attested",
+      "proof_tier": "claim",
+      "evidence_refs": [
+        "REVIEWER_GUIDE.md"
+      ],
+      "proof_pack_digest": "sha256:b605abbfee5e8dcced0b3cd29f39f1019b8fa88987028128165857da899e198f",
+      "observation_window": {
+        "start": "2026-03-04T00:00:00+00:00",
+        "end": "2026-03-04T06:17:03+00:00",
+        "note": "Reviewer assessment period"
+      },
+      "qualification": "Model version is self-reported by the integration.",
+      "boundary": "Not independently verified by Assay. If upstream adapter misreports, this claim may be false."
+    }
+  ],
+  "evidence_summary": {
+    "total_claims": 4,
+    "machine_verified": 3,
+    "human_attested": 1,
+    "core_claims_passed": "3/3",
+    "conditional_claims": "1/1",
+    "coverage_gaps": 1,
+    "proof_pack_hash": "b605abbfee5e8dcced0b3cd29f39f1019b8fa88987028128165857da899e198f",
+    "reviewer_packet_id": "rp_pack_20260304T061703_2c002032"
+  },
+  "relationships": {
+    "proof_pack_ref": "sha256:b605abbfee5e8dcced0b3cd29f39f1019b8fa88987028128165857da899e198f",
+    "reviewer_packet_ref": "rp_pack_20260304T061703_2c002032",
+    "supersedes": null,
+    "superseded_by": null,
+    "challenge_refs": [],
+    "revocation_ref": null
+  },
+  "verification": {
+    "how_to_verify": "assay passport verify ./passport.json",
+    "what_is_checked": [
+      "passport_id matches SHA-256 of passport body (content-addressed identity)",
+      "Ed25519 signature is valid (if signed)",
+      "valid_until has not passed",
+      "Referenced proof pack passes integrity verification",
+      "No active challenge, supersession, or revocation receipts in passport directory"
+    ]
+  },
+  "challenge": {
+    "how_to_challenge": "assay passport challenge ./passport.json --reason \"<your reason>\"",
+    "what_happens": [
+      "A timestamped challenge receipt is created in the passport directory.",
+      "Passport status becomes CHALLENGED on next verification.",
+      "The challenge reason and timestamp are immutably recorded.",
+      "The issuer can respond by superseding (issuing a new passport that addresses the challenge) or revoking."
+    ]
+  },
+  "chain": {
+    "issuer": "assay-local",
+    "issuer_fingerprint": "5910f35f991d2137ebe818df0c2af65f4722a13d3e7279efa4613a768fcb8cbe"
+  },
+  "coverage": {
+    "identified_total": 5,
+    "covered_total": 4,
+    "coverage_pct": 80,
+    "discovery_method": "static_declaration",
+    "discovery_note": "Call sites declared in SCOPE_MANIFEST.json by system integrator. Not independently discovered by static analysis or runtime instrumentation.",
+    "provenance": {
+      "source": "SCOPE_MANIFEST.json",
+      "declared_by": "system_integrator",
+      "verified_by": "receipt_presence",
+      "verification_note": "Coverage status determined by presence of matching receipts in proof pack. Missing sites confirmed by absence."
+    },
+    "call_sites": [
+      {
+        "call_site_id": "support.reply.generate.v1",
+        "function": "Draft reply generation",
+        "status": "covered",
+        "evidence_ref": "proof_pack/receipts/reply_generate.json"
+      },
+      {
+        "call_site_id": "support.summary.v1",
+        "function": "Conversation summary",
+        "status": "covered",
+        "evidence_ref": "proof_pack/receipts/conversation_summary.json"
+      },
+      {
+        "call_site_id": "support.routing.classify.v1",
+        "function": "Triage classification",
+        "status": "covered",
+        "evidence_ref": "proof_pack/receipts/triage_classify.json"
+      },
+      {
+        "call_site_id": "support.sentiment.v1",
+        "function": "Sentiment analysis at intake",
+        "status": "covered",
+        "evidence_ref": "proof_pack/receipts/sentiment_intake.json"
+      },
+      {
+        "call_site_id": "admin_override.escalation.v1",
+        "function": "Escalation override",
+        "status": "missing",
+        "reason": "Not instrumented in this redacted sample",
+        "evidence_ref": null
+      }
+    ]
+  },
+  "passport_id": "sha256:e7bd71f6cf65b72189aef008cde6667f2d257cb0d37dbc2059afd7eaf96905b8",
+  "signature": {
+    "algorithm": "Ed25519",
+    "signature": "W3g0km18z2yRCvvvLm4WJh8K6UVMPWPO2Ug8taX2I903uP/ZVMywl2zOzKJTp2b+Bejg9rpvZ7fYlafj7ykAAQ==",
+    "key_id": "assay-local",
+    "key_fingerprint": "baaf5c953f29e840b0b066c420631367dd837b6992e757b9735639cabcccd13a",
+    "signed_at": "2026-03-15T01:12:05+00:00",
+    "scope": "jcs_rfc8785_without_signature"
+  }
+}
