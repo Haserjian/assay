@@ -12,22 +12,22 @@ The 60-second first-contact conversion spec for Assay.
 60 seconds of patience.
 
 **Promise (one sentence):**
-Assay compiles signed evidence for AI systems that a third party can verify offline.
+Assay generates reviewer-ready evidence packets, backed by signed proof material, that another team can verify offline.
 
 **Command (one):**
 ```bash
 pip install assay-ai && assay try
 ```
 
-**Artifact:** A signed proof pack — manifest, Ed25519 signature, tamper
-challenge that breaks on modification. Real cryptography, not a screenshot.
+**Artifact:** A reviewer-ready evidence packet backed by a signed proof pack — manifest, Ed25519 signature, tamper challenge that breaks on modification. Real cryptography, not a screenshot.
 
 **Feeling after 60 seconds:** "This actually works. I can see the
-signature. I can see it break. This is verifiable, not vibes."
+signature. I can see it break. I can imagine handing this to another
+team. This is verifiable, not vibes."
 
 **Next step (one fork):**
-- "I ship AI features and need audit trails" → `assay start`
-- "I want the governance lifecycle" → `assay passport demo`
+- "I need a packet another team can review" → reviewer packet flow
+- "I ship AI features and need instrumentation" → `assay start`
 
 ---
 
@@ -35,7 +35,7 @@ signature. I can see it break. This is verifiable, not vibes."
 
 After 60 seconds a stranger must be able to answer:
 
-1. What is Assay for? → signed AI evidence
+1. What is Assay for? → reviewer-ready AI evidence packets
 2. Why does the artifact matter? → third-party offline verification
 3. Why should I believe it? → I just saw tamper detection work
 4. What do I do next? → one clear path
@@ -55,13 +55,11 @@ discoverable later. Not deletion — demotion.
 Fix: Show 5-7 primary commands. Rest behind `assay commands` or grouped.
 Preserve capability, withdraw first-contact authority.
 
-### 3. Passport demo opens with Grade D
-Teaches "Assay judges" before "Assay compiles evidence." Fix: Passport
-is the second step. First contact = proof pack + tamper challenge.
+### 3. Packet path is buried under generic instrumentation
+The current front door proves tamper detection but does not quickly show the buyer-facing packet path. Fix: first contact proves the trust root, then explicitly forks to reviewer packet workflow or instrumentation.
 
-### 4. README is reference, not runway
-Fix: Top 20 lines mirror this spec. Sentence → command → artifact →
-why → next step.
+### 4. README is still proof-pack-first
+Fix: Top 20 lines mirror this spec. Sentence → command → reviewer-ready artifact → why → next step.
 
 ---
 
@@ -71,6 +69,14 @@ why → next step.
 - No getting-started wizard or interactive prompts
 - No landing page before this spec is stable
 - No new public nouns
+
+## Vocabulary guardrail
+
+- **Reviewer-ready evidence packet** is the outward-facing artifact name.
+- **Proof pack** remains the nested trust root term.
+- **VendorQ** is the workflow/compiler name.
+
+Do not casually swap these in first-contact surfaces.
 
 ## Governing law
 

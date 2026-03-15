@@ -103,6 +103,18 @@ def _extract_action_class(action: str) -> str:
     return "unknown"
 
 
+def _machine_coverage_ratio(coverage_summary: Dict[str, int]) -> Dict[str, float | int]:
+    """Summarize machine-verifiable reviewer-packet coverage for console output."""
+    numerator = int(coverage_summary.get("EVIDENCED", 0))
+    denominator = numerator + int(coverage_summary.get("PARTIAL", 0)) + int(coverage_summary.get("FAILED", 0))
+    value = (numerator / denominator) if denominator else 0.0
+    return {
+        "numerator": numerator,
+        "denominator": denominator,
+        "value": value,
+    }
+
+
 @assay_app.command("validate", hidden=True)
 def validate_action(
     action: str = typer.Argument(..., help="Action to validate (e.g., 'shell:rm -rf /')"),
@@ -1721,7 +1733,7 @@ def try_cmd(
     console.print("  Set up Assay in your project:")
     console.print("    [bold]assay start[/]")
     console.print()
-    console.print("  [dim]Or explore the governance lifecycle: assay passport demo[/]")
+    console.print("  [dim]Need a reviewer-ready artifact instead? See assay vendorq --help[/]")
 
 
 # --- End of early Start Here registration ---
@@ -5105,13 +5117,28 @@ def vendorq_export_reviewer_cmd(
     out: str = typer.Option(..., "--out", "-o", help="Output reviewer packet directory"),
     baseline: Optional[str] = typer.Option(None, "--baseline", help="Optional baseline reviewer packet directory"),
     challenge_receipt: Optional[str] = typer.Option(None, "--challenge-receipt", help="Optional challenge receipt path for refreshed packets"),
+    sign_packet: bool = typer.Option(False, "--sign-packet/--no-sign-packet", help="Sign the packet manifest with a local Ed25519 key"),
+    packet_signer: Optional[str] = typer.Option(None, "--packet-signer", help="Signer ID for packet-manifest signing (default: active signer)"),
+    keys_dir: Optional[str] = typer.Option(None, "--keys-dir", help="Optional keystore directory for packet-manifest signing"),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Experimental: compile a reviewer packet from a proof pack plus declarative packet inputs."""
     from pathlib import Path
 
+    from assay.keystore import AssayKeyStore, get_default_keystore
     from assay.reviewer_packet_compile import compile_reviewer_packet
     from assay.vendorq_models import VendorQInputError, load_json
+
+    keystore = None
+    packet_signer_id = None
+    generated_signer = False
+    if sign_packet:
+        keystore = AssayKeyStore(Path(keys_dir)) if keys_dir else get_default_keystore()
+        packet_signer_id = packet_signer or keystore.get_active_signer()
+        if not keystore.has_key(packet_signer_id):
+            keystore.generate_key(packet_signer_id)
+            keystore.set_active_signer(packet_signer_id)
+            generated_signer = True
 
     try:
         result = compile_reviewer_packet(
@@ -5120,6 +5147,8 @@ def vendorq_export_reviewer_cmd(
             mapping_payload=load_json(Path(mapping)),
             out_dir=Path(out),
             baseline_packet_dir=Path(baseline) if baseline else None,
+            keystore=keystore,
+            packet_signer_id=packet_signer_id,
             packet_overrides=(
                 {
                     "challenge_receipt_ref": challenge_receipt,
@@ -5140,12 +5169,15 @@ def vendorq_export_reviewer_cmd(
             {
                 "command": "vendorq export-reviewer",
                 "status": "ok",
+                "generated_signer": generated_signer,
+                "packet_signer_id": packet_signer_id,
                 **result,
             },
             exit_code=0,
         )
 
-    ratio = result["packet_summary"]["machine_coverage_ratio"]
+    coverage_summary = Counter(row["Status"] for row in result["coverage_rows"])
+    ratio = _machine_coverage_ratio(dict(coverage_summary))
     console.print()
     console.print(Panel.fit(
         f"[bold green]Reviewer Packet Compiled[/]\n\n"
@@ -5153,7 +5185,8 @@ def vendorq_export_reviewer_cmd(
         f"Boundary:          {boundary}\n"
         f"Mapping:           {mapping}\n"
         f"Settlement:        {result['settlement_state']}\n"
-        f"Challenge status:  {result['challenge_status']}\n"
+        f"Packet manifest:   {'signed' if result['packet_manifest_signed'] else 'unsigned'}"
+        f"{f' ({packet_signer_id})' if result['packet_manifest_signed'] and packet_signer_id else ''}\n"
         f"Machine coverage:  {ratio['numerator']}/{ratio['denominator']} ({ratio['value']:.2%})\n"
         f"Coverage rows:     {len(result['coverage_rows'])}\n"
         f"Output directory:  {out}",
@@ -5201,7 +5234,7 @@ def reviewer_verify_cmd(
         f"{name}={count}"
         for name, count in sorted(result["coverage_summary"].items())
     ) or "none"
-    ratio = result["packet_summary"]["machine_coverage_ratio"]
+    ratio = _machine_coverage_ratio(result["coverage_summary"])
     console.print()
     console.print(Panel.fit(
         f"[bold]{'Reviewer Packet Verified' if result['packet_verified'] else 'Reviewer Packet Failed'}[/]\n\n"
@@ -5212,7 +5245,6 @@ def reviewer_verify_cmd(
         f"Claims:            {result['claim_state']}\n"
         f"Scope:             {result['scope_state']}\n"
         f"Freshness:         {result['freshness_state']}\n"
-        f"Challenge:         {result['challenge_status']}\n"
         f"Regression:        {result['regression_state']}\n"
         f"Machine coverage:  {ratio['numerator']}/{ratio['denominator']} ({ratio['value']:.2%})\n"
         f"Coverage:          {coverage_summary}",

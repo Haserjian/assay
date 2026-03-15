@@ -716,7 +716,7 @@
       For teams shipping AI agents, RAG pipelines, and autonomous workflows.
     </p>
     <div class="install" onclick="copyInstall(this)">
-      <span class="dollar">$ </span>python3 -m pip install assay-ai && assay quickstart
+      <span class="dollar">$ </span>pip install assay-ai && assay try
       <span class="copied" id="copied">Copied!</span>
     </div>
     <p style="color: var(--text2); font-size: 13px; margin-top: 12px;">
@@ -1468,7 +1468,7 @@ function filterGapTable() {
 }
 
 function copyInstall(el) {
-  navigator.clipboard.writeText('python3 -m pip install assay-ai && assay quickstart');
+  navigator.clipboard.writeText('pip install assay-ai && assay try');
   const tip = el.querySelector('.copied');
   tip.classList.add('show');
   setTimeout(() => tip.classList.remove('show'), 1500);

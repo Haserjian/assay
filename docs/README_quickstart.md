@@ -19,6 +19,22 @@ python3 -m pip install assay-ai
 py -m pip install assay-ai
 ```
 
+Assay requires Python 3.9+.
+
+If `pip` is not on your PATH, use `python3 -m pip` on macOS/Linux or
+`py -m pip` on Windows.
+
+Validation status:
+
+- CI smoke-tests the first CLI path on Linux, macOS, and Windows using
+  `assay version` and `assay try`.
+- The deeper SDK compatibility suite currently runs on Ubuntu.
+
+If `assay` is not recognized after install, open a new terminal first. On
+Windows, the usual fix is adding Python's `Scripts` directory to PATH.
+
+For deterministic environment setup, see [START_HERE.md](START_HERE.md).
+
 Verify it's on PATH: `assay version`
 
 ## Install vs Instrument
@@ -49,7 +65,7 @@ What happens under the hood:
 ## See It Work (No API Key Required)
 
 ```bash
-assay quickstart              # demo + scan + next steps (recommended)
+assay try                     # 15-second proof: sign, tamper, catch
 assay demo-incident           # two-act scenario: honest PASS vs honest FAIL
 assay demo-challenge          # spot the tampered pack (CTF-style)
 assay demo-pack               # build + verify a signed proof pack
@@ -136,7 +152,7 @@ Lock mismatch exits with code 2.
 ### 0. Guided onboarding (recommended)
 
 ```bash
-assay quickstart
+assay try
 ```
 
 Use `assay onboard .` when you want the full guided flow (doctor + scan + CI setup).
@@ -284,12 +300,8 @@ assay doctor
 - `run -- ...` requires `--` before your command.
 - `doctor` prints the next command to unblock setup.
 
-If `assay quickstart` blocks on a large directory, run it from your project
-directory or use:
-
-```bash
-assay quickstart --force
-```
+If you want the full guided setup after the demo, run `assay onboard .`
+from your project directory.
 
 ## What This Does NOT Prove
 
@@ -315,7 +327,7 @@ trust faster than bugs.
 
 | Command | Purpose |
 |---------|---------|
-| `assay quickstart` | One command: demo + scan + next steps |
+| `assay try` | 15-second proof: sign, tamper, catch |
 | `assay demo-incident` | Two-act scenario: passing run vs failing run |
 | `assay demo-challenge` | CTF-style good + tampered pack pair |
 | `assay demo-pack` | Generate demo packs (no config needed) |

@@ -2,6 +2,8 @@
 
 Six steps from install to evidence in CI.
 
+If you are evaluating Assay for buyer-facing review workflows, pair this guide with [Reviewer Packets](reviewer-packets.md). `START_HERE` explains how to instrument and verify the underlying proof path; the reviewer packet docs show the forwardable artifact another team actually receives.
+
 ## 1. Install
 
 ```bash
@@ -14,7 +16,22 @@ python3 -m pip install assay-ai
 py -m pip install assay-ai
 ```
 
-Requires Python 3.9+. Installs the `assay` CLI with zero runtime dependencies on your production code.
+Assay requires Python 3.9+.
+
+If `pip` is not on your PATH, use `python3 -m pip` on macOS/Linux or
+`py -m pip` on Windows.
+
+Validation status:
+
+- CI smoke-tests the first CLI path on Linux, macOS, and Windows using
+	`assay version` and `assay try`.
+- The deeper SDK compatibility suite currently runs on Ubuntu.
+
+If `assay` is not recognized after install, open a new terminal first. On
+Windows, the usual fix is adding Python's `Scripts` directory to PATH.
+
+For deterministic environment setup, see [START_HERE.md](START_HERE.md).
+
 Verify it's on PATH: `assay version`
 
 Installing Assay gives you the CLI and receipt runtime. It does **not**
@@ -32,7 +49,7 @@ assay score .
 Think of the flow as:
 
 ```text
-install Assay -> instrument the runtime -> run with a trace id -> build proof pack
+install Assay -> instrument the runtime -> run with a trace id -> build proof pack -> compile reviewer-ready evidence packet
 ```
 
 ## 3. Generate a report
@@ -85,7 +102,7 @@ Open a PR and you'll see all three checks in your GitHub status checks.
 ## What's next
 
 - `assay explain ./proof_pack_*/` -- plain-English summary of any evidence pack
-- [Reviewer Packets](reviewer-packets.md) -- compile and verify a buyer-facing packet built around a proof pack
+- [Reviewer Packets](reviewer-packets.md) -- compile and verify the buyer-facing reviewer-ready evidence packet
 - `assay diff` -- compare packs for cost/latency regressions
 - [CI integration](ci-integration.md) -- why CI matters and how to enforce evidence discipline
 - [Quickstart reference](README_quickstart.md) -- full command reference

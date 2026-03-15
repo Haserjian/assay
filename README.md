@@ -10,8 +10,16 @@ assay try
 You'll see Assay build a proof pack, sign it, tamper one byte, and catch
 the break. No API key. No repo context. 15 seconds.
 
-**Then:** `assay start` to set up your project, or `assay passport demo`
-for the governance lifecycle.
+**Then:** follow the reviewer-ready evidence path if your immediate problem is vendor review or questionnaire pressure:
+
+```bash
+assay vendorq ingest --in questionnaire.csv --out .assay/vendorq/questions.json
+assay vendorq compile --questions .assay/vendorq/questions.json --pack ./proof_pack_* --policy conservative --out .assay/vendorq/answers.json
+assay vendorq export-reviewer --proof-pack ./proof_pack_* --out reviewer_packet
+assay reviewer verify reviewer_packet
+```
+
+Use `assay start` when your first job is instrumentation. Use the reviewer packet flow when your first job is producing something another team can inspect, forward, and verify.
 
 ---
 
@@ -26,9 +34,9 @@ sites. Zero had tamper-evident audit trails.
 > **Boundary:** Assay proves the evidence artifact has not been quietly
 > changed after the fact. It does not, by itself, prove every upstream
 > component was honest. See [trust tiers](docs/FULL_PICTURE.md#trust-tiers).
-
 > **Not this:** Assay is not a logging framework or observability dashboard.
 > It produces signed evidence bundles that a third party can verify offline.
+> **First-cycle wedge:** Assay's current commercial wedge is the **reviewer-ready evidence packet** for AI governance and vendor/security review. The nested proof pack is the trust root; the packet is the artifact another team receives.
 
 <details>
 <summary>Install details (Windows, PATH issues, deterministic setup)</summary>
@@ -38,21 +46,31 @@ sites. Zero had tamper-evident audit trails.
 py -m pip install assay-ai
 ```
 
-Requires Python 3.9+. If `pip` isn't on your PATH, use `python3 -m pip`
-(macOS/Linux) or `py -m pip` (Windows).
+Assay requires Python 3.9+.
 
-Deterministic setup: [docs/START_HERE.md](docs/START_HERE.md)
+If `pip` is not on your PATH, use `python3 -m pip` on macOS/Linux or
+`py -m pip` on Windows.
+
+Validation status:
+
+- CI smoke-tests the first CLI path on Linux, macOS, and Windows using
+  `assay version` and `assay try`.
+- The deeper SDK compatibility suite currently runs on Ubuntu.
+
+If `assay` is not recognized after install, open a new terminal first. On
+Windows, the usual fix is adding Python's `Scripts` directory to PATH.
+
+For deterministic environment setup, see [docs/START_HERE.md](docs/START_HERE.md).
 
 </details>
 
 ## See It -- Then Understand It
 
-No API key needed. Demos use synthetic data. With real calls, Assay
-instruments OpenAI, Anthropic, Gemini, LiteLLM, LangChain, and local models.
+`assay try` (above) gives you the 15-second version. For the full specimen
+with file output and manual verification, use the challenge demo:
 
 ```bash
-python3 -m pip install assay-ai
-assay demo-challenge    # tamper detection: one valid pack, one with a single byte changed
+assay demo-challenge    # creates challenge_pack/ with good + tampered packs
 ```
 
 Two packs, one byte changed ("gpt-4" -> "gpt-5" in the receipts). Here's what happens
@@ -261,6 +279,19 @@ Enterprise customers ask AI governance questions in security questionnaires.
 VendorQ compiles evidence-backed answer packets from Assay proof packs.
 Every answer traces to a signed receipt. Every modification is detectable.
 
+For the buyer-facing wrapper around that proof material, see [docs/reviewer-packets.md](docs/reviewer-packets.md).
+
+Quick path:
+
+```bash
+assay vendorq ingest --in questionnaire.csv --out .assay/vendorq/questions.json
+assay vendorq compile --questions .assay/vendorq/questions.json --pack ./proof_pack_* --policy conservative --out .assay/vendorq/answers.json
+assay vendorq export-reviewer --proof-pack ./proof_pack_* --out reviewer_packet
+assay reviewer verify reviewer_packet
+```
+
+Use VendorQ when the pain is: "we have to answer AI-governance questions and we cannot hand the reviewer a verifiable artifact."
+
 ```bash
 # Ingest a questionnaire, compile answers against evidence, lock, verify
 assay vendorq ingest --in questionnaire.csv --out questions.json
@@ -279,11 +310,11 @@ All three are independently verifiable without any account or API key.
 
 **Adversarial testing**: [16 attack scenarios, 16 catches, 0 false passes](docs/TRUST_UNDER_ATTACK.md).
 
-## Reviewer Packets
+## Reviewer-Ready Evidence Packets
 
-Reviewer Packets are the buyer-facing wrapper around a signed proof pack.
-Assay produces the proof pack. The Reviewer Packet makes that proof usable
-across an organizational boundary: settlement, scope, coverage, and the
+A reviewer-ready evidence packet is the buyer-facing wrapper around a signed proof pack.
+Assay produces the proof pack. The evidence packet makes that proof usable
+across an organizational boundary: scope, coverage, review state, and the
 nested proof-pack verification path in one forwardable artifact.
 
 ```bash
@@ -310,9 +341,9 @@ Buyer verdicts and CLI exit codes are different layers:
 - **Buyer verdicts**: VERIFIED, VERIFIED_WITH_GAPS, INCOMPLETE_EVIDENCE, EVIDENCE_REGRESSION, TAMPERED, OUT_OF_SCOPE
 - **CLI exit codes**: 0/1/2/3 for PASS, HONEST_FAIL, TAMPERED, and bad input
 
-Use the proof pack when you need kernel-level verification. Use the Reviewer
-Packet when another team needs a bounded artifact they can inspect, forward,
-and challenge.
+Use the proof pack when you need cryptographic verification. Use the
+evidence packet when another team needs a bounded artifact they can inspect,
+forward, and challenge.
 
 **Verify online**: [Browser verifier](https://haserjian.github.io/assay-proof-gallery/verify.html) —
 drop in a proof pack or reviewer packet and check it client-side.
@@ -459,7 +490,7 @@ system, you already know the mental model:
 The core path is 6 commands:
 
 ```
-assay quickstart          # discover
+assay try                 # 60-second demo (sign, tamper, catch)
 assay scan / assay patch  # instrument
 assay run                 # produce evidence
 assay verify-pack         # verify evidence
@@ -473,7 +504,7 @@ Full command reference:
 
 | Command | Purpose |
 |---------|---------|
-| `assay quickstart` | One command: demo + scan + next steps |
+| `assay try` | 60-second demo: sign, tamper, catch |
 | `assay status` | One-screen operational dashboard |
 | `assay start demo\|ci\|mcp` | Guided entrypoints for trying, CI setup, or MCP auditing |
 | `assay onboard` | Guided setup: doctor -> scan -> first run plan |
@@ -567,7 +598,7 @@ Full command reference:
 ## Documentation
 
 - **[Start Here](docs/START_HERE.md) -- 6 steps from install to evidence in CI**
-- [Reviewer Packets](docs/reviewer-packets.md) -- compile, verify, and hand off buyer-facing packets
+- [Evidence Packets](docs/reviewer-packets.md) -- compile, verify, and hand off reviewer-ready evidence packets
 - [Full Picture](docs/FULL_PICTURE.md) -- architecture, trust tiers, repo boundaries, release history
 - [Quickstart](docs/README_quickstart.md) -- install, golden path, command reference
 - [For Compliance Teams](docs/for-compliance.md) -- what auditors see, evidence artifacts, framework alignment
@@ -612,7 +643,7 @@ Full command reference:
 
 ## Get Involved
 
-- **Try it**: `python3 -m pip install assay-ai && assay quickstart`
+- **Try it**: `python3 -m pip install assay-ai && assay try`
 - **Questions / feedback**: [GitHub Discussions](https://github.com/Haserjian/assay/discussions)
 - **Bug reports**: [Issues](https://github.com/Haserjian/assay/issues)
 - **Want this in your stack in 2 weeks?** [Pilot program](docs/PILOT_PROGRAM.md) --

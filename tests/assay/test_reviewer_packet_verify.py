@@ -211,6 +211,59 @@ def test_reviewer_verify_cli_json(tmp_path: Path) -> None:
     assert payload["primary_failure_reason"] is None
 
 
+def test_reviewer_verify_cli_human_output(tmp_path: Path) -> None:
+    fixtures = _fixture_dir()
+    out_dir = tmp_path / "reviewer_packet"
+    compile_reviewer_packet(
+        proof_pack_dir=fixtures / "sample_proof_pack",
+        boundary_payload=load_json(fixtures / "sample_boundary.json"),
+        mapping_payload=load_json(fixtures / "sample_mapping.json"),
+        out_dir=out_dir,
+    )
+
+    result = runner.invoke(assay_app, ["reviewer", "verify", str(out_dir)])
+    assert result.exit_code == 0, result.output
+    assert "Reviewer Packet Verified" in result.output
+    assert "Machine coverage:  1/2 (50.00%)" in result.output
+
+
+def test_reviewer_verify_cli_json_signed_packet(tmp_path: Path) -> None:
+    fixtures = _fixture_dir()
+    out_dir = tmp_path / "reviewer_packet"
+    keys_dir = tmp_path / "keys"
+
+    export = runner.invoke(
+        assay_app,
+        [
+            "vendorq",
+            "export-reviewer",
+            "--proof-pack",
+            str(fixtures / "sample_proof_pack"),
+            "--boundary",
+            str(fixtures / "sample_boundary.json"),
+            "--mapping",
+            str(fixtures / "sample_mapping.json"),
+            "--out",
+            str(out_dir),
+            "--sign-packet",
+            "--packet-signer",
+            "reviewer-signer",
+            "--keys-dir",
+            str(keys_dir),
+            "--json",
+        ],
+    )
+    assert export.exit_code == 0, export.output
+
+    result = runner.invoke(assay_app, ["reviewer", "verify", str(out_dir), "--json"])
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["packet_manifest"]["signed"] is True
+    assert payload["packet_manifest"]["verified"] is True
+    assert payload["packet_manifest"]["signer_identity"] == "reviewer-signer"
+    assert payload["packet_manifest"]["signer_fingerprint"]
+
+
 def test_verify_reviewer_packet_detects_tampered_nested_proof_pack(tmp_path: Path) -> None:
     packet_dir, ks = _compile_packet(tmp_path, claim_pass=True, complete_coverage=True)
     receipt_path = packet_dir / "proof_pack" / "receipt_pack.jsonl"

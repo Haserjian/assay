@@ -1,6 +1,7 @@
 # VendorQ Quickstart
 
-Verifiable Vendor Packet compiles questionnaire responses from Assay proof packs and verifies every claim against evidence.
+VendorQ compiles questionnaire responses from Assay proof packs and verifies every claim against evidence.
+Use this workflow to build the evidence-backed answer set underneath a reviewer-ready evidence packet.
 
 ## 1) Ingest questionnaire
 
@@ -38,7 +39,7 @@ assay vendorq verify \
   --report-out .assay/vendorq/verify_report.json
 ```
 
-## 5) Export packet
+## 5) Export working packet draft
 
 ```bash
 assay vendorq export \
@@ -49,6 +50,8 @@ assay vendorq export \
 ```
 
 The Markdown export includes an evidence navigation chain with replay command hints.
+
+If you need the buyer-facing artifact another team can inspect, forward, and verify, continue with the reviewer-packet flow described in [reviewer-packets.md](./reviewer-packets.md) and use `assay vendorq export-reviewer`.
 
 ## Notes
 

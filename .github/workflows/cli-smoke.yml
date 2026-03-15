@@ -1,0 +1,62 @@
+name: CLI Smoke
+
+on:
+  pull_request:
+    paths:
+      - "pyproject.toml"
+      - "README.md"
+      - "docs/START_HERE.md"
+      - "docs/README_quickstart.md"
+      - "src/assay/**"
+      - ".github/workflows/cli-smoke.yml"
+  push:
+    branches: [main]
+    paths:
+      - "pyproject.toml"
+      - "README.md"
+      - "docs/START_HERE.md"
+      - "docs/README_quickstart.md"
+      - "src/assay/**"
+      - ".github/workflows/cli-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cli-smoke:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Assay
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+
+      - name: Verify CLI entrypoint
+        run: assay version
+
+      - name: Run first-contact demo
+        run: assay try
+
+      - name: Compile reviewer packet from fixtures
+        run: assay vendorq export-reviewer --proof-pack tests/fixtures/reviewer_packet/sample_proof_pack --boundary tests/fixtures/reviewer_packet/sample_boundary.json --mapping tests/fixtures/reviewer_packet/sample_mapping.json --out reviewer_packet_demo --sign-packet
+
+      - name: Assert reviewer packet files exist
+        run: >-
+          python -c "from pathlib import Path; base = Path('reviewer_packet_demo'); required = ['SETTLEMENT.json', 'SCOPE_MANIFEST.json', 'COVERAGE_MATRIX.md', 'REVIEWER_GUIDE.md', 'EXECUTIVE_SUMMARY.md', 'VERIFY.md', 'CHALLENGE.md', 'PACKET_INPUTS.json', 'PACKET_MANIFEST.json', 'PACKET_SIGNATURE.sig', 'proof_pack/verify_report.json']; missing = [path for path in required if not (base / path).exists()]; raise SystemExit(f'Missing reviewer packet outputs: {missing}' if missing else 0)"
+
+      - name: Verify reviewer packet
+        run: assay reviewer verify reviewer_packet_demo

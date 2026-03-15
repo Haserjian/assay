@@ -35,6 +35,21 @@ assay vendorq export-reviewer \
 This uses the checked-in sample proof pack and packet inputs that back the
 reviewer-packet tests.
 
+To cryptographically attest the packet layer as well, add packet-manifest signing:
+
+```bash
+assay vendorq export-reviewer \
+  --proof-pack tests/fixtures/reviewer_packet/sample_proof_pack \
+  --boundary tests/fixtures/reviewer_packet/sample_boundary.json \
+  --mapping tests/fixtures/reviewer_packet/sample_mapping.json \
+  --out reviewer_packet_demo \
+  --sign-packet
+```
+
+This writes `PACKET_SIGNATURE.sig` beside `PACKET_MANIFEST.json`. If no active
+local signer exists yet, Assay creates one and signs the packet manifest with
+its embedded public key so `assay reviewer verify` can validate it offline.
+
 ## Verify in the CLI
 
 ```bash

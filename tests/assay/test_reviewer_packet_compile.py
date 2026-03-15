@@ -64,3 +64,63 @@ def test_vendorq_export_reviewer_cli(tmp_path: Path) -> None:
     assert (out_dir / "REVIEWER_GUIDE.md").exists()
     assert (out_dir / "EXECUTIVE_SUMMARY.md").exists()
     assert (out_dir / "VERIFY.md").exists()
+
+
+def test_vendorq_export_reviewer_cli_human_output(tmp_path: Path) -> None:
+    fixtures = _fixture_dir()
+    out_dir = tmp_path / "reviewer_packet"
+
+    result = runner.invoke(
+        assay_app,
+        [
+            "vendorq",
+            "export-reviewer",
+            "--proof-pack",
+            str(fixtures / "sample_proof_pack"),
+            "--boundary",
+            str(fixtures / "sample_boundary.json"),
+            "--mapping",
+            str(fixtures / "sample_mapping.json"),
+            "--out",
+            str(out_dir),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Reviewer Packet Compiled" in result.output
+    assert "Machine coverage:  1/2 (50.00%)" in result.output
+
+
+def test_vendorq_export_reviewer_cli_signed_packet(tmp_path: Path) -> None:
+    fixtures = _fixture_dir()
+    out_dir = tmp_path / "reviewer_packet"
+    keys_dir = tmp_path / "keys"
+
+    result = runner.invoke(
+        assay_app,
+        [
+            "vendorq",
+            "export-reviewer",
+            "--proof-pack",
+            str(fixtures / "sample_proof_pack"),
+            "--boundary",
+            str(fixtures / "sample_boundary.json"),
+            "--mapping",
+            str(fixtures / "sample_mapping.json"),
+            "--out",
+            str(out_dir),
+            "--sign-packet",
+            "--packet-signer",
+            "reviewer-signer",
+            "--keys-dir",
+            str(keys_dir),
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["packet_manifest_signed"] is True
+    assert payload["packet_signer_id"] == "reviewer-signer"
+    assert payload["generated_signer"] is True
+    assert (out_dir / "PACKET_SIGNATURE.sig").exists()
