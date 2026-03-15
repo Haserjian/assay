@@ -2,6 +2,10 @@
 
 Verify the Assay passport surface from a clean environment with no repo context.
 
+For the release-gate version of this flow, including witness tiers, receipt format,
+pass/fail criteria, and escalation rules, use
+[../release/external_witness_ritual.md](../release/external_witness_ritual.md).
+
 ## Quick check
 
 ```bash
@@ -46,7 +50,7 @@ The 10 steps should complete with no errors:
 - `passport_v1.json` has `"signature"` and `"passport_id"` fields
 - `passport_v1.json` and `passport_v2.json` have different `passport_id` values
 - Challenge receipt has `"signature"` and `"event_id"` fields
-- Supersession receipt links v1 → v2 via `target_passport_id` and `new_passport_id`
+- Supersession receipt links v1 → v2 via `target.passport_id` and `supersession.new_passport_id`
 
 ## v1.17.0 promotion receipt
 

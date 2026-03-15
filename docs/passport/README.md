@@ -129,6 +129,8 @@ The demo is deterministic enough to function as a worked reference flow, and
 the gallery is regenerable from source.
 
 For the clean-room public install path, use [VERIFICATION.md](VERIFICATION.md).
+For the release-gate witness checklist, use
+[../release/external_witness_ritual.md](../release/external_witness_ritual.md).
 
 ## How To Read The Demo
 

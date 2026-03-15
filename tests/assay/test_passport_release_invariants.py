@@ -28,6 +28,8 @@ GENERATOR = REPO_ROOT / "docs" / "passport" / "generate_gallery.py"
 GITIGNORE = REPO_ROOT / ".gitignore"
 ROADMAP = REPO_ROOT / "docs" / "ROADMAP.md"
 PYPROJECT = REPO_ROOT / "pyproject.toml"
+PASSPORT_VERIFICATION = REPO_ROOT / "docs" / "passport" / "VERIFICATION.md"
+WITNESS_RITUAL = REPO_ROOT / "docs" / "release" / "external_witness_ritual.md"
 
 
 # ---------------------------------------------------------------------------
@@ -82,6 +84,19 @@ class TestReadmePassportSection:
         text = README.read_text(encoding="utf-8")
         assert "12 commands" in text, (
             "README must state '12 commands' to match actual passport CLI surface"
+        )
+
+
+class TestWitnessRitualSurface:
+    """The external witness ritual must stay reachable from the public verification path."""
+
+    def test_witness_ritual_exists(self):
+        assert WITNESS_RITUAL.is_file(), "docs/release/external_witness_ritual.md must exist"
+
+    def test_verification_links_witness_ritual(self):
+        text = PASSPORT_VERIFICATION.read_text(encoding="utf-8")
+        assert "../release/external_witness_ritual.md" in text, (
+            "VERIFICATION.md must link to the external witness ritual"
         )
 
 

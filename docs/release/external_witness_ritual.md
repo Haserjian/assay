@@ -64,7 +64,7 @@ challenge, supersede, revoke, diff, demo.
 - `passport_v1.html` — self-contained HTML (~28KB)
 - `passport_v2.json` — signed, different `passport_id` from v1
 - `challenge_*.json` — signed receipt with `event_id`
-- `supersession_*.json` — signed receipt linking v1 to v2
+- `supersession_*.json` — signed receipt linking `target.passport_id` to `supersession.new_passport_id`
 - `trust_diff.html` — diff report
 
 ## Pass/fail criteria
