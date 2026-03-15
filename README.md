@@ -322,6 +322,15 @@ A passport is a signed, content-addressed JSON object that summarizes what
 was verified about an AI system: claims, coverage, reliance class, and a
 validity window. Built from proof pack evidence, not asserted by hand.
 
+Try the seeded lifecycle demo (no API key, no repo context needed):
+
+```bash
+pip install assay-ai
+assay passport demo
+```
+
+Full command set:
+
 ```bash
 # Mint a passport from a proof pack, sign it, verify it
 assay passport mint --pack ./proof_pack/ --subject-name "MyApp" \
@@ -366,6 +375,10 @@ trust diff. All artifacts are regenerable via
 **Passport guide**: See [docs/passport/README.md](docs/passport/README.md)
 for the bounded public story: what you can inspect today, what `verify`
 and `status` mean, and what remains future scope.
+
+**Launch packet**: See [docs/commercial/PASSPORT_LAUNCH_PACKET.md](docs/commercial/PASSPORT_LAUNCH_PACKET.md)
+for the operator-facing rollout framing: what to say publicly, what to
+show first, and where the proof boundary is.
 
 **What this proves today:**
 - Signed, content-addressed passport artifacts with Ed25519 signatures
