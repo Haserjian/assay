@@ -235,7 +235,7 @@ class TestVersionSurface:
         assert m, "pyproject.toml must contain a version field"
         return m.group(1)
 
-    def test_importlib_version_matches_pyproject(self):
+    def test_runtime_version_matches_pyproject(self):
         """Runtime __version__ must match pyproject.toml."""
         import assay
         pyproject_ver = self._pyproject_version()
@@ -301,7 +301,12 @@ class TestCommandCount:
     """Passport CLI must have the claimed number of commands."""
 
     def test_passport_has_12_commands(self):
-        """assay passport must expose exactly 12 subcommands."""
+        """assay passport must expose exactly 12 subcommands.
+
+        Uses Typer's registered_commands/registered_groups rather than
+        parsing help output, because help text wrapping is presentation
+        and the app object is the authority surface.
+        """
         from assay.passport_commands import passport_app
 
         # Count registered commands directly from the Typer app object
