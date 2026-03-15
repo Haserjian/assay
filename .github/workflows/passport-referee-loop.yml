@@ -1,0 +1,61 @@
+name: Passport Referee Loop
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/assay/passport_*.py'
+      - 'src/assay/lifecycle_receipt.py'
+      - 'src/assay/verdict.py'
+      - 'src/assay/xray.py'
+      - 'src/assay/commands.py'
+      - 'src/assay/reporting/passport_diff_report.py'
+      - 'src/assay/reporting/xray_report.py'
+      - 'tests/assay/test_passport_*.py'
+      - 'tests/assay/test_governance_integration.py'
+      - 'tests/assay/test_lifecycle_receipt.py'
+      - 'tests/assay/test_verdict.py'
+      - 'tests/assay/test_xray.py'
+      - 'docs/passport/**'
+      - 'docs/index.html'
+      - 'README.md'
+      - '.github/workflows/passport-referee-loop.yml'
+  pull_request:
+    paths:
+      - 'src/assay/passport_*.py'
+      - 'src/assay/lifecycle_receipt.py'
+      - 'src/assay/verdict.py'
+      - 'src/assay/xray.py'
+      - 'src/assay/commands.py'
+      - 'src/assay/reporting/passport_diff_report.py'
+      - 'src/assay/reporting/xray_report.py'
+      - 'tests/assay/test_passport_*.py'
+      - 'tests/assay/test_governance_integration.py'
+      - 'tests/assay/test_lifecycle_receipt.py'
+      - 'tests/assay/test_verdict.py'
+      - 'tests/assay/test_xray.py'
+      - 'docs/passport/**'
+      - 'docs/index.html'
+      - 'README.md'
+      - '.github/workflows/passport-referee-loop.yml'
+  workflow_dispatch:
+
+jobs:
+  referee-loop:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Assay
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Check seeded referee loop
+        run: ./scripts/ci/check_referee_loop.sh
