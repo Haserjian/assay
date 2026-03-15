@@ -1705,7 +1705,7 @@ def try_cmd(
         return
 
     console.print()
-    console.print("[bold]assay try[/] — see what Assay does")
+    console.print("[bold]assay try[/] - see what Assay does")
     console.print()
 
     # Step 1: good pack
@@ -1718,9 +1718,9 @@ def try_cmd(
     console.print()
 
     # Step 2: tamper
-    console.print("  [bold]3.[/] Changed one byte ([dim]gpt-4o → gpt-5x[/])")
+    console.print("  [bold]3.[/] Changed one byte ([dim]gpt-4o -> gpt-5x[/])")
     if not tampered_pass:
-        console.print(f"  [bold]4.[/] Verified again: [bold red]FAIL[/] — {tampered_err}")
+        console.print(f"  [bold]4.[/] Verified again: [bold red]FAIL[/] - {tampered_err}")
     else:
         console.print("  [bold]4.[/] Verified again: [bold green]PASS[/] (unexpected)")
 
