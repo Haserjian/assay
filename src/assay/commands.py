@@ -7625,6 +7625,8 @@ def demo_challenge_cmd(
     sha_lines = []
     for subdir in ["good", "tampered"]:
         for f in sorted((out / subdir).iterdir()):
+            if f.is_dir():
+                continue
             h = hashlib.sha256(f.read_bytes()).hexdigest()
             sha_lines.append(f"{h}  {subdir}/{f.name}")
     sha_file = out / "SHA256SUMS.txt"
