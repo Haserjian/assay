@@ -4648,6 +4648,26 @@ def lock_init_cmd(
 
 
 # ---------------------------------------------------------------------------
+# Passport subcommands
+# ---------------------------------------------------------------------------
+
+from assay.passport_commands import passport_app
+
+assay_app.add_typer(passport_app, name="passport")
+
+
+@assay_app.command("xray")
+def xray_alias_cmd(
+    passport_file: str = typer.Argument(..., help="Path to passport.json"),
+    report: Optional[str] = typer.Option(None, "--report", "-r", help="Output HTML report path"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+) -> None:
+    """X-Ray diagnostic for a passport (alias for 'assay passport xray')."""
+    from assay.passport_commands import passport_xray_cmd
+    passport_xray_cmd(passport_file=passport_file, report=report, output_json=output_json)
+
+
+# ---------------------------------------------------------------------------
 # VendorQ subcommands
 # ---------------------------------------------------------------------------
 

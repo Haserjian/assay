@@ -1,0 +1,228 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://assay.ai/schemas/passport/v0.1",
+  "title": "Assay Passport v0.1",
+  "description": "Schema for Assay Passport — a signed, verifiable trust credential for AI systems.",
+  "type": "object",
+  "required": [
+    "passport_version",
+    "issued_at",
+    "valid_until",
+    "status",
+    "reliance",
+    "subject",
+    "claims",
+    "verification",
+    "challenge"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "passport_version": {
+      "type": "string",
+      "const": "0.1"
+    },
+    "issued_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "valid_until": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "observation_window": {
+      "type": "object",
+      "properties": {
+        "start": { "type": "string", "format": "date-time" },
+        "end": { "type": "string", "format": "date-time" },
+        "note": { "type": "string" }
+      },
+      "required": ["start", "end"]
+    },
+    "status": {
+      "type": "object",
+      "required": ["state"],
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": ["FRESH", "STALE", "CHALLENGED", "SUPERSEDED", "REVOKED"]
+        },
+        "reason": { "type": "string" },
+        "checked_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "reliance": {
+      "type": "object",
+      "required": ["class", "label"],
+      "properties": {
+        "class": {
+          "type": "string",
+          "enum": ["R0", "R1", "R2", "R3", "R4"]
+        },
+        "label": { "type": "string" },
+        "verdict": { "type": "string" },
+        "limits": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "freshness_note": { "type": "string" }
+      }
+    },
+    "trust_posture": {
+      "type": "object",
+      "properties": {
+        "freshness": { "type": "string" },
+        "signature": { "type": "string" },
+        "coverage": { "type": "string" },
+        "evidence_mix": { "type": "string" },
+        "challenges": { "type": "string" },
+        "scope_class": { "type": "string" }
+      }
+    },
+    "subject": {
+      "type": "object",
+      "required": ["name", "system_id", "owner"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "system_id": { "type": "string", "minLength": 1 },
+        "type": { "type": "string" },
+        "description": { "type": "string" },
+        "owner": { "type": "string", "minLength": 1 },
+        "version": { "type": "string" },
+        "environment": { "type": "string" },
+        "sample_boundary": { "type": "string" }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "properties": {
+        "in_scope": { "type": "array", "items": { "type": "string" } },
+        "not_covered": { "type": "array", "items": { "type": "string" } },
+        "not_observed": { "type": "array", "items": { "type": "string" } },
+        "not_concluded": { "type": "array", "items": { "type": "string" } },
+        "boundary_notes": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["claim_id", "assertion", "result"],
+        "properties": {
+          "claim_id": { "type": "string", "minLength": 1 },
+          "topic": { "type": "string" },
+          "claim_type": { "type": "string" },
+          "applies_to": { "type": "string" },
+          "assertion": { "type": "string" },
+          "result": {
+            "type": "string",
+            "enum": ["pass", "fail", "partial", "present"]
+          },
+          "evidence_type": {
+            "type": "string",
+            "enum": ["machine_verified", "human_attested"]
+          },
+          "proof_tier": {
+            "type": "string",
+            "enum": ["core", "claim", "court"]
+          },
+          "evidence_refs": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "proof_pack_digest": { "type": "string" },
+          "observation_window": { "type": "object" },
+          "qualification": { "type": ["string", "null"] },
+          "boundary": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "evidence_summary": {
+      "type": "object",
+      "properties": {
+        "total_claims": { "type": "integer", "minimum": 0 },
+        "machine_verified": { "type": "integer", "minimum": 0 },
+        "human_attested": { "type": "integer", "minimum": 0 },
+        "core_claims_passed": { "type": "string" },
+        "conditional_claims": { "type": "string" },
+        "coverage_gaps": { "type": "integer", "minimum": 0 },
+        "proof_pack_hash": { "type": "string" },
+        "reviewer_packet_id": { "type": "string" }
+      }
+    },
+    "relationships": {
+      "type": "object",
+      "properties": {
+        "proof_pack_ref": { "type": ["string", "null"] },
+        "reviewer_packet_ref": { "type": ["string", "null"] },
+        "supersedes": { "type": ["string", "null"] },
+        "superseded_by": { "type": ["string", "null"] },
+        "challenge_refs": { "type": "array", "items": { "type": "string" } },
+        "revocation_ref": { "type": ["string", "null"] }
+      }
+    },
+    "verification": {
+      "type": "object",
+      "required": ["how_to_verify"],
+      "properties": {
+        "how_to_verify": { "type": "string" },
+        "what_is_checked": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "challenge": {
+      "type": "object",
+      "required": ["how_to_challenge"],
+      "properties": {
+        "how_to_challenge": { "type": "string" },
+        "what_happens": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "properties": {
+        "identified_total": { "type": "integer", "minimum": 0 },
+        "covered_total": { "type": "integer", "minimum": 0 },
+        "coverage_pct": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "discovery_method": { "type": "string" },
+        "discovery_note": { "type": "string" },
+        "provenance": { "type": "object" },
+        "call_sites": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["call_site_id", "status"],
+            "properties": {
+              "call_site_id": { "type": "string" },
+              "function": { "type": "string" },
+              "status": { "type": "string", "enum": ["covered", "missing"] },
+              "evidence_ref": { "type": ["string", "null"] },
+              "reason": { "type": ["string", "null"] }
+            }
+          }
+        }
+      }
+    },
+    "passport_id": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "signature": {
+      "type": "object",
+      "properties": {
+        "algorithm": { "type": "string", "const": "Ed25519" },
+        "signature": { "type": "string" },
+        "key_id": { "type": "string" },
+        "key_fingerprint": { "type": "string" },
+        "signed_at": { "type": "string", "format": "date-time" },
+        "scope": { "type": "string", "const": "jcs_rfc8785_without_signature" }
+      },
+      "required": ["algorithm", "signature", "key_id", "signed_at", "scope"]
+    },
+    "chain": {
+      "type": "object",
+      "properties": {
+        "issuer": { "type": "string" },
+        "issuer_fingerprint": { "type": "string" }
+      }
+    }
+  }
+}
