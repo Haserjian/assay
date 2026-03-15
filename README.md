@@ -329,6 +329,21 @@ pip install assay-ai
 assay passport demo
 ```
 
+The demo intentionally starts with a weak passport, then challenges and
+supersedes it. The initial X-Ray grade (D) is part of the lifecycle, not
+a product failure.
+
+**What each command answers:**
+
+| Command | Question |
+|---------|----------|
+| `verify` | Is this artifact authentic and untampered? |
+| `status` | Should I rely on it under my policy? (PASS/WARN/FAIL) |
+| `xray` | How strong is the evidence posture? (A-F grade) |
+| `challenge` | Record a governance objection against a passport |
+| `supersede` | Link the old passport to an improved successor |
+| `diff` | What changed between two passport versions? |
+
 Full command set:
 
 ```bash
@@ -343,28 +358,11 @@ assay passport status passport.json --mode buyer-safe --json
 
 # X-Ray diagnostic: structural grade (A-F) and improvement path
 assay passport xray passport.json --report xray.html
-```
 
-Lifecycle governance is cryptographically backed:
-
-```bash
-# Challenge a passport (any identified signer)
+# Lifecycle governance (all cryptographically signed)
 assay passport challenge passport.json --reason "Missing coverage"
-
-# Supersede with a new version
 assay passport supersede old.json new.json --reason "Addressed gap"
-
-# Compare two passports — flags regressions
 assay passport diff old.json new.json --report diff.html
-```
-
-`verify` answers structural validity (signature, content-addressed ID).
-`status` answers reliance posture under a configurable policy mode.
-
-Run the full 10-step lifecycle demo:
-
-```bash
-assay passport demo
 ```
 
 **Worked example**: [Seeded referee gallery](docs/passport/gallery/) —
@@ -372,13 +370,9 @@ pre-built signed passports, governance receipts, X-Ray diagnostic, and
 trust diff. All artifacts are regenerable via
 `python3 docs/passport/generate_gallery.py`.
 
-**Passport guide**: See [docs/passport/README.md](docs/passport/README.md)
-for the bounded public story: what you can inspect today, what `verify`
-and `status` mean, and what remains future scope.
-
-**Launch packet**: See [docs/commercial/PASSPORT_LAUNCH_PACKET.md](docs/commercial/PASSPORT_LAUNCH_PACKET.md)
-for the operator-facing rollout framing: what to say publicly, what to
-show first, and where the proof boundary is.
+**Deeper docs**: [Passport guide](docs/passport/README.md) |
+[Verification ritual](docs/passport/VERIFICATION.md) |
+[Gallery manifest](docs/passport/gallery/GALLERY.md)
 
 **What this proves today:**
 - Signed, content-addressed passport artifacts with Ed25519 signatures
