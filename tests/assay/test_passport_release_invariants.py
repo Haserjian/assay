@@ -5,6 +5,10 @@ These tests assert that the outward-facing passport loop remains intact:
 - Expected artifact set exists
 - README references the seeded gallery
 - Demo command exits 0
+- Version surface is consistent
+- ROADMAP tracks current version
+- Sensitive paths are gitignored
+- Command count claims match reality
 
 If any of these fail, the public referee loop is broken.
 """
@@ -21,6 +25,9 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 README = REPO_ROOT / "README.md"
 GALLERY_DIR = REPO_ROOT / "docs" / "passport" / "gallery"
 GENERATOR = REPO_ROOT / "docs" / "passport" / "generate_gallery.py"
+GITIGNORE = REPO_ROOT / ".gitignore"
+ROADMAP = REPO_ROOT / "docs" / "ROADMAP.md"
+PYPROJECT = REPO_ROOT / "pyproject.toml"
 
 
 # ---------------------------------------------------------------------------
@@ -69,6 +76,13 @@ class TestReadmePassportSection:
             assert phrase.lower() not in passport_section.lower(), (
                 f"README passport section contains forbidden overclaim: '{phrase}'"
             )
+
+    def test_command_count_framing(self):
+        """README must acknowledge all 12 commands, not just the featured subset."""
+        text = README.read_text(encoding="utf-8")
+        assert "12 commands" in text, (
+            "README must state '12 commands' to match actual passport CLI surface"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -205,3 +219,96 @@ class TestDemoCommand:
             assert (tmp / "trust_diff.html").is_file()
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
+
+
+# ---------------------------------------------------------------------------
+# Version surface consistency
+# ---------------------------------------------------------------------------
+
+class TestVersionSurface:
+    """Package version must be consistent across all surfaces."""
+
+    def _pyproject_version(self) -> str:
+        import re
+        text = PYPROJECT.read_text(encoding="utf-8")
+        m = re.search(r'^version\s*=\s*"([^"]+)"', text, re.MULTILINE)
+        assert m, "pyproject.toml must contain a version field"
+        return m.group(1)
+
+    def test_importlib_version_matches_pyproject(self):
+        """Runtime __version__ must match pyproject.toml."""
+        import assay
+        pyproject_ver = self._pyproject_version()
+        assert assay.__version__ == pyproject_ver, (
+            f"assay.__version__ ({assay.__version__}) != "
+            f"pyproject.toml ({pyproject_ver}). "
+            f"Reinstall editable: pip install -e ."
+        )
+
+    def test_version_not_dev_sentinel(self):
+        """Installed package must not report dev sentinel."""
+        import assay
+        assert assay.__version__ != "0.0.0-dev", (
+            "assay.__version__ is '0.0.0-dev' — package not installed. "
+            "Run: pip install -e ."
+        )
+
+    def test_roadmap_version_matches_pyproject(self):
+        """ROADMAP 'As of' version must match pyproject.toml."""
+        import re
+        pyproject_ver = self._pyproject_version()
+        roadmap_text = ROADMAP.read_text(encoding="utf-8")
+        m = re.search(r"\*\*As of\*\*:\s*v([\d.]+)", roadmap_text)
+        assert m, "ROADMAP must contain '**As of**: vX.Y.Z'"
+        assert m.group(1) == pyproject_ver, (
+            f"ROADMAP version ({m.group(1)}) != pyproject.toml ({pyproject_ver})"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Sensitive path protection
+# ---------------------------------------------------------------------------
+
+class TestSensitivePathProtection:
+    """Sensitive paths must be gitignored to prevent accidental exposure."""
+
+    def test_commercial_docs_ignored(self):
+        """docs/commercial/ must be in .gitignore."""
+        text = GITIGNORE.read_text(encoding="utf-8")
+        assert "docs/commercial/" in text, (
+            "docs/commercial/ must be in .gitignore — "
+            "contains DM templates, outreach trackers, launch strategy"
+        )
+
+    def test_assay_runtime_state_ignored(self):
+        """.assay/ must be in .gitignore."""
+        text = GITIGNORE.read_text(encoding="utf-8")
+        assert ".assay/" in text, ".assay/ runtime state must be gitignored"
+
+    def test_evidence_gap_reports_ignored(self):
+        """evidence_gap_report.* must be in .gitignore."""
+        text = GITIGNORE.read_text(encoding="utf-8")
+        assert "evidence_gap_report" in text, (
+            "evidence_gap_report.* must be gitignored"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Command count consistency
+# ---------------------------------------------------------------------------
+
+class TestCommandCount:
+    """Passport CLI must have the claimed number of commands."""
+
+    def test_passport_has_12_commands(self):
+        """assay passport must expose exactly 12 subcommands."""
+        from assay.passport_commands import passport_app
+
+        # Count registered commands directly from the Typer app object
+        commands = list(passport_app.registered_commands)
+        groups = list(passport_app.registered_groups)
+        total = len(commands) + len(groups)
+        assert total == 12, (
+            f"Expected 12 passport commands, found {total}. "
+            f"Commands: {[c.name or c.callback.__name__ for c in commands]}"
+        )
