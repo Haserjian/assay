@@ -333,7 +333,7 @@ The demo intentionally starts with a weak passport, then challenges and
 supersedes it. The initial X-Ray grade (D) is part of the lifecycle, not
 a product failure.
 
-**What each command answers:**
+**12 commands** (`assay passport --help`). The 6 you'll use most:
 
 | Command | Question |
 |---------|----------|
@@ -343,6 +343,8 @@ a product failure.
 | `challenge` | Record a governance objection against a passport |
 | `supersede` | Link the old passport to an improved successor |
 | `diff` | What changed between two passport versions? |
+
+Also: `mint`, `sign`, `show`, `render`, `revoke`, `demo`.
 
 Full command set:
 

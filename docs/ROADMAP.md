@@ -1,6 +1,6 @@
 # Assay Roadmap
 
-**As of**: v1.16.0 (March 2026)
+**As of**: v1.17.0 (March 2026)
 **Launch**: Feb 18, 2026
 
 ---
@@ -41,6 +41,19 @@ when they're stable and don't require private infrastructure.
 | stale/superseded verifier support | Lifecycle-aware pack verification | Shipped |
 | VendorQ (ingest, compile, lock, verify) | Verifiable vendor questionnaire packets | Shipped |
 
+### Passport Lifecycle (v1.17.0)
+
+| Surface | What it does | Status |
+|---------|-------------|--------|
+| passport mint, sign | Mint draft from proof pack, Ed25519-sign | Shipped |
+| passport verify, status | Structural validity + policy-derived reliance (PASS/WARN/FAIL) | Shipped |
+| passport show, render | Terminal summary + self-contained HTML | Shipped |
+| passport xray | Structural diagnostic with grade (A-F) | Shipped |
+| passport challenge, supersede, revoke | Signed governance receipts (lifecycle events) | Shipped |
+| passport diff | Compare two passports, flag regressions | Shipped |
+| passport demo | Full 10-step seeded lifecycle walkthrough | Shipped |
+| Seeded referee gallery | Reproducible worked example with 7 signed artifacts | Shipped |
+
 ### MCP Notary Proxy (Tool-Call Evidence)
 
 Receipting proxy between MCP clients and servers. Zero server changes.
@@ -70,7 +83,7 @@ Receipting proxy between MCP clients and servers. Zero server changes.
 
 **Goal**: Get strangers from curiosity to first proof pack in 10 minutes.
 
-All deliverables complete. 1,555+ tests passing. v1.16.0 on PyPI.
+All deliverables complete. 1,958+ tests passing. v1.17.0 on PyPI.
 
 ### Phase 1: Temporal Intelligence (Mar 2026)
 

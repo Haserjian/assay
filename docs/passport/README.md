@@ -102,7 +102,7 @@ assay passport demo
 
 Expected output (timestamps and IDs will differ):
 
-```
+```text
 Step 1: Mint passport draft
   → passport_v1.json
 Step 2: Sign passport
@@ -127,6 +127,34 @@ Step 10: Trust Diff
 
 The demo is deterministic enough to function as a worked reference flow, and
 the gallery is regenerable from source.
+
+For the clean-room public install path, use [VERIFICATION.md](VERIFICATION.md).
+
+## How To Read The Demo
+
+The demo is intentionally staged, which means the early output is not supposed
+to look "finished."
+
+What is happening conceptually:
+
+1. v1 is created as the initial trust object.
+2. X-Ray inspects that initial object before remediation.
+3. A challenge receipt records what is missing.
+4. v2 is minted to address the gap.
+5. A signed supersession receipt links v1 to v2.
+6. Trust Diff shows what improved.
+
+That means the first X-Ray result is not a failure of the feature. It is part
+of the worked lifecycle. The demo is showing how the object behaves under
+challenge and improvement, not pretending the first draft is already perfect.
+
+The semantic shortcuts:
+
+- `verify` = is the object structurally valid?
+- `status` = should I rely on it under a policy mode?
+- `challenge` = record a governance objection
+- `supersede` = link the older artifact to the improved one
+- `trust diff` = show what changed between those versions
 
 ## What This Proves Today
 

@@ -54,3 +54,6 @@ evidence_gap_report.*
 
 # Local Assay runtime state
 .assay/
+
+# Internal commercial docs (not public)
+docs/commercial/
