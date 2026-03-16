@@ -1337,11 +1337,11 @@ assay verify-signer ./proof_pack_*/</span></pre>
   <div class="container" style="max-width: 720px;">
     <h2 style="font-size: 24px; margin-bottom: 12px;">Regulatory context</h2>
     <p style="color: var(--text2); font-size: 15px; line-height: 1.7;">
-      The EU AI Act (Regulation 2024/1689, Articles 12 &amp; 19) requires
-      tamper-resistant logging and retention for high-risk AI systems.
-      These obligations take effect August 2, 2026 under the current timeline.
-      Assay provides one building block for these requirements -- it does not
-      constitute full compliance on its own.
+      The EU AI Act (Regulation 2024/1689, Articles 12 &amp; 19) establishes
+      requirements for automatic event logging and log retention for high-risk
+      AI systems. These obligations apply from August 2, 2026.
+      Assay can help satisfy traceability and tamper-evidence needs under
+      these requirements -- it does not constitute full compliance on its own.
       See <a href="for-compliance.md" style="color: var(--accent);">For Compliance Teams</a> for mapping to SOC 2, ISO 42001, and NIST AI RMF.
     </p>
   </div>
@@ -1352,7 +1352,7 @@ assay verify-signer ./proof_pack_*/</span></pre>
     <h2>Ready to make your AI auditable?</h2>
     <p>Open source. Apache-2.0. Works with OpenAI, Anthropic, Google Gemini, LiteLLM, and LangChain today.</p>
     <div class="install" onclick="copyScan(this)" style="margin-bottom: 28px;">
-      <span class="dollar">$ </span>python3 -m pip install assay-ai && assay scan . --report
+      <span class="dollar">$ </span>pip install assay-ai && assay try
       <span class="copied">Copied!</span>
     </div>
     <div class="cta-buttons">
@@ -1475,7 +1475,7 @@ function copyInstall(el) {
 }
 
 function copyScan(el) {
-  navigator.clipboard.writeText('python3 -m pip install assay-ai && assay scan . --report');
+  navigator.clipboard.writeText('pip install assay-ai && assay try');
   const tip = el.querySelector('.copied');
   tip.classList.add('show');
   setTimeout(() => tip.classList.remove('show'), 1500);
