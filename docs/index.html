@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Assay - AI Evidence That's Harder to Fake and Easier to Verify</title>
-<meta name="description" content="Assay turns AI execution claims into portable proof artifacts a buyer can verify offline — without trusting your server.">
+<title>Assay - Build Evidence for What Your AI Did</title>
+<meta name="description" content="Accountable execution for AI systems. Create signed evidence a reviewer can verify offline. Cheap edits stop working.">
 <style>
   :root {
     --bg: #0d1117;
@@ -706,14 +706,14 @@
 
 <section class="hero">
   <div class="container">
-    <h1>AI evidence that's harder to fake<br><span>and easier to verify.</span></h1>
+    <p style="color: var(--text2); font-size: 14px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 16px;">Accountable execution for AI systems</p>
+    <h1>Build evidence for what your AI did.</h1>
     <p class="subtitle">
-      Assay turns AI execution claims into portable proof artifacts
-      a buyer can verify offline -- without trusting your server.
-      Change one byte, verification fails.
+      Create signed evidence a reviewer can verify offline.
+      When proof is missing, the system fails honestly instead of pretending green.
     </p>
-    <p style="color: var(--text2); font-size: 14px; margin-bottom: 28px;">
-      For teams shipping AI agents, RAG pipelines, and autonomous workflows.
+    <p style="color: var(--accent); font-size: 16px; font-weight: 600; margin-bottom: 28px;">
+      Cheap edits stop working.
     </p>
     <div class="install" onclick="copyInstall(this)">
       <span class="dollar">$ </span>pip install assay-ai && assay try
@@ -738,19 +738,8 @@
       Client-side only. Nothing uploaded. Sample packs included.
     </p>
   </div>
-  <div style="max-width: 760px; margin: 12px auto 18px; padding: 16px 18px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg2);">
-    <p style="margin: 0 0 8px; font-size: 14px; font-weight: 600; color: var(--text);">
-      Installing Assay gives you the tools. Instrumentation makes receipts happen.
-    </p>
-    <p style="margin: 0; color: var(--text2); font-size: 14px; line-height: 1.6;">
-      <code>assay patch .</code> or <code>patch()</code> wires receipt emission into your runtime.
-      <code>assay run -- ...</code> launches your app with a trace id and packages emitted receipts into
-      <code>proof_pack_*</code>. <code>assay verify-pack</code> checks the artifact offline.
-      No instrumentation means no receipts.
-    </p>
-  </div>
   <p style="text-align:center; margin-bottom:8px; color:var(--text2); font-size:15px;">
-    We scanned the ecosystem. Nobody has tamper-evident audit trails yet.
+    Across 30 projects and 202 LLM call sites, we found zero tamper-evident evidence trails.
   </p>
   <p style="text-align:center; margin-bottom:12px;">
     <a href="https://github.com/Haserjian/assay/blob/280c25ec46afd3ae6938501f59977162c0dbacd8/scripts/scan_study/results/report.md" target="_blank" style="color:var(--text2); font-size:13px; text-decoration:none;">Scan study methodology (Feb 2026) &#8599;</a>
@@ -776,6 +765,17 @@
   <p style="text-align:center; color:var(--text2); font-size:14px; margin-top:0;">
     1,100+ tests &middot; 5 integrations &middot; Apache-2.0 &middot; on PyPI since Jan 2026
   </p>
+  <div style="max-width: 760px; margin: 18px auto 12px; padding: 16px 18px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg2);">
+    <p style="margin: 0 0 8px; font-size: 14px; font-weight: 600; color: var(--text);">
+      Installing Assay gives you the tools. Instrumentation makes receipts happen.
+    </p>
+    <p style="margin: 0; color: var(--text2); font-size: 14px; line-height: 1.6;">
+      <code>assay patch .</code> or <code>patch()</code> wires receipt emission into your runtime.
+      <code>assay run -- ...</code> launches your app with a trace id and packages emitted receipts into
+      <code>proof_pack_*</code>. <code>assay verify-pack</code> checks the artifact offline.
+      No instrumentation means no receipts.
+    </p>
+  </div>
 </div>
 
 <section class="threat-section">

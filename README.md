@@ -1,42 +1,47 @@
 # Assay
 
-Signed evidence for AI systems that a third party can verify offline.
+**Build evidence for what your AI did.**
+
+Accountable execution for AI systems.
+Assay creates signed evidence for AI workflows that a reviewer can verify offline.
+It proves what can be responsibly claimed about the artifact, not the truth of every upstream component.
+
+### Run → Prove → Promote
+
+Execution can succeed while proof fails. When evidence is missing, the system refuses to overclaim.
+
+| Exit | State | Meaning |
+|------|-------|---------|
+| `0` | **pass** | Authentic evidence, standards met |
+| `1` | **honest fail** | Authentic evidence, standards not met |
+| `2` | **tampered** | Evidence altered after signing |
+
+A signed failure is stronger evidence than a vague pass.
+
+### Try it
 
 ```bash
 pip install assay-ai
 assay try
 ```
 
-You'll see Assay build a proof pack, sign it, tamper one byte, and catch
-the break. No API key. No repo context. 15 seconds.
+Builds a proof pack, signs it, tampers one byte, catches the break. No API key. No account. 15 seconds.
 
-**Then:** follow the reviewer-ready evidence path if your immediate problem is vendor review or questionnaire pressure:
+### Why this exists
 
-```bash
-assay vendorq ingest --in questionnaire.csv --out .assay/vendorq/questions.json
-assay vendorq compile --questions .assay/vendorq/questions.json --pack ./proof_pack_* --policy conservative --out .assay/vendorq/answers.json
-assay vendorq export-reviewer --proof-pack ./proof_pack_* --out reviewer_packet
-assay reviewer verify reviewer_packet
-```
-
-Use `assay start` when your first job is instrumentation. Use the reviewer packet flow when your first job is producing something another team can inspect, forward, and verify.
+We scanned **30 AI projects** with **202 LLM call sites**.
+Zero had tamper-evident evidence trails.
+[Full results](scripts/scan_study/results/report.md).
 
 ---
 
-Assay doesn't make fraud impossible. It makes fraud expensive, fragile,
-and much easier to catch. Change one byte, verification fails. Drop a
-locked check, the mismatch is exposed.
-
-We scanned 30 popular AI projects and found 202 high-confidence LLM call
-sites. Zero had tamper-evident audit trails.
-[Full results](scripts/scan_study/results/report.md).
+**Next:** `assay start` to instrument your code, or the [reviewer packet flow](docs/reviewer-packets.md) when your job is producing something another team can verify.
 
 > **Boundary:** Assay proves the evidence artifact has not been quietly
 > changed after the fact. It does not, by itself, prove every upstream
 > component was honest. See [trust tiers](docs/FULL_PICTURE.md#trust-tiers).
-> **Not this:** Assay is not a logging framework or observability dashboard.
-> It produces signed evidence bundles that a third party can verify offline.
-> **First-cycle wedge:** Assay's current commercial wedge is the **reviewer-ready evidence packet** for AI governance and vendor/security review. The nested proof pack is the trust root; the packet is the artifact another team receives.
+> Assay is not a logging framework. It produces signed evidence bundles
+> that a third party can verify offline.
 
 <details>
 <summary>Install details (Windows, PATH issues, deterministic setup)</summary>
