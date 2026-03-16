@@ -1,0 +1,82 @@
+name: Release Truth
+
+on:
+  pull_request:
+    paths:
+      - "pyproject.toml"
+      - "src/assay/**"
+      - ".github/workflows/release-truth.yml"
+  push:
+    branches: [main]
+    paths:
+      - "pyproject.toml"
+      - "src/assay/**"
+      - ".github/workflows/release-truth.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release-truth:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Build wheel
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build --wheel
+
+      - name: Install from built wheel (no extras)
+        run: |
+          python -m venv /tmp/assay-clean
+          /tmp/assay-clean/bin/pip install --upgrade pip
+          /tmp/assay-clean/bin/pip install dist/assay_ai-*.whl
+
+      - name: Verify CLI entrypoint
+        run: /tmp/assay-clean/bin/assay version
+
+      - name: Run first-contact demo
+        run: /tmp/assay-clean/bin/assay try
+
+      - name: Verify doctor runs without crash
+        run: |
+          set +e
+          /tmp/assay-clean/bin/assay doctor 2>doctor_stderr.txt
+          rc=$?
+          if grep -qi "traceback\|segfault\|SIGABRT\|SIGSEGV" doctor_stderr.txt; then
+            echo "::error::assay doctor crashed"
+            cat doctor_stderr.txt
+            exit 1
+          fi
+          # exit 0 = all pass, exit 1 = warnings/failures (acceptable in clean env)
+          if [ "$rc" -gt 1 ]; then
+            echo "::error::assay doctor exited $rc (unexpected)"
+            cat doctor_stderr.txt
+            exit 1
+          fi
+
+      - name: Verify schemas are packaged
+        run: >-
+          /tmp/assay-clean/bin/python -c "
+          import pkgutil, json;
+          schemas = ['pack_manifest.schema.json', 'attestation.schema.json', 'adc_v0.1.schema.json'];
+          [json.loads(pkgutil.get_data('assay', f'schemas/{s}')) for s in schemas];
+          print(f'OK: {len(schemas)} schemas loaded')
+          "
+
+      - name: Verify start demo path
+        run: /tmp/assay-clean/bin/assay start demo

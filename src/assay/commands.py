@@ -45,6 +45,7 @@ Commands:
   assay compliance report - Map evidence pack to regulatory framework controls
   assay version       - Show version info
 """
+from __future__ import annotations
 
 import json
 from collections import Counter
