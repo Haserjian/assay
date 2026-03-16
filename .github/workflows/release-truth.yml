@@ -70,11 +70,11 @@ jobs:
           fi
 
       - name: Verify schemas are packaged
-        run: >-
+        run: |
           /tmp/assay-clean/bin/python -c "
-          import pkgutil, json;
-          schemas = ['pack_manifest.schema.json', 'attestation.schema.json', 'adc_v0.1.schema.json'];
-          [json.loads(pkgutil.get_data('assay', f'schemas/{s}')) for s in schemas];
+          import pkgutil, json
+          schemas = ['pack_manifest.schema.json', 'attestation.schema.json', 'adc_v0.1.schema.json']
+          [json.loads(pkgutil.get_data('assay', f'schemas/{s}')) for s in schemas]
           print(f'OK: {len(schemas)} schemas loaded')
           "
 
