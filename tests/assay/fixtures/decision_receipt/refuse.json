@@ -1,0 +1,60 @@
+{
+  "receipt_id": "f6a7b8c9-d0e1-4234-f012-345678901234",
+  "receipt_type": "decision_v1",
+  "receipt_version": "0.1.0",
+  "ceid": null,
+  "timestamp": "2026-03-15T14:25:00.678Z",
+  "parent_receipt_id": null,
+  "supersedes": null,
+  "decision_type": "refusal_classification",
+  "decision_subject": "request:user_query_consent_withdrawal_q-9f2a",
+  "verdict": "REFUSE",
+  "verdict_reason": "Request touches PHI data in production environment without explicit consent gate approval. Ethical boundary: dignity floor would be breached.",
+  "verdict_reason_codes": [
+    "ethical_boundary",
+    "phi_without_consent",
+    "dignity_floor_breach"
+  ],
+  "authority_id": "ccio:governance:dignity_ledger",
+  "authority_class": "BINDING",
+  "authority_scope": "dignity",
+  "delegated_from": null,
+  "policy_id": "ccio.governance.dignity.v4",
+  "policy_hash": "23456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef01",
+  "policy_version": "4.1.0",
+  "episode_id": "ep_20260315_clinical_003",
+  "session_state_hash": null,
+  "proof_tier_at_decision": "CONSTITUTIONAL",
+  "runtime_condition_vector": {
+    "contradiction_pressure": "none",
+    "coherence_band": "strong",
+    "uncertainty_band": "calibrated",
+    "dignity_margin": "below_floor",
+    "routing_stress": "nominal"
+  },
+  "evidence_refs": [
+    {
+      "ref_type": "receipt",
+      "ref_id": "consent_gate_check_negative_003",
+      "ref_hash": "3456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123",
+      "ref_role": "supporting"
+    }
+  ],
+  "evidence_sufficient": true,
+  "evidence_gaps": [],
+  "confidence": "high",
+  "dissent": null,
+  "abstention_reason": null,
+  "unresolved_contradictions": [],
+  "disposition": "block",
+  "disposition_target": null,
+  "obligations_created": [],
+  "proof_tier_achieved": null,
+  "proof_tier_minimum_required": null,
+  "provenance_complete": true,
+  "known_provenance_gaps": [],
+  "source_organ": "ccio",
+  "content_hash": null,
+  "signature": null,
+  "signer_pubkey_sha256": null
+}

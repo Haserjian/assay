@@ -1,0 +1,69 @@
+{
+  "receipt_id": "d4e5f6a7-b8c9-4012-def0-123456789012",
+  "receipt_type": "decision_v1",
+  "receipt_version": "0.1.0",
+  "ceid": null,
+  "timestamp": "2026-03-15T14:15:00.012Z",
+  "parent_receipt_id": "a1b2c3d4-e5f6-4789-abcd-ef0123456789",
+  "supersedes": "a1b2c3d4-e5f6-4789-abcd-ef0123456789",
+  "decision_type": "rollback_authorization",
+  "decision_subject": "tool_grant:shell_exec+file_write:session_0a3f",
+  "verdict": "ROLLBACK",
+  "verdict_reason": "Post-execution verification revealed output hash mismatch. Original approval (a1b2c3d4) based on stale evidence. Rollback authorized.",
+  "verdict_reason_codes": [
+    "post_execution_failure",
+    "evidence_invalidated",
+    "hash_mismatch"
+  ],
+  "authority_id": "loom:guardian:capability_gate",
+  "authority_class": "MUTATING",
+  "authority_scope": "tool_visibility",
+  "delegated_from": null,
+  "policy_id": "guardian.rollback.v1",
+  "policy_hash": "f6a7b8c9d0e1f23456789012abcdef3456789012abcdef3456789012abcdef34",
+  "policy_version": "1.0.0",
+  "episode_id": "ep_20260315_session_042",
+  "session_state_hash": "a8b9c0d1e2f3a4b5",
+  "proof_tier_at_decision": "CHECKED",
+  "runtime_condition_vector": {
+    "contradiction_pressure": "high",
+    "coherence_band": "degraded",
+    "uncertainty_band": "wide",
+    "dignity_margin": "comfortable",
+    "routing_stress": "nominal"
+  },
+  "evidence_refs": [
+    {
+      "ref_type": "receipt",
+      "ref_id": "verification_run_044",
+      "ref_hash": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+      "ref_role": "contradicting"
+    },
+    {
+      "ref_type": "receipt",
+      "ref_id": "a1b2c3d4-e5f6-4789-abcd-ef0123456789",
+      "ref_hash": null,
+      "ref_role": "contextual"
+    }
+  ],
+  "evidence_sufficient": true,
+  "evidence_gaps": [],
+  "confidence": "high",
+  "dissent": null,
+  "abstention_reason": null,
+  "unresolved_contradictions": [],
+  "disposition": "compensate",
+  "disposition_target": "loom:spine:controller",
+  "obligations_created": [
+    "revert_tool_grants_from_original_approval",
+    "emit_compensation_receipt"
+  ],
+  "proof_tier_achieved": null,
+  "proof_tier_minimum_required": null,
+  "provenance_complete": true,
+  "known_provenance_gaps": [],
+  "source_organ": "loom",
+  "content_hash": null,
+  "signature": null,
+  "signer_pubkey_sha256": null
+}

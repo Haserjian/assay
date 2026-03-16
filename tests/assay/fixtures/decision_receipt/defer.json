@@ -1,0 +1,63 @@
+{
+  "receipt_id": "c3d4e5f6-a7b8-4901-cdef-012345678901",
+  "receipt_type": "decision_v1",
+  "receipt_version": "0.1.0",
+  "ceid": null,
+  "timestamp": "2026-03-15T14:10:00.789Z",
+  "parent_receipt_id": null,
+  "supersedes": null,
+  "decision_type": "proof_tier_determination",
+  "decision_subject": "proof_tier:episode_ep-20260315-run42",
+  "verdict": "DEFER",
+  "verdict_reason": "Verification tool returned timeout. Cannot determine proof tier without verifier output. Deferring until verifier completes or budget expires.",
+  "verdict_reason_codes": [
+    "verifier_timeout",
+    "evidence_incomplete"
+  ],
+  "authority_id": "loom:spine:controller",
+  "authority_class": "BINDING",
+  "authority_scope": "proof_tier",
+  "delegated_from": null,
+  "policy_id": "spine.proof_budget.v2",
+  "policy_hash": "d5e6f789012345678901abcdef23456789abcdef012345678901abcdef234567",
+  "policy_version": "2.1.0",
+  "episode_id": "ep_20260315_session_042",
+  "session_state_hash": "e6f7a8b9c0d1e2f3",
+  "proof_tier_at_decision": "DRAFT",
+  "runtime_condition_vector": {
+    "contradiction_pressure": "none",
+    "coherence_band": null,
+    "uncertainty_band": null,
+    "dignity_margin": null,
+    "routing_stress": "elevated"
+  },
+  "evidence_refs": [
+    {
+      "ref_type": "receipt",
+      "ref_id": "verifier_attempt_003",
+      "ref_hash": "e6f7890123456789abcdef0123456789abcdef0123456789abcdef01234567ef",
+      "ref_role": "contextual"
+    }
+  ],
+  "evidence_sufficient": false,
+  "evidence_gaps": [
+    "verifier_output"
+  ],
+  "confidence": "low",
+  "dissent": null,
+  "abstention_reason": null,
+  "unresolved_contradictions": [],
+  "disposition": "defer_with_obligation",
+  "disposition_target": "loom:spine:controller",
+  "obligations_created": [
+    "complete_verification_or_escalate_within_budget"
+  ],
+  "proof_tier_achieved": null,
+  "proof_tier_minimum_required": "CHECKED",
+  "provenance_complete": true,
+  "known_provenance_gaps": [],
+  "source_organ": "loom",
+  "content_hash": null,
+  "signature": null,
+  "signer_pubkey_sha256": null
+}

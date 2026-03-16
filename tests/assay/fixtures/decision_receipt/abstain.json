@@ -1,0 +1,66 @@
+{
+  "receipt_id": "b2c3d4e5-f6a7-4890-bcde-f01234567890",
+  "receipt_type": "decision_v1",
+  "receipt_version": "0.1.0",
+  "ceid": null,
+  "timestamp": "2026-03-15T14:05:00.456Z",
+  "parent_receipt_id": null,
+  "supersedes": null,
+  "decision_type": "admissibility_verdict",
+  "decision_subject": "settlement:packet_SP-2026-0315-001",
+  "verdict": "ABSTAIN",
+  "verdict_reason": "Council standard deviation 0.32 exceeds critical threshold 0.25. No verdict is epistemically defensible.",
+  "verdict_reason_codes": [
+    "council_disagreement_critical",
+    "confidence_below_floor"
+  ],
+  "authority_id": "ccio:settlement:admissibility",
+  "authority_class": "BINDING",
+  "authority_scope": "settlement",
+  "delegated_from": null,
+  "policy_id": "ccio.settlement.admissibility.v2",
+  "policy_hash": "c4d5e6f7890123456789abcdef0123456789abcdef0123456789abcdef012345",
+  "policy_version": "2.0.0",
+  "episode_id": "ep_20260315_settlement_007",
+  "session_state_hash": null,
+  "proof_tier_at_decision": "TOOL_VERIFIED",
+  "runtime_condition_vector": {
+    "contradiction_pressure": "critical",
+    "coherence_band": "degraded",
+    "uncertainty_band": "uncalibrated",
+    "dignity_margin": null,
+    "routing_stress": null
+  },
+  "evidence_refs": [
+    {
+      "ref_type": "metric",
+      "ref_id": "council_std_run_007",
+      "ref_hash": null,
+      "ref_role": "contradicting"
+    }
+  ],
+  "evidence_sufficient": false,
+  "evidence_gaps": [
+    "council_convergence",
+    "secondary_model_confirmation"
+  ],
+  "confidence": "minimal",
+  "dissent": null,
+  "abstention_reason": "Council disagreement exceeds critical threshold. Any verdict would misrepresent the state of evidence.",
+  "unresolved_contradictions": [
+    "model_a_approve_vs_model_b_refuse"
+  ],
+  "disposition": "escalate",
+  "disposition_target": "human_review",
+  "obligations_created": [
+    "resolve_council_disagreement_before_retry"
+  ],
+  "proof_tier_achieved": null,
+  "proof_tier_minimum_required": null,
+  "provenance_complete": true,
+  "known_provenance_gaps": [],
+  "source_organ": "ccio",
+  "content_hash": null,
+  "signature": null,
+  "signer_pubkey_sha256": null
+}
