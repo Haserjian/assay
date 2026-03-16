@@ -440,3 +440,42 @@ def test_reviewer_packet_state_corpus(
     assert result["packet_verified"] is should_verify
     if should_verify:
         assert result["provided_settlement_state"] == state
+
+
+# ---------------------------------------------------------------------------
+# Missing required file: must error, not silently skip
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("missing_file", [
+    "SETTLEMENT.json",
+    "SCOPE_MANIFEST.json",
+    "COVERAGE_MATRIX.md",
+    "PACKET_INPUTS.json",
+    "PACKET_MANIFEST.json",
+])
+def test_verify_reviewer_packet_rejects_missing_required_file(
+    tmp_path: Path, missing_file: str,
+) -> None:
+    """Removing any required packet file must raise VendorQInputError, not silently skip."""
+    from assay.vendorq_models import VendorQInputError
+
+    packet_dir, ks = _compile_packet(tmp_path, claim_pass=True, complete_coverage=True)
+    (packet_dir / missing_file).unlink()
+
+    with pytest.raises(VendorQInputError, match="reviewer_packet_missing_file"):
+        verify_reviewer_packet(packet_dir, keystore=ks)
+
+
+def test_verify_reviewer_packet_missing_file_cli_exits_3(tmp_path: Path) -> None:
+    """CLI must exit 3 (bad input) when a required packet file is missing."""
+    packet_dir, ks = _compile_packet(tmp_path, claim_pass=True, complete_coverage=True)
+    (packet_dir / "SETTLEMENT.json").unlink()
+
+    result = runner.invoke(assay_app, ["reviewer", "verify", str(packet_dir)])
+    assert result.exit_code == 3, f"Expected exit 3, got {result.exit_code}\n{result.output}"
+
+    result_json = runner.invoke(assay_app, ["reviewer", "verify", str(packet_dir), "--json"])
+    assert result_json.exit_code == 3
+    payload = json.loads(result_json.output)
+    assert payload["status"] == "error"
+    assert "reviewer_packet_missing_file" in payload["error"]

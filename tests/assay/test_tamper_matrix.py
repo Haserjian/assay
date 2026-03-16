@@ -233,6 +233,34 @@ class TestSignatureTampering:
         result = _verify(corrupt, ks)
         assert not result.passed
 
+    def test_valid_base64_wrong_signature_bytes(self, valid_pack, tmp_path):
+        """Signature remains valid base64 but decoded bytes are wrong.
+
+        This catches the case where an attacker crafts a replacement
+        signature that passes base64 decode but fails Ed25519 verify.
+        """
+        import base64
+
+        pack_dir, ks = valid_pack
+        corrupt = _copy_pack(pack_dir, tmp_path / "corrupt")
+
+        # Mutate the signature in the manifest (valid base64, wrong bytes)
+        manifest_path = corrupt / "pack_manifest.json"
+        data = json.loads(manifest_path.read_text())
+        original_sig = base64.b64decode(data["signature"])
+        mutated = bytearray(original_sig)
+        for i in range(16, min(32, len(mutated))):
+            mutated[i] = mutated[i] ^ 0xFF
+        data["signature"] = base64.b64encode(bytes(mutated)).decode()
+        manifest_path.write_text(json.dumps(data))
+
+        # Also update the detached sig to match the mutated manifest sig
+        (corrupt / "pack_signature.sig").write_bytes(bytes(mutated))
+
+        result = _verify(corrupt, ks)
+        assert not result.passed
+        assert any(e.code == E_PACK_SIG_INVALID for e in result.errors)
+
 
 class TestFileDeletion:
     """Deleting any kernel file must be detected."""
