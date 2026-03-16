@@ -1,0 +1,60 @@
+{
+  "receipt_id": "a1b2c3d4-e5f6-4789-abcd-ef0123456789",
+  "receipt_type": "decision_v1",
+  "receipt_version": "0.1.0",
+  "ceid": "CDE-loom-gat-20260315T140000Z-a1b2c3d4",
+  "timestamp": "2026-03-15T14:00:00.123Z",
+  "parent_receipt_id": null,
+  "supersedes": null,
+  "decision_type": "gate_evaluation",
+  "decision_subject": "tool_grant:shell_exec+file_write:session_0a3f",
+  "verdict": "APPROVE",
+  "verdict_reason": "All requested tools permitted under current session state: environment=development, proof_tier=CHECKED, operator_mode=interactive.",
+  "verdict_reason_codes": [
+    "policy_permits",
+    "tier_sufficient",
+    "no_contraindications"
+  ],
+  "authority_id": "loom:guardian:capability_gate",
+  "authority_class": "BINDING",
+  "authority_scope": "tool_visibility",
+  "delegated_from": null,
+  "policy_id": "guardian.capability_gate.v3",
+  "policy_hash": "a3f8b2c1d4e5f6789012345678901234567890abcdef1234567890abcdef1234",
+  "policy_version": "3.2.1",
+  "episode_id": "ep_20260315_session_042",
+  "session_state_hash": "b4c5d6e7f8a9b0c1",
+  "proof_tier_at_decision": "CHECKED",
+  "runtime_condition_vector": {
+    "contradiction_pressure": "none",
+    "coherence_band": "strong",
+    "uncertainty_band": "calibrated",
+    "dignity_margin": "comfortable",
+    "routing_stress": "nominal"
+  },
+  "evidence_refs": [
+    {
+      "ref_type": "receipt",
+      "ref_id": "critique_run_041",
+      "ref_hash": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+      "ref_role": "supporting"
+    }
+  ],
+  "evidence_sufficient": true,
+  "evidence_gaps": [],
+  "confidence": "high",
+  "dissent": null,
+  "abstention_reason": null,
+  "unresolved_contradictions": [],
+  "disposition": "execute",
+  "disposition_target": null,
+  "obligations_created": [],
+  "proof_tier_achieved": null,
+  "proof_tier_minimum_required": null,
+  "provenance_complete": true,
+  "known_provenance_gaps": [],
+  "source_organ": "loom",
+  "content_hash": null,
+  "signature": null,
+  "signer_pubkey_sha256": null
+}

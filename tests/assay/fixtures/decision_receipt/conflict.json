@@ -1,0 +1,81 @@
+{
+  "receipt_id": "e5f6a7b8-c9d0-4123-ef01-234567890123",
+  "receipt_type": "decision_v1",
+  "receipt_version": "0.1.0",
+  "ceid": null,
+  "timestamp": "2026-03-15T14:20:00.345Z",
+  "parent_receipt_id": null,
+  "supersedes": null,
+  "decision_type": "settlement_transition",
+  "decision_subject": "settlement:provider_routing:model_b_v2",
+  "verdict": "CONFLICT",
+  "verdict_reason": "Guardian gate approved tool access but settlement validation flagged reliance on an expired receipt. Two binding authorities reached incompatible conclusions.",
+  "verdict_reason_codes": [
+    "authority_conflict",
+    "stale_reliance",
+    "gate_settlement_split"
+  ],
+  "authority_id": "ccio:settlement:conflict_detector",
+  "authority_class": "BINDING",
+  "authority_scope": "settlement",
+  "delegated_from": null,
+  "policy_id": "ccio.settlement.conflict.v1",
+  "policy_hash": "01234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+  "policy_version": "1.0.0",
+  "episode_id": "ep_20260315_settlement_008",
+  "session_state_hash": null,
+  "proof_tier_at_decision": "TOOL_VERIFIED",
+  "runtime_condition_vector": {
+    "contradiction_pressure": "high",
+    "coherence_band": "degraded",
+    "uncertainty_band": "wide",
+    "dignity_margin": null,
+    "routing_stress": null
+  },
+  "evidence_refs": [
+    {
+      "ref_type": "receipt",
+      "ref_id": "gate_approval_042",
+      "ref_hash": null,
+      "ref_role": "supporting"
+    },
+    {
+      "ref_type": "receipt",
+      "ref_id": "reliance_check_expired_017",
+      "ref_hash": null,
+      "ref_role": "contradicting"
+    }
+  ],
+  "evidence_sufficient": true,
+  "evidence_gaps": [],
+  "confidence": "high",
+  "conflict_refs": [
+    "gate_approval_042",
+    "reliance_check_expired_017"
+  ],
+  "dissent": {
+    "dissenter_ids": [
+      "loom:guardian:capability_gate"
+    ],
+    "dissent_summary": "Guardian gate approved based on current session state, which does not track receipt expiry. Settlement layer identified stale reliance.",
+    "dissent_severity": "block"
+  },
+  "abstention_reason": null,
+  "unresolved_contradictions": [
+    "gate_approval_vs_settlement_expiry"
+  ],
+  "disposition": "escalate",
+  "disposition_target": "human_review",
+  "obligations_created": [
+    "resolve_gate_settlement_conflict",
+    "refresh_stale_receipt"
+  ],
+  "proof_tier_achieved": null,
+  "proof_tier_minimum_required": null,
+  "provenance_complete": true,
+  "known_provenance_gaps": [],
+  "source_organ": "ccio",
+  "content_hash": null,
+  "signature": null,
+  "signer_pubkey_sha256": null
+}
