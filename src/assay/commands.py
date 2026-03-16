@@ -9663,6 +9663,95 @@ def pilot_closeout_cmd(
     raise typer.Exit(0)
 
 
+@assay_app.command("decision", hidden=True)
+def decision_validate_cmd(
+    receipt_path: str = typer.Argument(..., help="Path to a Decision Receipt JSON file"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Validate a Decision Receipt against constitutional invariants.
+
+    Checks structural integrity, verdict-disposition coherence,
+    authority constraints, evidence sufficiency, proof-tier monotonicity,
+    provenance self-consistency, and forbidden states.
+
+    Exit 0 = valid. Exit 1 = invalid.
+    """
+    from pathlib import Path as _Path
+
+    from assay.decision_receipt import validate_decision_receipt
+
+    path = _Path(receipt_path)
+    if not path.exists():
+        if output_json:
+            _output_json({"command": "decision", "status": "error",
+                          "error": f"File not found: {receipt_path}"}, exit_code=1)
+        console.print(f"[red]Error:[/] {receipt_path} not found")
+        raise typer.Exit(1)
+
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as e:
+        if output_json:
+            _output_json({"command": "decision", "status": "error",
+                          "error": f"Cannot parse: {e}"}, exit_code=1)
+        console.print(f"[red]Error:[/] Cannot parse {receipt_path}: {e}")
+        raise typer.Exit(1)
+
+    result = validate_decision_receipt(data)
+    verdict = data.get("verdict", "?")
+    decision_type = data.get("decision_type", "?")
+    subject = data.get("decision_subject", "?")
+    authority = data.get("authority_id", "?")
+
+    if output_json:
+        out = {
+            "command": "decision",
+            "status": "ok" if result.valid else "invalid",
+            "verdict": verdict,
+            "decision_type": decision_type,
+            "decision_subject": subject,
+            **result.to_dict(),
+        }
+        _output_json(out, exit_code=0 if result.valid else 1)
+
+    if result.valid:
+        reason = data.get("verdict_reason", "")
+        disposition = data.get("disposition", "?")
+        confidence = data.get("confidence", "?")
+        ev_suff = data.get("evidence_sufficient", "?")
+        policy = data.get("policy_id", "?")
+
+        console.print()
+        console.print(Panel.fit(
+            f"[bold green]Decision Receipt: VALID[/]\n\n"
+            f"Verdict:     [bold]{verdict}[/]\n"
+            f"Subject:     {subject}\n"
+            f"Type:        {decision_type}\n"
+            f"Authority:   {authority}\n"
+            f"Disposition: {disposition}\n"
+            f"Confidence:  {confidence}\n"
+            f"Evidence:    {'sufficient' if ev_suff else 'insufficient'}\n"
+            f"Policy:      {policy}\n"
+            + (f"\nReason: {reason}" if reason else ""),
+            title="assay decision",
+        ))
+    else:
+        console.print()
+        console.print(Panel.fit(
+            f"[bold red]Decision Receipt: INVALID[/]\n\n"
+            f"Verdict:  {verdict}\n"
+            f"Subject:  {subject}\n"
+            f"Errors:   {len(result.errors)}",
+            title="assay decision",
+        ))
+        for err in result.errors:
+            field_str = f" ({err.field})" if err.field else ""
+            console.print(f"  [{err.layer}] [red]{err.rule}[/]{field_str}: {err.message}")
+
+    console.print()
+    raise typer.Exit(0 if result.valid else 1)
+
+
 def main():
     """Entrypoint for assay CLI."""
     assay_app()
