@@ -67,6 +67,14 @@ Windows, the usual fix is adding Python's `Scripts` directory to PATH.
 
 For deterministic environment setup, see [docs/START_HERE.md](docs/START_HERE.md).
 
+**Shell completions (bash/zsh/fish/PowerShell):**
+
+```bash
+assay --install-completion
+```
+
+Restart your shell after installing. Tab completion works for all commands and options.
+
 </details>
 
 ## See It -- Then Understand It
