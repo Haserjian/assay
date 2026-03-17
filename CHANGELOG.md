@@ -3,6 +3,11 @@
 All notable changes to Assay are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Changed
+- Signer ID validation is stricter: dot-prefixed IDs such as `.hidden` are now rejected, in addition to traversal and separator-containing values. This is a compatibility-tightening hardening change in the local keystore.
+
 ## [1.17.0] - 2026-03
 
 ### Added
