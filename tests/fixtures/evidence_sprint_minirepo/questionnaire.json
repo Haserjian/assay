@@ -1,0 +1,50 @@
+{
+  "questionnaire_id": "evidence_sprint_v1",
+  "scenario": "Mid-market SaaS company uses an LLM in a customer-support workflow. A prospect reviewer asks 6 governance/security questions.",
+  "questions": [
+    {
+      "question_id": "Q1",
+      "question_text": "Which model/provider executed the workflow?",
+      "expected_status": "ANSWERED",
+      "expected_authority": "machine_evidenced",
+      "evidence_receipt_types": ["model_call"]
+    },
+    {
+      "question_id": "Q2",
+      "question_text": "Is there evidence the workflow was actually executed?",
+      "expected_status": "ANSWERED",
+      "expected_authority": "machine_evidenced",
+      "evidence_receipt_types": ["model_call"]
+    },
+    {
+      "question_id": "Q3",
+      "question_text": "Was a policy/safety gate evaluated before model execution?",
+      "expected_status": "ANSWERED",
+      "expected_authority": "mixed",
+      "evidence_receipt_types": ["guardian_verdict"]
+    },
+    {
+      "question_id": "Q4",
+      "question_text": "Can the result be independently verified and tamper-checked?",
+      "expected_status": "ANSWERED",
+      "expected_authority": "machine_evidenced",
+      "evidence_receipt_types": ["verification_result"]
+    },
+    {
+      "question_id": "Q5",
+      "question_text": "Which claims rely on machine evidence vs human attestation?",
+      "expected_status": "ANSWERED",
+      "expected_authority": "mixed",
+      "evidence_receipt_types": ["packet_compiled"],
+      "notes": "Mixed: machine evidence from receipts, human attestation for policy review completeness"
+    },
+    {
+      "question_id": "Q6",
+      "question_text": "Is prompt-injection resilience proven?",
+      "expected_status": "INSUFFICIENT_EVIDENCE",
+      "expected_authority": "insufficient",
+      "evidence_receipt_types": [],
+      "notes": "Honest gap: no adversarial testing evidence exists for this workflow"
+    }
+  ]
+}
