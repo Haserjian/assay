@@ -470,3 +470,37 @@ class TestKeyRoundTrip:
 
         # Verify original signature still works
         assert ks.verify_b64(test_data, sig_b64, "roundtrip")
+
+
+# ---------------------------------------------------------------------------
+# signer_id path-traversal guard (Phase 1 hardening)
+# ---------------------------------------------------------------------------
+
+class TestSignerIdValidation:
+    """Reject signer_id values that could escape the keys directory."""
+
+    @pytest.mark.parametrize("bad_id", [
+        "../evil",
+        "foo/bar",
+        "",
+        "../../etc/passwd",
+        "a\x00b",
+        "..",
+        ".",
+        ".hidden",
+        "hello world",
+    ])
+    def test_rejects_unsafe_signer_ids(self, tmp_path: Path, bad_id: str) -> None:
+        ks = AssayKeyStore(keys_dir=tmp_path / "keys")
+        with pytest.raises(ValueError, match="Invalid signer_id"):
+            ks.generate_key(bad_id)
+
+    @pytest.mark.parametrize("good_id", [
+        "assay-local",
+        "ci_signer.2024",
+        "My-Signer_v3",
+    ])
+    def test_accepts_safe_signer_ids(self, tmp_path: Path, good_id: str) -> None:
+        ks = AssayKeyStore(keys_dir=tmp_path / "keys")
+        sk = ks.generate_key(good_id)
+        assert ks.has_key(good_id)

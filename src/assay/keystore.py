@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import os
+import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -16,6 +18,24 @@ from nacl.signing import SigningKey, VerifyKey
 
 DEFAULT_SIGNER_ID = "assay-local"
 ACTIVE_SIGNER_FILE = ".active_signer"
+
+_SIGNER_ID_RE = re.compile(r"^[A-Za-z0-9._-]+$")
+
+
+def _validate_signer_id(signer_id: str) -> str:
+    """Reject signer_id values that could escape the keys directory."""
+    if (
+        not signer_id
+        or not _SIGNER_ID_RE.match(signer_id)
+        or signer_id in (".", "..")
+        or signer_id.startswith(".")
+    ):
+        raise ValueError(
+            f"Invalid signer_id: {signer_id!r}. "
+            "Only alphanumerics, dots, hyphens, and underscores are allowed. "
+            "Must not start with a dot."
+        )
+    return signer_id
 
 
 class AssayKeyStore:
@@ -28,9 +48,11 @@ class AssayKeyStore:
         self.keys_dir = Path(keys_dir)
 
     def _key_path(self, signer_id: str) -> Path:
+        _validate_signer_id(signer_id)
         return self.keys_dir / f"{signer_id}.key"
 
     def _pub_path(self, signer_id: str) -> Path:
+        _validate_signer_id(signer_id)
         return self.keys_dir / f"{signer_id}.pub"
 
     def _active_signer_path(self) -> Path:
@@ -44,9 +66,19 @@ class AssayKeyStore:
         self.keys_dir.mkdir(parents=True, exist_ok=True)
         sk = SigningKey.generate()
         key_path = self._key_path(signer_id)
-        key_path.write_bytes(sk.encode())
-        key_path.chmod(0o600)
-        self._pub_path(signer_id).write_bytes(sk.verify_key.encode())
+        pub_path = self._pub_path(signer_id)
+
+        # Atomic write: temp file -> chmod -> os.replace
+        key_tmp = key_path.with_suffix(".key.tmp")
+        key_tmp.write_bytes(sk.encode())
+        key_tmp.chmod(0o600)
+        os.replace(str(key_tmp), str(key_path))
+
+        pub_tmp = pub_path.with_suffix(".pub.tmp")
+        pub_tmp.write_bytes(sk.verify_key.encode())
+        pub_tmp.chmod(0o644)
+        os.replace(str(pub_tmp), str(pub_path))
+
         return sk
 
     def ensure_key(self, signer_id: str = DEFAULT_SIGNER_ID) -> SigningKey:

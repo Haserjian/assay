@@ -257,3 +257,37 @@ class TestVerifierBudget:
             f"integrity.py is {line_count} LOC (limit: 600). "
             f"Move non-core helpers out to stay under budget."
         )
+
+
+# ---------------------------------------------------------------------------
+# Phase 1 hardening: verifier graceful degradation on I/O errors
+# ---------------------------------------------------------------------------
+
+class TestVerifierIOResilience:
+    """verify_pack_manifest must return structured errors, not crash, on I/O failures."""
+
+    def test_unreadable_file_produces_structured_error(self, tmp_path):
+        """If a manifest-listed file is unreadable, verifier returns E_MANIFEST_TAMPER."""
+        import os
+
+        ks = AssayKeyStore(keys_dir=tmp_path / "keys")
+        pack = ProofPack(
+            run_id="io-test",
+            entries=[_make_receipt()],
+            signer_id="io-tester",
+        )
+        pack_dir = pack.build(tmp_path / "pack", keystore=ks)
+
+        # Make receipt_pack.jsonl unreadable
+        target = pack_dir / "receipt_pack.jsonl"
+        target.chmod(0o000)
+
+        manifest = json.loads((pack_dir / "pack_manifest.json").read_text())
+        result = verify_pack_manifest(manifest, pack_dir, ks)
+
+        # Restore permissions for cleanup
+        target.chmod(0o644)
+
+        assert not result.passed
+        tamper_codes = [e.code for e in result.errors]
+        assert E_MANIFEST_TAMPER in tamper_codes

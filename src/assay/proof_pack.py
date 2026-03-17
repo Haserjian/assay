@@ -531,6 +531,9 @@ class ProofPack:
         # 6b. Embed signer's public key fingerprint for offline verification.
         # Ed25519 public keys are 32 bytes; no reason not to include the full
         # key so packs are self-contained evidence objects.
+        # Ensure key exists before reading pubkey (sign_b64 would create it
+        # via ensure_key, but get_verify_key reads directly and would crash).
+        ks.ensure_key(self.signer_id)
         vk = ks.get_verify_key(self.signer_id)
         pubkey_bytes = vk.encode()
 

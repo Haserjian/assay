@@ -288,7 +288,15 @@ def verify_pack_manifest(
             ))
             continue
 
-        actual_data = file_path.read_bytes()
+        try:
+            actual_data = file_path.read_bytes()
+        except OSError as exc:
+            errors.append(VerifyError(
+                code=E_MANIFEST_TAMPER,
+                message=f"Cannot read {file_entry['path']}: {exc}",
+                field=file_entry["path"],
+            ))
+            continue
         actual_hash = _sha256_hex(actual_data)
 
         if expected_hash and actual_hash != expected_hash:
@@ -424,8 +432,16 @@ def verify_pack_manifest(
                 field="pack_signature.sig",
             ))
         elif signature_bytes is not None:
-            sig_from_file = sig_path.read_bytes()
-            if sig_from_file != signature_bytes:
+            try:
+                sig_from_file = sig_path.read_bytes()
+            except OSError as exc:
+                errors.append(VerifyError(
+                    code=E_PACK_SIG_INVALID,
+                    message=f"Cannot read pack_signature.sig: {exc}",
+                    field="pack_signature.sig",
+                ))
+                sig_from_file = None
+            if sig_from_file is not None and sig_from_file != signature_bytes:
                 errors.append(VerifyError(
                     code=E_PACK_SIG_INVALID,
                     message="Detached signature does not match manifest signature bytes",
@@ -439,10 +455,7 @@ def verify_pack_manifest(
     }
     canonical_bytes = to_jcs_bytes(unsigned)
 
-    # 4c. Verify Ed25519 signature.
-    #
-    # Primary path (portable): verify with signer_pubkey embedded in manifest.
-    # Fallback path (compat): verify via local keystore for older packs.
+    # 4c. Verify Ed25519 signature (embedded pubkey preferred, keystore fallback).
     if signature and signature_bytes is not None:
         verified = False
 
@@ -450,16 +463,10 @@ def verify_pack_manifest(
             try:
                 pubkey_bytes = base64.b64decode(signer_pubkey_b64)
                 actual_embedded_fp = _sha256_hex(pubkey_bytes)
-                if (
-                    signer_pubkey_sha256
-                    and actual_embedded_fp != signer_pubkey_sha256
-                ):
+                if signer_pubkey_sha256 and actual_embedded_fp != signer_pubkey_sha256:
                     errors.append(VerifyError(
                         code=E_PACK_SIG_INVALID,
-                        message=(
-                            "Embedded signer_pubkey does not match "
-                            "signer_pubkey_sha256"
-                        ),
+                        message="Embedded signer_pubkey does not match signer_pubkey_sha256",
                         field="signer_pubkey_sha256",
                     ))
                 else:
@@ -467,11 +474,9 @@ def verify_pack_manifest(
                     vk.verify(canonical_bytes, signature_bytes)
                     verified = True
             except Exception:
-                errors.append(VerifyError(
-                    code=E_PACK_SIG_INVALID,
+                errors.append(VerifyError(code=E_PACK_SIG_INVALID,
                     message="Manifest signature verification failed against embedded signer_pubkey",
-                    field="signer_pubkey",
-                ))
+                    field="signer_pubkey"))
 
         elif keystore and signer_id:
             if keystore.verify_b64(canonical_bytes, signature, signer_id):
@@ -549,19 +554,13 @@ def verify_pack_manifest(
         if pack_sha != expected_commit_sha:
             errors.append(VerifyError(
                 code=E_CI_BINDING_MISMATCH,
-                message=(
-                    f"CI binding commit_sha mismatch: "
-                    f"pack has {pack_sha!r}, expected {expected_commit_sha!r}"
-                ),
+                message=f"CI binding commit_sha mismatch: pack has {pack_sha!r}, expected {expected_commit_sha!r}",
                 field="ci_binding.commit_sha",
             ))
     elif expected_commit_sha and not ci_binding and not require_ci_binding:
         errors.append(VerifyError(
             code=E_CI_BINDING_MISSING,
-            message=(
-                f"Expected commit_sha {expected_commit_sha!r} but "
-                f"attestation has no ci_binding block"
-            ),
+            message=f"Expected commit_sha {expected_commit_sha!r} but attestation has no ci_binding block",
             field="ci_binding",
         ))
 
