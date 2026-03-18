@@ -51,19 +51,31 @@ class SignerRegistry:
     def lookup(
         self, *, signer_id: Optional[str] = None, fingerprint: Optional[str] = None
     ) -> Optional[SignerEntry]:
-        """Find a signer by fingerprint (preferred) or signer_id.
+        """Find a signer by fingerprint (primary) or signer_id (fallback).
 
-        Fingerprint must be an exact match — no wildcards. Registry entries
-        with wildcard fingerprints are ignored (they cannot authorize).
+        When fingerprint is present, it is the binding key:
+        - Must match a registry entry exactly (no wildcards)
+        - If signer_id is also given, the matched entry's signer_id must agree
+        - No fallback to signer_id lookup when fingerprint is present
+
+        When fingerprint is absent, signer_id lookup is used as a weaker
+        fallback (e.g., legacy packs without embedded pubkey).
         """
-        if fingerprint and fingerprint in self._by_fingerprint:
-            entry = self._by_fingerprint[fingerprint]
-            if entry.fingerprint != "*":  # reject wildcard entries
-                return entry
-        if signer_id and signer_id in self._by_id:
-            entry = self._by_id[signer_id]
-            if entry.fingerprint != "*":  # reject wildcard entries
-                return entry
+        if fingerprint:
+            entry = self._by_fingerprint.get(fingerprint)
+            if entry is None or entry.fingerprint == "*":
+                return None
+            # If signer_id provided, require consistency
+            if signer_id and entry.signer_id != signer_id:
+                return None
+            return entry
+
+        if signer_id:
+            entry = self._by_id.get(signer_id)
+            if entry and entry.fingerprint == "*":
+                return None
+            return entry
+
         return None
 
     def __len__(self) -> int:

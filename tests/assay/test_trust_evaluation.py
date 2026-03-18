@@ -254,12 +254,24 @@ class TestAuthorization:
         )
         cls = ArtifactClassification("proof_pack", "0.1.0", "ci_attestation")
         auth = authorize_signer(facts, cls, registry=reg)
-        # Fingerprint mismatch means the entry won't match by fingerprint.
-        # signer_id lookup finds the entry but fingerprint doesn't match.
-        # This should still return the entry (recognized by ID) but the
-        # grant matching still works. The key protection is that wildcard
-        # fingerprints are rejected by the registry.
-        assert auth.status in ("authorized", "recognized")
+        # Fingerprint present but doesn't match any entry → unrecognized.
+        # Must NOT fall back to signer_id when fingerprint is available.
+        assert auth.status == "unrecognized"
+
+    def test_cross_binding_attack_rejected(self, registry_path):
+        """Fingerprint of entry A + signer_id of entry B must not authorize."""
+        reg = load_registry(registry_path)
+        # Use prod-signer's fingerprint but claim to be recognized-only
+        facts = VerificationFacts(
+            integrity_passed=True, signature_valid=True,
+            signer_id="recognized-only", signer_fingerprint="a" * 64,
+            embedded_pubkey=True, schema_recognized=True,
+        )
+        cls = ArtifactClassification("proof_pack", "0.1.0", "ci_attestation")
+        auth = authorize_signer(facts, cls, registry=reg)
+        # Fingerprint matches prod-signer, but claimed ID is recognized-only
+        # → consistency check fails → unrecognized
+        assert auth.status == "unrecognized"
 
     def test_wildcard_fingerprint_entry_never_authorizes(self, registry_path):
         """A registry entry with fingerprint='*' must never authorize."""
