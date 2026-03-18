@@ -1,6 +1,7 @@
 # Canonical Evidence Semantics Matrix
 
-**Status**: Provisional copy. Canonical ownership belongs in CCIO (`ccio/docs/architecture/`) as cross-repo constitutional law. This Assay copy is a working reference until the canonical source is established.
+**Status**: Public mirror. Canonical source is in CCIO (`ccio/docs/architecture/CANONICAL_EVIDENCE_SEMANTICS_MATRIX.md`).
+**Last synchronized**: 2026-03-17
 **Purpose**: Pin the meanings so they do not drift between layers, repos, or surfaces.
 **Rule**: When terms from different layers seem equivalent, this matrix says whether they are.
 
