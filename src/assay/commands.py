@@ -2506,6 +2506,19 @@ def verify_pack_cmd(
         None, "--trust-policy-dir",
         help="Directory containing signers.yaml and acceptance.yaml for trust evaluation.",
     ),
+    trust_enforce: bool = typer.Option(
+        False, "--enforce-trust-gate",
+        help=(
+            "Promote trust evaluation to a hard gate for ci_gate. "
+            "Exit 1 only when ALL four conditions hold: "
+            "(1) this flag is set, "
+            "(2) --trust-target is ci_gate, "
+            "(3) policy loaded without errors, "
+            "(4) acceptance decision is explicitly 'reject'. "
+            "Any other state (warn, accept, not_evaluated, load error, other target) "
+            "remains advisory."
+        ),
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Verify a Proof Pack's integrity (manifest, signatures, file hashes).
@@ -2761,6 +2774,21 @@ def verify_pack_cmd(
             target=trust_target,
         )
 
+    # --- Trust gate enforcement (opt-in, ci_gate only) ---
+    # Enforce only when: flag set + target is ci_gate + policy loaded cleanly + explicit reject.
+    # Any load error, warn, accept, or not_evaluated → remain advisory.
+    trust_gate_failed = False
+    if (
+        trust_enforce
+        and trust_target == "ci_gate"
+        and not trust_load_errors
+        and trust_eval is not None
+        and trust_eval.acceptance.decision == "reject"
+    ):
+        trust_gate_failed = True
+        if overall_status == "ok":
+            overall_status = "trust_gate_rejected"
+
     # --- Artifact generation (does not affect exit codes) ---
     _artifact_paths: Dict[str, str] = {}
     if html_out or badge_out:
@@ -2843,6 +2871,8 @@ def verify_pack_cmd(
             if trust_load_errors:
                 _trust_out["load_errors"] = trust_load_errors
             out["trust"] = _trust_out
+        if trust_gate_failed:
+            out["trust_gate"] = "rejected_by_trust_policy"
         _output_json(out)
 
     # Print artifact paths in terminal mode
@@ -2964,13 +2994,23 @@ def verify_pack_cmd(
         if _te.acceptance.reason_codes:
             console.print(f"    accept reasons: {', '.join(_te.acceptance.reason_codes)}")
 
+    if trust_gate_failed and not output_json:
+        console.print()
+        console.print(Panel.fit(
+            f"[bold red]TRUST GATE REJECTED[/]\n\n"
+            f"Pack ID:    {att.get('pack_id')}\n"
+            f"Target:     ci_gate\n"
+            f"Rationale:  {trust_eval.acceptance.rationale}",
+            title="assay verify-pack",
+        ))
+
     if result.warnings:
         for w in result.warnings:
             console.print(f"  [yellow]Warning:[/] {w}")
 
     console.print()
 
-    if result.passed and not claim_gate_failed and not coverage_failed and not expiry_failed and not lock:
+    if result.passed and not claim_gate_failed and not coverage_failed and not expiry_failed and not lock and not trust_gate_failed:
         console.print("Next: [bold]assay lock init[/]")
         console.print()
 
@@ -2981,6 +3021,8 @@ def verify_pack_cmd(
     if expiry_failed:
         raise typer.Exit(1)
     if coverage_failed:
+        raise typer.Exit(1)
+    if trust_gate_failed:
         raise typer.Exit(1)
 
 

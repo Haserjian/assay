@@ -175,6 +175,145 @@ class TestTrustExitCodeUnchanged:
         assert data["trust"]["acceptance"]["decision"] == "reject"
 
 
+class TestTrustGateEnforcement:
+    """Invariants for --enforce-trust-gate opt-in enforcement.
+
+    Enforcement fires ONLY when ALL conditions hold:
+      - --enforce-trust-gate flag set
+      - --trust-target is "ci_gate" (not local_verify, publication)
+      - trust policy loaded cleanly (no load errors)
+      - acceptance decision is explicitly "reject"
+
+    Any other combination must remain advisory (exit 0).
+    """
+
+    def test_enforce_exits_1_on_ci_gate_reject(self, assay_home_tmp, tmp_path):
+        """Core invariant: clean reject + ci_gate + flag → exit 1."""
+        ks = AssayKeyStore(keys_dir=assay_home_tmp / "keys")
+        pack_dir = _build_pack(tmp_path, ks, signer_id="unknown-signer")
+        policy_dir = _make_policy_dir(tmp_path, ks, signer_id="test-signer")
+
+        result = runner.invoke(assay_app, [
+            "verify-pack", str(pack_dir), "--json",
+            "--trust-target", "ci_gate",
+            "--trust-policy-dir", str(policy_dir),
+            "--enforce-trust-gate",
+        ])
+        assert result.exit_code == 1
+        data = json.loads(result.output)
+        assert data["status"] == "trust_gate_rejected"
+        assert data["trust"]["acceptance"]["decision"] == "reject"
+        assert data["trust_gate"] == "rejected_by_trust_policy"
+
+    def test_no_enforce_flag_remains_advisory(self, assay_home_tmp, tmp_path):
+        """Without flag, even a clean reject stays advisory (exit 0)."""
+        ks = AssayKeyStore(keys_dir=assay_home_tmp / "keys")
+        pack_dir = _build_pack(tmp_path, ks, signer_id="unknown-signer")
+        policy_dir = _make_policy_dir(tmp_path, ks, signer_id="test-signer")
+
+        result = runner.invoke(assay_app, [
+            "verify-pack", str(pack_dir), "--json",
+            "--trust-target", "ci_gate",
+            "--trust-policy-dir", str(policy_dir),
+        ])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["status"] == "ok"
+        assert "trust_gate" not in data
+
+    def test_enforce_with_non_ci_gate_target_remains_advisory(self, assay_home_tmp, tmp_path):
+        """Flag has no effect for local_verify even if policy rejects."""
+        ks = AssayKeyStore(keys_dir=assay_home_tmp / "keys")
+        pack_dir = _build_pack(tmp_path, ks, signer_id="unknown-signer")
+        policy_dir = _make_policy_dir(tmp_path, ks, signer_id="test-signer")
+
+        result = runner.invoke(assay_app, [
+            "verify-pack", str(pack_dir), "--json",
+            "--trust-target", "local_verify",
+            "--trust-policy-dir", str(policy_dir),
+            "--enforce-trust-gate",
+        ])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "trust_gate" not in data
+
+    def test_enforce_with_load_errors_remains_advisory(self, assay_home_tmp, tmp_path):
+        """Policy load error → enforcement bypassed (advisory only)."""
+        ks = AssayKeyStore(keys_dir=assay_home_tmp / "keys")
+        pack_dir = _build_pack(tmp_path, ks)
+
+        policy_dir = tmp_path / "broken_trust"
+        policy_dir.mkdir()
+        (policy_dir / "signers.yaml").write_text("not: [valid: yaml: {{{")
+
+        result = runner.invoke(assay_app, [
+            "verify-pack", str(pack_dir), "--json",
+            "--trust-target", "ci_gate",
+            "--trust-policy-dir", str(policy_dir),
+            "--enforce-trust-gate",
+        ])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "trust_gate" not in data
+
+    def test_enforce_accept_remains_exit_0(self, assay_home_tmp, tmp_path):
+        """When trust accepts, --enforce-trust-gate has no effect."""
+        ks = AssayKeyStore(keys_dir=assay_home_tmp / "keys")
+        pack_dir = _build_pack(tmp_path, ks, signer_id="test-signer")
+        policy_dir = _make_policy_dir(tmp_path, ks, signer_id="test-signer")
+
+        # Overwrite acceptance to accept everything for ci_gate
+        import yaml
+        acceptance = {
+            "rules": [
+                {"artifact_class": "*", "verification_level": "*",
+                 "authorization_status": "*", "target": "ci_gate", "decision": "accept",
+                 "reason": "ALL_OK"},
+            ]
+        }
+        (policy_dir / "acceptance.yaml").write_text(yaml.dump(acceptance))
+
+        result = runner.invoke(assay_app, [
+            "verify-pack", str(pack_dir), "--json",
+            "--trust-target", "ci_gate",
+            "--trust-policy-dir", str(policy_dir),
+            "--enforce-trust-gate",
+        ])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "trust_gate" not in data
+
+    def test_enforce_human_output_shows_rejection_panel(self, assay_home_tmp, tmp_path):
+        """Terminal output must show TRUST GATE REJECTED panel when enforced."""
+        ks = AssayKeyStore(keys_dir=assay_home_tmp / "keys")
+        pack_dir = _build_pack(tmp_path, ks, signer_id="unknown-signer")
+        policy_dir = _make_policy_dir(tmp_path, ks, signer_id="test-signer")
+
+        result = runner.invoke(assay_app, [
+            "verify-pack", str(pack_dir),
+            "--trust-target", "ci_gate",
+            "--trust-policy-dir", str(policy_dir),
+            "--enforce-trust-gate",
+        ])
+        assert result.exit_code == 1
+        assert "TRUST GATE REJECTED" in result.output
+
+    def test_enforce_not_evaluated_remains_advisory(self, assay_home_tmp, tmp_path):
+        """not_evaluated (no policy dir) → enforcement bypassed even with flag."""
+        ks = AssayKeyStore(keys_dir=assay_home_tmp / "keys")
+        pack_dir = _build_pack(tmp_path, ks)
+
+        result = runner.invoke(assay_app, [
+            "verify-pack", str(pack_dir), "--json",
+            "--trust-target", "ci_gate",
+            "--enforce-trust-gate",
+        ])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["trust"]["acceptance"]["decision"] == "not_evaluated"
+        assert "trust_gate" not in data
+
+
 class TestTrustHumanOutput:
     def test_human_output_includes_trust_section(self, assay_home_tmp, tmp_path):
         ks = AssayKeyStore(keys_dir=assay_home_tmp / "keys")
