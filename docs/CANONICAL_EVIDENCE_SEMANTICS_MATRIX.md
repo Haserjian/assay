@@ -1,6 +1,6 @@
 # Canonical Evidence Semantics Matrix
 
-**Status**: Governing crosswalk for evidence vocabulary across Assay, CCIO, Loom, and AgentMesh.
+**Status**: Provisional copy. Canonical ownership belongs in CCIO (`ccio/docs/architecture/`) as cross-repo constitutional law. This Assay copy is a working reference until the canonical source is established.
 **Purpose**: Pin the meanings so they do not drift between layers, repos, or surfaces.
 **Rule**: When terms from different layers seem equivalent, this matrix says whether they are.
 
