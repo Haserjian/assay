@@ -20,6 +20,8 @@ import base64
 import hashlib
 import json
 import os
+import shutil
+import tempfile
 import uuid
 import warnings
 from datetime import datetime, timezone
@@ -372,7 +374,35 @@ class ProofPack:
         """
         ks = keystore or get_default_keystore()
         output_dir = Path(output_dir)
-        output_dir.mkdir(parents=True, exist_ok=True)
+        if output_dir.exists():
+            raise FileExistsError(
+                f"Pack output directory already exists: {output_dir}. "
+                f"Remove it first or use a fresh path."
+            )
+        output_dir.parent.mkdir(parents=True, exist_ok=True)
+        # Stage in a temp directory; publish atomically via rename.
+        staging_dir = Path(tempfile.mkdtemp(
+            dir=output_dir.parent, prefix=".assay_pack_staging_",
+        ))
+        try:
+            return self._build_into(
+                staging_dir, output_dir, ks,
+                pack_id=pack_id, deterministic_ts=deterministic_ts,
+            )
+        except BaseException:
+            shutil.rmtree(staging_dir, ignore_errors=True)
+            raise
+
+    def _build_into(
+        self,
+        staging_dir: Path,
+        output_dir: Path,
+        ks: AssayKeyStore,
+        *,
+        pack_id: Optional[str],
+        deterministic_ts: Optional[str],
+    ) -> Path:
+        """Build pack files into staging_dir, then publish to output_dir."""
         build_ts = deterministic_ts or datetime.now(timezone.utc).isoformat()
         resolved_ci_binding = self.ci_binding if self.ci_binding is not None else detect_ci_binding()
 
@@ -408,7 +438,7 @@ class ProofPack:
                 else None
             )
             pack_id = _generate_pack_id(deterministic_seed=seed)
-        (output_dir / "receipt_pack.jsonl").write_bytes(receipt_pack_bytes)
+        (staging_dir / "receipt_pack.jsonl").write_bytes(receipt_pack_bytes)
 
         # 2. Verify receipts (structural integrity)
         verify_result = verify_receipt_pack(sorted_entries)
@@ -432,7 +462,7 @@ class ProofPack:
         if claim_result is not None:
             report["claim_verification"] = claim_result.to_dict()
         report_bytes = json.dumps(report, indent=2).encode("utf-8")
-        (output_dir / "verify_report.json").write_bytes(report_bytes)
+        (staging_dir / "verify_report.json").write_bytes(report_bytes)
 
         # 4. Build attestation object
         timestamps: List[str] = []
@@ -489,7 +519,7 @@ class ProofPack:
             generated_at=build_ts,
         )
         transcript_bytes = transcript.encode("utf-8")
-        (output_dir / "verify_transcript.md").write_bytes(transcript_bytes)
+        (staging_dir / "verify_transcript.md").write_bytes(transcript_bytes)
 
         # 6. Build unsigned manifest
         attestation_bytes = to_jcs_bytes(attestation)
@@ -589,17 +619,17 @@ class ProofPack:
         # pack_manifest.json is stored as readable JSON, but the signature
         # covers JCS(unsigned_manifest), not the raw file bytes.
         manifest_bytes = json.dumps(signed_manifest, indent=2).encode("utf-8")
-        (output_dir / "pack_manifest.json").write_bytes(manifest_bytes)
+        (staging_dir / "pack_manifest.json").write_bytes(manifest_bytes)
 
         # 9. Write detached signature
         sig_raw = base64.b64decode(signature_b64)
-        (output_dir / "pack_signature.sig").write_bytes(sig_raw)
+        (staging_dir / "pack_signature.sig").write_bytes(sig_raw)
 
         # 9b. Emit ADC (optional, presentation layer alongside PACK_SUMMARY)
         if self.emit_adc:
             from assay.adc_emitter import build_adc
 
-            unsigned_dir = get_unsigned_sidecar_dir(output_dir)
+            unsigned_dir = get_unsigned_sidecar_dir(staging_dir)
             unsigned_dir.mkdir(parents=True, exist_ok=True)
             ns = self.claim_namespace
             if ns is None:
@@ -632,7 +662,7 @@ class ProofPack:
                 sign_fn=lambda data: ks.sign_b64(data, self.signer_id),
             )
             adc_bytes = json.dumps(adc, indent=2).encode("utf-8")
-            get_decision_credential_path(output_dir, legacy_fallback=False).write_bytes(adc_bytes)
+            get_decision_credential_path(staging_dir, legacy_fallback=False).write_bytes(adc_bytes)
 
         # 10. Write PACK_SUMMARY.md (presentation layer, not part of
         # the 5-file verification kernel). Safe to import here since
@@ -640,14 +670,16 @@ class ProofPack:
         try:
             from assay.explain import explain_pack, render_md
 
-            unsigned_dir = get_unsigned_sidecar_dir(output_dir)
+            unsigned_dir = get_unsigned_sidecar_dir(staging_dir)
             unsigned_dir.mkdir(parents=True, exist_ok=True)
-            info = explain_pack(output_dir)
+            info = explain_pack(staging_dir)
             summary = render_md(info)
-            get_pack_summary_path(output_dir, legacy_fallback=False).write_text(summary, encoding="utf-8")
+            get_pack_summary_path(staging_dir, legacy_fallback=False).write_text(summary, encoding="utf-8")
         except Exception as exc:
             warnings.warn(f"PACK_SUMMARY generation failed: {exc}", stacklevel=2)
 
+        # 11. Atomic publication: rename staging dir to final output_dir.
+        os.rename(str(staging_dir), str(output_dir))
         return output_dir
 
 

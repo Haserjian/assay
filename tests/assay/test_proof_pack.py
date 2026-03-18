@@ -1665,3 +1665,69 @@ class TestSchemaEnforcement:
 
         with pytest.raises(FileNotFoundError, match="Schema files not found"):
             ms.validate_attestation({"pack_id": "test"})
+
+
+# ---------------------------------------------------------------------------
+# Atomic pack publication (Phase 2 hardening)
+# ---------------------------------------------------------------------------
+
+class TestAtomicPackPublication:
+    """Pack build must not leave partial directories on failure."""
+
+    def test_no_partial_pack_on_build_error(self, tmp_path):
+        """If signing fails, no pack directory should exist at output_dir."""
+        from assay.keystore import AssayKeyStore
+
+        ks = AssayKeyStore(keys_dir=tmp_path / "keys")
+        pack = ProofPack(
+            run_id="atomic-test",
+            entries=[_make_receipt()],
+            signer_id="atomic-tester",
+        )
+        output_dir = tmp_path / "should_not_exist"
+
+        # Sabotage: make ensure_key succeed but sign_b64 fail
+        ks.ensure_key("atomic-tester")
+        original_sign = ks.sign_b64
+        def broken_sign(data, signer_id="assay-local"):
+            raise RuntimeError("simulated signing failure")
+        ks.sign_b64 = broken_sign
+
+        with pytest.raises(RuntimeError, match="simulated signing failure"):
+            pack.build(output_dir, keystore=ks)
+
+        # The output_dir must not exist after a failed build
+        assert not output_dir.exists(), "partial pack directory was left behind"
+
+    def test_rejects_existing_output_dir(self, tmp_path):
+        """build() must refuse to publish into a pre-existing directory."""
+        from assay.keystore import AssayKeyStore
+
+        ks = AssayKeyStore(keys_dir=tmp_path / "keys")
+        pack = ProofPack(
+            run_id="exists-test",
+            entries=[_make_receipt()],
+            signer_id="exists-tester",
+        )
+        output_dir = tmp_path / "already_here"
+        output_dir.mkdir()
+
+        with pytest.raises(FileExistsError, match="already exists"):
+            pack.build(output_dir, keystore=ks)
+
+    def test_successful_build_produces_complete_pack(self, tmp_path):
+        """Normal build still works and produces all 5 kernel files."""
+        from assay.keystore import AssayKeyStore
+
+        ks = AssayKeyStore(keys_dir=tmp_path / "keys")
+        pack = ProofPack(
+            run_id="atomic-test",
+            entries=[_make_receipt()],
+            signer_id="atomic-tester",
+        )
+        output_dir = pack.build(tmp_path / "pack", keystore=ks)
+        assert output_dir.exists()
+        for name in ["receipt_pack.jsonl", "verify_report.json",
+                     "verify_transcript.md", "pack_manifest.json",
+                     "pack_signature.sig"]:
+            assert (output_dir / name).exists(), f"missing {name}"
