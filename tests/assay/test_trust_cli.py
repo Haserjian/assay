@@ -272,6 +272,32 @@ class TestTrustPolicyLoadErrors:
         assert "Trust policy load error" in result.output
 
 
+    def test_partial_config_valid_registry_malformed_acceptance(self, assay_home_tmp, tmp_path):
+        """Valid signers + malformed acceptance: auth computed, acceptance not_evaluated."""
+        ks = AssayKeyStore(keys_dir=assay_home_tmp / "keys")
+        pack_dir = _build_pack(tmp_path, ks)
+        policy_dir = _make_policy_dir(tmp_path, ks)
+
+        # Break the acceptance file
+        (policy_dir / "acceptance.yaml").write_text("rules: not_a_list")
+
+        result = runner.invoke(assay_app, [
+            "verify-pack", str(pack_dir), "--json",
+            "--trust-target", "local_verify",
+            "--trust-policy-dir", str(policy_dir),
+        ])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        trust = data["trust"]
+        # Registry loaded fine → authorization should be computed
+        assert trust["authorization"]["status"] == "authorized"
+        # Acceptance failed to load → not_evaluated
+        assert trust["acceptance"]["decision"] == "not_evaluated"
+        # Load error surfaced
+        assert "load_errors" in trust
+        assert any("acceptance.yaml" in e for e in trust["load_errors"])
+
+
 class TestTrustSerialization:
     def test_trust_evaluation_roundtrips_json(self, assay_home_tmp, tmp_path):
         ks = AssayKeyStore(keys_dir=assay_home_tmp / "keys")

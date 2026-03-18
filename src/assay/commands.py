@@ -2731,7 +2731,7 @@ def verify_pack_cmd(
 
     # --- Trust evaluation (advisory only — does not affect exit codes) ---
     trust_eval = None
-    trust_load_errors: list = []
+    trust_load_errors: list[str] = []
     if trust_target:
         from assay.trust.evaluator import evaluate_trust
         from assay.trust.registry import load_registry as _load_registry
