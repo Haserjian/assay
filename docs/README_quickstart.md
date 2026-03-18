@@ -124,7 +124,7 @@ These are deliberately independent. Four outcomes:
 
 | Integrity | Claims | Exit Code | Meaning |
 |-----------|--------|-----------|---------|
-| PASS | PASS | 0 | Evidence checks out, behavior meets standards |
+| PASS | PASS | 0 | Evidence checks out, declared standards pass |
 | PASS | FAIL | 1 | **Honest failure**: authentic evidence proving the run violated standards |
 | FAIL | -- | 2 | Evidence has been tampered with |
 | PASS | SKIPPED | 0 | Evidence is authentic, no behavioral checks declared |

@@ -103,7 +103,7 @@
 4. Old keys remain valid for verifying historical packs
 
 ### Responding to gate failures
-- **Exit 0**: All good. Evidence checks out, behavior meets standards.
+- **Exit 0**: All good. Evidence checks out, declared standards pass.
 - **Exit 1**: Honest failure. Evidence is authentic but standards are violated. Investigate the claims that failed: `assay explain ./proof_pack_*/`
 - **Exit 2**: Tampering detected. Evidence integrity broken. This is serious -- investigate the build environment.
 - **Exit 3**: Bad input. Check arguments, file paths, lockfile format.

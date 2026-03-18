@@ -71,7 +71,7 @@ offline with `python3 -m pip install assay-ai && assay verify-pack ./proof_pack_
 - **Integrity**: evidence was not altered after creation (Ed25519 + SHA-256)
 - **Completeness**: all instrumented call sites emitted receipts (coverage contract)
 - **Claim compliance**: declared governance checks passed or failed honestly
-- **Budget compliance**: cost, latency, and error thresholds are within bounds (gates)
+- **Budget enforcement**: cost, latency, and error thresholds can be gated in CI/settlement workflows
 
 ## What Assay Does Not Prove
 

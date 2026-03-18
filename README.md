@@ -148,7 +148,7 @@ Assay separates two questions on purpose:
 
 | Integrity | Claims | Exit | Meaning |
 |-----------|--------|------|---------|
-| PASS | PASS | 0 | Evidence checks out, behavior meets standards |
+| PASS | PASS | 0 | Evidence checks out, declared standards pass |
 | PASS | FAIL | 1 | Honest failure: authentic evidence of a standards violation |
 | FAIL | -- | 2 | Tampered evidence |
 | -- | -- | 3 | Bad input (missing files, invalid arguments) |
