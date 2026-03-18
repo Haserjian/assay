@@ -291,3 +291,52 @@ class TestVerifierIOResilience:
         assert not result.passed
         tamper_codes = [e.code for e in result.errors]
         assert E_MANIFEST_TAMPER in tamper_codes
+
+
+# ---------------------------------------------------------------------------
+# Path containment enforcement
+# ---------------------------------------------------------------------------
+
+class TestPathContainment:
+    """Manifest-listed paths must resolve under pack_dir."""
+
+    def test_containment_rejects_traversal(self, tmp_path):
+        """_check_containment rejects paths that escape pack_dir."""
+        from assay.integrity import _check_containment
+        pack_dir = tmp_path / "pack"
+        pack_dir.mkdir()
+        assert not _check_containment(pack_dir / ".." / "evil.txt", pack_dir)
+        assert not _check_containment(pack_dir / ".." / ".." / "etc" / "passwd", pack_dir)
+
+    def test_containment_accepts_normal_paths(self, tmp_path):
+        """_check_containment accepts paths under pack_dir."""
+        from assay.integrity import _check_containment
+        pack_dir = tmp_path / "pack"
+        pack_dir.mkdir()
+        assert _check_containment(pack_dir / "receipt_pack.jsonl", pack_dir)
+        assert _check_containment(pack_dir / "_unsigned" / "PACK_SUMMARY.md", pack_dir)
+
+    def test_containment_rejects_symlink_escape(self, tmp_path):
+        """A symlink that resolves outside pack_dir must fail containment."""
+        from assay.integrity import _check_containment
+        pack_dir = tmp_path / "pack"
+        pack_dir.mkdir()
+        outside = tmp_path / "outside.txt"
+        outside.write_text("secret")
+        link = pack_dir / "sneaky.txt"
+        link.symlink_to(outside)
+        assert not _check_containment(link, pack_dir)
+
+    def test_verifier_rejects_traversal_path(self, tmp_path):
+        """verify_pack_manifest rejects a manifest with traversal paths."""
+        ks = AssayKeyStore(keys_dir=tmp_path / "keys")
+        pack = ProofPack(run_id="escape-test", entries=[_make_receipt()],
+                         signer_id="escape-tester")
+        pack_dir = pack.build(tmp_path / "pack", keystore=ks)
+        manifest = json.loads((pack_dir / "pack_manifest.json").read_text())
+
+        # Inject traversal path (schema validation may catch this first,
+        # which is also a valid rejection — defense in depth)
+        manifest["files"].append({"path": "../../etc/passwd", "sha256": "a" * 64})
+        result = verify_pack_manifest(manifest, pack_dir, ks)
+        assert not result.passed

@@ -28,6 +28,7 @@ E_DUPLICATE_ID = "E_DUPLICATE_ID"
 E_PACK_STALE = "E_PACK_STALE"
 E_CI_BINDING_MISSING = "E_CI_BINDING_MISSING"
 E_CI_BINDING_MISMATCH = "E_CI_BINDING_MISMATCH"
+E_PATH_ESCAPE = "E_PATH_ESCAPE"
 
 
 @dataclass
@@ -92,77 +93,47 @@ def _parse_timestamp(ts: str) -> Optional[datetime]:
         return None
 
 
+def _check_containment(file_path: Path, pack_dir: Path) -> bool:
+    """Return True if file_path resolves to a location under pack_dir."""
+    try:
+        file_path.resolve().relative_to(pack_dir.resolve())
+        return True
+    except ValueError:
+        return False
+
+
 REQUIRED_RECEIPT_FIELDS = ("receipt_id", "type", "timestamp")
 
 
 def verify_receipt(
-    receipt: Dict[str, Any],
-    *,
-    index: Optional[int] = None,
-    strict: bool = False,
+    receipt: Dict[str, Any], *, index: Optional[int] = None, strict: bool = False,
 ) -> List[VerifyError]:
-    """Verify a single receipt's integrity.
-
-    Checks (always):
-      - Required fields present (receipt_id, type, timestamp)
-      - Timestamp is valid ISO 8601
-      - JCS canonicalization is stable (round-trip)
-
-    Checks (strict=True only):
-      - schema_version present
-      - policy_hash or governance_hash present (E_POLICY_MISSING)
-      - Receipt-level signature or payload_hash present (E_SIG_MISSING)
-    """
+    """Verify a single receipt's integrity (fields, timestamp, JCS stability)."""
     errors: List[VerifyError] = []
 
-    # Required fields
     for f in REQUIRED_RECEIPT_FIELDS:
         if not receipt.get(f):
-            errors.append(VerifyError(
-                code=E_SCHEMA_UNKNOWN,
-                message=f"Missing required field: {f}",
-                receipt_index=index,
-                field=f,
-            ))
+            errors.append(VerifyError(code=E_SCHEMA_UNKNOWN,
+                message=f"Missing required field: {f}", receipt_index=index, field=f))
 
-    # Timestamp validity
     ts = receipt.get("timestamp")
-    if ts is not None:
-        if _parse_timestamp(str(ts)) is None:
-            errors.append(VerifyError(
-                code=E_TIMESTAMP_INVALID,
-                message=f"Invalid timestamp: {ts}",
-                receipt_index=index,
-                field="timestamp",
-            ))
+    if ts is not None and _parse_timestamp(str(ts)) is None:
+        errors.append(VerifyError(code=E_TIMESTAMP_INVALID,
+            message=f"Invalid timestamp: {ts}", receipt_index=index, field="timestamp"))
 
-    # Strict-mode checks
     if strict:
         if not receipt.get("schema_version"):
-            errors.append(VerifyError(
-                code=E_SCHEMA_UNKNOWN,
+            errors.append(VerifyError(code=E_SCHEMA_UNKNOWN,
                 message="Missing schema_version (required in strict mode)",
-                receipt_index=index,
-                field="schema_version",
-            ))
-
-        has_policy = receipt.get("policy_hash") or receipt.get("governance_hash")
-        if not has_policy:
-            errors.append(VerifyError(
-                code=E_POLICY_MISSING,
+                receipt_index=index, field="schema_version"))
+        if not (receipt.get("policy_hash") or receipt.get("governance_hash")):
+            errors.append(VerifyError(code=E_POLICY_MISSING,
                 message="Missing policy_hash or governance_hash",
-                receipt_index=index,
-                field="policy_hash",
-            ))
-
-        has_sig = receipt.get("signature") or receipt.get("payload_hash")
-        if not has_sig:
-            errors.append(VerifyError(
-                code=E_SIG_MISSING,
+                receipt_index=index, field="policy_hash"))
+        if not (receipt.get("signature") or receipt.get("payload_hash")):
+            errors.append(VerifyError(code=E_SIG_MISSING,
                 message="Missing receipt-level signature or payload_hash",
-                receipt_index=index,
-                field="signature",
-            ))
+                receipt_index=index, field="signature"))
 
     # Canonicalization stability
     try:
@@ -277,6 +248,11 @@ def verify_pack_manifest(
     files_list = manifest.get("files", [])
     for file_entry in files_list:
         file_path = pack_dir / file_entry["path"]
+        if not _check_containment(file_path, pack_dir):
+            errors.append(VerifyError(
+                code=E_PATH_ESCAPE, message=f"Path escapes pack directory: {file_entry['path']}",
+                field=file_entry["path"]))
+            continue
         expected_hash = file_entry.get("sha256")
         expected_bytes = file_entry.get("bytes")
 
@@ -315,6 +291,10 @@ def verify_pack_manifest(
 
     # 1b. Verify expected files completeness
     for name in manifest.get("expected_files") or []:
+        if not _check_containment(pack_dir / name, pack_dir):
+            errors.append(VerifyError(code=E_PATH_ESCAPE,
+                message=f"Expected file path escapes pack directory: {name}", field=name))
+            continue
         if not (pack_dir / name).exists() and not any(e.field == name for e in errors):
             errors.append(VerifyError(
                 code=E_MANIFEST_TAMPER,
@@ -588,6 +568,7 @@ __all__ = [
     "E_PACK_STALE",
     "E_CI_BINDING_MISSING",
     "E_CI_BINDING_MISMATCH",
+    "E_PATH_ESCAPE",
     "VerifyError",
     "VerifyResult",
     "verify_receipt",
