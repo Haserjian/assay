@@ -118,6 +118,13 @@ def authorize_signer(
         fingerprint=facts.signer_fingerprint,
     )
 
+    # Detect legacy signer-ID-only fallback (fingerprint absent)
+    used_id_fallback = (
+        entry is not None
+        and not facts.signer_fingerprint
+        and facts.signer_id is not None
+    )
+
     if entry is None:
         return AuthorizationDecision(
             subject_signer_id=facts.signer_id,
@@ -147,6 +154,8 @@ def authorize_signer(
                 "purpose": grant.purpose,
             })
 
+    _fallback_codes = ["AUTHZ.LEGACY_ID_FALLBACK_USED"] if used_id_fallback else []
+
     if matched:
         return AuthorizationDecision(
             subject_signer_id=entry.signer_id,
@@ -154,6 +163,7 @@ def authorize_signer(
             status="authorized",
             lifecycle_state=entry.lifecycle,
             matched_grants=matched,
+            reason_codes=_fallback_codes,
         )
 
     return AuthorizationDecision(
@@ -161,7 +171,7 @@ def authorize_signer(
         subject_fingerprint=entry.fingerprint,
         status="recognized",
         lifecycle_state=entry.lifecycle,
-        reason_codes=["NO_MATCHING_GRANT"],
+        reason_codes=["NO_MATCHING_GRANT"] + _fallback_codes,
     )
 
 

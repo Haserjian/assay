@@ -2498,6 +2498,14 @@ def verify_pack_cmd(
         None, "--badge",
         help="Write an SVG verification badge to this path.",
     ),
+    trust_target: Optional[str] = typer.Option(
+        None, "--trust-target",
+        help="Evaluate trust acceptance for this target (local_verify, ci_gate, publication). Advisory only.",
+    ),
+    trust_policy_dir: Optional[str] = typer.Option(
+        None, "--trust-policy-dir",
+        help="Directory containing signers.yaml and acceptance.yaml for trust evaluation.",
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Verify a Proof Pack's integrity (manifest, signatures, file hashes).
@@ -2721,6 +2729,37 @@ def verify_pack_cmd(
     elif witness_failed:
         overall_status = "witness_failed"
 
+    # --- Trust evaluation (advisory only — does not affect exit codes) ---
+    trust_eval = None
+    if trust_target:
+        from assay.trust.evaluator import evaluate_trust
+        from assay.trust.registry import load_registry as _load_registry
+        from assay.trust.acceptance import load_acceptance as _load_acceptance
+
+        _registry = None
+        _acceptance = None
+        if trust_policy_dir:
+            _policy_path = Path(trust_policy_dir)
+            _signers_path = _policy_path / "signers.yaml"
+            _acceptance_path = _policy_path / "acceptance.yaml"
+            try:
+                if _signers_path.exists():
+                    _registry = _load_registry(_signers_path)
+            except Exception:
+                pass
+            try:
+                if _acceptance_path.exists():
+                    _acceptance = _load_acceptance(_acceptance_path)
+            except Exception:
+                pass
+
+        trust_eval = evaluate_trust(
+            result, manifest,
+            registry=_registry,
+            acceptance_policy=_acceptance,
+            target=trust_target,
+        )
+
     # --- Artifact generation (does not affect exit codes) ---
     _artifact_paths: Dict[str, str] = {}
     if html_out or badge_out:
@@ -2798,6 +2837,8 @@ def verify_pack_cmd(
             out["witness_sufficiency"] = witness_sufficiency
         if _artifact_paths:
             out["artifacts"] = _artifact_paths
+        if trust_eval is not None:
+            out["trust"] = trust_eval.to_dict()
         _output_json(out)
 
     # Print artifact paths in terminal mode
@@ -2900,6 +2941,20 @@ def verify_pack_cmd(
         ))
         for err in result.errors:
             console.print(f"  [red]{err.code}[/]: {err.message}")
+
+    if trust_eval is not None and not output_json:
+        _te = trust_eval
+        _auth_style = {"authorized": "green", "recognized": "yellow",
+                       "unrecognized": "red", "revoked": "red"}.get(_te.authorization.status, "dim")
+        _acc_style = {"accept": "green", "warn": "yellow",
+                      "reject": "red"}.get(_te.acceptance.decision, "dim")
+        console.print(f"\n  Trust evaluation ({_te.acceptance.target}):")
+        console.print(f"    authorization: [{_auth_style}]{_te.authorization.status}[/{_auth_style}]")
+        console.print(f"    acceptance:    [{_acc_style}]{_te.acceptance.decision}[/{_acc_style}]")
+        if _te.authorization.reason_codes:
+            console.print(f"    auth reasons:  {', '.join(_te.authorization.reason_codes)}")
+        if _te.acceptance.reason_codes:
+            console.print(f"    accept reasons: {', '.join(_te.acceptance.reason_codes)}")
 
     if result.warnings:
         for w in result.warnings:
