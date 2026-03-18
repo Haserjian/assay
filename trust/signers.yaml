@@ -1,19 +1,21 @@
 # Signer Registry — Assay Trust Policy
 #
 # Each signer entry defines:
-#   - identity (signer_id + key fingerprint)
+#   - identity (signer_id + key fingerprint — must be exact, no wildcards)
 #   - lifecycle state (active, rotated, revoked)
 #   - grants (what artifact classes/purposes this signer may produce)
+#
+# Fingerprint must be the SHA-256 hex of the signer's Ed25519 public key.
+# Run `assay key info --json` to get the fingerprint for a local signer.
 #
 # Policy data, not library code. Lives at repo root, not under src/.
 # See docs/TRUST_POLICY_CONSTITUTION.md for the governing model.
 
-signers:
-  - signer_id: assay-local
-    fingerprint: "*"  # matches any local key (development default)
-    lifecycle: active
-    grants:
-      - artifact_class: proof_pack
-        scope: "*"
-        purpose: "*"
-    notes: "Default local development signer. Wildcard fingerprint for any local key."
+signers: []
+# Example:
+#   - signer_id: ci-signer
+#     fingerprint: "abcdef0123456789..."  # SHA-256 of Ed25519 pubkey
+#     lifecycle: active
+#     grants:
+#       - artifact_class: proof_pack
+#         purpose: ci_attestation

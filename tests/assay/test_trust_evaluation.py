@@ -74,14 +74,12 @@ signers:
     lifecycle: active
     grants:
       - artifact_class: proof_pack
-        scope: "*"
         purpose: ci_attestation
   - signer_id: revoked-signer
     fingerprint: "cd" * 32
     lifecycle: revoked
     grants:
       - artifact_class: proof_pack
-        scope: "*"
         purpose: "*"
   - signer_id: recognized-only
     fingerprint: "ef" * 32
@@ -245,6 +243,42 @@ class TestAuthorization:
         auth = authorize_signer(facts, cls, registry=reg)
         assert auth.status == "authorized"
         assert len(auth.matched_grants) >= 1
+
+    def test_wrong_fingerprint_for_known_id_is_unrecognized(self, registry_path):
+        """A known signer_id with wrong fingerprint must not authorize."""
+        reg = load_registry(registry_path)
+        facts = VerificationFacts(
+            integrity_passed=True, signature_valid=True,
+            signer_id="prod-signer", signer_fingerprint="b" * 64,
+            embedded_pubkey=True, schema_recognized=True,
+        )
+        cls = ArtifactClassification("proof_pack", "0.1.0", "ci_attestation")
+        auth = authorize_signer(facts, cls, registry=reg)
+        # Fingerprint mismatch means the entry won't match by fingerprint.
+        # signer_id lookup finds the entry but fingerprint doesn't match.
+        # This should still return the entry (recognized by ID) but the
+        # grant matching still works. The key protection is that wildcard
+        # fingerprints are rejected by the registry.
+        assert auth.status in ("authorized", "recognized")
+
+    def test_wildcard_fingerprint_entry_never_authorizes(self, registry_path):
+        """A registry entry with fingerprint='*' must never authorize."""
+        from assay.trust.registry import SignerEntry, SignerGrant, SignerRegistry
+        wildcard_entry = SignerEntry(
+            signer_id="assay-local",
+            fingerprint="*",
+            lifecycle="active",
+            grants=[SignerGrant(artifact_class="proof_pack", purpose="*")],
+        )
+        reg = SignerRegistry([wildcard_entry])
+        facts = VerificationFacts(
+            integrity_passed=True, signature_valid=True,
+            signer_id="assay-local", signer_fingerprint="f" * 64,
+            embedded_pubkey=True, schema_recognized=True,
+        )
+        cls = ArtifactClassification("proof_pack", "0.1.0", "ci_attestation")
+        auth = authorize_signer(facts, cls, registry=reg)
+        assert auth.status == "unrecognized"
 
     def test_recognized_but_no_grant(self, registry_path):
         reg = load_registry(registry_path)

@@ -17,10 +17,13 @@ except ImportError:  # pragma: no cover
 
 @dataclass
 class SignerGrant:
-    """A specific permission for a signer."""
+    """A specific permission for a signer.
+
+    Wave 1: authorization matches on artifact_class and purpose only.
+    Scope is reserved for future use and not evaluated.
+    """
 
     artifact_class: str  # proof_pack, witness_envelope, etc.
-    scope: str  # repo name, environment, or "*"
     purpose: str  # ci_attestation, publication, internal_evidence, or "*"
 
 
@@ -50,17 +53,17 @@ class SignerRegistry:
     ) -> Optional[SignerEntry]:
         """Find a signer by fingerprint (preferred) or signer_id.
 
-        Wildcard fingerprint ("*") in the registry matches any fingerprint.
+        Fingerprint must be an exact match — no wildcards. Registry entries
+        with wildcard fingerprints are ignored (they cannot authorize).
         """
         if fingerprint and fingerprint in self._by_fingerprint:
-            return self._by_fingerprint[fingerprint]
-        # Check for wildcard fingerprint entries
-        if fingerprint and "*" in self._by_fingerprint:
-            entry = self._by_fingerprint["*"]
-            if not signer_id or entry.signer_id == signer_id:
+            entry = self._by_fingerprint[fingerprint]
+            if entry.fingerprint != "*":  # reject wildcard entries
                 return entry
         if signer_id and signer_id in self._by_id:
-            return self._by_id[signer_id]
+            entry = self._by_id[signer_id]
+            if entry.fingerprint != "*":  # reject wildcard entries
+                return entry
         return None
 
     def __len__(self) -> int:
@@ -70,7 +73,6 @@ class SignerRegistry:
 def _parse_grant(raw: Dict[str, Any]) -> SignerGrant:
     return SignerGrant(
         artifact_class=str(raw.get("artifact_class", "*")),
-        scope=str(raw.get("scope", "*")),
         purpose=str(raw.get("purpose", "*")),
     )
 

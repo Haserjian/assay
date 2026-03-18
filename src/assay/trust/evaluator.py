@@ -136,7 +136,7 @@ def authorize_signer(
             reason_codes=["SIGNER_REVOKED"],
         )
 
-    # Check grants
+    # Check grants (wave 1: match on artifact_class + purpose only)
     matched: List[Dict[str, Any]] = []
     for grant in entry.grants:
         class_match = grant.artifact_class in (classification.artifact_class, "*")
@@ -144,7 +144,6 @@ def authorize_signer(
         if class_match and purpose_match:
             matched.append({
                 "artifact_class": grant.artifact_class,
-                "scope": grant.scope,
                 "purpose": grant.purpose,
             })
 

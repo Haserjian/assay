@@ -58,7 +58,6 @@ Fields:
 - `signer_id`: extracted signer identifier
 - `signer_fingerprint`: SHA-256 of signer public key
 - `embedded_pubkey`: bool (whether pack carries its own public key)
-- `chain_intact`: bool | None (for chained artifacts)
 - `schema_recognized`: bool
 - `error_codes`: list of verification error codes
 - `warning_codes`: list of verification warnings
@@ -85,6 +84,10 @@ Status semantics:
 - `recognized`: signer is in registry but lacks a grant for this specific use
 - `unrecognized`: signer is not in registry
 - `revoked`: signer is in registry but lifecycle state is revoked
+- `not_evaluated`: no registry was provided (trust policy not loaded)
+
+Wave 1: authorization matches on `artifact_class` and `purpose` only.
+Scope-based grants are reserved for future use.
 
 **Invariant**: recognized does not imply authorized. Authorization requires an
 explicit grant, not just registry presence.
@@ -99,16 +102,16 @@ Determine whether the artifact is acceptable for a specific consumer target.
 **Output**: `AcceptanceDecision`
 
 Fields:
-- `decision`: accept | warn | reject
+- `decision`: accept | warn | reject | not_evaluated
 - `target`: the policy target being evaluated
 - `rationale`: human-readable explanation
 - `reason_codes`: machine-readable list
-- `depends_on`: summary of which facts and auth status drove the decision
 
 Decision semantics:
 - `accept`: target policy satisfied
 - `warn`: usable, but policy deviation exists — must surface reason_codes
 - `reject`: not usable for this target
+- `not_evaluated`: no acceptance policy was provided
 
 **Invariant**: acceptance is always for a named target, never abstract.
 
