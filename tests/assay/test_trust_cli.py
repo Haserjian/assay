@@ -217,6 +217,61 @@ class TestLegacyFallbackTelemetry:
         assert "AUTHZ.LEGACY_ID_FALLBACK_USED" in auth.reason_codes
 
 
+class TestTrustPolicyLoadErrors:
+    def test_malformed_signers_yaml_surfaces_error(self, assay_home_tmp, tmp_path):
+        """Malformed policy file must surface error, not silently not_evaluated."""
+        ks = AssayKeyStore(keys_dir=assay_home_tmp / "keys")
+        pack_dir = _build_pack(tmp_path, ks)
+
+        policy_dir = tmp_path / "bad_trust"
+        policy_dir.mkdir()
+        (policy_dir / "signers.yaml").write_text("not: [valid: yaml: {{{")
+
+        result = runner.invoke(assay_app, [
+            "verify-pack", str(pack_dir), "--json",
+            "--trust-target", "local_verify",
+            "--trust-policy-dir", str(policy_dir),
+        ])
+        assert result.exit_code == 0  # advisory — no exit code change
+        data = json.loads(result.output)
+        assert "trust" in data
+        assert "load_errors" in data["trust"]
+        assert any("signers.yaml" in e for e in data["trust"]["load_errors"])
+
+    def test_missing_policy_dir_gives_not_evaluated(self, assay_home_tmp, tmp_path):
+        """Missing policy dir = not_evaluated (no load_errors)."""
+        ks = AssayKeyStore(keys_dir=assay_home_tmp / "keys")
+        pack_dir = _build_pack(tmp_path, ks)
+
+        result = runner.invoke(assay_app, [
+            "verify-pack", str(pack_dir), "--json",
+            "--trust-target", "ci_gate",
+            "--trust-policy-dir", str(tmp_path / "nonexistent"),
+        ])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        trust = data["trust"]
+        assert trust["authorization"]["status"] == "not_evaluated"
+        assert "load_errors" not in trust
+
+    def test_malformed_policy_human_output_warns(self, assay_home_tmp, tmp_path):
+        """Human output must show trust load error."""
+        ks = AssayKeyStore(keys_dir=assay_home_tmp / "keys")
+        pack_dir = _build_pack(tmp_path, ks)
+
+        policy_dir = tmp_path / "bad_trust2"
+        policy_dir.mkdir()
+        (policy_dir / "acceptance.yaml").write_text("rules: not_a_list")
+
+        result = runner.invoke(assay_app, [
+            "verify-pack", str(pack_dir),
+            "--trust-target", "local_verify",
+            "--trust-policy-dir", str(policy_dir),
+        ])
+        assert result.exit_code == 0
+        assert "Trust policy load error" in result.output
+
+
 class TestTrustSerialization:
     def test_trust_evaluation_roundtrips_json(self, assay_home_tmp, tmp_path):
         ks = AssayKeyStore(keys_dir=assay_home_tmp / "keys")

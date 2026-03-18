@@ -2731,6 +2731,7 @@ def verify_pack_cmd(
 
     # --- Trust evaluation (advisory only — does not affect exit codes) ---
     trust_eval = None
+    trust_load_errors: list = []
     if trust_target:
         from assay.trust.evaluator import evaluate_trust
         from assay.trust.registry import load_registry as _load_registry
@@ -2745,13 +2746,13 @@ def verify_pack_cmd(
             try:
                 if _signers_path.exists():
                     _registry = _load_registry(_signers_path)
-            except Exception:
-                pass
+            except Exception as exc:
+                trust_load_errors.append(f"signers.yaml: {exc}")
             try:
                 if _acceptance_path.exists():
                     _acceptance = _load_acceptance(_acceptance_path)
-            except Exception:
-                pass
+            except Exception as exc:
+                trust_load_errors.append(f"acceptance.yaml: {exc}")
 
         trust_eval = evaluate_trust(
             result, manifest,
@@ -2838,7 +2839,10 @@ def verify_pack_cmd(
         if _artifact_paths:
             out["artifacts"] = _artifact_paths
         if trust_eval is not None:
-            out["trust"] = trust_eval.to_dict()
+            _trust_out = trust_eval.to_dict()
+            if trust_load_errors:
+                _trust_out["load_errors"] = trust_load_errors
+            out["trust"] = _trust_out
         _output_json(out)
 
     # Print artifact paths in terminal mode
@@ -2941,6 +2945,10 @@ def verify_pack_cmd(
         ))
         for err in result.errors:
             console.print(f"  [red]{err.code}[/]: {err.message}")
+
+    if trust_load_errors and not output_json:
+        for _tle in trust_load_errors:
+            console.print(f"  [red]Trust policy load error:[/] {_tle}")
 
     if trust_eval is not None and not output_json:
         _te = trust_eval
