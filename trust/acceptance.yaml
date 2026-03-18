@@ -1,0 +1,90 @@
+# Acceptance Matrix — Assay Trust Policy
+#
+# Maps (artifact_class, verification_level, authorization_status, target)
+# to a decision (accept, warn, reject).
+#
+# Rules are evaluated in order; first match wins.
+# Use "*" for wildcard matching on any dimension.
+#
+# See docs/TRUST_POLICY_CONSTITUTION.md for the governing model.
+
+rules:
+  # --- local_verify: lenient ---
+  - artifact_class: proof_pack
+    verification_level: signature_verified
+    authorization_status: "*"
+    target: local_verify
+    decision: accept
+    reason: "Signature verified locally"
+
+  - artifact_class: proof_pack
+    verification_level: hash_verified
+    authorization_status: "*"
+    target: local_verify
+    decision: warn
+    reason: "UNSIGNED_PACK"
+
+  - artifact_class: proof_pack
+    verification_level: unverified
+    authorization_status: "*"
+    target: local_verify
+    decision: reject
+    reason: "INTEGRITY_FAIL"
+
+  # --- ci_gate: moderate ---
+  - artifact_class: proof_pack
+    verification_level: signature_verified
+    authorization_status: authorized
+    target: ci_gate
+    decision: accept
+    reason: "Signed by authorized signer"
+
+  - artifact_class: proof_pack
+    verification_level: signature_verified
+    authorization_status: recognized
+    target: ci_gate
+    decision: warn
+    reason: "SIGNER_NOT_GRANTED"
+
+  - artifact_class: proof_pack
+    verification_level: signature_verified
+    authorization_status: unrecognized
+    target: ci_gate
+    decision: warn
+    reason: "UNKNOWN_SIGNER"
+
+  - artifact_class: proof_pack
+    verification_level: "*"
+    authorization_status: revoked
+    target: ci_gate
+    decision: reject
+    reason: "SIGNER_REVOKED"
+
+  - artifact_class: proof_pack
+    verification_level: "*"
+    authorization_status: "*"
+    target: ci_gate
+    decision: reject
+    reason: "INSUFFICIENT_VERIFICATION"
+
+  # --- publication: strict ---
+  - artifact_class: proof_pack
+    verification_level: signature_verified
+    authorization_status: authorized
+    target: publication
+    decision: accept
+    reason: "Signed by authorized signer for publication"
+
+  - artifact_class: proof_pack
+    verification_level: "*"
+    authorization_status: revoked
+    target: publication
+    decision: reject
+    reason: "SIGNER_REVOKED"
+
+  - artifact_class: "*"
+    verification_level: "*"
+    authorization_status: "*"
+    target: publication
+    decision: reject
+    reason: "PUBLICATION_REQUIRES_AUTHORIZED_SIGNATURE"
