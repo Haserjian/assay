@@ -1,0 +1,137 @@
+name: CI Org Trust Gate
+
+on:
+  pull_request:
+    paths:
+      - "pyproject.toml"
+      - "src/assay/**"
+      - "scripts/ci/**"
+      - "trust/**"
+      - "docs/ci-integration.md"
+      - "docs/spec-ci-org-signer-operating-model-v1.md"
+      - ".github/workflows/ci-org-trust-gate.yml"
+  push:
+    branches: [main]
+    paths:
+      - "pyproject.toml"
+      - "src/assay/**"
+      - "scripts/ci/**"
+      - "trust/**"
+      - "docs/ci-integration.md"
+      - "docs/spec-ci-org-signer-operating-model-v1.md"
+      - ".github/workflows/ci-org-trust-gate.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ci-org-trust-gate:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      ASSAY_HOME: ${{ runner.temp }}/.assay
+      ASSAY_CI_ORG_MAIN_SIGNER_ID: ci-org-main
+      ASSAY_CI_ORG_MAIN_PUB_B64: ${{ secrets.ASSAY_CI_ORG_MAIN_PUB_B64 }}
+      ASSAY_CI_ORG_MAIN_KEY_B64: ${{ secrets.ASSAY_CI_ORG_MAIN_KEY_B64 }}
+      ASSAY_CI_ORG_MAIN_FINGERPRINT: ${{ vars.ASSAY_CI_ORG_MAIN_FINGERPRINT }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Assay
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+
+      - name: Bootstrap ci-org signer
+        run: |
+          set -euo pipefail
+          : "${ASSAY_CI_ORG_MAIN_PUB_B64:?Missing secret ASSAY_CI_ORG_MAIN_PUB_B64}"
+          : "${ASSAY_CI_ORG_MAIN_KEY_B64:?Missing secret ASSAY_CI_ORG_MAIN_KEY_B64}"
+          : "${ASSAY_CI_ORG_MAIN_FINGERPRINT:?Missing repo variable ASSAY_CI_ORG_MAIN_FINGERPRINT}"
+
+          mkdir -p "$RUNNER_TEMP/ci-org-material"
+          printf '%s' "$ASSAY_CI_ORG_MAIN_PUB_B64" > "$RUNNER_TEMP/ci-org-material/${ASSAY_CI_ORG_MAIN_SIGNER_ID}.pub.b64"
+          printf '%s' "$ASSAY_CI_ORG_MAIN_KEY_B64" > "$RUNNER_TEMP/ci-org-material/${ASSAY_CI_ORG_MAIN_SIGNER_ID}.key.b64"
+
+          python scripts/ci/bootstrap_ci_org_signer.py \
+            --policy-dir trust \
+            --output-dir "$RUNNER_TEMP/ci-org-trust" \
+            --signer "$ASSAY_CI_ORG_MAIN_SIGNER_ID" \
+            --pub-file "$RUNNER_TEMP/ci-org-material/${ASSAY_CI_ORG_MAIN_SIGNER_ID}.pub.b64" \
+            --key-file "$RUNNER_TEMP/ci-org-material/${ASSAY_CI_ORG_MAIN_SIGNER_ID}.key.b64" \
+            --expected-fingerprint "$ASSAY_CI_ORG_MAIN_FINGERPRINT" \
+            --github-output "$GITHUB_OUTPUT"
+
+      - name: Build CI-bound smoke pack
+        run: |
+          set -euo pipefail
+          python scripts/ci/build_ci_attestation_pack.py --output-dir ci_org_smoke_pack
+
+      - name: Verify ci_gate acceptance
+        run: |
+          set -euo pipefail
+          assay verify-pack ci_org_smoke_pack \
+            --json \
+            --require-claim-pass \
+            --require-ci-binding \
+            --expected-commit-sha "$GITHUB_SHA" \
+            --trust-target ci_gate \
+            --trust-policy-dir "$RUNNER_TEMP/ci-org-trust" \
+            --enforce-trust-gate > ci_gate_verify.json
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(Path("ci_gate_verify.json").read_text(encoding="utf-8"))
+          trust = report.get("trust") or {}
+          load_errors = trust.get("load_errors") or []
+          decision = (trust.get("acceptance") or {}).get("decision")
+          if load_errors:
+              raise SystemExit(f"ci_gate trust policy load errors: {load_errors}")
+          if decision != "accept":
+              raise SystemExit(f"ci_gate trust decision was {decision!r}, expected 'accept'")
+          PY
+
+      - name: Verify publication acceptance
+        run: |
+          set -euo pipefail
+          assay verify-pack ci_org_smoke_pack \
+            --json \
+            --require-claim-pass \
+            --require-ci-binding \
+            --expected-commit-sha "$GITHUB_SHA" \
+            --trust-target publication \
+            --trust-policy-dir "$RUNNER_TEMP/ci-org-trust" > publication_verify.json
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(Path("publication_verify.json").read_text(encoding="utf-8"))
+          trust = report.get("trust") or {}
+          load_errors = trust.get("load_errors") or []
+          decision = (trust.get("acceptance") or {}).get("decision")
+          if load_errors:
+              raise SystemExit(f"publication trust policy load errors: {load_errors}")
+          if decision != "accept":
+              raise SystemExit(f"publication trust decision was {decision!r}, expected 'accept'")
+          PY
+
+      - name: Upload CI trust artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ci-org-trust-gate
+          path: |
+            ci_org_smoke_pack
+            ci_gate_verify.json
+            publication_verify.json

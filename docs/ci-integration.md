@@ -65,6 +65,62 @@ latency, or error regressions.
 - run: assay diff ./baseline_pack/ ./proof_pack_*/ --gate-cost-pct 25 --gate-errors 0
 ```
 
+### Stage 5: Enforce org signer trust in CI
+
+Once the basic pack/claim gate is real, bootstrap a concrete `ci-org`
+signer in CI and require that the generated pack is accepted for
+`ci_gate`.
+
+This is the first point where CI stops asking only "did the pack verify?"
+and starts asking "was it signed by the right authority for this context?"
+
+Required CI material:
+
+- repo variable: `ASSAY_CI_ORG_MAIN_FINGERPRINT`
+- repo secrets: `ASSAY_CI_ORG_MAIN_PUB_B64`, `ASSAY_CI_ORG_MAIN_KEY_B64`
+
+Current repo bootstrap path:
+
+- `.github/workflows/ci-org-trust-gate.yml`
+- `scripts/ci/bootstrap_ci_org_signer.py`
+- `scripts/ci/build_ci_attestation_pack.py`
+
+The workflow imports `ci-org-main` into a fresh `ASSAY_HOME`, writes a
+temporary trust overlay rooted in `trust/`, builds a CI-bound proof pack,
+and then requires:
+
+- `ci_gate` acceptance
+- `publication` acceptance
+- clean trust-policy load
+- matching `GITHUB_SHA` in the embedded CI binding
+
+Example verify step:
+
+```yaml
+- run: |
+    assay verify-pack ci_org_smoke_pack \
+      --require-claim-pass \
+      --require-ci-binding \
+      --expected-commit-sha "$GITHUB_SHA" \
+      --trust-target ci_gate \
+      --trust-policy-dir "$RUNNER_TEMP/ci-org-trust" \
+      --enforce-trust-gate
+```
+
+Important nuance:
+
+- `--enforce-trust-gate` only hard-fails `ci_gate` on explicit reject
+- trust load errors remain advisory at the CLI layer
+- the workflow must therefore also inspect the JSON output and fail if:
+  - `trust.load_errors` is non-empty
+  - `trust.acceptance.decision` is not `accept`
+
+This repo's committed `trust/signers.yaml` intentionally ships with
+`signers: []`. The workflow overlay is a bootstrap move for the first real
+`ci-org` rollout, not the final policy shape. Once a stable org fingerprint
+is ready to pin in-repo, commit that signer entry and delete the overlay
+step.
+
 ## The fastest start
 
 Use `assay ci init github` to generate a complete workflow file:

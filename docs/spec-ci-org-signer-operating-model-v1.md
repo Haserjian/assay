@@ -83,6 +83,17 @@ Operational invariants:
 - no fallback to `local-drill`
 - no silent downgrade to unsigned or locally signed publication claims
 
+Current repo bootstrap path:
+
+- `.github/workflows/ci-org-trust-gate.yml`
+- `scripts/ci/bootstrap_ci_org_signer.py`
+- `scripts/ci/build_ci_attestation_pack.py`
+
+The current rollout uses a temporary trust overlay rooted in `trust/`.
+That overlay exists only because the committed registry intentionally
+starts with `signers: []` until a stable org fingerprint is ready to pin
+in repo policy.
+
 ## Acceptance rules
 
 This is the operating interpretation of the trust policy:
