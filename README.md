@@ -186,6 +186,72 @@ app execution
   -> assay verify-pack checks the artifact offline
 ```
 
+## Three Operating Modes
+
+Assay is an evidence substrate, not just a CLI wrapper. It operates in three modes depending on your runtime shape.
+
+### Mode 1: Wrapper
+
+For scripts, CI jobs, and bounded workflows. Lowest friction.
+
+```bash
+assay run -c receipt_completeness -- python my_app.py
+assay verify-pack ./proof_pack_*/
+```
+
+One process, one proof pack, one verification. This is the fastest path to a verifiable artifact.
+
+### Mode 2: Runtime
+
+For services, agents, and long-lived processes. Episode-native Python SDK.
+
+```python
+import assay
+
+with assay.open_episode(policy_version="v2.1") as episode:
+    episode.emit("model.invoked", {"model": "gpt-4", "tokens": 800})
+    episode.emit("tool.invoked", {"tool": "knowledge_base"})
+    episode.emit("guardian.approved", {"action": "send_reply"})
+
+    checkpoint = episode.seal_checkpoint(reason="before_send_reply")
+    verdict = assay.verify_checkpoint(checkpoint)
+
+    if verdict.ok:
+        send_reply()
+        episode.emit("action.settled", {"action": "send_reply"})
+    elif verdict.honest_fail:
+        escalate()
+        episode.emit("action.denied", {"reason": "honest_fail"})
+```
+
+Emit receipts continuously during execution. Seal checkpoints at review boundaries. The episode is the constitutional unit, not the Unix process.
+
+### Mode 3: Settlement
+
+For high-consequence actions (payments, approvals, publishing, deletions).
+
+```python
+checkpoint = episode.seal_checkpoint(reason="before_payout")
+verdict = assay.verify_checkpoint(checkpoint)
+
+if not verdict.ok:
+    # Do not proceed. Evidence posture is insufficient.
+    if verdict.honest_fail:
+        escalate(verdict.errors)  # authentic evidence of a gap
+    else:
+        alert(verdict.errors)     # tampered or missing evidence
+    episode.emit("action.denied", {"reason": verdict.errors})
+else:
+    execute_payout()
+    episode.emit("action.settled", {"action": "payout"})
+```
+
+Consequences require verified evidence posture before the world changes. `verify_checkpoint()` is the settlement gate.
+
+**The law:** Receipt boundaries follow semantic events. Proof boundaries follow review boundaries. Settlement boundaries follow consequence boundaries.
+
+---
+
 ## Add to Your Project
 
 ```bash

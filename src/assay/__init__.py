@@ -18,6 +18,15 @@ except PackageNotFoundError:
 from .guardian import GuardianVerdict, no_coherence_by_dignity_debt
 from .health import GraceConfig, is_grace_window
 from .store import AssayStore, get_default_store, emit_receipt
+from .episode import (
+    Checkpoint,
+    Episode,
+    EpisodeClosedError,
+    Verdict,
+    open_episode,
+    verify_checkpoint,
+    verify_pack,
+)
 
 __all__ = [
     "__version__",
@@ -28,4 +37,12 @@ __all__ = [
     "AssayStore",
     "get_default_store",
     "emit_receipt",
+    # Episode SDK (Mode 2: Runtime, Mode 3: Settlement)
+    "Checkpoint",
+    "Episode",
+    "EpisodeClosedError",
+    "Verdict",
+    "open_episode",
+    "verify_checkpoint",
+    "verify_pack",
 ]
