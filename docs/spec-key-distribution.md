@@ -14,6 +14,16 @@ The gap between "valid signature" and "trusted signer" is the key
 distribution problem. This document defines how to close that gap at
 each trust tier.
 
+For the current signer-class policy and target-acceptance contract, see
+[spec-signer-trust-policy-v1.md](spec-signer-trust-policy-v1.md).
+
+For the operational model of organization-controlled CI signers, see
+[spec-ci-org-signer-operating-model-v1.md](spec-ci-org-signer-operating-model-v1.md).
+
+Current boundary to keep explicit:
+
+> `ccio-brainstem-local` proves bounded local reproducibility. It does **not** imply org trust or external trust.
+
 ## Manifest Signer Fields (Current)
 
 Every pack manifest already contains:

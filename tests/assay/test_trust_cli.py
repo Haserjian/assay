@@ -81,6 +81,104 @@ def _make_policy_dir(tmp_path: Path, ks: AssayKeyStore, signer_id: str = "test-s
     return policy_dir
 
 
+def _make_signer_class_policy_dir(tmp_path: Path, ks: AssayKeyStore) -> Path:
+    """Create policy dir modeling local-drill vs ci-org Wave 1 behavior."""
+    policy_dir = tmp_path / "trust_signer_classes"
+    policy_dir.mkdir()
+
+    local_drill = "ccio-brainstem-local"
+    ci_org = "assay-ci-org"
+    ks.ensure_key(local_drill)
+    ks.ensure_key(ci_org)
+
+    signers = {
+        "version": 1,
+        "signer_classes": {
+            "local-drill": {
+                "description": "Known local drill signer",
+                "allowed_targets": ["local_verify"],
+                "not_sufficient_for": ["ci_gate", "publication"],
+            },
+            "ci-org": {
+                "description": "Org-controlled CI signer",
+                "allowed_targets": ["ci_gate", "publication"],
+            },
+        },
+        "verification_profiles": {
+            "local_verify": {"accepts_authorization_statuses": ["authorized", "recognized"]},
+            "ci_gate": {"accepts_authorization_statuses": ["authorized"]},
+            "publication": {"accepts_authorization_statuses": ["authorized"]},
+        },
+        "signers": [
+            {
+                "signer_id": local_drill,
+                "signer_class": "local-drill",
+                "fingerprint": ks.signer_fingerprint(local_drill),
+                "lifecycle": "active",
+                "grants": [],
+                "notes": "Known local drill signer. Bounded reproducibility only.",
+            },
+            {
+                "signer_id": ci_org,
+                "signer_class": "ci-org",
+                "fingerprint": ks.signer_fingerprint(ci_org),
+                "lifecycle": "active",
+                "grants": [{"artifact_class": "proof_pack", "purpose": "*"}],
+                "notes": "Org-controlled signer for CI/publication contexts.",
+            },
+        ],
+    }
+
+    acceptance = {
+        "rules": [
+            {"artifact_class": "proof_pack", "verification_level": "*",
+             "authorization_status": "revoked", "target": "local_verify", "decision": "reject",
+             "reason": "SIGNER_REVOKED"},
+            {"artifact_class": "proof_pack", "verification_level": "signature_verified",
+             "authorization_status": "authorized", "target": "local_verify", "decision": "accept",
+             "reason": "Authorized signer for local verification"},
+            {"artifact_class": "proof_pack", "verification_level": "signature_verified",
+             "authorization_status": "recognized", "target": "local_verify", "decision": "accept",
+             "reason": "Known local signer for bounded verification"},
+            {"artifact_class": "proof_pack", "verification_level": "signature_verified",
+             "authorization_status": "unrecognized", "target": "local_verify", "decision": "warn",
+             "reason": "UNREGISTERED_LOCAL_SIGNER"},
+            {"artifact_class": "proof_pack", "verification_level": "*",
+             "authorization_status": "revoked", "target": "ci_gate", "decision": "reject",
+             "reason": "SIGNER_REVOKED"},
+            {"artifact_class": "proof_pack", "verification_level": "signature_verified",
+             "authorization_status": "authorized", "target": "ci_gate", "decision": "accept",
+             "reason": "Signed by authorized signer"},
+            {"artifact_class": "proof_pack", "verification_level": "signature_verified",
+             "authorization_status": "recognized", "target": "ci_gate", "decision": "reject",
+             "reason": "CI_REQUIRES_GRANTED_SIGNER"},
+            {"artifact_class": "proof_pack", "verification_level": "signature_verified",
+             "authorization_status": "unrecognized", "target": "ci_gate", "decision": "reject",
+             "reason": "UNKNOWN_SIGNER"},
+            {"artifact_class": "proof_pack", "verification_level": "*",
+             "authorization_status": "revoked", "target": "publication", "decision": "reject",
+             "reason": "SIGNER_REVOKED"},
+            {"artifact_class": "proof_pack", "verification_level": "signature_verified",
+             "authorization_status": "authorized", "target": "publication", "decision": "accept",
+             "reason": "Signed by authorized signer for publication"},
+            {"artifact_class": "proof_pack", "verification_level": "signature_verified",
+             "authorization_status": "recognized", "target": "publication", "decision": "reject",
+             "reason": "PUBLICATION_REQUIRES_GRANTED_SIGNER"},
+            {"artifact_class": "proof_pack", "verification_level": "signature_verified",
+             "authorization_status": "unrecognized", "target": "publication", "decision": "reject",
+             "reason": "UNKNOWN_SIGNER"},
+            {"artifact_class": "*", "verification_level": "*",
+             "authorization_status": "*", "target": "*", "decision": "reject",
+             "reason": "INSUFFICIENT_VERIFICATION"},
+        ]
+    }
+
+    import yaml
+    (policy_dir / "signers.yaml").write_text(yaml.dump(signers))
+    (policy_dir / "acceptance.yaml").write_text(yaml.dump(acceptance))
+    return policy_dir
+
+
 class TestTrustJsonOutput:
     def test_trust_block_present_when_requested(self, assay_home_tmp, tmp_path):
         ks = AssayKeyStore(keys_dir=assay_home_tmp / "keys")
@@ -154,6 +252,105 @@ class TestTrustJsonOutput:
         trust = data["trust"]
         assert trust["authorization"]["status"] == "unrecognized"
         assert trust["acceptance"]["decision"] == "reject"
+
+
+class TestSignerClassProfiles:
+    def test_local_verify_accepts_local_drill_signer(self, assay_home_tmp, tmp_path):
+        ks = AssayKeyStore(keys_dir=assay_home_tmp / "keys")
+        pack_dir = _build_pack(tmp_path, ks, signer_id="ccio-brainstem-local")
+        policy_dir = _make_signer_class_policy_dir(tmp_path, ks)
+
+        result = runner.invoke(assay_app, [
+            "verify-pack", str(pack_dir), "--json",
+            "--trust-target", "local_verify",
+            "--trust-policy-dir", str(policy_dir),
+        ])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        trust = data["trust"]
+        assert trust["authorization"]["status"] == "recognized"
+        assert trust["acceptance"]["decision"] == "accept"
+
+    def test_publication_rejects_local_drill_signer(self, assay_home_tmp, tmp_path):
+        ks = AssayKeyStore(keys_dir=assay_home_tmp / "keys")
+        pack_dir = _build_pack(tmp_path, ks, signer_id="ccio-brainstem-local")
+        policy_dir = _make_signer_class_policy_dir(tmp_path, ks)
+
+        result = runner.invoke(assay_app, [
+            "verify-pack", str(pack_dir), "--json",
+            "--trust-target", "publication",
+            "--trust-policy-dir", str(policy_dir),
+        ])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        trust = data["trust"]
+        assert trust["authorization"]["status"] == "recognized"
+        assert trust["acceptance"]["decision"] == "reject"
+
+    def test_ci_gate_accepts_only_ci_org_signer(self, assay_home_tmp, tmp_path):
+        ks = AssayKeyStore(keys_dir=assay_home_tmp / "keys")
+        policy_dir = _make_signer_class_policy_dir(tmp_path, ks)
+
+        local_pack = _build_pack(tmp_path / "local_pack", ks, signer_id="ccio-brainstem-local")
+        local_result = runner.invoke(assay_app, [
+            "verify-pack", str(local_pack), "--json",
+            "--trust-target", "ci_gate",
+            "--trust-policy-dir", str(policy_dir),
+        ])
+        assert local_result.exit_code == 0
+        local_data = json.loads(local_result.output)
+        assert local_data["trust"]["authorization"]["status"] == "recognized"
+        assert local_data["trust"]["acceptance"]["decision"] == "reject"
+
+        ci_pack = _build_pack(tmp_path / "ci_pack", ks, signer_id="assay-ci-org")
+        ci_result = runner.invoke(assay_app, [
+            "verify-pack", str(ci_pack), "--json",
+            "--trust-target", "ci_gate",
+            "--trust-policy-dir", str(policy_dir),
+        ])
+        assert ci_result.exit_code == 0
+        ci_data = json.loads(ci_result.output)
+        assert ci_data["trust"]["authorization"]["status"] == "authorized"
+        assert ci_data["trust"]["acceptance"]["decision"] == "accept"
+
+    def test_publication_accepts_ci_org_signer(self, assay_home_tmp, tmp_path):
+        ks = AssayKeyStore(keys_dir=assay_home_tmp / "keys")
+        policy_dir = _make_signer_class_policy_dir(tmp_path, ks)
+
+        ci_pack = _build_pack(tmp_path / "ci_publication_pack", ks, signer_id="assay-ci-org")
+        result = runner.invoke(assay_app, [
+            "verify-pack", str(ci_pack), "--json",
+            "--trust-target", "publication",
+            "--trust-policy-dir", str(policy_dir),
+        ])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["trust"]["authorization"]["status"] == "authorized"
+        assert data["trust"]["acceptance"]["decision"] == "accept"
+
+    def test_revoked_ci_org_is_rejected_for_ci_gate_and_publication(self, assay_home_tmp, tmp_path):
+        ks = AssayKeyStore(keys_dir=assay_home_tmp / "keys")
+        policy_dir = _make_signer_class_policy_dir(tmp_path, ks)
+
+        import yaml
+        signers_path = policy_dir / "signers.yaml"
+        signers = yaml.safe_load(signers_path.read_text())
+        for entry in signers["signers"]:
+            if entry["signer_id"] == "assay-ci-org":
+                entry["lifecycle"] = "revoked"
+        signers_path.write_text(yaml.dump(signers))
+
+        ci_pack = _build_pack(tmp_path / "revoked_ci_pack", ks, signer_id="assay-ci-org")
+        for target in ("ci_gate", "publication"):
+            result = runner.invoke(assay_app, [
+                "verify-pack", str(ci_pack), "--json",
+                "--trust-target", target,
+                "--trust-policy-dir", str(policy_dir),
+            ])
+            assert result.exit_code == 0
+            data = json.loads(result.output)
+            assert data["trust"]["authorization"]["status"] == "revoked"
+            assert data["trust"]["acceptance"]["decision"] == "reject"
 
 
 class TestTrustExitCodeUnchanged:

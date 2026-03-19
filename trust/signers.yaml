@@ -1,21 +1,92 @@
 # Signer Registry — Assay Trust Policy
 #
-# Each signer entry defines:
-#   - identity (signer_id + key fingerprint — must be exact, no wildcards)
-#   - lifecycle state (active, rotated, revoked)
-#   - grants (what artifact classes/purposes this signer may produce)
+# This file carries both:
+#   1. the machine-loaded signer registry in `signers`
+#   2. policy metadata describing signer classes and verification profiles
 #
 # Fingerprint must be the SHA-256 hex of the signer's Ed25519 public key.
 # Run `assay key info --json` to get the fingerprint for a local signer.
 #
 # Policy data, not library code. Lives at repo root, not under src/.
-# See docs/TRUST_POLICY_CONSTITUTION.md for the governing model.
+# See docs/spec-signer-trust-policy-v1.md for the operating policy and
+# docs/TRUST_POLICY_CONSTITUTION.md for the governing model.
+
+version: 1
+
+signer_classes:
+  local-drill:
+    description: Self-generated signer for bounded local drill reproducibility.
+    allowed_targets:
+      - local_verify
+    not_sufficient_for:
+      - ci_gate
+      - publication
+    wave1_encoding: >
+      Register the signer so it is recognized locally, but do not grant
+      proof_pack signing authority. In Wave 1, this keeps the signer usable for
+      local verification while preventing accidental promotion into CI or
+      publication trust.
+  operator-local:
+    description: Self-generated signer for bounded internal operator testing.
+    allowed_targets:
+      - local_verify
+    not_sufficient_for:
+      - ci_gate
+      - publication
+    wave1_encoding: >
+      Treat like local-drill unless and until a stronger internal policy exists.
+      Registry presence may support recognition; broad grants should not be used.
+  ci-org:
+    description: Organization-controlled signer for CI and protected workflows.
+    allowed_targets:
+      - ci_gate
+      - publication
+    controls:
+      - explicit registry grant
+      - branch protection or workflow identity
+      - rotation policy
+    wave1_encoding: >
+      Grant proof_pack authority explicitly. In Wave 1, authorized status is the
+      mechanism that allows CI and publication acceptance.
+
+verification_profiles:
+  local_verify:
+    accepts_authorization_statuses:
+      - authorized
+      - recognized
+    warns_authorization_statuses:
+      - unrecognized
+    rejects_authorization_statuses:
+      - revoked
+  ci_gate:
+    accepts_authorization_statuses:
+      - authorized
+    rejects_authorization_statuses:
+      - recognized
+      - unrecognized
+      - revoked
+  publication:
+    accepts_authorization_statuses:
+      - authorized
+    rejects_authorization_statuses:
+      - recognized
+      - unrecognized
+      - revoked
 
 signers: []
 # Example:
-#   - signer_id: ci-signer
+#   - signer_id: ccio-brainstem-local
+#     signer_class: local-drill
+#     fingerprint: "0123456789abcdef..."  # SHA-256 of Ed25519 pubkey
+#     lifecycle: active
+#     grants: []
+#     notes: "Known local drill signer. Proves bounded reproducibility only."
+#
+#   - signer_id: assay-ci-org
+#     signer_class: ci-org
 #     fingerprint: "abcdef0123456789..."  # SHA-256 of Ed25519 pubkey
 #     lifecycle: active
 #     grants:
 #       - artifact_class: proof_pack
-#         purpose: ci_attestation
+#         purpose: "*"
+#     notes: "Org-controlled signer accepted for CI/publication contexts."

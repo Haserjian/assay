@@ -6,16 +6,38 @@
 # Rules are evaluated in order; first match wins.
 # Use "*" for wildcard matching on any dimension.
 #
-# See docs/TRUST_POLICY_CONSTITUTION.md for the governing model.
+# See docs/spec-signer-trust-policy-v1.md for the operating policy and
+# docs/TRUST_POLICY_CONSTITUTION.md for the governing model.
 
 rules:
-  # --- local_verify: lenient ---
+  # --- local_verify: accept known local signers, surface unknowns ---
+  - artifact_class: proof_pack
+    verification_level: "*"
+    authorization_status: revoked
+    target: local_verify
+    decision: reject
+    reason: "SIGNER_REVOKED"
+
   - artifact_class: proof_pack
     verification_level: signature_verified
-    authorization_status: "*"
+    authorization_status: authorized
     target: local_verify
     decision: accept
-    reason: "Signature verified locally"
+    reason: "Authorized signer for local verification"
+
+  - artifact_class: proof_pack
+    verification_level: signature_verified
+    authorization_status: recognized
+    target: local_verify
+    decision: accept
+    reason: "Known local signer for bounded verification"
+
+  - artifact_class: proof_pack
+    verification_level: signature_verified
+    authorization_status: unrecognized
+    target: local_verify
+    decision: warn
+    reason: "UNREGISTERED_LOCAL_SIGNER"
 
   - artifact_class: proof_pack
     verification_level: hash_verified
@@ -31,7 +53,14 @@ rules:
     decision: reject
     reason: "INTEGRITY_FAIL"
 
-  # --- ci_gate: moderate ---
+  # --- ci_gate: accept only explicitly granted signers ---
+  - artifact_class: proof_pack
+    verification_level: "*"
+    authorization_status: revoked
+    target: ci_gate
+    decision: reject
+    reason: "SIGNER_REVOKED"
+
   - artifact_class: proof_pack
     verification_level: signature_verified
     authorization_status: authorized
@@ -43,22 +72,15 @@ rules:
     verification_level: signature_verified
     authorization_status: recognized
     target: ci_gate
-    decision: warn
-    reason: "SIGNER_NOT_GRANTED"
+    decision: reject
+    reason: "CI_REQUIRES_GRANTED_SIGNER"
 
   - artifact_class: proof_pack
     verification_level: signature_verified
     authorization_status: unrecognized
     target: ci_gate
-    decision: warn
-    reason: "UNKNOWN_SIGNER"
-
-  - artifact_class: proof_pack
-    verification_level: "*"
-    authorization_status: revoked
-    target: ci_gate
     decision: reject
-    reason: "SIGNER_REVOKED"
+    reason: "UNKNOWN_SIGNER"
 
   - artifact_class: proof_pack
     verification_level: "*"
@@ -67,7 +89,14 @@ rules:
     decision: reject
     reason: "INSUFFICIENT_VERIFICATION"
 
-  # --- publication: strict ---
+  # --- publication: strict, reject local-only signers ---
+  - artifact_class: proof_pack
+    verification_level: "*"
+    authorization_status: revoked
+    target: publication
+    decision: reject
+    reason: "SIGNER_REVOKED"
+
   - artifact_class: proof_pack
     verification_level: signature_verified
     authorization_status: authorized
@@ -76,11 +105,18 @@ rules:
     reason: "Signed by authorized signer for publication"
 
   - artifact_class: proof_pack
-    verification_level: "*"
-    authorization_status: revoked
+    verification_level: signature_verified
+    authorization_status: recognized
     target: publication
     decision: reject
-    reason: "SIGNER_REVOKED"
+    reason: "PUBLICATION_REQUIRES_GRANTED_SIGNER"
+
+  - artifact_class: proof_pack
+    verification_level: signature_verified
+    authorization_status: unrecognized
+    target: publication
+    decision: reject
+    reason: "UNKNOWN_SIGNER"
 
   - artifact_class: "*"
     verification_level: "*"
