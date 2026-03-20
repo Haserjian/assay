@@ -1,0 +1,211 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://assay.dev/schemas/checkpoint_request.outbound_action.send_email.v0.1.schema.json",
+  "title": "Checkpoint Request v0.1 - outbound_action.send_email",
+  "description": "Attempted outbound email checkpoint crossing before policy evaluation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "request_id",
+    "checkpoint_id",
+    "checkpoint_type",
+    "requested_at",
+    "subject",
+    "attempt",
+    "relying_party"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "0.1.0"
+    },
+    "artifact_type": {
+      "type": "string",
+      "const": "checkpoint_request"
+    },
+    "request_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "checkpoint_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "checkpoint_type": {
+      "type": "string",
+      "const": "outbound_action.send_email"
+    },
+    "requested_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "subject": {
+      "$ref": "#/$defs/subject"
+    },
+    "attempt": {
+      "$ref": "#/$defs/attempt"
+    },
+    "relying_party": {
+      "$ref": "#/$defs/relyingParty"
+    }
+  },
+  "$defs": {
+    "sha256Hex": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "episode_id",
+        "actor_id",
+        "actor_type"
+      ],
+      "properties": {
+        "episode_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "actor_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "actor_type": {
+          "type": "string",
+          "enum": [
+            "agent",
+            "service",
+            "human",
+            "workflow"
+          ]
+        },
+        "requester_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "session_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        }
+      }
+    },
+    "attempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "intent_hash",
+        "intent",
+        "action_target"
+      ],
+      "properties": {
+        "intent_hash": {
+          "$ref": "#/$defs/sha256Hex"
+        },
+        "intent": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "recipient",
+            "subject_ref",
+            "body_ref",
+            "purpose"
+          ],
+          "properties": {
+            "recipient": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "value_ref",
+                "domain"
+              ],
+              "properties": {
+                "value_ref": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "domain": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "contact_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "minLength": 1
+                }
+              }
+            },
+            "subject_ref": {
+              "type": "string",
+              "minLength": 1
+            },
+            "body_ref": {
+              "type": "string",
+              "minLength": 1
+            },
+            "purpose": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "action_target": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "system",
+            "operation"
+          ],
+          "properties": {
+            "system": {
+              "type": "string",
+              "minLength": 1
+            },
+            "operation": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "relyingParty": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "party_id",
+        "role",
+        "consequence",
+        "disclosure_profile"
+      ],
+      "properties": {
+        "party_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "consequence": {
+          "type": "string",
+          "minLength": 1
+        },
+        "disclosure_profile": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

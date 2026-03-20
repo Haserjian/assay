@@ -1,0 +1,38 @@
+{
+  "schema_version": "0.1.0",
+  "artifact_type": "checkpoint_request",
+  "request_id": "req_01HQXRA1",
+  "checkpoint_id": "chk_01HQXCHK",
+  "checkpoint_type": "outbound_action.send_email",
+  "requested_at": "2026-03-19T12:00:00Z",
+  "subject": {
+    "episode_id": "ep_123",
+    "actor_id": "agent:customer_ops_assistant",
+    "actor_type": "agent",
+    "requester_id": "workflow:invoice_follow_up",
+    "session_id": "sess_0042"
+  },
+  "attempt": {
+    "intent_hash": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "intent": {
+      "recipient": {
+        "value_ref": "secret://recipient_email",
+        "domain": "example.com",
+        "contact_id": "crm_contact_44"
+      },
+      "subject_ref": "hash://email_subject_sha256",
+      "body_ref": "hash://email_body_sha256",
+      "purpose": "follow_up_on_open_invoice"
+    },
+    "action_target": {
+      "system": "gmail",
+      "operation": "send_message"
+    }
+  },
+  "relying_party": {
+    "party_id": "team://ops_manager_17",
+    "role": "approver",
+    "consequence": "external customer communication",
+    "disclosure_profile": "ops_manager_selective"
+  }
+}

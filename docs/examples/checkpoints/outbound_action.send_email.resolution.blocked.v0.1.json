@@ -1,0 +1,25 @@
+{
+  "schema_version": "0.1.0",
+  "artifact_type": "checkpoint_resolution",
+  "request_id": "req_01HQXRB2",
+  "checkpoint_id": "chk_01HQXBLK",
+  "evaluation_id": "cke_01HQXFAIL",
+  "final_evaluation_id": "cke_01HQXFAIL",
+  "resolution_id": "ckr_01HQXBLK",
+  "checkpoint_type": "outbound_action.send_email",
+  "resolved_at": "2026-03-19T12:15:03Z",
+  "resolution_outcome": "blocked",
+  "reason_codes": [
+    "missing_recipient_verification",
+    "stale_context"
+  ],
+  "release_revalidation_performed": false,
+  "evaluation_valid_at_resolution": false,
+  "decision_receipt_ids": [
+    "74f31a8b-1ae0-4b02-9409-291f63e54808"
+  ],
+  "appended_evidence_refs": [],
+  "human_approval": null,
+  "dispatch_attempted_at": null,
+  "effect_observed_at": null
+}

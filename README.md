@@ -6,6 +6,14 @@ Accountable execution for AI systems.
 Assay creates signed evidence for AI workflows that a reviewer can verify offline.
 It proves what can be responsibly claimed about the artifact, not the truth of every upstream component.
 
+> **Primary public story today:** Assay is an evidence compiler for AI
+> execution: `scan -> patch -> run -> receipts -> signed proof pack ->
+> verify offline -> optional reviewer artifacts`.
+>
+> **Advanced public capability:** episode/checkpoint APIs such as
+> `open_episode`, `seal_checkpoint`, and `verify_checkpoint` are real,
+> but they are bridge primitives, not the first-contact product story.
+
 ### Run → Prove → Promote
 
 Execution can succeed while proof fails. When evidence is missing, the system refuses to overclaim.
@@ -35,7 +43,11 @@ Zero had tamper-evident evidence trails.
 
 ---
 
-**Next:** `assay start` to instrument your code, or the [reviewer packet flow](docs/reviewer-packets.md) when your job is producing something another team can verify.
+**Next:** read [What Assay Does Today](docs/WHAT_ASSAY_DOES_TODAY.md),
+try the [specimen walkthrough](examples/specimen/README.md), use
+`assay start` to instrument your code, or follow the
+[reviewer packet flow](docs/reviewer-packets.md) when your job is
+producing something another team can verify.
 
 > **Boundary:** Assay proves the evidence artifact has not been quietly
 > changed after the fact. It does not, by itself, prove every upstream
@@ -189,6 +201,11 @@ app execution
 ## Three Operating Modes
 
 Assay is an evidence substrate, not just a CLI wrapper. It operates in three modes depending on your runtime shape.
+
+**Boundary note:** Mode 1 is the primary public story in this charter.
+Modes 2 and 3 are real advanced capability and bridge primitives. They
+should not replace the first-contact explanation of `scan -> patch ->
+run -> proof pack -> verify`.
 
 ### Mode 1: Wrapper
 
@@ -678,6 +695,8 @@ Full command reference:
 
 - **[Start Here](docs/START_HERE.md) -- 6 steps from install to evidence in CI**
 - [Evidence Packets](docs/reviewer-packets.md) -- compile, verify, and hand off reviewer-ready evidence packets
+- [What Assay Does Today](docs/WHAT_ASSAY_DOES_TODAY.md) -- the plain-language founder memo
+- [Boundary Map](docs/BOUNDARY_MAP.md) -- Assay vs VendorQ vs AgentMesh vs Loom/CCIO
 - [Full Picture](docs/FULL_PICTURE.md) -- architecture, trust tiers, repo boundaries, release history
 - [Quickstart](docs/README_quickstart.md) -- install, golden path, command reference
 - [For Compliance Teams](docs/for-compliance.md) -- what auditors see, evidence artifacts, framework alignment

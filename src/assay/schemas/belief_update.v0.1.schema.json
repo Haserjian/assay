@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "belief_update v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "update_id",
+    "timestamp",
+    "episode_id",
+    "claim_id",
+    "prior_state",
+    "new_state",
+    "settlement_status",
+    "durability_class",
+    "trigger_refs",
+    "rationale",
+    "lineage_refs"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "artifact_type": {
+      "const": "belief_update"
+    },
+    "update_id": {
+      "type": "string",
+      "pattern": "^blu_[0-9a-f]{12}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "episode_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "claim_id": {
+      "type": "string",
+      "pattern": "^clm_[0-9a-f]{12}$"
+    },
+    "prior_state": {
+      "type": "object"
+    },
+    "new_state": {
+      "type": "object"
+    },
+    "settlement_status": {
+      "type": "string",
+      "enum": [
+        "proposed",
+        "settled",
+        "superseded"
+      ]
+    },
+    "durability_class": {
+      "type": "string",
+      "enum": [
+        "working",
+        "durable",
+        "archival"
+      ]
+    },
+    "trigger_refs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/typed_ref"
+      }
+    },
+    "rationale": {
+      "type": "string",
+      "minLength": 1
+    },
+    "lineage_refs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/typed_ref"
+      }
+    }
+  },
+  "$defs": {
+    "typed_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ref_type",
+        "ref_id",
+        "ref_role"
+      ],
+      "properties": {
+        "ref_type": {
+          "type": "string",
+          "enum": [
+            "receipt",
+            "claim",
+            "attestation",
+            "witness_bundle",
+            "metric",
+            "external"
+          ]
+        },
+        "ref_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ref_uri": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ref_hash": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ref_role": {
+          "type": "string",
+          "enum": [
+            "supporting",
+            "contradicting",
+            "contextual",
+            "superseded"
+          ]
+        }
+      }
+    }
+  }
+}

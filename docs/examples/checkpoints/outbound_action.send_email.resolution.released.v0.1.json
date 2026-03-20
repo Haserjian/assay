@@ -1,0 +1,30 @@
+{
+  "schema_version": "0.1.0",
+  "artifact_type": "checkpoint_resolution",
+  "request_id": "req_01HQXRA1",
+  "checkpoint_id": "chk_01HQXCHK",
+  "evaluation_id": "cke_01HQXEVAL",
+  "final_evaluation_id": "cke_01HQXEVAL",
+  "resolution_id": "ckr_01HQXREL",
+  "checkpoint_type": "outbound_action.send_email",
+  "resolved_at": "2026-03-19T12:05:01Z",
+  "resolution_outcome": "released",
+  "reason_codes": [
+    "human_approval_granted"
+  ],
+  "release_revalidation_performed": true,
+  "evaluation_valid_at_resolution": true,
+  "decision_receipt_ids": [
+    "ecf6db9d-2e9e-4c0c-b0d6-f95f7c4fcb1b"
+  ],
+  "appended_evidence_refs": [
+    "approval://ops_manager_17"
+  ],
+  "human_approval": {
+    "approver_id": "user://ops_manager_17",
+    "decision": "approved",
+    "decided_at": "2026-03-19T12:05:00Z"
+  },
+  "dispatch_attempted_at": "2026-03-19T12:05:01Z",
+  "effect_observed_at": "2026-03-19T12:05:03Z"
+}

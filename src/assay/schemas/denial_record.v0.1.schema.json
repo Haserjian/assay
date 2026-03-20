@@ -1,0 +1,233 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "denial_record v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "denial_id",
+    "timestamp",
+    "denial_outcome",
+    "source_surface",
+    "subject",
+    "attempted_action",
+    "blocking_basis",
+    "missing_evidence",
+    "upgrade_conditions",
+    "backward_refs"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "artifact_type": {
+      "const": "denial_record"
+    },
+    "denial_id": {
+      "type": "string",
+      "pattern": "^den_[0-9a-f]{12}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "denial_outcome": {
+      "type": "string",
+      "enum": [
+        "policy_denied",
+        "blocked",
+        "refused",
+        "review_rejected",
+        "escalated"
+      ]
+    },
+    "source_surface": {
+      "type": "string",
+      "minLength": 1
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject_type",
+        "subject_id"
+      ],
+      "properties": {
+        "subject_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "subject_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "attempted_action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action_type",
+        "action_name",
+        "action_target",
+        "argument_hash"
+      ],
+      "properties": {
+        "action_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "action_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "action_target": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "argument_hash": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "blocking_basis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "basis_type",
+        "summary",
+        "reason_codes",
+        "policy_ref",
+        "policy_hash"
+      ],
+      "properties": {
+        "basis_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason_codes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "policy_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "policy_hash": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "missing_evidence": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "cheaper_next_move": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "safer_lawful_alternative": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "upgrade_conditions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "related_claim_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^clm_[0-9a-f]{12}$"
+      }
+    },
+    "proof_budget_snapshot_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^pbs_[0-9a-f]{12}$"
+    },
+    "contradiction_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^ctr_[0-9a-f]{12}$"
+      }
+    },
+    "backward_refs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_receipt_id",
+        "request_id",
+        "evaluation_id",
+        "resolution_id",
+        "decision_receipt_ids"
+      ],
+      "properties": {
+        "source_receipt_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "evaluation_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "resolution_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "decision_receipt_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

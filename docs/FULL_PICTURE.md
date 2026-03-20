@@ -19,6 +19,16 @@ machine, without trusting you. Edit one byte and verification fails. Skip
 a call site and the completeness contract catches it. Assay doesn't make
 fraud impossible -- it makes fraud expensive, fragile, and much easier to catch.
 
+## Current truth first
+
+- **Primary public story today:** Assay is an evidence compiler for AI
+  execution: `scan -> patch -> run -> receipts -> signed proof pack ->
+  verify offline -> optional reviewer artifacts`.
+- **Advanced public capability:** episode/checkpoint APIs exist today and
+  matter to the bridge, but they are not the first-contact product story.
+- **Private strategic center:** Loom / CCIO is where the runtime-native
+  consequence membrane becomes load-bearing.
+
 ## The four-layer architecture
 
 ### Layer 1: Receipt emission

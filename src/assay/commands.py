@@ -4964,12 +4964,292 @@ reviewer_app = typer.Typer(
 )
 assay_app.add_typer(reviewer_app, name="reviewer", hidden=True, rich_help_panel="Compliance & Audit")
 
+checkpoint_app = typer.Typer(
+    name="checkpoint",
+    help="Inspect checkpoint attempts",
+    no_args_is_help=True,
+)
+assay_app.add_typer(checkpoint_app, name="checkpoint", rich_help_panel="Operate")
+
 vendorq_lock_app = typer.Typer(
     name="lock",
     help="Manage vendorq.lock",
     no_args_is_help=True,
 )
 vendorq_app.add_typer(vendorq_lock_app, name="lock")
+
+
+@checkpoint_app.command("view")
+def checkpoint_view_cmd(
+    checkpoint_attempt_id: str = typer.Argument(..., help="Checkpoint attempt id to inspect"),
+    trace_id: str = typer.Option(..., "--trace", help="Trace ID containing the checkpoint attempt"),
+    store_dir: Optional[str] = typer.Option(
+        None, "--store-dir",
+        help="Assay store directory (default: ~/.assay)",
+    ),
+    decision_receipt_paths: Optional[List[str]] = typer.Option(
+        None, "--decision-receipt",
+        help="Path to a canonical Decision Receipt JSON file (repeatable)",
+    ),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """View one checkpoint attempt as a counterparty-facing read model."""
+    from pathlib import Path
+
+    from assay.checkpoint_views import load_outbound_email_checkpoint_attempt_view
+    from assay.checkpoints import CheckpointValidationError
+    from assay.store import AssayStore
+
+    store = AssayStore(base_dir=Path(store_dir) if store_dir else None)
+    trace_entries = store.read_trace(trace_id)
+    if not trace_entries:
+        msg = f"Trace not found or empty: {trace_id}"
+        if output_json:
+            _output_json({"command": "checkpoint view", "status": "error", "error": msg}, exit_code=3)
+        console.print(f"[red]Error:[/] {msg}")
+        raise typer.Exit(3)
+
+    decision_receipts: List[Dict[str, Any]] = []
+    for receipt_path in decision_receipt_paths or []:
+        path = Path(receipt_path)
+        if not path.is_file():
+            msg = f"Decision Receipt file not found: {receipt_path}"
+            if output_json:
+                _output_json({"command": "checkpoint view", "status": "error", "error": msg}, exit_code=3)
+            console.print(f"[red]Error:[/] {msg}")
+            raise typer.Exit(3)
+        try:
+            decision_receipts.append(json.loads(path.read_text(encoding="utf-8")))
+        except json.JSONDecodeError as exc:
+            msg = f"Invalid Decision Receipt JSON at {receipt_path}: {exc}"
+            if output_json:
+                _output_json({"command": "checkpoint view", "status": "error", "error": msg}, exit_code=3)
+            console.print(f"[red]Error:[/] {msg}")
+            raise typer.Exit(3)
+
+    try:
+        view = load_outbound_email_checkpoint_attempt_view(
+            store,
+            trace_id,
+            checkpoint_attempt_id=checkpoint_attempt_id,
+            decision_receipts=decision_receipts or None,
+        )
+    except CheckpointValidationError as exc:
+        msg = str(exc)
+        if output_json:
+            _output_json({"command": "checkpoint view", "status": "error", "error": msg}, exit_code=3)
+        console.print(f"[red]Error:[/] {msg}")
+        raise typer.Exit(3)
+
+    payload = {
+        "command": "checkpoint view",
+        "status": "failed" if view.verification["status"] == "failed" else "ok",
+        "trace_id": trace_id,
+        **view.to_dict(),
+    }
+
+    if output_json:
+        _output_json(payload, exit_code=2 if view.verification["status"] == "failed" else 0)
+
+    console.print()
+    console.print(
+        Panel.fit(
+            "\n".join([
+                f"Attempt:      {view.checkpoint_attempt_id}",
+                f"Trace:        {view.trace_id or trace_id}",
+                f"Type:         {view.checkpoint_type}",
+                f"Current:      {view.current_state}",
+                f"Verification: {view.verification['status']}",
+            ]),
+            title="assay checkpoint view",
+        )
+    )
+
+    attempted = view.attempted_crossing
+    intent = attempted["attempt"]["intent"]
+    action_target = attempted["attempt"]["action_target"]
+    console.print(
+        Panel.fit(
+            "\n".join([
+                f"Requested at:  {attempted['requested_at']}",
+                f"Episode:       {attempted['subject']['episode_id']}",
+                f"Actor:         {attempted['subject']['actor_id']} ({attempted['subject']['actor_type']})",
+                f"Purpose:       {intent['purpose']}",
+                f"Target:        {action_target['system']}:{action_target['operation']}",
+                f"Relying party: {attempted['relying_party']['party_id']} ({attempted['relying_party']['role']})",
+                f"Consequence:   {attempted['relying_party']['consequence']}",
+            ]),
+            title="Attempted Crossing",
+        )
+    )
+
+    posture = view.last_eligible_posture
+    console.print(
+        Panel.fit(
+            "\n".join([
+                f"Evaluation:    {posture['evaluation_id']}",
+                f"Evaluated at:  {posture['evaluated_at']}",
+                f"Route:         {posture['route']}",
+                f"Policy:        {posture['policy']['policy_id']}@{posture['policy']['policy_version']}",
+                f"Reason codes:  {', '.join(posture['reason_codes']) if posture['reason_codes'] else 'none'}",
+                f"Release conds: {', '.join(posture['release_conditions']) if posture['release_conditions'] else 'none'}",
+                f"Support:       {posture['uncertainty']['support']:.2f}",
+                f"Freshness:     {posture['uncertainty']['freshness']:.2f}",
+                f"Consensus:     {posture['uncertainty']['consensus']:.2f}",
+                f"Policy margin: {posture['uncertainty']['policy_margin']:.2f}",
+            ]),
+            title="Last Eligible Posture",
+        )
+    )
+
+    decision_table = Table(show_header=True, header_style="bold")
+    decision_table.add_column("time", style="dim")
+    decision_table.add_column("source")
+    decision_table.add_column("authority")
+    decision_table.add_column("verdict")
+    decision_table.add_column("disposition")
+    if view.authority_decisions:
+        for decision in view.authority_decisions:
+            decision_table.add_row(
+                str(decision["timestamp"] or ""),
+                decision["detail_source"],
+                str(decision["authority_id"] or ""),
+                str(decision["verdict"] or ""),
+                str(decision["disposition"] or ""),
+            )
+    else:
+        decision_table.add_row("-", "none", "-", "-", "-")
+    console.print(decision_table)
+
+    outcome = view.actual_outcome
+    outcome_lines = [
+        f"Status:        {outcome['status']}",
+        f"Outcome:       {outcome.get('resolution_outcome') or 'pending'}",
+        f"Resolved at:   {outcome.get('resolved_at') or '-'}",
+        f"Final eval:    {outcome.get('final_evaluation_id') or '-'}",
+        f"Reason codes:  {', '.join(outcome.get('reason_codes') or []) or 'none'}",
+    ]
+    if outcome.get("human_approval"):
+        approval = outcome["human_approval"]
+        outcome_lines.append(f"Approval:      {approval['decision']} by {approval['approver_id']}")
+    if outcome.get("dispatch_attempted_at"):
+        outcome_lines.append(f"Dispatch at:   {outcome['dispatch_attempted_at']}")
+    if outcome.get("effect_observed_at"):
+        outcome_lines.append(f"Effect seen:   {outcome['effect_observed_at']}")
+    console.print(Panel.fit("\n".join(outcome_lines), title="Actual Outcome"))
+
+    if view.limitations:
+        console.print(
+            Panel.fit(
+                "\n".join(f"- {item}" for item in view.limitations),
+                title="Limitations",
+            )
+        )
+    if view.verification["errors"]:
+        console.print(
+            Panel.fit(
+                "\n".join(f"- {item}" for item in view.verification["errors"]),
+                title="Verification Findings",
+            )
+        )
+
+    raise typer.Exit(2 if view.verification["status"] == "failed" else 0)
+
+
+@checkpoint_app.command("export-reviewer")
+def checkpoint_export_reviewer_cmd(
+    checkpoint_attempt_id: str = typer.Argument(..., help="Checkpoint attempt id to package"),
+    proof_pack: str = typer.Option(..., "--proof-pack", help="Path to proof pack directory"),
+    out: str = typer.Option(..., "--out", "-o", help="Output reviewer packet directory"),
+    decision_receipt_paths: Optional[List[str]] = typer.Option(
+        None,
+        "--decision-receipt",
+        help="Path to a canonical Decision Receipt JSON file (repeatable)",
+    ),
+    sign_packet: bool = typer.Option(False, "--sign-packet/--no-sign-packet", help="Sign the packet manifest with a local Ed25519 key"),
+    packet_signer: Optional[str] = typer.Option(None, "--packet-signer", help="Signer ID for packet-manifest signing (default: active signer)"),
+    keys_dir: Optional[str] = typer.Option(None, "--keys-dir", help="Optional keystore directory for packet-manifest signing"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Compile a reviewer packet for one resolved outbound checkpoint attempt."""
+    from pathlib import Path
+
+    from assay.checkpoint_reviewer_packet import compile_checkpoint_reviewer_packet
+    from assay.keystore import AssayKeyStore, get_default_keystore
+    from assay.vendorq_models import VendorQInputError
+
+    decision_receipts: List[Dict[str, Any]] = []
+    for receipt_path in decision_receipt_paths or []:
+        path = Path(receipt_path)
+        if not path.is_file():
+            msg = f"Decision Receipt file not found: {receipt_path}"
+            if output_json:
+                _output_json({"command": "checkpoint export-reviewer", "status": "error", "error": msg}, exit_code=3)
+            console.print(f"[red]Error:[/] {msg}")
+            raise typer.Exit(3)
+        try:
+            decision_receipts.append(json.loads(path.read_text(encoding="utf-8")))
+        except json.JSONDecodeError as exc:
+            msg = f"Invalid Decision Receipt JSON at {receipt_path}: {exc}"
+            if output_json:
+                _output_json({"command": "checkpoint export-reviewer", "status": "error", "error": msg}, exit_code=3)
+            console.print(f"[red]Error:[/] {msg}")
+            raise typer.Exit(3)
+
+    keystore = None
+    packet_signer_id = None
+    generated_signer = False
+    if sign_packet:
+        keystore = AssayKeyStore(Path(keys_dir)) if keys_dir else get_default_keystore()
+        packet_signer_id = packet_signer or keystore.get_active_signer()
+        if not keystore.has_key(packet_signer_id):
+            keystore.generate_key(packet_signer_id)
+            keystore.set_active_signer(packet_signer_id)
+            generated_signer = True
+
+    try:
+        result = compile_checkpoint_reviewer_packet(
+            proof_pack_dir=Path(proof_pack),
+            checkpoint_attempt_id=checkpoint_attempt_id,
+            out_dir=Path(out),
+            decision_receipts=decision_receipts or None,
+            keystore=keystore,
+            packet_signer_id=packet_signer_id,
+        )
+    except VendorQInputError as exc:
+        if output_json:
+            _output_json({"command": "checkpoint export-reviewer", "status": "error", "error": str(exc)}, exit_code=3)
+        console.print(f"[red]Error:[/] {exc}")
+        raise typer.Exit(3)
+
+    if output_json:
+        _output_json(
+            {
+                "command": "checkpoint export-reviewer",
+                "status": "ok",
+                "generated_signer": generated_signer,
+                "packet_signer_id": packet_signer_id,
+                **result,
+            },
+            exit_code=0,
+        )
+
+    ratio = result["machine_coverage"]
+    console.print()
+    console.print(Panel.fit(
+        f"[bold green]Checkpoint Reviewer Packet Compiled[/]\n\n"
+        f"Attempt:           {checkpoint_attempt_id}\n"
+        f"Proof pack:        {proof_pack}\n"
+        f"Settlement:        {result['settlement_state']}\n"
+        f"Verification:      {result['verification_status']}\n"
+        f"Packet manifest:   {'signed' if result['packet_manifest_signed'] else 'unsigned'}"
+        f"{f' ({packet_signer_id})' if result['packet_manifest_signed'] and packet_signer_id else ''}\n"
+        f"Machine coverage:  {ratio['numerator']}/{ratio['denominator']} ({ratio['value']:.2%})\n"
+        f"Limitations:       {len(result['limitations'])}\n"
+        f"Output directory:  {out}",
+        title="assay checkpoint export-reviewer",
+    ))
+    console.print()
 
 
 @vendorq_app.command("ingest")

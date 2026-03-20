@@ -16,6 +16,9 @@ from assay.bridge import (
     _preview,
     _sha256_text,
 )
+from assay.epistemic_kernel import DENIAL_RECORD_RECEIPT_TYPE
+import assay.store as store_mod
+from assay.store import AssayStore
 
 
 # ---------------------------------------------------------------------------
@@ -186,6 +189,24 @@ class TestReceiptBridge:
         bridge, invoker = self._make_bridge(tmp_path)
         bridge.run_tool("s1", "file_delete", {"path": "/important"})
         assert len(invoker.calls) == 0
+
+    def test_denied_tool_emits_canonical_denial_record_to_trace(self, tmp_path, monkeypatch):
+        store = AssayStore(base_dir=tmp_path / "assay_store")
+        monkeypatch.setattr(store_mod, "_default_store", store)
+        monkeypatch.setenv("ASSAY_TRACE_ID", "trace_bridge_denial")
+
+        bridge, _ = self._make_bridge(tmp_path)
+        legacy_denial = bridge.run_tool("s1", "shell_exec", {"cmd": "rm -rf /"})
+
+        trace_entries = store.read_trace("trace_bridge_denial")
+        bridge_denials = [entry for entry in trace_entries if entry["type"] == "BridgeDenial"]
+        canonical_denials = [entry for entry in trace_entries if entry["type"] == DENIAL_RECORD_RECEIPT_TYPE]
+
+        assert len(bridge_denials) == 1
+        assert len(canonical_denials) == 1
+        assert canonical_denials[0]["parent_receipt_id"] == legacy_denial["receipt_id"]
+        assert canonical_denials[0]["source_surface"] == "assay.bridge"
+        assert canonical_denials[0]["backward_refs"]["source_receipt_id"] == legacy_denial["receipt_id"]
 
     def test_ssrf_denied_web_fetch(self, tmp_path):
         bridge, invoker = self._make_bridge(tmp_path)

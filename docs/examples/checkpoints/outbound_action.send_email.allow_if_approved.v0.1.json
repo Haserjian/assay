@@ -1,0 +1,247 @@
+{
+  "schema_version": "0.1.0",
+  "artifact_type": "checkpoint_evaluation",
+  "request_id": "req_01HQXRA1",
+  "checkpoint_id": "chk_01HQXCHK",
+  "evaluation_id": "cke_01HQXEVAL",
+  "checkpoint_type": "outbound_action.send_email",
+  "requested_at": "2026-03-19T12:00:00Z",
+  "subject": {
+    "episode_id": "ep_123",
+    "actor_id": "agent:customer_ops_assistant",
+    "actor_type": "agent",
+    "requester_id": "workflow:invoice_follow_up",
+    "session_id": "sess_0042"
+  },
+  "attempt": {
+    "intent_hash": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "intent": {
+      "recipient": {
+        "value_ref": "secret://recipient_email",
+        "domain": "example.com",
+        "contact_id": "crm_contact_44"
+      },
+      "subject_ref": "hash://email_subject_sha256",
+      "body_ref": "hash://email_body_sha256",
+      "purpose": "follow_up_on_open_invoice"
+    },
+    "action_target": {
+      "system": "gmail",
+      "operation": "send_message"
+    }
+  },
+  "relying_party": {
+    "party_id": "team://ops_manager_17",
+    "role": "approver",
+    "consequence": "external customer communication",
+    "disclosure_profile": "ops_manager_selective"
+  },
+  "shadow": {
+    "required_evidence": [
+      {
+        "kind": "recipient_verified",
+        "required": true,
+        "minimum_authority_level": "authoritative",
+        "max_age_seconds": 604800
+      },
+      {
+        "kind": "contact_authorization",
+        "required": true,
+        "minimum_authority_level": "authoritative",
+        "max_age_seconds": null
+      },
+      {
+        "kind": "fresh_context_snapshot",
+        "required": true,
+        "minimum_authority_level": "supportive",
+        "max_age_seconds": 86400
+      },
+      {
+        "kind": "policy_match",
+        "required": true,
+        "minimum_authority_level": "authoritative",
+        "max_age_seconds": 3600
+      }
+    ],
+    "predicted_failure_modes": [
+      {
+        "kind": "wrong_recipient",
+        "score": 0.28,
+        "rationale": "contact and ticket data are consistent but external send remains sensitive"
+      },
+      {
+        "kind": "thin_policy_margin",
+        "score": 0.31,
+        "rationale": "policy allows send with review when the account is in collections"
+      }
+    ],
+    "predicted_uncertainty": {
+      "support": 0.74,
+      "freshness": 0.67,
+      "consensus": 0.89,
+      "policy_margin": 0.36
+    },
+    "recommended_route": "review",
+    "notes_ref": "hash://shadow_notes_001"
+  },
+  "evidence_bundle": {
+    "bundle_id": "eb_01HQXBUNDLE",
+    "items": [
+      {
+        "evidence_id": "ev_1",
+        "kind": "recipient_verified",
+        "uri": "hash://crm_contact_record_v17",
+        "hash": "1111111111111111111111111111111111111111111111111111111111111111",
+        "observed_at": "2026-03-19T11:58:00Z",
+        "valid_until": "2026-03-26T11:58:00Z",
+        "sensitivity": "restricted",
+        "disclosure": "selective",
+        "authority_level": "authoritative"
+      },
+      {
+        "evidence_id": "ev_2",
+        "kind": "contact_authorization",
+        "uri": "hash://consent_record_44",
+        "hash": "2222222222222222222222222222222222222222222222222222222222222222",
+        "observed_at": "2026-03-10T08:00:00Z",
+        "valid_until": null,
+        "sensitivity": "restricted",
+        "disclosure": "selective",
+        "authority_level": "authoritative"
+      },
+      {
+        "evidence_id": "ev_3",
+        "kind": "fresh_context_snapshot",
+        "uri": "hash://ticket_state_snapshot",
+        "hash": "3333333333333333333333333333333333333333333333333333333333333333",
+        "observed_at": "2026-03-19T11:55:00Z",
+        "valid_until": "2026-03-20T11:55:00Z",
+        "sensitivity": "internal",
+        "disclosure": "full",
+        "authority_level": "supportive"
+      },
+      {
+        "evidence_id": "ev_4",
+        "kind": "policy_match",
+        "uri": "hash://policy_eval_input",
+        "hash": "4444444444444444444444444444444444444444444444444444444444444444",
+        "observed_at": "2026-03-19T12:00:01Z",
+        "valid_until": "2026-03-19T13:00:01Z",
+        "sensitivity": "internal",
+        "disclosure": "full",
+        "authority_level": "authoritative"
+      },
+      {
+        "evidence_id": "ev_5",
+        "kind": "model_rationale",
+        "uri": "hash://model_rationale_excerpt",
+        "hash": "5555555555555555555555555555555555555555555555555555555555555555",
+        "observed_at": "2026-03-19T12:00:01Z",
+        "valid_until": null,
+        "sensitivity": "internal",
+        "disclosure": "summary_only",
+        "authority_level": "explanatory"
+      }
+    ],
+    "gaps": [],
+    "contradictions": []
+  },
+  "verifiers": [
+    {
+      "name": "guardian.recipient_verifier",
+      "version": "0.1.0",
+      "input_refs": [
+        "ev_1"
+      ],
+      "result": "pass",
+      "reason_codes": [
+        "recipient_matches_verified_contact"
+      ],
+      "notes_ref": "hash://verifier_notes_1"
+    },
+    {
+      "name": "guardian.authorization_verifier",
+      "version": "0.1.0",
+      "input_refs": [
+        "ev_2"
+      ],
+      "result": "pass",
+      "reason_codes": [
+        "contact_authorization_current"
+      ],
+      "notes_ref": "hash://verifier_notes_2"
+    },
+    {
+      "name": "guardian.freshness_verifier",
+      "version": "0.1.0",
+      "input_refs": [
+        "ev_3"
+      ],
+      "result": "pass",
+      "reason_codes": [
+        "context_within_freshness_window"
+      ],
+      "notes_ref": "hash://verifier_notes_3"
+    },
+    {
+      "name": "guardian.policy_verifier",
+      "version": "0.1.0",
+      "input_refs": [
+        "ev_1",
+        "ev_2",
+        "ev_3",
+        "ev_4"
+      ],
+      "result": "pass_with_warning",
+      "reason_codes": [
+        "sensitive_external_send",
+        "collections_account_requires_review"
+      ],
+      "notes_ref": "hash://verifier_notes_4"
+    }
+  ],
+  "uncertainty": {
+    "support": 0.86,
+    "freshness": 0.91,
+    "consensus": 0.79,
+    "policy_margin": 0.42
+  },
+  "policy": {
+    "policy_id": "policy.outbound_email.default",
+    "policy_version": "2026-03-19.1",
+    "policy_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "decision_rule": "allow if recipient_verified and contact_authorization and freshness_ok and policy_match; require review for sensitive external send",
+    "thresholds": {
+      "minimum_support": 0.75,
+      "minimum_policy_margin": 0.25
+    }
+  },
+  "evaluation_outcome": {
+    "route": "allow_if_approved",
+    "reason_codes": [
+      "sensitive_external_send",
+      "policy_margin_near_threshold"
+    ],
+    "human_review_required": true,
+    "release_conditions": [
+      "human_approval_required",
+      "freshness_recheck_required_at_release"
+    ]
+  },
+  "validity": {
+    "evaluated_at": "2026-03-19T12:00:02Z",
+    "evidence_valid_until": "2026-03-19T13:00:01Z",
+    "release_revalidation_required": true,
+    "invalidation_triggers": [
+      "intent_hash_changed",
+      "fresh_context_expired",
+      "recipient_verification_revoked"
+    ]
+  },
+  "audit": {
+    "created_at": "2026-03-19T12:00:02Z",
+    "retention_days": 30,
+    "redaction_profile": "default_pii",
+    "attestation_state": "policy_validated_bundle"
+  }
+}

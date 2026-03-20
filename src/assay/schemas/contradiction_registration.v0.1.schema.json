@@ -1,0 +1,197 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "contradiction_registration v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "contradiction_id",
+    "timestamp",
+    "episode_id",
+    "claim_a_id",
+    "claim_b_id",
+    "conflict_type",
+    "severity",
+    "detection"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "artifact_type": {
+      "const": "contradiction_registration"
+    },
+    "contradiction_id": {
+      "type": "string",
+      "pattern": "^ctr_[0-9a-f]{12}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "episode_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "claim_a_id": {
+      "type": "string",
+      "pattern": "^clm_[0-9a-f]{12}$"
+    },
+    "claim_b_id": {
+      "type": "string",
+      "pattern": "^clm_[0-9a-f]{12}$"
+    },
+    "conflict_type": {
+      "type": "string",
+      "enum": [
+        "direct_negation",
+        "inconsistent_evidence",
+        "policy_conflict",
+        "temporal_inconsistency",
+        "scope_overlap"
+      ]
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "critical",
+        "high",
+        "medium",
+        "low"
+      ]
+    },
+    "detection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "detection_method",
+        "detection_confidence",
+        "detector_id",
+        "detection_evidence_refs"
+      ],
+      "properties": {
+        "detection_method": {
+          "type": "string",
+          "enum": [
+            "automated_verification",
+            "semantic_similarity",
+            "opa_policy",
+            "human_identified",
+            "cross_episode"
+          ]
+        },
+        "detection_confidence": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "detector_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "detection_evidence_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/typed_ref"
+          }
+        }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "open",
+        "contained",
+        "settled",
+        "superseded"
+      ]
+    },
+    "scope": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "lhs_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "rhs_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "replay_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "boundary_refs": {
+      "type": "object",
+      "additionalProperties": {
+        "type": [
+          "string",
+          "number",
+          "boolean",
+          "null"
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "typed_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ref_type",
+        "ref_id",
+        "ref_role"
+      ],
+      "properties": {
+        "ref_type": {
+          "type": "string",
+          "enum": [
+            "receipt",
+            "claim",
+            "attestation",
+            "witness_bundle",
+            "metric",
+            "external"
+          ]
+        },
+        "ref_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ref_uri": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ref_hash": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ref_role": {
+          "type": "string",
+          "enum": [
+            "supporting",
+            "contradicting",
+            "contextual",
+            "superseded"
+          ]
+        }
+      }
+    }
+  }
+}

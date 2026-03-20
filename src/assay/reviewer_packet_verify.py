@@ -12,6 +12,12 @@ from typing import Any, Dict, List, Optional, Tuple
 from nacl.signing import VerifyKey
 
 from assay._receipts.canonicalize import to_jcs_bytes
+from assay.checkpoint_reviewer_packet import (
+    CHECKPOINT_REVIEWER_PACKET_PROFILE,
+    derive_checkpoint_claim_state,
+    derive_checkpoint_reviewer_packet,
+    load_packaged_decision_receipts,
+)
 from assay.integrity import VerifyResult, verify_pack_manifest
 from assay.keystore import get_default_keystore
 from assay.reviewer_packet_compile import (
@@ -24,6 +30,7 @@ from assay.reviewer_packet_compile import (
     _derive_settlement_state,
     _evaluate_question,
     _freshness_state,
+    _load_pack_local,
 )
 from assay.vendorq_models import VendorQInputError, now_utc_iso, parse_iso8601, resolve_pointer
 
@@ -406,6 +413,266 @@ def _append_failure_reason(
     failure_reasons.append({"code": code, "message": message})
 
 
+def _verify_checkpoint_profile_packet(
+    *,
+    packet_dir: Path,
+    settlement: Dict[str, Any],
+    scope_manifest: Dict[str, Any],
+    coverage_matrix: str,
+    packet_inputs: Dict[str, Any],
+    packet_manifest: Dict[str, Any],
+    keystore: Any | None,
+) -> Dict[str, Any]:
+    profile_inputs = dict(packet_inputs.get("checkpoint_profile_inputs") or {})
+    checkpoint_attempt_id = str(profile_inputs.get("checkpoint_attempt_id") or "")
+    if not checkpoint_attempt_id:
+        raise VendorQInputError("checkpoint_profile_inputs missing checkpoint_attempt_id")
+
+    proof_pack_dir = _resolve_proof_pack_dir(packet_dir, settlement)
+    coverage_rows = _parse_coverage_matrix(coverage_matrix)
+    errors = _validate_settlement_payload(settlement)
+    errors.extend(_validate_scope_manifest(scope_manifest))
+    coverage_errors, _ = _validate_coverage_rows(
+        coverage_rows,
+        packet_dir=packet_dir,
+        scope_manifest=scope_manifest,
+    )
+    errors.extend(coverage_errors)
+
+    decision_receipt_rel_paths = list(profile_inputs.get("decision_receipt_files") or [])
+    decision_receipts, decision_receipt_rel_paths = load_packaged_decision_receipts(
+        packet_dir,
+        rel_paths=decision_receipt_rel_paths,
+    )
+
+    manifest_path = proof_pack_dir / "pack_manifest.json"
+    proof_pack_manifest = _load_json(manifest_path)
+    actual_manifest_sha256 = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+
+    proof_pack_result: VerifyResult = verify_pack_manifest(
+        proof_pack_manifest,
+        proof_pack_dir,
+        keystore or get_default_keystore(),
+    )
+    actual_integrity_state = "PASS" if proof_pack_result.passed else "FAIL"
+    actual_claim_state = derive_checkpoint_claim_state(_load_pack_local(proof_pack_dir))
+
+    packet_manifest_errors, packet_manifest_warnings, packet_manifest_verified, packet_manifest_signed = _verify_packet_manifest(
+        packet_dir,
+        packet_manifest,
+        keystore=keystore,
+    )
+    errors.extend(packet_manifest_errors)
+
+    packet_time = str(settlement.get("generated_at") or "")
+    valid_for = str(settlement.get("valid_for") or "P30D")
+    expected_expires_at: Optional[str] = None
+    if parse_iso8601(packet_time) is not None:
+        expected_expires_at = _add_period_days(packet_time, valid_for)
+    valid_for_matches = settlement.get("valid_for") == valid_for
+    if not valid_for_matches:
+        errors.append(
+            f"SETTLEMENT.json valid_for={settlement.get('valid_for')} does not match derived valid_for={valid_for}"
+        )
+    expires_at_matches = expected_expires_at is None or settlement.get("expires_at") == expected_expires_at
+    if not expires_at_matches:
+        errors.append(
+            f"SETTLEMENT.json expires_at={settlement.get('expires_at')} does not match derived expires_at={expected_expires_at}"
+        )
+
+    effective_freshness_state = _derive_effective_freshness_state(
+        generated_at=packet_time,
+        expires_at=str(settlement.get("expires_at") or expected_expires_at or ""),
+        evidence_time=str(_build_proof_pack_context(proof_pack_dir).get("timestamp_end") or packet_time),
+        stale_after=None,
+        now=datetime.now(timezone.utc),
+    )
+    effective_integrity_state = "PASS" if actual_integrity_state == "PASS" and packet_manifest_verified else "FAIL"
+
+    signed_by = str(scope_manifest.get("signed_by") or "assay checkpoint reviewer-packet compiler")
+    derived = derive_checkpoint_reviewer_packet(
+        proof_pack_dir=proof_pack_dir,
+        checkpoint_attempt_id=checkpoint_attempt_id,
+        decision_receipts=decision_receipts or None,
+        decision_receipt_rel_paths=decision_receipt_rel_paths,
+        packet_time=packet_time,
+        signed_by=signed_by,
+        integrity_state_override=effective_integrity_state,
+        claim_state_override=actual_claim_state,
+        freshness_state_override=effective_freshness_state,
+    )
+    expected_scope_manifest = derived["scope_manifest"]
+    expected_coverage_rows = derived["coverage_rows"]
+    coverage_counts = Counter(row["Status"] for row in expected_coverage_rows)
+
+    scope_manifest_matches = scope_manifest == expected_scope_manifest
+    if not scope_manifest_matches:
+        errors.append("SCOPE_MANIFEST.json does not match the derived checkpoint packet scope manifest")
+
+    coverage_rows_match = coverage_rows == expected_coverage_rows
+    if not coverage_rows_match:
+        errors.append("COVERAGE_MATRIX.md does not match the derived checkpoint coverage rows")
+
+    pack_manifest_sha_matches = settlement.get("pack_manifest_sha256") == actual_manifest_sha256
+    if not pack_manifest_sha_matches:
+        errors.append("SETTLEMENT.json pack_manifest_sha256 does not match proof_pack/pack_manifest.json")
+
+    integrity_matches = settlement.get("integrity_state") == actual_integrity_state
+    if not integrity_matches:
+        errors.append(
+            f"SETTLEMENT.json integrity_state={settlement.get('integrity_state')} "
+            f"does not match nested proof pack integrity_state={actual_integrity_state}"
+        )
+
+    claim_matches = settlement.get("claim_state") == actual_claim_state
+    if not claim_matches:
+        errors.append(
+            f"SETTLEMENT.json claim_state={settlement.get('claim_state')} "
+            f"does not match nested proof pack claim_state={actual_claim_state}"
+        )
+
+    freshness_matches = settlement.get("freshness_state") == effective_freshness_state
+    if not freshness_matches:
+        errors.append(
+            f"SETTLEMENT.json freshness_state={settlement.get('freshness_state')} "
+            f"does not match derived freshness_state={effective_freshness_state}"
+        )
+
+    regression_matches = settlement.get("regression_state") == "NONE"
+    if not regression_matches:
+        errors.append(
+            f"SETTLEMENT.json regression_state={settlement.get('regression_state')} does not match derived regression_state=NONE"
+        )
+
+    expected_scope_state = "BOUNDED"
+    scope_state_matches = settlement.get("scope_state") == expected_scope_state
+    if not scope_state_matches:
+        errors.append(
+            f"SETTLEMENT.json scope_state={settlement.get('scope_state')} "
+            f"does not match derived scope_state={expected_scope_state}"
+        )
+
+    provided_settlement_state = str(settlement.get("settlement_state") or "")
+    settlement_matches = provided_settlement_state == derived["settlement_state"]
+    if not settlement_matches:
+        errors.append(
+            f"SETTLEMENT.json settlement_state={provided_settlement_state} "
+            f"does not match derived settlement_state={derived['settlement_state']}"
+        )
+
+    basis = settlement.get("settlement_basis") or []
+    basis_matches = not basis or basis[0] == derived["settlement_reason"]
+    if not basis_matches:
+        errors.append("SETTLEMENT.json settlement_basis[0] does not match the derived settlement interpretation")
+
+    if not proof_pack_result.passed:
+        for err in proof_pack_result.errors:
+            errors.append(f"Nested proof pack verification failed: {err.code}: {err.message}")
+
+    warnings = list(proof_pack_result.warnings) + packet_manifest_warnings
+    packet_verified = len(errors) == 0 and derived["settlement_state"] != "TAMPERED"
+    packet_manifest_signer_id = str(packet_manifest.get("signer_id") or "") or None
+    packet_manifest_signer_fingerprint = str(packet_manifest.get("signer_pubkey_sha256") or "") or None
+
+    metadata_match_map = {
+        "pack_manifest_sha256": pack_manifest_sha_matches,
+        "valid_for": valid_for_matches,
+        "expires_at": expires_at_matches,
+        "integrity_state": integrity_matches,
+        "claim_state": claim_matches,
+        "freshness_state": freshness_matches,
+        "regression_state": regression_matches,
+        "scope_state": scope_state_matches,
+        "settlement_state": settlement_matches,
+        "settlement_basis": basis_matches,
+        "scope_manifest": scope_manifest_matches,
+        "coverage_matrix": coverage_rows_match,
+    }
+    metadata_mismatches = [name for name, matched in metadata_match_map.items() if not matched]
+
+    failure_reasons: List[Dict[str, str]] = []
+    seen_failure_codes: set[str] = set()
+    packet_layer_tamper = bool(packet_manifest_errors) or not scope_manifest_matches or not coverage_rows_match
+    if packet_layer_tamper:
+        _append_failure_reason(
+            failure_reasons,
+            seen_failure_codes,
+            code="packet_layer_tamper",
+            message="Packet-layer files or derived checkpoint packet views do not match the attested reviewer packet.",
+        )
+    if not proof_pack_result.passed:
+        _append_failure_reason(
+            failure_reasons,
+            seen_failure_codes,
+            code="nested_proof_pack_failure",
+            message="Nested proof pack verification failed.",
+        )
+    if effective_freshness_state == "STALE":
+        _append_failure_reason(
+            failure_reasons,
+            seen_failure_codes,
+            code="stale_packet",
+            message="Packet evidence is stale under the declared freshness policy.",
+        )
+    if metadata_mismatches:
+        _append_failure_reason(
+            failure_reasons,
+            seen_failure_codes,
+            code="provided_metadata_mismatch",
+            message="Provided packet metadata does not match the recomputed verification result.",
+        )
+    if errors and not failure_reasons:
+        _append_failure_reason(
+            failure_reasons,
+            seen_failure_codes,
+            code="invalid_packet_format",
+            message="Reviewer packet validation failed.",
+        )
+    primary_failure_reason = failure_reasons[0]["code"] if failure_reasons else None
+
+    return {
+        "packet_id": str(settlement.get("packet_id") or packet_dir.name),
+        "packet_verified": packet_verified,
+        "provided_settlement_state": provided_settlement_state,
+        "settlement_state": derived["settlement_state"],
+        "settlement_reason": derived["settlement_reason"],
+        "integrity_state": actual_integrity_state,
+        "claim_state": actual_claim_state,
+        "scope_state": expected_scope_state,
+        "freshness_state": effective_freshness_state,
+        "regression_state": "NONE",
+        "coverage_summary": dict(coverage_counts),
+        "errors": errors,
+        "warnings": warnings,
+        "primary_failure_reason": primary_failure_reason,
+        "failure_reasons": failure_reasons,
+        "settlement_verification": {
+            "recomputed": True,
+            "matches_provided": settlement_matches,
+            "provided_metadata_matches": len(metadata_mismatches) == 0,
+            "metadata_mismatches": metadata_mismatches,
+            "basis_matches": basis_matches,
+            "provided_state": provided_settlement_state,
+            "derived_state": derived["settlement_state"],
+        },
+        "packet_manifest": {
+            "path": str(packet_dir / _PACKET_MANIFEST_FILE),
+            "signed": packet_manifest_signed,
+            "verified": packet_manifest_verified,
+            "signer_identity": packet_manifest_signer_id,
+            "signer_fingerprint": packet_manifest_signer_fingerprint,
+        },
+        "proof_pack": {
+            "path": str(proof_pack_dir),
+            "verified": proof_pack_result.passed,
+            "receipt_count": proof_pack_result.receipt_count,
+            "head_hash": proof_pack_result.head_hash,
+            "errors": [err.to_dict() for err in proof_pack_result.errors],
+            "warnings": proof_pack_result.warnings,
+        },
+    }
+
+
 def verify_reviewer_packet(
     packet_dir: Path,
     *,
@@ -416,6 +683,18 @@ def verify_reviewer_packet(
         raise VendorQInputError(f"reviewer_packet_dir_not_found: {packet_dir}")
 
     settlement, scope_manifest, coverage_matrix, packet_inputs, packet_manifest = _load_required_packet_files(packet_dir)
+    packet_profile = str(settlement.get("packet_profile") or packet_inputs.get("packet_profile") or "")
+    if packet_profile == CHECKPOINT_REVIEWER_PACKET_PROFILE:
+        return _verify_checkpoint_profile_packet(
+            packet_dir=packet_dir,
+            settlement=settlement,
+            scope_manifest=scope_manifest,
+            coverage_matrix=coverage_matrix,
+            packet_inputs=packet_inputs,
+            packet_manifest=packet_manifest,
+            keystore=keystore,
+        )
+
     proof_pack_dir = _resolve_proof_pack_dir(packet_dir, settlement)
     coverage_rows = _parse_coverage_matrix(coverage_matrix)
     proof_pack_local = _build_proof_pack_context(proof_pack_dir)

@@ -369,7 +369,7 @@ def _build_packet_inputs(
     }
 
 
-def _packet_file_entries(out_dir: Path) -> List[Dict[str, Any]]:
+def _packet_file_entries(out_dir: Path, *, extra_rel_paths: Optional[List[str]] = None) -> List[Dict[str, Any]]:
     file_names = [
         "SETTLEMENT.json",
         "SCOPE_MANIFEST.json",
@@ -380,6 +380,7 @@ def _packet_file_entries(out_dir: Path) -> List[Dict[str, Any]]:
         "CHALLENGE.md",
         _PACKET_INPUTS_FILE,
     ]
+    file_names.extend(extra_rel_paths or [])
     entries: List[Dict[str, Any]] = []
     for file_name in file_names:
         payload = (out_dir / file_name).read_bytes()
@@ -406,8 +407,9 @@ def _build_packet_manifest(
     baseline_settlement_state: Optional[str],
     keystore: AssayKeyStore | None,
     packet_signer_id: Optional[str],
+    extra_rel_paths: Optional[List[str]] = None,
 ) -> Tuple[Dict[str, Any], bool]:
-    file_entries = _packet_file_entries(out_dir)
+    file_entries = _packet_file_entries(out_dir, extra_rel_paths=extra_rel_paths)
     unsigned_manifest: Dict[str, Any] = {
         "packet_id": packet_id,
         "packet_version": packet_version,

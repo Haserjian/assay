@@ -2,6 +2,12 @@
 
 > **Current trust tier: T0 (self-signed)** | Next: T1 (time-anchored)
 
+> **Boundary note:** this is an advanced/bridge document. The primary
+> public story for Assay today is the evidence-compiler flow in
+> [README](../README.md) and
+> [WHAT_ASSAY_DOES_TODAY.md](WHAT_ASSAY_DOES_TODAY.md). Decision Escrow
+> describes the protocol model and the path toward consequence gating.
+
 **Agent actions don't settle until they're verified.**
 
 Decision Escrow is the protocol model behind Assay. It treats every AI
@@ -65,6 +71,11 @@ assay diff ./baseline_pack/ ./proof_pack_*/ --gate-cost-pct 25 --gate-errors 0 -
 
 This produces a portable proof pack that any third party can verify
 offline with `python3 -m pip install assay-ai && assay verify-pack ./proof_pack_*/`.
+
+The public first-contact truth remains simple: Assay instruments existing
+AI workflows and proves what happened in a real run. Episode/checkpoint
+APIs are part of the bridge toward settlement membranes, but they are
+not the first-contact product story in this charter.
 
 ## What Assay Proves
 

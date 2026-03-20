@@ -35,6 +35,10 @@ from pathlib import Path
 from typing import Any, Dict, FrozenSet, List, Literal, Optional, Protocol, runtime_checkable
 from urllib.parse import urlparse
 
+from assay.epistemic_kernel import (
+    adapt_bridge_denial_to_denial_record,
+    emit_denial_record_to_trace,
+)
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -409,6 +413,11 @@ class ReceiptBridge:
         }
         self._dump_receipt(receipt, kind="denial", tool_name=tool_name)
         self._emit_to_trace(receipt)
+        denial_record = adapt_bridge_denial_to_denial_record(receipt)
+        emit_denial_record_to_trace(
+            denial_record,
+            parent_receipt_id=receipt["receipt_id"],
+        )
         return receipt
 
     # -----------------------------------------------------------------------

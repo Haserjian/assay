@@ -1,0 +1,29 @@
+{
+  "generated_at": "2026-03-18T00:00:00+00:00",
+  "source_commit": "local-specimen",
+  "signed_by": "local-specimen",
+  "workflow_name": "Assay local specimen",
+  "workflow_description": "Local specimen proving scan, patch, run, proof-pack, and reviewer-packet flow.",
+  "repo_or_system_in_scope": "examples/specimen/sample_app.before.py",
+  "entrypoints_in_scope": [
+    "single OpenAI-compatible chat completion"
+  ],
+  "callsites_identified": 1,
+  "callsites_instrumented": 1,
+  "controls_declared": [
+    "signed proof pack",
+    "offline verification"
+  ],
+  "excluded_components": [
+    "live provider infrastructure",
+    "multi-step workflows outside the specimen"
+  ],
+  "boundary_notes": [
+    "This specimen is local and intentionally minimal.",
+    "The proof pack is the trust root; the reviewer packet is the readable wrapper."
+  ],
+  "freshness_policy": {
+    "valid_for": "P30D",
+    "stale_after": "P90D"
+  }
+}

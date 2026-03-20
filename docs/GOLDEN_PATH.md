@@ -12,7 +12,7 @@ The 60-second first-contact conversion spec for Assay.
 60 seconds of patience.
 
 **Promise (one sentence):**
-Assay generates reviewer-ready evidence packets, backed by signed proof material, that another team can verify offline.
+Assay instruments supported AI workflows, records signed evidence during real runs, and can hand another team a reviewer-ready artifact they can verify offline.
 
 **Command (one):**
 ```bash
@@ -28,6 +28,10 @@ team. This is verifiable, not vibes."
 **Next step (one fork):**
 - "I need a packet another team can review" → reviewer packet flow
 - "I ship AI features and need instrumentation" → `assay start`
+
+**Boundary discipline:**
+- First-contact story = evidence compiler for existing AI execution
+- Episode/checkpoint APIs = advanced bridge capability, not first-contact copy
 
 ---
 
@@ -58,8 +62,8 @@ Preserve capability, withdraw first-contact authority.
 ### 3. Packet path is buried under generic instrumentation
 The current front door proves tamper detection but does not quickly show the buyer-facing packet path. Fix: first contact proves the trust root, then explicitly forks to reviewer packet workflow or instrumentation.
 
-### 4. README is still proof-pack-first
-Fix: Top 20 lines mirror this spec. Sentence → command → reviewer-ready artifact → why → next step.
+### 4. README still risks blending the wedge with the bridge
+Fix: Top lines must keep the primary public story boringly clear. Runtime membrane language stays visible only as advanced capability.
 
 ---
 

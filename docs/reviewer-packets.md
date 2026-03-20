@@ -72,6 +72,59 @@ The JSON output includes:
 - `failure_reasons`
 - `settlement_verification` recomputation details
 
+## Checkpoint Packet Profile
+
+Reviewer Packets also support a checkpoint-specific profile for resolved
+`outbound_action.send_email` attempts:
+
+```bash
+assay checkpoint export-reviewer <checkpoint_attempt_id> \
+  --proof-pack path/to/proof_pack \
+  --out checkpoint_packet_demo \
+  --decision-receipt path/to/decision.json
+```
+
+This does not create a new packet format. It emits the same reviewer-packet
+directory contract:
+
+- `SETTLEMENT.json`
+- `SCOPE_MANIFEST.json`
+- `COVERAGE_MATRIX.md`
+- `PACKET_INPUTS.json`
+- `PACKET_MANIFEST.json`
+- nested `proof_pack/`
+- optional `decision_receipts/`
+
+The trust root remains the nested proof pack. The checkpoint lifecycle becomes
+the packet's subject matter.
+
+Checkpoint packets use
+`packet_profile = checkpoint.outbound_action.send_email.v0.1` and a fixed
+four-row coverage model:
+
+1. attempted crossing
+2. eligible posture carried into resolution
+3. authority decision layer
+4. actual outcome
+
+Authority evidence is explicit about how it was obtained:
+
+- `canonical_decision_receipts`
+- `trace_wrappers_only`
+- `missing`
+- `not_required`
+
+This means the packet can degrade honestly:
+
+- canonical Decision Receipts packaged -> authority row can be `EVIDENCED`
+- only `checkpoint.decision_recorded` trace wrappers available -> authority row is `PARTIAL`
+- missing authority linkage for a decision-required outcome -> settlement becomes `INCOMPLETE_EVIDENCE`
+- legacy resolutions missing `final_evaluation_id` stay readable but downgrade the posture row to `PARTIAL`
+
+`assay reviewer verify` recomputes checkpoint settlement from the nested proof
+pack and any packaged canonical Decision Receipts. It does not trust the
+packet's `SETTLEMENT.json` or coverage rows.
+
 ## Verify in the browser
 
 Open the browser verifier and drop in the compiled packet directory:

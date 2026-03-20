@@ -1,0 +1,40 @@
+{
+  "questions": [
+    {
+      "question_id": "specimen-001",
+      "prompt": "Can another team verify this artifact offline?",
+      "in_scope": true,
+      "status_rule": "ALL_EVIDENCE_REQUIRED",
+      "scope": "Whole specimen",
+      "evidence": [
+        {
+          "type": "verify_report_field",
+          "path": "passed"
+        }
+      ],
+      "notes": "The nested proof pack verifies offline without trusting the producer."
+    },
+    {
+      "question_id": "specimen-002",
+      "prompt": "Did the specimen capture runtime evidence from a real wrapped run?",
+      "in_scope": true,
+      "status_rule": "ALL_EVIDENCE_REQUIRED",
+      "scope": "Whole specimen",
+      "evidence": [
+        {
+          "type": "verify_report_field",
+          "path": "receipt_count"
+        }
+      ],
+      "notes": "The proof pack contains at least one receipt emitted during the wrapped specimen run."
+    },
+    {
+      "question_id": "specimen-003",
+      "prompt": "Does this specimen establish legal or regulatory compliance?",
+      "in_scope": false,
+      "status_rule": "OUT_OF_SCOPE",
+      "scope": "Out of scope for the specimen",
+      "out_of_scope_note": "This artifact demonstrates evidence mechanics, not legal conclusions."
+    }
+  ]
+}

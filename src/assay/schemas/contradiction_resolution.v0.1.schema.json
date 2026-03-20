@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "contradiction_resolution v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "resolution_id",
+    "timestamp",
+    "contradiction_id",
+    "episode_id",
+    "resolution_outcome",
+    "resolution_basis"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "artifact_type": {
+      "const": "contradiction_resolution"
+    },
+    "resolution_id": {
+      "type": "string",
+      "pattern": "^crr_[0-9a-f]{12}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "contradiction_id": {
+      "type": "string",
+      "pattern": "^ctr_[0-9a-f]{12}$"
+    },
+    "episode_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "resolution_outcome": {
+      "type": "string",
+      "enum": [
+        "claim_a_prevails",
+        "claim_b_prevails",
+        "both_retracted",
+        "reconciled",
+        "out_of_scope",
+        "deferred"
+      ]
+    },
+    "resolution_basis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authority_type",
+        "decision_receipt_id",
+        "evidence_refs",
+        "prevailing_proof_tier"
+      ],
+      "properties": {
+        "authority_type": {
+          "type": "string",
+          "enum": [
+            "automated_verification",
+            "governance_decision",
+            "human_judgment",
+            "new_evidence",
+            "policy_update"
+          ]
+        },
+        "decision_receipt_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/typed_ref"
+          }
+        },
+        "prevailing_proof_tier": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "DRAFT",
+            "CHECKED",
+            "TOOL_VERIFIED",
+            "ADVERSARIAL",
+            "CONSTITUTIONAL",
+            null
+          ]
+        },
+        "rationale": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 500
+        }
+      }
+    },
+    "superseding_claim_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^clm_[0-9a-f]{12}$"
+    },
+    "notes": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 500
+    }
+  },
+  "$defs": {
+    "typed_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ref_type",
+        "ref_id",
+        "ref_role"
+      ],
+      "properties": {
+        "ref_type": {
+          "type": "string",
+          "enum": [
+            "receipt",
+            "claim",
+            "attestation",
+            "witness_bundle",
+            "metric",
+            "external"
+          ]
+        },
+        "ref_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ref_uri": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ref_hash": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ref_role": {
+          "type": "string",
+          "enum": [
+            "supporting",
+            "contradicting",
+            "contextual",
+            "superseded"
+          ]
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,222 @@
+{
+  "schema_version": "0.1.0",
+  "artifact_type": "checkpoint_evaluation",
+  "request_id": "req_01HQXRB2",
+  "checkpoint_id": "chk_01HQXBLK",
+  "evaluation_id": "cke_01HQXFAIL",
+  "checkpoint_type": "outbound_action.send_email",
+  "requested_at": "2026-03-19T12:15:00Z",
+  "subject": {
+    "episode_id": "ep_124",
+    "actor_id": "agent:customer_ops_assistant",
+    "actor_type": "agent",
+    "requester_id": "workflow:invoice_follow_up",
+    "session_id": "sess_0043"
+  },
+  "attempt": {
+    "intent_hash": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+    "intent": {
+      "recipient": {
+        "value_ref": "secret://recipient_email",
+        "domain": "example.com",
+        "contact_id": "crm_contact_77"
+      },
+      "subject_ref": "hash://email_subject_sha256_alt",
+      "body_ref": "hash://email_body_sha256_alt",
+      "purpose": "follow_up_on_open_invoice"
+    },
+    "action_target": {
+      "system": "gmail",
+      "operation": "send_message"
+    }
+  },
+  "relying_party": {
+    "party_id": "team://ops_manager_17",
+    "role": "approver",
+    "consequence": "external customer communication",
+    "disclosure_profile": "ops_manager_selective"
+  },
+  "shadow": {
+    "required_evidence": [
+      {
+        "kind": "recipient_verified",
+        "required": true,
+        "minimum_authority_level": "authoritative",
+        "max_age_seconds": 604800
+      },
+      {
+        "kind": "contact_authorization",
+        "required": true,
+        "minimum_authority_level": "authoritative",
+        "max_age_seconds": null
+      },
+      {
+        "kind": "fresh_context_snapshot",
+        "required": true,
+        "minimum_authority_level": "supportive",
+        "max_age_seconds": 86400
+      }
+    ],
+    "predicted_failure_modes": [
+      {
+        "kind": "recipient_unverified",
+        "score": 0.62,
+        "rationale": "CRM lookup was incomplete at planning time"
+      },
+      {
+        "kind": "stale_context",
+        "score": 0.55,
+        "rationale": "ticket context may exceed freshness threshold before send"
+      }
+    ],
+    "predicted_uncertainty": {
+      "support": 0.41,
+      "freshness": 0.34,
+      "consensus": 0.72,
+      "policy_margin": 0.12
+    },
+    "recommended_route": "block",
+    "notes_ref": "hash://shadow_notes_002"
+  },
+  "evidence_bundle": {
+    "bundle_id": "eb_01HQXBLOCK",
+    "items": [
+      {
+        "evidence_id": "ev_21",
+        "kind": "contact_authorization",
+        "uri": "hash://consent_record_77",
+        "hash": "6666666666666666666666666666666666666666666666666666666666666666",
+        "observed_at": "2026-03-10T08:00:00Z",
+        "valid_until": null,
+        "sensitivity": "restricted",
+        "disclosure": "selective",
+        "authority_level": "authoritative"
+      },
+      {
+        "evidence_id": "ev_22",
+        "kind": "fresh_context_snapshot",
+        "uri": "hash://ticket_state_snapshot_old",
+        "hash": "7777777777777777777777777777777777777777777777777777777777777777",
+        "observed_at": "2026-03-16T10:00:00Z",
+        "valid_until": "2026-03-17T10:00:00Z",
+        "sensitivity": "internal",
+        "disclosure": "full",
+        "authority_level": "supportive"
+      }
+    ],
+    "gaps": [
+      {
+        "kind": "recipient_verified",
+        "status": "absent",
+        "reason_code": "missing_recipient_verification",
+        "blocking": true,
+        "required_by": [
+          "guardian.recipient_verifier",
+          "guardian.policy_verifier"
+        ]
+      },
+      {
+        "kind": "fresh_context_snapshot",
+        "status": "stale",
+        "reason_code": "context_outside_freshness_window",
+        "blocking": true,
+        "required_by": [
+          "guardian.freshness_verifier",
+          "guardian.policy_verifier"
+        ]
+      }
+    ],
+    "contradictions": []
+  },
+  "verifiers": [
+    {
+      "name": "guardian.recipient_verifier",
+      "version": "0.1.0",
+      "input_refs": [],
+      "result": "fail",
+      "reason_codes": [
+        "missing_recipient_verification"
+      ],
+      "notes_ref": "hash://verifier_notes_21"
+    },
+    {
+      "name": "guardian.authorization_verifier",
+      "version": "0.1.0",
+      "input_refs": [
+        "ev_21"
+      ],
+      "result": "pass",
+      "reason_codes": [
+        "contact_authorization_current"
+      ],
+      "notes_ref": "hash://verifier_notes_22"
+    },
+    {
+      "name": "guardian.freshness_verifier",
+      "version": "0.1.0",
+      "input_refs": [
+        "ev_22"
+      ],
+      "result": "fail",
+      "reason_codes": [
+        "context_outside_freshness_window"
+      ],
+      "notes_ref": "hash://verifier_notes_23"
+    },
+    {
+      "name": "guardian.policy_verifier",
+      "version": "0.1.0",
+      "input_refs": [
+        "ev_21",
+        "ev_22"
+      ],
+      "result": "fail",
+      "reason_codes": [
+        "blocking_evidence_gap",
+        "minimum_support_not_met"
+      ],
+      "notes_ref": "hash://verifier_notes_24"
+    }
+  ],
+  "uncertainty": {
+    "support": 0.39,
+    "freshness": 0.12,
+    "consensus": 0.81,
+    "policy_margin": 0.08
+  },
+  "policy": {
+    "policy_id": "policy.outbound_email.default",
+    "policy_version": "2026-03-19.1",
+    "policy_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "decision_rule": "allow if recipient_verified and contact_authorization and freshness_ok",
+    "thresholds": {
+      "minimum_support": 0.75,
+      "minimum_policy_margin": 0.25
+    }
+  },
+  "evaluation_outcome": {
+    "route": "block",
+    "reason_codes": [
+      "missing_recipient_verification",
+      "stale_context",
+      "minimum_support_not_met"
+    ],
+    "human_review_required": false,
+    "release_conditions": []
+  },
+  "validity": {
+    "evaluated_at": "2026-03-19T12:15:02Z",
+    "evidence_valid_until": "2026-03-19T12:15:02Z",
+    "release_revalidation_required": true,
+    "invalidation_triggers": [
+      "recipient_verification_added",
+      "fresh_context_regenerated"
+    ]
+  },
+  "audit": {
+    "created_at": "2026-03-19T12:15:02Z",
+    "retention_days": 30,
+    "redaction_profile": "default_pii",
+    "attestation_state": "policy_validated_bundle"
+  }
+}

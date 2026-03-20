@@ -1,0 +1,206 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://assay.dev/schemas/checkpoint_resolution.outbound_action.send_email.v0.1.schema.json",
+  "title": "Checkpoint Resolution v0.1 - outbound_action.send_email",
+  "description": "Operational resolution after a checkpoint evaluation for an outbound email send.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "request_id",
+    "checkpoint_id",
+    "evaluation_id",
+    "resolution_id",
+    "checkpoint_type",
+    "resolved_at",
+    "resolution_outcome",
+    "reason_codes",
+    "release_revalidation_performed",
+    "evaluation_valid_at_resolution",
+    "decision_receipt_ids"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "0.1.0"
+    },
+    "artifact_type": {
+      "type": "string",
+      "const": "checkpoint_resolution"
+    },
+    "request_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "checkpoint_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "evaluation_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "final_evaluation_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Explicit alias for the evaluation carried forward into terminal resolution. In v0.1 this must match evaluation_id when present."
+    },
+    "resolution_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "checkpoint_type": {
+      "type": "string",
+      "const": "outbound_action.send_email"
+    },
+    "resolved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "resolution_outcome": {
+      "type": "string",
+      "enum": [
+        "released",
+        "blocked",
+        "refused",
+        "expired",
+        "dispatch_failed",
+        "review_rejected",
+        "escalated",
+        "abandoned"
+      ]
+    },
+    "reason_codes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "release_revalidation_performed": {
+      "type": "boolean"
+    },
+    "evaluation_valid_at_resolution": {
+      "type": "boolean"
+    },
+    "decision_receipt_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "appended_evidence_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "human_approval": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "approver_id",
+        "decision",
+        "decided_at"
+      ],
+      "properties": {
+        "approver_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "decision": {
+          "type": "string",
+          "enum": [
+            "approved",
+            "rejected"
+          ]
+        },
+        "decided_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "dispatch_attempted_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "effect_observed_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "resolution_outcome": {
+            "enum": [
+              "released",
+              "dispatch_failed",
+              "blocked",
+              "refused"
+            ]
+          }
+        },
+        "required": [
+          "resolution_outcome"
+        ]
+      },
+      "then": {
+        "required": [
+          "decision_receipt_ids"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "resolution_outcome": {
+            "const": "dispatch_failed"
+          }
+        },
+        "required": [
+          "resolution_outcome"
+        ]
+      },
+      "then": {
+        "required": [
+          "dispatch_attempted_at"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "resolution_outcome": {
+            "const": "expired"
+          }
+        },
+        "required": [
+          "resolution_outcome"
+        ]
+      },
+      "then": {
+        "properties": {
+          "evaluation_valid_at_resolution": {
+            "const": false
+          }
+        }
+      }
+    }
+  ]
+}
