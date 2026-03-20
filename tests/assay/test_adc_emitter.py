@@ -15,6 +15,7 @@ from assay.adc_emitter import (
     _derive_claim_results,
     _derive_overall_result,
     build_adc,
+    refresh_adc_witness_state,
 )
 from assay.claim_verifier import ClaimResult, ClaimSetResult
 from assay.keystore import AssayKeyStore
@@ -252,7 +253,39 @@ class TestBuildAdc:
     def test_witness_defaults_unwitnessed(self, tmp_path):
         ks = _make_keystore(tmp_path)
         adc = build_adc(**_minimal_adc_kwargs(ks))
+        assert adc["time_authority"] == "local_clock"
         assert adc["witness_status"] == "unwitnessed"
+
+    def test_refresh_witness_state_updates_fields_and_signature(self, tmp_path):
+        try:
+            import jsonschema
+        except ImportError:
+            pytest.skip("jsonschema not installed")
+
+        ks = _make_keystore(tmp_path)
+        adc = build_adc(**_minimal_adc_kwargs(ks))
+
+        refreshed = refresh_adc_witness_state(
+            adc,
+            time_authority="tsa_anchored",
+            witness_status="witnessed",
+            sign_fn=_make_sign_fn(ks),
+        )
+
+        assert refreshed["time_authority"] == "tsa_anchored"
+        assert refreshed["witness_status"] == "witnessed"
+
+        body = {k: v for k, v in refreshed.items() if k not in ("credential_id", "signature")}
+        expected_id = _sha256_hex(to_jcs_bytes(body))
+        assert refreshed["credential_id"] == expected_id
+
+        vk = ks.get_verify_key("test-signer")
+        sig_bytes = base64.b64decode(refreshed["signature"])
+        vk.verify(to_jcs_bytes({k: v for k, v in refreshed.items() if k != "signature"}), sig_bytes)
+
+        schema_path = Path(__file__).resolve().parent.parent.parent / "src" / "assay" / "schemas" / "adc_v0.1.schema.json"
+        schema = json.loads(schema_path.read_text())
+        jsonschema.validate(refreshed, schema)
 
     def test_deterministic_same_input_same_id(self, tmp_path):
         """Same inputs produce same credential_id (content-addressable)."""
