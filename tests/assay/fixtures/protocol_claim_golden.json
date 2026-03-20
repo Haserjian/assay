@@ -1,0 +1,248 @@
+{
+  "_description": "Golden fixtures for protocol claim and contradiction verifiers. Each entry is a named scenario with expected verification outcome.",
+
+  "valid_claim_assertion": {
+    "claim_id": "clm_a1b2c3d4e5f6",
+    "artifact_type": "claim_assertion",
+    "schema_version": "0.1.0",
+    "timestamp": "2026-03-19T12:00:00Z",
+    "episode_id": "ep-golden-001",
+    "claim_text": "Redis is the primary latency bottleneck in the ingest pipeline",
+    "claim_type": "FACTUAL",
+    "checkable": true,
+    "basis": {
+      "basis_type": "extracted",
+      "basis_refs": [
+        {"ref_type": "receipt", "ref_id": "r_benchmark_001", "ref_role": "supporting", "ref_uri": null, "ref_hash": null}
+      ],
+      "proof_tier_at_assertion": "CHECKED"
+    },
+    "claim_scope": "infrastructure.latency",
+    "parent_claim_id": null,
+    "source_organ": "loom",
+    "expected_result": "PASS"
+  },
+
+  "valid_support_chain": {
+    "assertion": {
+      "claim_id": "clm_chaintest0001",
+      "artifact_type": "claim_assertion",
+      "schema_version": "0.1.0",
+      "timestamp": "2026-03-19T12:00:00Z",
+      "episode_id": "ep-golden-002",
+      "claim_text": "Query latency p99 is under 200ms",
+      "claim_type": "FACTUAL",
+      "checkable": true,
+      "basis": {
+        "basis_type": "extracted",
+        "basis_refs": [
+          {"ref_type": "metric", "ref_id": "m_latency_001", "ref_role": "supporting", "ref_uri": null, "ref_hash": null}
+        ],
+        "proof_tier_at_assertion": "DRAFT"
+      }
+    },
+    "changes": [
+      {
+        "change_id": "csc_step1support",
+        "artifact_type": "claim_support_change",
+        "schema_version": "0.1.0",
+        "timestamp": "2026-03-19T12:01:00Z",
+        "claim_id": "clm_chaintest0001",
+        "episode_id": "ep-golden-002",
+        "prior_support_status": "ASSERTED",
+        "new_support_status": "SUPPORTED",
+        "change_type": "verification_passed",
+        "evidence_refs": [
+          {"ref_type": "metric", "ref_id": "m_latency_002", "ref_role": "supporting", "ref_uri": null, "ref_hash": null}
+        ]
+      },
+      {
+        "change_id": "csc_step2weakened",
+        "artifact_type": "claim_support_change",
+        "schema_version": "0.1.0",
+        "timestamp": "2026-03-19T12:02:00Z",
+        "claim_id": "clm_chaintest0001",
+        "episode_id": "ep-golden-002",
+        "prior_support_status": "SUPPORTED",
+        "new_support_status": "WEAKENED",
+        "change_type": "evidence_removed",
+        "evidence_refs": [
+          {"ref_type": "metric", "ref_id": "m_latency_003", "ref_role": "contradicting", "ref_uri": null, "ref_hash": null}
+        ]
+      }
+    ],
+    "expected_result": "PASS",
+    "expected_final_posture": "WEAKENED"
+  },
+
+  "valid_contradiction_registration": {
+    "contradiction_id": "ctr_a0b1c2d3e4f5",
+    "artifact_type": "contradiction_registration",
+    "schema_version": "0.1.0",
+    "timestamp": "2026-03-19T12:05:00Z",
+    "episode_id": "ep-golden-003",
+    "claim_a_id": "clm_aaaaaaaaaaaa",
+    "claim_b_id": "clm_bbbbbbbbbbbb",
+    "conflict_type": "direct_negation",
+    "severity": "high",
+    "detection": {
+      "detection_method": "automated_verification",
+      "detection_confidence": 0.92,
+      "detector_id": "memorygraph:find_contradictions",
+      "detection_evidence_refs": [
+        {"ref_type": "receipt", "ref_id": "r_det_001", "ref_role": "supporting", "ref_uri": null, "ref_hash": null}
+      ]
+    },
+    "expected_result": "PASS"
+  },
+
+  "valid_contradiction_resolution": {
+    "resolution_id": "crr_f5e4d3c2b1a0",
+    "artifact_type": "contradiction_resolution",
+    "schema_version": "0.1.0",
+    "timestamp": "2026-03-19T12:10:00Z",
+    "contradiction_id": "ctr_a0b1c2d3e4f5",
+    "episode_id": "ep-golden-003",
+    "resolution_outcome": "claim_a_prevails",
+    "resolution_basis": {
+      "authority_type": "automated_verification",
+      "decision_receipt_id": null,
+      "evidence_refs": [
+        {"ref_type": "receipt", "ref_id": "r_res_001", "ref_role": "supporting", "ref_uri": null, "ref_hash": null}
+      ],
+      "prevailing_proof_tier": "TOOL_VERIFIED"
+    },
+    "expected_result": "PASS"
+  },
+
+  "invalid_retracted_terminal": {
+    "_description": "Support change after RETRACTED — must fail INV_CHAIN_RETRACTED_TERMINAL",
+    "assertion": {
+      "claim_id": "clm_retractfail1",
+      "artifact_type": "claim_assertion",
+      "schema_version": "0.1.0",
+      "timestamp": "2026-03-19T12:00:00Z",
+      "episode_id": "ep-golden-004",
+      "claim_text": "This claim will be retracted then illegally changed",
+      "claim_type": "FACTUAL",
+      "checkable": true,
+      "basis": {
+        "basis_type": "human_asserted",
+        "basis_refs": [
+          {"ref_type": "external", "ref_id": "human_input_001", "ref_role": "supporting", "ref_uri": null, "ref_hash": null}
+        ],
+        "proof_tier_at_assertion": "DRAFT"
+      }
+    },
+    "changes": [
+      {
+        "change_id": "csc_retract00001",
+        "artifact_type": "claim_support_change",
+        "schema_version": "0.1.0",
+        "timestamp": "2026-03-19T12:01:00Z",
+        "claim_id": "clm_retractfail1",
+        "episode_id": "ep-golden-004",
+        "prior_support_status": "ASSERTED",
+        "new_support_status": "RETRACTED",
+        "change_type": "retraction",
+        "evidence_refs": [
+          {"ref_type": "external", "ref_id": "retraction_reason", "ref_role": "supporting", "ref_uri": null, "ref_hash": null}
+        ]
+      },
+      {
+        "change_id": "csc_illegal00001",
+        "artifact_type": "claim_support_change",
+        "schema_version": "0.1.0",
+        "timestamp": "2026-03-19T12:02:00Z",
+        "claim_id": "clm_retractfail1",
+        "episode_id": "ep-golden-004",
+        "prior_support_status": "RETRACTED",
+        "new_support_status": "SUPPORTED",
+        "change_type": "evidence_added",
+        "evidence_refs": [
+          {"ref_type": "receipt", "ref_id": "r_shouldnt_matter", "ref_role": "supporting", "ref_uri": null, "ref_hash": null}
+        ]
+      }
+    ],
+    "expected_result": "FAIL",
+    "expected_invariant": "chain_retracted_terminal"
+  },
+
+  "invalid_self_contradiction": {
+    "_description": "Contradiction where both claim IDs are the same — must fail INV_CTR_REG_SELF",
+    "contradiction_id": "ctr_aaaa11112222",
+    "artifact_type": "contradiction_registration",
+    "schema_version": "0.1.0",
+    "timestamp": "2026-03-19T12:05:00Z",
+    "episode_id": "ep-golden-005",
+    "claim_a_id": "clm_sameidsame01",
+    "claim_b_id": "clm_sameidsame01",
+    "conflict_type": "direct_negation",
+    "severity": "high",
+    "detection": {
+      "detection_method": "automated_verification",
+      "detection_confidence": 0.5,
+      "detector_id": "test",
+      "detection_evidence_refs": [
+        {"ref_type": "receipt", "ref_id": "r_det", "ref_role": "supporting", "ref_uri": null, "ref_hash": null}
+      ]
+    },
+    "expected_result": "FAIL",
+    "expected_invariant": "contradiction_reg_self"
+  },
+
+  "invalid_backward_ref_violation": {
+    "_description": "Contradiction timestamp before its claims — must fail INV_CHAIN_CTR_BACKWARD",
+    "claims": [
+      {
+        "claim_id": "clm_future00001a",
+        "artifact_type": "claim_assertion",
+        "schema_version": "0.1.0",
+        "timestamp": "2026-03-19T12:10:00Z",
+        "episode_id": "ep-golden-006",
+        "claim_text": "Claim created after the contradiction",
+        "claim_type": "FACTUAL",
+        "checkable": true,
+        "basis": {
+          "basis_type": "extracted",
+          "basis_refs": [{"ref_type": "receipt", "ref_id": "r_1", "ref_role": "supporting", "ref_uri": null, "ref_hash": null}],
+          "proof_tier_at_assertion": "DRAFT"
+        }
+      },
+      {
+        "claim_id": "clm_future00001b",
+        "artifact_type": "claim_assertion",
+        "schema_version": "0.1.0",
+        "timestamp": "2026-03-19T12:10:00Z",
+        "episode_id": "ep-golden-006",
+        "claim_text": "Another claim created after the contradiction",
+        "claim_type": "FACTUAL",
+        "checkable": true,
+        "basis": {
+          "basis_type": "extracted",
+          "basis_refs": [{"ref_type": "receipt", "ref_id": "r_2", "ref_role": "supporting", "ref_uri": null, "ref_hash": null}],
+          "proof_tier_at_assertion": "DRAFT"
+        }
+      }
+    ],
+    "contradiction": {
+      "contradiction_id": "ctr_bac0bac0bac0",
+      "artifact_type": "contradiction_registration",
+      "schema_version": "0.1.0",
+      "timestamp": "2026-03-19T12:00:00Z",
+      "episode_id": "ep-golden-006",
+      "claim_a_id": "clm_future00001a",
+      "claim_b_id": "clm_future00001b",
+      "conflict_type": "direct_negation",
+      "severity": "medium",
+      "detection": {
+        "detection_method": "human_identified",
+        "detection_confidence": 0.8,
+        "detector_id": "human:reviewer",
+        "detection_evidence_refs": [{"ref_type": "external", "ref_id": "review_note", "ref_role": "supporting", "ref_uri": null, "ref_hash": null}]
+      }
+    },
+    "expected_result": "FAIL",
+    "expected_invariant": "chain_contradiction_claim"
+  }
+}
