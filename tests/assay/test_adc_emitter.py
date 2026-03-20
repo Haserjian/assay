@@ -51,11 +51,26 @@ def _make_receipt(**overrides):
     return base
 
 
-def _minimal_adc_kwargs(ks: AssayKeyStore) -> dict:
+def _authority_snapshot() -> dict:
+    return {
+        "source_system": "ccio",
+        "semantic_authority_version": "0.1.0",
+        "effective_constants": {
+            "D_ABORT": 0.15,
+            "D_QUALITY": 0.70,
+        },
+        "override_sources": {
+            "D_ABORT": "default",
+            "D_QUALITY": "default",
+        },
+    }
+
+
+def _minimal_adc_kwargs(ks: AssayKeyStore, *, authority_snapshot: dict | None = None) -> dict:
     """Minimal valid kwargs for build_adc()."""
     vk = ks.get_verify_key("test-signer")
     pubkey_bytes = vk.encode()
-    return dict(
+    kwargs = dict(
         issuer_id="test-signer",
         signer_pubkey=base64.b64encode(pubkey_bytes).decode("ascii"),
         signer_pubkey_sha256=_sha256_hex(pubkey_bytes),
@@ -69,6 +84,9 @@ def _minimal_adc_kwargs(ks: AssayKeyStore) -> dict:
         evaluated_at="2026-03-09T12:00:00Z",
         sign_fn=_make_sign_fn(ks),
     )
+    if authority_snapshot is not None:
+        kwargs["authority_snapshot"] = authority_snapshot
+    return kwargs
 
 
 # ---------------------------------------------------------------------------
@@ -239,6 +257,30 @@ class TestBuildAdc:
         assert adc["challenge_window_seconds"] == 604800
         assert adc["supersedes"] == "d" * 64
 
+    def test_authority_snapshot_round_trip(self, tmp_path):
+        try:
+            import jsonschema
+        except ImportError:
+            pytest.skip("jsonschema not installed")
+
+        ks = _make_keystore(tmp_path)
+        snapshot = _authority_snapshot()
+        adc = build_adc(**_minimal_adc_kwargs(ks, authority_snapshot=snapshot))
+
+        assert adc["authority_snapshot"] == snapshot
+
+        body = {k: v for k, v in adc.items() if k not in ("signature", "credential_id")}
+        expected_id = _sha256_hex(to_jcs_bytes(body))
+        assert adc["credential_id"] == expected_id
+
+        vk = ks.get_verify_key("test-signer")
+        sig_bytes = base64.b64decode(adc["signature"])
+        vk.verify(to_jcs_bytes({k: v for k, v in adc.items() if k != "signature"}), sig_bytes)
+
+        schema_path = Path(__file__).resolve().parent.parent.parent / "src" / "assay" / "schemas" / "adc_v0.1.schema.json"
+        schema = json.loads(schema_path.read_text())
+        jsonschema.validate(adc, schema)
+
     def test_nullable_fields_default_to_none(self, tmp_path):
         ks = _make_keystore(tmp_path)
         adc = build_adc(**_minimal_adc_kwargs(ks))
@@ -263,7 +305,8 @@ class TestBuildAdc:
             pytest.skip("jsonschema not installed")
 
         ks = _make_keystore(tmp_path)
-        adc = build_adc(**_minimal_adc_kwargs(ks))
+        snapshot = _authority_snapshot()
+        adc = build_adc(**_minimal_adc_kwargs(ks, authority_snapshot=snapshot))
 
         refreshed = refresh_adc_witness_state(
             adc,
@@ -274,6 +317,7 @@ class TestBuildAdc:
 
         assert refreshed["time_authority"] == "tsa_anchored"
         assert refreshed["witness_status"] == "witnessed"
+        assert refreshed["authority_snapshot"] == snapshot
 
         body = {k: v for k, v in refreshed.items() if k not in ("credential_id", "signature")}
         expected_id = _sha256_hex(to_jcs_bytes(body))
@@ -314,6 +358,14 @@ class TestBuildAdc:
         schema = json.loads(schema_path.read_text())
         jsonschema.validate(adc, schema)
 
+    def test_rejects_non_object_authority_snapshot(self, tmp_path):
+        ks = _make_keystore(tmp_path)
+        kwargs = _minimal_adc_kwargs(ks)
+        kwargs["authority_snapshot"] = ["not", "an", "object"]
+
+        with pytest.raises(TypeError, match="authority_snapshot"):
+            build_adc(**kwargs)
+
 
 # ---------------------------------------------------------------------------
 # ProofPack integration
@@ -352,6 +404,22 @@ class TestProofPackIntegration:
         assert adc["evidence_pack_id"].startswith("pack_")
         assert adc["integrity_result"] == "PASS"
         assert adc["overall_result"] == "PASS"
+
+    def test_emit_adc_preserves_authority_snapshot(self, tmp_path):
+        """emit_adc=True threads authority_snapshot into the signed ADC."""
+        ks = _make_keystore(tmp_path)
+        snapshot = _authority_snapshot()
+        pack = ProofPack(
+            run_id="run-002-snapshot",
+            entries=[_make_receipt()],
+            emit_adc=True,
+            signer_id="test-signer",
+            authority_snapshot=snapshot,
+        )
+        out = pack.build(tmp_path / "pack_snapshot", keystore=ks)
+        cred_path = get_decision_credential_path(out, legacy_fallback=False)
+        adc = json.loads(cred_path.read_text())
+        assert adc["authority_snapshot"] == snapshot
 
     def test_emit_adc_with_deterministic_ts(self, tmp_path):
         """Deterministic timestamp flows through to ADC."""

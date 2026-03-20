@@ -72,7 +72,9 @@ def refresh_adc_witness_state(
     This is intended for post-hoc witness amendment after a valid witness
     bundle has been generated and verified. The credential body is updated,
     rehashed, and re-signed so downstream readers see the amended witness
-    truth instead of the stale emission-time defaults.
+    truth instead of the stale emission-time defaults. Any opaque
+    authority_snapshot payload already present on the ADC is preserved
+    verbatim.
     """
     body = {k: v for k, v in adc.items() if k not in ("credential_id", "signature")}
     body["time_authority"] = time_authority
@@ -116,6 +118,8 @@ def build_adc(
     # Challenge
     challenge_window_seconds: Optional[int] = None,
     supersedes: Optional[str] = None,
+    # Provenance / authority context
+    authority_snapshot: Optional[Dict[str, Any]] = None,
     # Signing
     sign_fn: Callable[[bytes], str],
 ) -> Dict[str, Any]:
@@ -135,6 +139,9 @@ def build_adc(
     """
     overall_result = _derive_overall_result(integrity_passed, claim_result)
     adc_claim_results = _derive_claim_results(claim_result)
+
+    if authority_snapshot is not None and not isinstance(authority_snapshot, dict):
+        raise TypeError("authority_snapshot must be a JSON object (dict) or None")
 
     # Build credential body — everything except credential_id and signature.
     body: Dict[str, Any] = {
@@ -172,6 +179,10 @@ def build_adc(
         body["claim_results"] = adc_claim_results
     if evidence_observed_at is not None:
         body["evidence_observed_at"] = evidence_observed_at
+    if authority_snapshot is not None:
+        # Opaque provenance payload supplied by the caller. Assay records it
+        # but does not derive, normalize, or enrich its contents.
+        body["authority_snapshot"] = authority_snapshot
 
     # Time semantics
     body["valid_from"] = issued_at

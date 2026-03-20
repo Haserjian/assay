@@ -322,6 +322,7 @@ class ProofPack:
         superseded_by: Optional[str] = None,
         emit_adc: bool = False,
         claim_namespace: Optional[str] = None,
+        authority_snapshot: Optional[Dict[str, Any]] = None,
     ):
         # run_id is canonical; trace_id accepted as alias for backward compat
         resolved_run_id = run_id or trace_id
@@ -337,6 +338,7 @@ class ProofPack:
         self.superseded_by = superseded_by
         self.emit_adc = emit_adc
         self.claim_namespace = claim_namespace
+        self.authority_snapshot = authority_snapshot
 
         # Default hashes for fields not yet wired
         self.policy_hash = policy_hash or _sha256_hex(b"default-policy-v0")
@@ -659,6 +661,7 @@ class ProofPack:
                 evidence_observed_at=attestation.get("timestamp_start"),
                 evaluated_at=report["verified_at"],
                 valid_until=self.valid_until,
+                authority_snapshot=self.authority_snapshot,
                 sign_fn=lambda data: ks.sign_b64(data, self.signer_id),
             )
             adc_bytes = json.dumps(adc, indent=2).encode("utf-8")
@@ -691,6 +694,7 @@ def build_proof_pack(
     mode: str = "shadow",
     claims: Optional[List[ClaimSpec]] = None,
     ci_binding: Optional[Dict[str, Any]] = None,
+    authority_snapshot: Optional[Dict[str, Any]] = None,
 ) -> Path:
     """Convenience function: load trace from store and build a Proof Pack.
 
@@ -723,6 +727,7 @@ def build_proof_pack(
         mode=mode,
         claims=claims,
         ci_binding=ci_binding,
+        authority_snapshot=authority_snapshot,
     )
     return pack.build(output_dir, keystore=keystore)
 
