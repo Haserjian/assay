@@ -3370,9 +3370,13 @@ def witness_cmd(
     """
     from pathlib import Path
 
+    from assay.adc_emitter import refresh_adc_witness_state
+    from assay.keystore import get_default_keystore
+    from assay.proof_pack import get_decision_credential_path, get_pack_summary_path
     from assay.witness import (
         WitnessError,
         generate_witness_bundle,
+        verify_witness_from_pack,
     )
 
     pack_path = Path(pack_dir)
@@ -3387,23 +3391,59 @@ def witness_cmd(
     out_path = Path(output) if output else None
 
     try:
+        decision_credential_path = get_decision_credential_path(pack_path)
+        decision_credential: Optional[dict] = None
+        signer_id: Optional[str] = None
+        keystore = None
+
+        if decision_credential_path.exists():
+            try:
+                decision_credential = json.loads(decision_credential_path.read_text())
+            except Exception as e:
+                raise WitnessError(f"Invalid decision credential JSON: {e}") from e
+
+            signer_id = str(decision_credential.get("issuer_id") or "")
+            if not signer_id:
+                raise WitnessError(
+                    "decision_credential.json missing issuer_id; cannot refresh witness state"
+                )
+
+            keystore = get_default_keystore()
+            if not keystore.has_key(signer_id):
+                raise WitnessError(
+                    f"Signer key not found for witness refresh: {signer_id}"
+                )
+
         bundle = generate_witness_bundle(
             pack_path,
             witness_type=witness_type,
             tsa_url=tsa_url,
             output_path=out_path,
         )
+
+        bundle_path = out_path or (pack_path / "witness_bundle.json")
+        witness_result = verify_witness_from_pack(pack_path, bundle_path=bundle_path)
+        if not witness_result.passed:
+            raise WitnessError(
+                "Generated witness bundle failed verification: "
+                + "; ".join(witness_result.errors)
+            )
+
+        if decision_credential is not None and keystore is not None and signer_id is not None:
+            refreshed_adc = refresh_adc_witness_state(
+                decision_credential,
+                time_authority="tsa_anchored",
+                witness_status="witnessed",
+                sign_fn=lambda data: keystore.sign_b64(data, signer_id),
+            )
+            decision_credential_path.write_text(json.dumps(refreshed_adc, indent=2) + "\n")
     except WitnessError as e:
         if output_json:
             _output_json({"command": "witness", "status": "error", "error": str(e)}, exit_code=2)
         console.print(f"[red]Error:[/] {e}")
         raise typer.Exit(2)
 
-    bundle_path = out_path or (pack_path / "witness_bundle.json")
-
     # Update PACK_SUMMARY.md if it exists in the unsigned sidecar dir
-    from assay.proof_pack import get_pack_summary_path
-
     summary_path = get_pack_summary_path(pack_path)
     if summary_path.exists():
         summary = summary_path.read_text()

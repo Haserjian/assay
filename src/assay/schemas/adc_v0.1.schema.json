@@ -193,7 +193,7 @@
     "time_authority": {
       "type": "string",
       "description": "Source of time assertions in this credential.",
-      "enum": ["local_clock", "rfc3161_tsa", "transparency_log"]
+      "enum": ["local_clock", "ntp_verified", "tsa_anchored"]
     },
 
     "_comment_challenge_semantics": { "const": "--- Challenge Semantics ---" },
@@ -223,8 +223,8 @@
 
     "witness_status": {
       "type": "string",
-      "description": "Whether this credential has been independently witnessed. Progresses from unwitnessed to stronger levels.",
-      "enum": ["unwitnessed", "hash_verified", "signature_verified"]
+      "description": "Whether this credential has been independently witnessed. Progresses from unwitnessed to witnessed or rekor_included.",
+      "enum": ["unwitnessed", "witnessed", "rekor_included"]
     },
     "ledger_entry_hash": {
       "type": ["string", "null"],

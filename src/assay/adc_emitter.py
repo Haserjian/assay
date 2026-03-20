@@ -60,6 +60,32 @@ def _derive_claim_results(
     return results
 
 
+def refresh_adc_witness_state(
+    adc: Dict[str, Any],
+    *,
+    time_authority: str,
+    witness_status: str,
+    sign_fn: Callable[[bytes], str],
+) -> Dict[str, Any]:
+    """Return a re-signed ADC with updated witness state.
+
+    This is intended for post-hoc witness amendment after a valid witness
+    bundle has been generated and verified. The credential body is updated,
+    rehashed, and re-signed so downstream readers see the amended witness
+    truth instead of the stale emission-time defaults.
+    """
+    body = {k: v for k, v in adc.items() if k not in ("credential_id", "signature")}
+    body["time_authority"] = time_authority
+    body["witness_status"] = witness_status
+
+    credential_id = _sha256_hex(to_jcs_bytes(body))
+    body["credential_id"] = credential_id
+
+    canonical_for_signing = to_jcs_bytes(body)
+    body["signature"] = sign_fn(canonical_for_signing)
+    return body
+
+
 def build_adc(
     *,
     # Issuer
@@ -158,7 +184,8 @@ def build_adc(
     body["supersedes"] = supersedes
     body["superseded_by"] = None
 
-    # Witness (always unwitnessed at emission time)
+    # Witness defaults at emission time. The witness command may later
+    # reissue this credential once valid external witness material exists.
     body["witness_status"] = "unwitnessed"
     body["ledger_entry_hash"] = None
     body["transparency_log_id"] = None
@@ -175,4 +202,4 @@ def build_adc(
     return body
 
 
-__all__ = ["build_adc"]
+__all__ = ["build_adc", "refresh_adc_witness_state"]

@@ -13,6 +13,7 @@ Covers:
   - Round-trip: generate -> verify (offline, mocked)
 """
 
+import base64
 import json
 from pathlib import Path
 from unittest.mock import patch, MagicMock
@@ -20,9 +21,11 @@ from unittest.mock import patch, MagicMock
 import pytest
 from typer.testing import CliRunner
 
+from assay._receipts.canonicalize import to_jcs_bytes
 from assay.commands import assay_app
 from assay.keystore import AssayKeyStore
 from assay.proof_pack import ProofPack
+from assay.proof_pack import get_decision_credential_path
 from assay.witness import (
     SCHEMA_VERSION,
     WitnessError,
@@ -87,6 +90,59 @@ def _make_bundle(
     }
     bundle.update(overrides)
     return bundle
+
+
+def _mock_rfc3161_round_trip():
+    """Return mock subprocess/urlopen handlers for a successful witness run."""
+    fake_token = b"\x30\x03\x02\x01\x00"
+    fake_ca = b"-----BEGIN CERTIFICATE-----\nfake\n-----END CERTIFICATE-----"
+    fake_tsa = b"-----BEGIN CERTIFICATE-----\nfake\n-----END CERTIFICATE-----"
+
+    mock_query = MagicMock()
+    mock_query.returncode = 0
+    mock_query.stderr = b""
+
+    mock_reply = MagicMock()
+    mock_reply.returncode = 0
+    mock_reply.stdout = b"Time stamp: Mar  4 12:34:56 2026 GMT\n"
+    mock_reply.stderr = b""
+
+    mock_query_text = MagicMock()
+    mock_query_text.returncode = 0
+    mock_query_text.stdout = b"Nonce: 0x44C02FF2BD956A61\n"
+    mock_query_text.stderr = b""
+
+    mock_verify = MagicMock()
+    mock_verify.returncode = 0
+    mock_verify.stderr = b""
+
+    def mock_run(cmd, **kwargs):
+        if "ts" in cmd and "-query" in cmd and "-text" in cmd:
+            return mock_query_text
+        if "ts" in cmd and "-query" in cmd:
+            out_idx = cmd.index("-out")
+            Path(cmd[out_idx + 1]).write_bytes(b"fake-query")
+            return mock_query
+        if "ts" in cmd and "-reply" in cmd:
+            return mock_reply
+        if "ts" in cmd and "-verify" in cmd:
+            return mock_verify
+        return mock_query
+
+    def mock_urlopen(req, **kwargs):
+        resp = MagicMock()
+        url = req.full_url if hasattr(req, "full_url") else str(req)
+        if "tsr" in url:
+            resp.read.return_value = fake_token
+        elif "cacert" in url:
+            resp.read.return_value = fake_ca
+        elif "tsa.crt" in url:
+            resp.read.return_value = fake_tsa
+        else:
+            resp.read.return_value = fake_token
+        return resp
+
+    return mock_run, mock_urlopen
 
 
 class TestVerifyWitnessBundle:
@@ -466,6 +522,23 @@ class TestWitnessCli:
         built = pp.build(pack_dir, keystore=ks)
         return built
 
+    @pytest.fixture
+    def cli_pack_with_adc(self, tmp_path, isolated_home):
+        signer_id = "assay-local"
+        keys_dir = isolated_home / ".assay" / "keys"
+        ks = AssayKeyStore(keys_dir=keys_dir)
+        ks.generate_key(signer_id)
+
+        pack_dir = tmp_path / "proof_pack_cli_adc"
+        pp = ProofPack(
+            run_id="witness-cli-adc-test",
+            entries=[],
+            signer_id=signer_id,
+            emit_adc=True,
+        )
+        built = pp.build(pack_dir, keystore=ks)
+        return built
+
     def test_witness_command_missing_pack(self, isolated_home, tmp_path):
         """witness command with missing pack should exit 2."""
         result = runner.invoke(
@@ -489,6 +562,48 @@ class TestWitnessCli:
             ["verify-witness", str(tmp_path / "missing-pack")],
         )
         assert result.exit_code == 2
+
+    def test_adc_defaults_to_unwitnessed_without_bundle(self, cli_pack_with_adc):
+        """Before witnessing, the ADC should still say local_clock / unwitnessed."""
+        cred_path = get_decision_credential_path(cli_pack_with_adc, legacy_fallback=False)
+        adc = json.loads(cred_path.read_text())
+        assert adc["time_authority"] == "local_clock"
+        assert adc["witness_status"] == "unwitnessed"
+        assert not (cli_pack_with_adc / "witness_bundle.json").exists()
+
+    def test_witness_command_refreshes_adc_state(self, cli_pack_with_adc, isolated_home):
+        """After witnessing, the ADC should be reissued with witness truth."""
+        manifest = json.loads((cli_pack_with_adc / "pack_manifest.json").read_text())
+        pack_root = manifest["pack_root_sha256"]
+        cred_path = get_decision_credential_path(cli_pack_with_adc, legacy_fallback=False)
+        before = json.loads(cred_path.read_text())
+        assert before["time_authority"] == "local_clock"
+        assert before["witness_status"] == "unwitnessed"
+
+        mock_run, mock_urlopen = _mock_rfc3161_round_trip()
+
+        with patch("assay.witness.subprocess.run", side_effect=mock_run), \
+             patch("assay.witness.urlopen", side_effect=mock_urlopen):
+            result = runner.invoke(
+                assay_app,
+                ["witness", str(cli_pack_with_adc)],
+            )
+
+        assert result.exit_code == 0, result.stdout
+        assert (cli_pack_with_adc / "witness_bundle.json").exists()
+
+        after = json.loads(cred_path.read_text())
+        assert after["time_authority"] == "tsa_anchored"
+        assert after["witness_status"] == "witnessed"
+        assert after["credential_id"] != before["credential_id"]
+
+        ks = AssayKeyStore(keys_dir=isolated_home / ".assay" / "keys")
+        vk = ks.get_verify_key("assay-local")
+        body = {k: v for k, v in after.items() if k != "signature"}
+        vk.verify(to_jcs_bytes(body), base64.b64decode(after["signature"]))
+
+        bundle = json.loads((cli_pack_with_adc / "witness_bundle.json").read_text())
+        assert bundle["pack_root_sha256"] == pack_root
 
     def test_verify_witness_command_with_valid_bundle(self, cli_pack):
         """verify-witness with valid bundle should exit 0."""
