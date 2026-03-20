@@ -21,19 +21,407 @@ Design rules:
 """
 from __future__ import annotations
 
+import hashlib
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from assay.claim_verifier import ClaimSpec
+from assay._receipts.canonicalize import to_jcs_bytes
 from assay.integrity import VerifyResult
 from assay.keystore import AssayKeyStore, get_default_keystore
 from assay.proof_pack import ProofPack
 from assay.store import AssayStore, get_default_store
 
 
+# ---------------------------------------------------------------------------
+# Constitutional contract types
+# ---------------------------------------------------------------------------
+
+class EpisodeState(str, Enum):
+    """Lifecycle state for a constitutional episode."""
+
+    OPEN = "open"
+    EXECUTING = "executing"
+    AWAITING_GUARDIAN = "awaiting_guardian"
+    SETTLED = "settled"
+    PERSISTED = "persisted"
+    ABANDONED = "abandoned"
+
+
+class SettlementOutcome(str, Enum):
+    """Judgment outcome for a settled episode."""
+
+    PASS = "pass"
+    HONEST_FAIL = "honest_fail"
+    TAMPERED = "tampered"
+
+
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _isoformat(dt: datetime) -> str:
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc).isoformat()
+
+
+def _parse_datetime(value: Any) -> datetime:
+    if isinstance(value, datetime):
+        return value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
+    if isinstance(value, str):
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return _utc_now()
+        return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
+    return _utc_now()
+
+
+def _normalize_value(value: Any) -> Any:
+    if isinstance(value, Enum):
+        return value.value
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, datetime):
+        return _isoformat(value)
+    if isinstance(value, tuple):
+        return [_normalize_value(item) for item in value]
+    if isinstance(value, list):
+        return [_normalize_value(item) for item in value]
+    if isinstance(value, set):
+        return [_normalize_value(item) for item in sorted(value, key=repr)]
+    if isinstance(value, Mapping):
+        return {str(key): _normalize_value(item) for key, item in value.items()}
+    if hasattr(value, "to_dict") and callable(value.to_dict):
+        return _normalize_value(value.to_dict())
+    if hasattr(value, "__dict__") and not isinstance(value, type):
+        return _normalize_value({k: v for k, v in vars(value).items() if not k.startswith("_")})
+    return value
+
+
+def _canonical_hash(data: Mapping[str, Any]) -> str:
+    return hashlib.sha256(to_jcs_bytes(_normalize_value(dict(data)))).hexdigest()
+
+
+def _stable_id(prefix: str) -> str:
+    return f"{prefix}_{uuid.uuid4().hex[:12]}"
+
+
+@dataclass(frozen=True)
+class Obligation:
+    """Normative expectation for an episode."""
+
+    obligation_id: str
+    description: str = ""
+    expected_receipt_types: Tuple[str, ...] = ()
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "obligation_id": self.obligation_id,
+            "description": self.description,
+            "expected_receipt_types": list(self.expected_receipt_types),
+        }
+
+    @classmethod
+    def from_value(cls, value: Any) -> "Obligation":
+        if isinstance(value, Obligation):
+            return value
+        if isinstance(value, Mapping):
+            obligation_id = str(value.get("obligation_id") or value.get("id") or value.get("name") or "").strip()
+            if not obligation_id:
+                raise ValueError("obligation_id is required")
+            description = str(value.get("description") or value.get("summary") or "")
+            receipt_types_value = (
+                value.get("expected_receipt_types")
+                or value.get("required_receipt_types")
+                or value.get("receipt_types")
+                or value.get("receipt_type")
+                or ()
+            )
+            if isinstance(receipt_types_value, str):
+                receipt_types = (receipt_types_value,)
+            else:
+                receipt_types = tuple(str(item) for item in receipt_types_value)
+            return cls(
+                obligation_id=obligation_id,
+                description=description,
+                expected_receipt_types=receipt_types,
+            )
+        if isinstance(value, str):
+            return cls(obligation_id=value, expected_receipt_types=(value,))
+        raise TypeError(f"Unsupported obligation value: {type(value)!r}")
+
+
+@dataclass(frozen=True)
+class Receipt:
+    """Canonical receipt object indexed by the episode."""
+
+    receipt_id: str
+    episode_id: str
+    receipt_type: str
+    payload: Dict[str, Any] = field(default_factory=dict)
+    created_at: datetime = field(default_factory=_utc_now)
+    seq: int = 0
+    parent_receipt_id: Optional[str] = None
+    task_id: Optional[str] = None
+    schema_version: str = "3.0"
+    canonical_hash: str = ""
+
+    def to_dict(self, *, include_canonical_hash: bool = True) -> Dict[str, Any]:
+        data: Dict[str, Any] = {
+            "receipt_id": self.receipt_id,
+            "type": self.receipt_type,
+            "timestamp": _isoformat(self.created_at),
+            "schema_version": self.schema_version,
+            "seq": self.seq,
+            "episode_id": self.episode_id,
+        }
+        if self.parent_receipt_id is not None:
+            data["parent_receipt_id"] = self.parent_receipt_id
+        if self.task_id is not None:
+            data["task_id"] = self.task_id
+        if include_canonical_hash and self.canonical_hash:
+            data["canonical_hash"] = self.canonical_hash
+        payload = _normalize_value(self.payload)
+        if isinstance(payload, dict):
+            for key, value in payload.items():
+                if key not in data:
+                    data[key] = value
+        return data
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        episode_id: str,
+        receipt_type: str,
+        payload: Optional[Mapping[str, Any]] = None,
+        receipt_id: Optional[str] = None,
+        created_at: Optional[datetime] = None,
+        seq: int = 0,
+        parent_receipt_id: Optional[str] = None,
+        task_id: Optional[str] = None,
+        schema_version: str = "3.0",
+    ) -> "Receipt":
+        body = {
+            "receipt_id": receipt_id or _stable_id("r"),
+            "type": receipt_type,
+            "timestamp": _isoformat(created_at or _utc_now()),
+            "schema_version": schema_version,
+            "seq": seq,
+            "episode_id": episode_id,
+        }
+        if parent_receipt_id is not None:
+            body["parent_receipt_id"] = parent_receipt_id
+        if task_id is not None:
+            body["task_id"] = task_id
+        normalized_payload = _normalize_value(dict(payload or {}))
+        if isinstance(normalized_payload, dict):
+            for key, value in normalized_payload.items():
+                if key not in body:
+                    body[key] = value
+        canonical_hash = _canonical_hash(body)
+        return cls(
+            receipt_id=str(body["receipt_id"]),
+            episode_id=str(episode_id),
+            receipt_type=str(receipt_type),
+            payload=dict(normalized_payload) if isinstance(normalized_payload, dict) else {},
+            created_at=_parse_datetime(body["timestamp"]),
+            seq=int(seq),
+            parent_receipt_id=parent_receipt_id,
+            task_id=task_id,
+            schema_version=str(schema_version),
+            canonical_hash=canonical_hash,
+        )
+
+    @classmethod
+    def from_trace_dict(cls, data: Mapping[str, Any]) -> "Receipt":
+        receipt_type = str(data.get("type") or data.get("receipt_type") or "")
+        receipt_id = str(data.get("receipt_id") or _stable_id("r"))
+        episode_id = str(data.get("episode_id") or "")
+        timestamp = _parse_datetime(data.get("timestamp") or data.get("created_at"))
+        seq = int(data.get("seq") or 0)
+        parent_receipt_id = data.get("parent_receipt_id")
+        task_id = data.get("task_id")
+        schema_version = str(data.get("schema_version") or "3.0")
+        payload: Dict[str, Any] = {
+            key: value
+            for key, value in data.items()
+            if key not in {
+                "receipt_id",
+                "receipt_type",
+                "type",
+                "timestamp",
+                "created_at",
+                "schema_version",
+                "seq",
+                "episode_id",
+                "parent_receipt_id",
+                "task_id",
+                "canonical_hash",
+                "_trace_id",
+                "_stored_at",
+            }
+        }
+        canonical_hash = str(data.get("canonical_hash") or "")
+        receipt = cls(
+            receipt_id=receipt_id,
+            episode_id=episode_id,
+            receipt_type=receipt_type,
+            payload=payload,
+            created_at=timestamp,
+            seq=seq,
+            parent_receipt_id=str(parent_receipt_id) if parent_receipt_id is not None else None,
+            task_id=str(task_id) if task_id is not None else None,
+            schema_version=schema_version,
+            canonical_hash=canonical_hash,
+        )
+        if not receipt.canonical_hash:
+            object.__setattr__(receipt, "canonical_hash", receipt.compute_hash())
+        return receipt
+
+    def compute_hash(self) -> str:
+        return _canonical_hash(self.to_dict(include_canonical_hash=False))
+
+    def to_trace_dict(self) -> Dict[str, Any]:
+        return self.to_dict(include_canonical_hash=True)
+
+
+@dataclass(frozen=True)
+class SettlementRecord:
+    """Guardian judgment bound to a settled episode."""
+
+    decision_id: str
+    outcome: SettlementOutcome
+    completeness_score: float
+    missing_obligations: Tuple[str, ...]
+    contradiction_ids: Tuple[str, ...] = ()
+    guardian_notes: str = ""
+    finalized_at: datetime = field(default_factory=_utc_now)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "decision_id": self.decision_id,
+            "outcome": self.outcome.value,
+            "completeness_score": self.completeness_score,
+            "missing_obligations": list(self.missing_obligations),
+            "contradiction_ids": list(self.contradiction_ids),
+            "guardian_notes": self.guardian_notes,
+            "finalized_at": _isoformat(self.finalized_at),
+        }
+
+
+@dataclass(frozen=True)
+class ProofPackArtifact:
+    """Materialized proof-pack artifact emitted after settlement."""
+
+    proof_pack_id: str
+    episode_id: str
+    pack_dir: Optional[Path]
+    proof_pack_hash: str
+    receipt_ids: Tuple[str, ...]
+    settlement_decision_id: str
+    emitted_at: datetime = field(default_factory=_utc_now)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "proof_pack_id": self.proof_pack_id,
+            "episode_id": self.episode_id,
+            "pack_dir": str(self.pack_dir) if self.pack_dir is not None else None,
+            "proof_pack_hash": self.proof_pack_hash,
+            "receipt_ids": list(self.receipt_ids),
+            "settlement_decision_id": self.settlement_decision_id,
+            "emitted_at": _isoformat(self.emitted_at),
+        }
+
+
+@dataclass(frozen=True)
+class MemoryRecord:
+    """Verified episode snapshot persisted to memory."""
+
+    episode_id: str
+    snapshot: Dict[str, Any]
+    snapshot_hash: str
+    proof_pack_hash: str
+    settled_at: str
+    persisted_at: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "episode_id": self.episode_id,
+            "snapshot": _normalize_value(self.snapshot),
+            "snapshot_hash": self.snapshot_hash,
+            "proof_pack_hash": self.proof_pack_hash,
+            "settled_at": self.settled_at,
+            "persisted_at": self.persisted_at,
+        }
+
+
+MEMORY_GRAPH: Dict[str, MemoryRecord] = {}
+
+
+def _bucket_for_receipt_type(receipt_type: str) -> str:
+    if receipt_type.startswith("task.") or receipt_type.endswith(".task"):
+        return "tasks"
+    if receipt_type.startswith("claim.") or receipt_type.startswith("claim_"):
+        return "claims"
+    if "contradiction" in receipt_type:
+        return "contradictions"
+    if receipt_type.startswith("decision.") or receipt_type.startswith("episode.settled"):
+        return "decisions"
+    if "pack" in receipt_type:
+        return "packs"
+    return "receipts"
+
+
+def _receipt_payload_from_data(data: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    return dict(data or {})
+
+
+def _child_mapping() -> Dict[str, List[str]]:
+    return {
+        "tasks": [],
+        "receipts": [],
+        "claims": [],
+        "contradictions": [],
+        "decisions": [],
+        "packs": [],
+    }
+
+
+def _coerce_obligations(values: Optional[Sequence[Any]]) -> Tuple[Obligation, ...]:
+    return tuple(Obligation.from_value(value) for value in (values or ()))
+
+
+def _expected_receipt_types(obligation: Obligation) -> Tuple[str, ...]:
+    if obligation.expected_receipt_types:
+        return obligation.expected_receipt_types
+    return (obligation.obligation_id,)
+
+
+def _snapshot_hash(snapshot: Mapping[str, Any]) -> str:
+    return _canonical_hash(snapshot)
+
+
+def _receipt_lookup_from_trace(entries: Sequence[Mapping[str, Any]]) -> Dict[str, Receipt]:
+    lookup: Dict[str, Receipt] = {}
+    for entry in entries:
+        receipt = Receipt.from_trace_dict(entry)
+        lookup[receipt.receipt_id] = receipt
+    return lookup
+
+
+def _strip_runtime_metadata(entry: Mapping[str, Any]) -> Dict[str, Any]:
+    return {
+        key: value
+        for key, value in entry.items()
+        if key not in {"_trace_id", "_stored_at"}
+    }
 # ---------------------------------------------------------------------------
 # Checkpoint result
 # ---------------------------------------------------------------------------
@@ -117,6 +505,11 @@ class Episode:
         metadata: Optional[Dict[str, Any]] = None,
         store: Optional[AssayStore] = None,
         claims: Optional[List[ClaimSpec]] = None,
+        obligation_context: Optional[Dict[str, Any]] = None,
+        required_obligations: Optional[Sequence[Any]] = None,
+        parent_episode_id: Optional[str] = None,
+        state: EpisodeState = EpisodeState.OPEN,
+        outcome: Optional[SettlementOutcome] = None,
     ):
         self._store = store or get_default_store()
         self._episode_id = episode_id or _generate_episode_id()
@@ -128,17 +521,45 @@ class Episode:
         self._closed = False
         self._checkpoint_count = 0
         self._receipt_ids: List[str] = []
+        self.receipts: List[Receipt] = []
+        self.receipt_index: Dict[str, Receipt] = {}
+        self.receipts_by_type: Dict[str, List[str]] = {}
+        self.child_ids: Dict[str, List[str]] = _child_mapping()
+        self.obligation_context: Dict[str, Any] = dict(obligation_context or {})
+        self.required_obligations: Tuple[Obligation, ...] = _coerce_obligations(required_obligations)
+        self.parent_episode_id = parent_episode_id
+        self.state = state if isinstance(state, EpisodeState) else EpisodeState(str(state))
+        self.outcome = outcome if isinstance(outcome, SettlementOutcome) or outcome is None else SettlementOutcome(str(outcome))
+        self.opened_at = _utc_now()
+        self.execution_started_at: Optional[datetime] = None
+        self.execution_completed_at: Optional[datetime] = None
+        self.execution_window: Optional[Tuple[datetime, Optional[datetime]]] = None
+        self.settled_at: Optional[datetime] = None
+        self.persisted_at: Optional[datetime] = None
+        self.decision_id: Optional[str] = None
+        self.settlement: Optional[SettlementRecord] = None
+        self.proof_pack: Optional[ProofPackArtifact] = None
+        self.proof_pack_hash: Optional[str] = None
+        self.persisted: bool = False
 
         # Start a dedicated trace for this episode
         self._trace_id = self._store.start_trace()
 
         # Emit opening receipt
-        self._emit_lifecycle("episode.opened", {
-            "policy_version": self._policy_version,
-            "guardian_profile": self._guardian_profile,
-            "risk_class": self._risk_class,
-            **({"metadata": self._metadata} if self._metadata else {}),
-        })
+        self._emit_lifecycle(
+            "episode.opened",
+            {
+                "policy_version": self._policy_version,
+                "guardian_profile": self._guardian_profile,
+                "risk_class": self._risk_class,
+                **({"metadata": self._metadata} if self._metadata else {}),
+                **({"obligation_context": self.obligation_context} if self.obligation_context else {}),
+                **({"required_obligations": [obligation.to_dict() for obligation in self.required_obligations]} if self.required_obligations else {}),
+                **({"parent_episode_id": self.parent_episode_id} if self.parent_episode_id else {}),
+            },
+            created_at=self.opened_at,
+            enforce_state=False,
+        )
 
     @property
     def episode_id(self) -> str:
@@ -166,6 +587,7 @@ class Episode:
         data: Optional[Dict[str, Any]] = None,
         *,
         parent_receipt_id: Optional[str] = None,
+        task_id: Optional[str] = None,
     ) -> str:
         """Emit a receipt into this episode's trace.
 
@@ -175,7 +597,37 @@ class Episode:
             raise EpisodeClosedError(
                 f"Episode {self._episode_id} is closed; cannot emit receipts."
             )
-        return self._emit_raw(receipt_type, data, parent_receipt_id=parent_receipt_id)
+        return self.record_receipt(
+            receipt_type,
+            data,
+            parent_receipt_id=parent_receipt_id,
+            task_id=task_id,
+        ).receipt_id
+
+    def record_receipt(
+        self,
+        receipt_type: str,
+        data: Optional[Dict[str, Any]] = None,
+        *,
+        parent_receipt_id: Optional[str] = None,
+        task_id: Optional[str] = None,
+    ) -> Receipt:
+        """Emit and track a receipt, returning the canonical object."""
+        if self._closed:
+            raise EpisodeClosedError(
+                f"Episode {self._episode_id} is closed; cannot emit receipts."
+            )
+        return self._emit_raw(
+            receipt_type,
+            data,
+            parent_receipt_id=parent_receipt_id,
+            task_id=task_id,
+            enforce_state=True,
+        )
+
+    def _ensure_can_emit(self) -> None:
+        if self.state not in {EpisodeState.OPEN, EpisodeState.EXECUTING}:
+            raise EpisodeStateError(f"Episode {self._episode_id} cannot emit from {self.state.value}")
 
     def _emit_raw(
         self,
@@ -183,32 +635,348 @@ class Episode:
         data: Optional[Dict[str, Any]] = None,
         *,
         parent_receipt_id: Optional[str] = None,
-    ) -> str:
-        """Internal: emit and track a receipt, return its ID."""
-        rid = f"r_{uuid.uuid4().hex[:12]}"
+        task_id: Optional[str] = None,
+        created_at: Optional[datetime] = None,
+        enforce_state: bool = True,
+    ) -> Receipt:
+        """Internal: emit and track a receipt, returning the canonical object."""
+        if enforce_state:
+            self._ensure_can_emit()
+            if self.state == EpisodeState.OPEN:
+                self.transition(EpisodeState.EXECUTING)
+
+        receipt = Receipt.create(
+            episode_id=self._episode_id,
+            receipt_type=receipt_type,
+            payload=_receipt_payload_from_data(data),
+            seq=len(self._receipt_ids),
+            parent_receipt_id=parent_receipt_id,
+            task_id=task_id,
+            created_at=created_at,
+        )
 
         # User data goes in first; structural fields override so they
         # cannot be accidentally (or maliciously) clobbered.
-        entry: Dict[str, Any] = {}
-        if data:
-            entry.update(data)
-        entry.update({
-            "receipt_id": rid,
-            "type": receipt_type,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "schema_version": "3.0",
-            "episode_id": self._episode_id,
-        })
-        if parent_receipt_id:
-            entry["parent_receipt_id"] = parent_receipt_id
+        entry = receipt.to_trace_dict()
+        self._store.append_dict(dict(entry))
+        self._receipt_ids.append(receipt.receipt_id)
+        self.receipts.append(receipt)
+        self.receipt_index[receipt.receipt_id] = receipt
+        self.receipts_by_type.setdefault(receipt.receipt_type, []).append(receipt.receipt_id)
+        self.child_ids["receipts"].append(receipt.receipt_id)
+        bucket = _bucket_for_receipt_type(receipt.receipt_type)
+        if bucket != "receipts":
+            self.child_ids[bucket].append(receipt.receipt_id)
+        if task_id is not None:
+            self.child_ids["tasks"].append(task_id)
+        return receipt
 
-        self._store.append_dict(entry)
-        self._receipt_ids.append(rid)
-        return rid
-
-    def _emit_lifecycle(self, receipt_type: str, data: Dict[str, Any]) -> str:
+    def _emit_lifecycle(
+        self,
+        receipt_type: str,
+        data: Dict[str, Any],
+        *,
+        created_at: Optional[datetime] = None,
+        enforce_state: bool = False,
+    ) -> Receipt:
         """Emit a lifecycle receipt (opened/closed)."""
-        return self._emit_raw(receipt_type, data)
+        return self._emit_raw(
+            receipt_type,
+            data,
+            created_at=created_at,
+            enforce_state=enforce_state,
+        )
+
+    # ------------------------------------------------------------------
+    # Constitutional lifecycle
+    # ------------------------------------------------------------------
+
+    def transition(self, next_state: EpisodeState) -> None:
+        """Advance the constitutional state machine."""
+        if not isinstance(next_state, EpisodeState):
+            next_state = EpisodeState(str(next_state))
+
+        if next_state == self.state:
+            return
+
+        allowed: Dict[EpisodeState, Tuple[EpisodeState, ...]] = {
+            EpisodeState.OPEN: (EpisodeState.EXECUTING, EpisodeState.ABANDONED),
+            EpisodeState.EXECUTING: (EpisodeState.AWAITING_GUARDIAN, EpisodeState.ABANDONED),
+            EpisodeState.AWAITING_GUARDIAN: (EpisodeState.SETTLED, EpisodeState.ABANDONED),
+            EpisodeState.SETTLED: (EpisodeState.PERSISTED, EpisodeState.ABANDONED),
+        }
+        if next_state not in allowed.get(self.state, ()):
+            raise EpisodeStateError(f"Invalid transition: {self.state.value} -> {next_state.value}")
+
+        now = _utc_now()
+        if next_state == EpisodeState.EXECUTING:
+            self.execution_started_at = self.execution_started_at or now
+            self.execution_window = (self.execution_started_at, self.execution_completed_at)
+        elif next_state == EpisodeState.AWAITING_GUARDIAN:
+            self.execution_started_at = self.execution_started_at or now
+            self.execution_completed_at = now
+            self.execution_window = (self.execution_started_at, self.execution_completed_at)
+        elif next_state == EpisodeState.SETTLED:
+            self.settled_at = now
+        elif next_state == EpisodeState.PERSISTED:
+            self.persisted_at = now
+
+        self.state = next_state
+
+    def start_execution(self) -> None:
+        """Enter EXECUTING state."""
+        if self.state == EpisodeState.EXECUTING:
+            return
+        if self.state != EpisodeState.OPEN:
+            raise EpisodeStateError(f"Episode {self._episode_id} cannot start execution from {self.state.value}")
+        self.transition(EpisodeState.EXECUTING)
+
+    def mark_execution_complete(self) -> None:
+        """Enter AWAITING_GUARDIAN state."""
+        if self.state == EpisodeState.AWAITING_GUARDIAN:
+            return
+        if self.state == EpisodeState.OPEN:
+            self.start_execution()
+        if self.state != EpisodeState.EXECUTING:
+            raise EpisodeStateError(f"Episode {self._episode_id} cannot complete execution from {self.state.value}")
+        self.transition(EpisodeState.AWAITING_GUARDIAN)
+
+    def add_child(self, kind: str, child_id: str) -> None:
+        """Register lineage information for the episode."""
+        if kind not in self.child_ids:
+            raise ValueError(f"Unknown child kind: {kind}")
+        self.child_ids[kind].append(child_id)
+
+    def evaluate_completeness(
+        self,
+        receipts: Optional[Sequence[Any]] = None,
+    ) -> Tuple[float, Tuple[str, ...]]:
+        """Measure obligation coverage against the observed receipts."""
+        if receipts is None:
+            observed_types = set(self.receipts_by_type)
+        else:
+            observed_types = set()
+            for entry in receipts:
+                if isinstance(entry, Receipt):
+                    observed_types.add(entry.receipt_type)
+                elif isinstance(entry, Mapping):
+                    observed_types.add(str(entry.get("type") or entry.get("receipt_type") or ""))
+                else:
+                    observed_types.add(str(getattr(entry, "receipt_type", "")))
+
+        missing: List[str] = []
+        for obligation in self.required_obligations:
+            expected_types = _expected_receipt_types(obligation)
+            if not expected_types:
+                continue
+            if not all(expected in observed_types for expected in expected_types):
+                missing.append(obligation.obligation_id)
+
+        if not self.required_obligations:
+            completeness = 1.0
+        else:
+            completeness = (len(self.required_obligations) - len(missing)) / len(self.required_obligations)
+        return completeness, tuple(missing)
+
+    def detect_tampering(self, receipts: Optional[Sequence[Mapping[str, Any]]] = None) -> bool:
+        """Check whether the stored trace diverges from the in-memory receipt log."""
+        live_entries: Sequence[Mapping[str, Any]]
+        if receipts is None:
+            live_entries = self._store.read_trace(self._trace_id)
+        else:
+            live_entries = receipts
+
+        if len(live_entries) != len(self.receipts):
+            return True
+
+        for stored_entry, canonical_receipt in zip(live_entries, self.receipts):
+            sanitised = _strip_runtime_metadata(stored_entry)
+            if sanitised != canonical_receipt.to_trace_dict():
+                return True
+
+        return False
+
+    def _settlement_snapshot(self) -> Dict[str, Any]:
+        """Return the canonical episode body used for hashing and persistence."""
+        return {
+            "episode_id": self._episode_id,
+            "policy_version": self._policy_version,
+            "guardian_profile": self._guardian_profile,
+            "risk_class": self._risk_class,
+            "metadata": _normalize_value(self._metadata),
+            "obligation_context": _normalize_value(self.obligation_context),
+            "parent_episode_id": self.parent_episode_id,
+            "required_obligations": [obligation.to_dict() for obligation in self.required_obligations],
+            "state": self.state.value,
+            "outcome": self.outcome.value if isinstance(self.outcome, SettlementOutcome) else self.outcome,
+            "opened_at": _isoformat(self.opened_at),
+            "execution_started_at": _isoformat(self.execution_started_at) if self.execution_started_at else None,
+            "execution_completed_at": _isoformat(self.execution_completed_at) if self.execution_completed_at else None,
+            "execution_window": [
+                _isoformat(self.execution_window[0]) if self.execution_window and self.execution_window[0] else None,
+                _isoformat(self.execution_window[1]) if self.execution_window and self.execution_window[1] else None,
+            ] if self.execution_window else None,
+            "settled_at": _isoformat(self.settled_at) if self.settled_at else None,
+            "child_ids": _normalize_value(self.child_ids),
+            "receipts": [receipt.to_trace_dict() for receipt in self.receipts],
+            "settlement": self.settlement.to_dict() if self.settlement else None,
+            "decision_id": self.decision_id,
+            "proof_pack_hash": self.proof_pack_hash,
+            "proof_pack": self.proof_pack.to_dict() if self.proof_pack else None,
+            "closed": self._closed,
+        }
+
+    def to_canonical_dict(self) -> Dict[str, Any]:
+        """Return the settled episode snapshot with derived metadata included."""
+        snapshot = self._settlement_snapshot()
+        snapshot["proof_pack_hash"] = self.proof_pack_hash
+        snapshot["persisted_at"] = _isoformat(self.persisted_at) if self.persisted_at else None
+        return snapshot
+
+    def canonical_snapshot_hash(self) -> str:
+        """Hash the episode body excluding derived persistence metadata."""
+        body = self._settlement_snapshot()
+        body.pop("proof_pack_hash", None)
+        body.pop("proof_pack", None)
+        body.pop("closed", None)
+        child_ids = dict(body.get("child_ids") or {})
+        child_ids.pop("packs", None)
+        body["child_ids"] = child_ids
+        if body.get("state") == EpisodeState.PERSISTED.value:
+            body["state"] = EpisodeState.SETTLED.value
+        return _snapshot_hash(body)
+
+    def settle(self) -> SettlementRecord:
+        """Compute guardian settlement and emit the settlement receipt."""
+        if self.settlement is not None:
+            return self.settlement
+
+        if self.state == EpisodeState.OPEN:
+            self.start_execution()
+        if self.state == EpisodeState.EXECUTING:
+            self.mark_execution_complete()
+        if self.state != EpisodeState.AWAITING_GUARDIAN:
+            if self.state in {EpisodeState.SETTLED, EpisodeState.PERSISTED} and self.settlement is not None:
+                return self.settlement
+            raise EpisodeStateError(
+                f"Episode {self._episode_id} cannot settle from {self.state.value}"
+            )
+
+        tampered = self.detect_tampering()
+        completeness_score, missing = self.evaluate_completeness()
+        contradiction_ids = tuple(
+            receipt.receipt_id
+            for receipt in self.receipts
+            if "contradiction" in receipt.receipt_type
+        )
+        if tampered:
+            outcome = SettlementOutcome.TAMPERED
+        elif missing:
+            outcome = SettlementOutcome.HONEST_FAIL
+        else:
+            outcome = SettlementOutcome.PASS
+
+        decision_time = _utc_now()
+        decision_receipt = self._emit_raw(
+            "episode.settled",
+            {
+                "outcome": outcome.value,
+                "completeness_score": completeness_score,
+                "missing_obligations": list(missing),
+                "contradiction_ids": list(contradiction_ids),
+                "tampered": tampered,
+            },
+            created_at=decision_time,
+            enforce_state=False,
+        )
+        self.decision_id = decision_receipt.receipt_id
+        self.outcome = outcome
+        self.transition(EpisodeState.SETTLED)
+        self.settled_at = decision_time
+        self.settlement = SettlementRecord(
+            decision_id=decision_receipt.receipt_id,
+            outcome=outcome,
+            completeness_score=completeness_score,
+            missing_obligations=missing,
+            contradiction_ids=contradiction_ids,
+            guardian_notes="auto-settlement",
+            finalized_at=decision_time,
+        )
+        return self.settlement
+
+    def emit_proof_pack(
+        self,
+        output_dir: Optional[Path] = None,
+        *,
+        keystore: Optional[AssayKeyStore] = None,
+        mode: str = "shadow",
+    ) -> ProofPackArtifact:
+        """Materialize a proof pack for the settled episode."""
+        if self.settlement is None:
+            self.settle()
+        if self.state not in {EpisodeState.SETTLED, EpisodeState.PERSISTED}:
+            raise EpisodeStateError(f"Episode {self._episode_id} must be settled before proof pack emission")
+        if self.proof_pack is not None:
+            if output_dir is not None and self.proof_pack.pack_dir is not None and Path(output_dir) != self.proof_pack.pack_dir:
+                raise EpisodeStateError("Episode already emitted a proof pack to a different directory")
+            return self.proof_pack
+
+        entries = self._store.read_trace(self._trace_id)
+        if not entries:
+            raise ValueError(f"No receipts in trace {self._trace_id}")
+
+        ks = keystore or get_default_keystore()
+        if output_dir is None:
+            output_dir = Path(f"proof_pack_{self._trace_id}")
+
+        pack = ProofPack(
+            run_id=self._trace_id,
+            entries=entries,
+            mode=mode,
+            claims=self._claims,
+        )
+        pack_dir = pack.build(output_dir, keystore=ks)
+
+        proof_pack_hash = self.canonical_snapshot_hash()
+        artifact = ProofPackArtifact(
+            proof_pack_id=pack_dir.name,
+            episode_id=self._episode_id,
+            pack_dir=pack_dir,
+            proof_pack_hash=proof_pack_hash,
+            receipt_ids=tuple(self._receipt_ids),
+            settlement_decision_id=self.decision_id or "",
+        )
+        self.proof_pack = artifact
+        self.proof_pack_hash = proof_pack_hash
+        self.child_ids["packs"].append(artifact.proof_pack_id)
+        return artifact
+
+    def persist(self) -> MemoryRecord:
+        """Persist a settled episode into the memory graph."""
+        if self.state == EpisodeState.PERSISTED and self._episode_id in MEMORY_GRAPH:
+            return MEMORY_GRAPH[self._episode_id]
+        if self.settlement is None or self.proof_pack is None or not self.proof_pack_hash:
+            raise EpisodePersistenceError("Episode must be settled and have a proof pack before persistence")
+        if self.state != EpisodeState.SETTLED:
+            raise EpisodePersistenceError(f"Episode {self._episode_id} cannot persist from {self.state.value}")
+
+        persisted_time = _utc_now()
+        self.persisted_at = persisted_time
+        snapshot = self.to_canonical_dict()
+        snapshot_hash = self.canonical_snapshot_hash()
+        record = MemoryRecord(
+            episode_id=self._episode_id,
+            snapshot=snapshot,
+            snapshot_hash=snapshot_hash,
+            proof_pack_hash=self.proof_pack_hash,
+            settled_at=_isoformat(self.settled_at or _utc_now()),
+            persisted_at=_isoformat(persisted_time),
+        )
+        MEMORY_GRAPH[self._episode_id] = record
+        self.persisted = True
+        self.transition(EpisodeState.PERSISTED)
+        self.persisted_at = persisted_time
+        return record
 
     # ------------------------------------------------------------------
     # Checkpoint sealing
@@ -245,11 +1013,15 @@ class Episode:
         self._checkpoint_count += 1
 
         # Emit checkpoint receipt before sealing
-        self._emit_raw("checkpoint.sealed", {
-            "reason": reason,
-            "checkpoint_number": self._checkpoint_count,
-            "receipt_count": len(self._receipt_ids),
-        })
+        self._emit_raw(
+            "checkpoint.sealed",
+            {
+                "reason": reason,
+                "checkpoint_number": self._checkpoint_count,
+                "receipt_count": len(self._receipt_ids),
+            },
+            enforce_state=False,
+        )
 
         # Read current trace
         entries = self._store.read_trace(self._trace_id)
@@ -443,6 +1215,11 @@ def open_episode(
     metadata: Optional[Dict[str, Any]] = None,
     store: Optional[AssayStore] = None,
     claims: Optional[List[ClaimSpec]] = None,
+    obligation_context: Optional[Dict[str, Any]] = None,
+    required_obligations: Optional[Sequence[Any]] = None,
+    parent_episode_id: Optional[str] = None,
+    state: EpisodeState = EpisodeState.OPEN,
+    outcome: Optional[SettlementOutcome] = None,
 ) -> Episode:
     """Open a new evidence episode.
 
@@ -471,12 +1248,79 @@ def open_episode(
         metadata=metadata,
         store=store,
         claims=claims,
+        obligation_context=obligation_context,
+        required_obligations=required_obligations,
+        parent_episode_id=parent_episode_id,
+        state=state,
+        outcome=outcome,
     )
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def emit_receipt(
+    episode: Episode,
+    receipt_type: str,
+    data: Optional[Dict[str, Any]] = None,
+    *,
+    parent_receipt_id: Optional[str] = None,
+    task_id: Optional[str] = None,
+) -> Receipt:
+    """Module-level receipt helper for the constitutional contract."""
+    return episode.record_receipt(
+        receipt_type,
+        data,
+        parent_receipt_id=parent_receipt_id,
+        task_id=task_id,
+    )
+
+
+def start_execution(episode: Episode) -> None:
+    episode.start_execution()
+
+
+def mark_execution_complete(episode: Episode) -> None:
+    episode.mark_execution_complete()
+
+
+def evaluate_completeness(
+    episode: Episode,
+    receipts: Optional[Sequence[Any]] = None,
+) -> Tuple[float, Tuple[str, ...]]:
+    return episode.evaluate_completeness(receipts=receipts)
+
+
+def settle_episode(episode: Episode) -> SettlementRecord:
+    return episode.settle()
+
+
+def emit_proof_pack(
+    episode: Episode,
+    output_dir: Optional[Path] = None,
+    *,
+    keystore: Optional[AssayKeyStore] = None,
+    mode: str = "shadow",
+) -> ProofPackArtifact:
+    return episode.emit_proof_pack(output_dir=output_dir, keystore=keystore, mode=mode)
+
+
+def persist_episode(episode: Episode) -> MemoryRecord:
+    return episode.persist()
+
+
+def get_memory_record(episode_id: str) -> Optional[MemoryRecord]:
+    return MEMORY_GRAPH.get(episode_id)
+
+
+class EpisodeStateError(RuntimeError):
+    """Raised when the episode state machine is violated."""
+
+
+class EpisodePersistenceError(RuntimeError):
+    """Raised when a settled episode cannot be persisted."""
+
 
 def _generate_episode_id() -> str:
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
@@ -490,9 +1334,27 @@ class EpisodeClosedError(RuntimeError):
 
 __all__ = [
     "Checkpoint",
+    "EpisodeState",
     "Episode",
     "EpisodeClosedError",
+    "EpisodePersistenceError",
+    "EpisodeStateError",
+    "Obligation",
+    "ProofPackArtifact",
+    "Receipt",
+    "SettlementOutcome",
+    "SettlementRecord",
+    "MemoryRecord",
+    "MEMORY_GRAPH",
     "Verdict",
+    "emit_proof_pack",
+    "emit_receipt",
+    "evaluate_completeness",
+    "get_memory_record",
+    "mark_execution_complete",
+    "persist_episode",
+    "settle_episode",
+    "start_execution",
     "open_episode",
     "verify_checkpoint",
     "verify_pack",

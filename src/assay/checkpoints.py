@@ -35,6 +35,7 @@ from assay.epistemic_kernel import (
     ProofBudgetSnapshotArtifact,
     adapt_checkpoint_decision_to_claim_assertion,
     adapt_checkpoint_decision_to_proof_budget_snapshot,
+    adapt_checkpoint_evaluation_to_contradiction_grounded_claims,
     adapt_checkpoint_evaluation_to_contradiction_registrations,
     adapt_checkpoint_resolution_to_contradiction_resolutions,
     adapt_checkpoint_resolution_to_denial_record,
@@ -65,6 +66,7 @@ TRACE_ENVELOPE_FIELDS = {
     "_stored_at",
     "parent_receipt_id",
     "seq",
+    "canonical_hash",
 }
 VALID_RESOLUTION_OUTCOMES = {
     "released",
@@ -924,6 +926,12 @@ class OutboundEmailCheckpointFlow:
         }
 
         _validate_decision_receipt_or_raise(decision_receipt)
+        grounded_claims = adapt_checkpoint_evaluation_to_contradiction_grounded_claims(
+            self.request,
+            evaluation,
+            {"receipt_id": decision_receipt["receipt_id"], "timestamp": decision_timestamp},
+            timestamp=decision_timestamp,
+        )
         self.decision_receipts.append(decision_receipt)
         kernel_claim = adapt_checkpoint_decision_to_claim_assertion(
             self.request,
@@ -938,7 +946,19 @@ class OutboundEmailCheckpointFlow:
         )
         self.kernel_claims.append(kernel_claim)
         self.kernel_claim_receipt_ids.append(kernel_claim_receipt_id)
+        decision_claim_ids = [kernel_claim.claim_id]
         contradiction_parent_receipt_id = kernel_claim_receipt_id
+        for grounded_claim in grounded_claims:
+            grounded_claim.validate()
+            grounded_claim_receipt_id = self._episode.emit(
+                CLAIM_ASSERTION_RECEIPT_TYPE,
+                grounded_claim.to_dict(),
+                parent_receipt_id=contradiction_parent_receipt_id,
+            )
+            self.kernel_claims.append(grounded_claim)
+            self.kernel_claim_receipt_ids.append(grounded_claim_receipt_id)
+            decision_claim_ids.append(grounded_claim.claim_id)
+            contradiction_parent_receipt_id = grounded_claim_receipt_id
         for contradiction in kernel_contradictions:
             contradiction.boundary_refs["decision_receipt_id"] = decision_receipt["receipt_id"]
             contradiction.validate()
@@ -954,7 +974,7 @@ class OutboundEmailCheckpointFlow:
             self.request,
             evaluation,
             decision_receipt,
-            claim_ids=[kernel_claim.claim_id],
+            claim_ids=decision_claim_ids,
             contradiction_ids=contradiction_ids,
         )
         proof_budget_snapshot.validate()
@@ -965,7 +985,7 @@ class OutboundEmailCheckpointFlow:
         )
         self.proof_budget_snapshots.append(proof_budget_snapshot)
         self.proof_budget_snapshot_receipt_ids.append(proof_budget_snapshot_receipt_id)
-        self.kernel_claim_ids_by_decision_receipt_id[decision_receipt["receipt_id"]] = [kernel_claim.claim_id]
+        self.kernel_claim_ids_by_decision_receipt_id[decision_receipt["receipt_id"]] = decision_claim_ids
         self.kernel_contradiction_ids_by_decision_receipt_id[decision_receipt["receipt_id"]] = contradiction_ids
         self.proof_budget_snapshot_ids_by_decision_receipt_id[decision_receipt["receipt_id"]] = (
             proof_budget_snapshot.snapshot_id
@@ -982,7 +1002,7 @@ class OutboundEmailCheckpointFlow:
                 "decision_disposition": decision_receipt["disposition"],
                 "authority_id": authority_id,
                 "decision_subject": decision_receipt["decision_subject"],
-                "kernel_claim_ids": [kernel_claim.claim_id],
+                "kernel_claim_ids": decision_claim_ids,
                 "contradiction_ids": contradiction_ids,
                 "proof_budget_snapshot_id": proof_budget_snapshot.snapshot_id,
             },

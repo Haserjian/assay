@@ -44,6 +44,7 @@ TRACE_ENVELOPE_FIELDS = {
     "_stored_at",
     "parent_receipt_id",
     "seq",
+    "canonical_hash",
 }
 
 CLAIM_ASSERTION_RECEIPT_TYPE = "claim.asserted"
@@ -204,6 +205,48 @@ def _checkpoint_contradiction_claim_id(
     evidence_ref: str,
 ) -> str:
     return _stable_prefixed_id("clm", checkpoint_id, evaluation_id, evidence_ref)
+
+
+def _checkpoint_contradiction_evidence_index(
+    evaluation_dict: Mapping[str, Any],
+) -> Dict[str, Dict[str, Any]]:
+    evidence_index: Dict[str, Dict[str, Any]] = {}
+    evidence_items = list(evaluation_dict.get("evidence_bundle", {}).get("items", []))
+    for raw_item in evidence_items:
+        try:
+            item = dict(raw_item)
+        except Exception as exc:  # pragma: no cover - defensive fail-closed path
+            raise KernelValidationError("checkpoint contradiction evidence item must be an object") from exc
+        evidence_id = str(item.get("evidence_id") or "").strip()
+        if not evidence_id:
+            raise KernelValidationError("checkpoint contradiction evidence item missing evidence_id")
+        if evidence_id in evidence_index:
+            raise KernelValidationError(f"duplicate checkpoint contradiction evidence_id: {evidence_id}")
+        evidence_index[evidence_id] = item
+    return evidence_index
+
+
+def _checkpoint_contradiction_grounded_claim_basis_ref(evidence_item: Mapping[str, Any]) -> Dict[str, Any]:
+    return {
+        "ref_type": "external",
+        "ref_id": str(evidence_item.get("evidence_id") or ""),
+        "ref_uri": evidence_item.get("uri"),
+        "ref_hash": evidence_item.get("hash"),
+        "ref_role": "supporting",
+    }
+
+
+def _checkpoint_contradiction_grounded_claim_text(
+    checkpoint_id: str,
+    evidence_item: Mapping[str, Any],
+) -> str:
+    evidence_id = str(evidence_item.get("evidence_id") or "unknown_evidence")
+    kind = str(evidence_item.get("kind") or "evidence")
+    authority_level = str(evidence_item.get("authority_level") or "unknown")
+    return (
+        f"Checkpoint {checkpoint_id} evidence item {evidence_id} ({kind}) "
+        f"with authority level {authority_level} is present in the evidence bundle"
+    )
 
 
 def _checkpoint_contradiction_id(
@@ -1344,6 +1387,66 @@ def adapt_checkpoint_decision_to_proof_budget_snapshot(
     return artifact
 
 
+def adapt_checkpoint_evaluation_to_contradiction_grounded_claims(
+    request: Any,
+    evaluation: Any,
+    decision_receipt: Mapping[str, Any],
+    *,
+    timestamp: Optional[str] = None,
+) -> List[ClaimAssertionArtifact]:
+    request_dict = _normalize_artifact(request)
+    evaluation_dict = _normalize_artifact(evaluation)
+    evidence_index = _checkpoint_contradiction_evidence_index(evaluation_dict)
+    contradiction_items = list(evaluation_dict.get("evidence_bundle", {}).get("contradictions", []))
+
+    referenced_evidence_ids: List[str] = []
+    for item in contradiction_items:
+        lhs_ref = str(item.get("lhs_ref") or "").strip()
+        rhs_ref = str(item.get("rhs_ref") or "").strip()
+        if not lhs_ref or not rhs_ref:
+            raise KernelValidationError("checkpoint contradiction requires both lhs_ref and rhs_ref")
+        if lhs_ref == rhs_ref:
+            raise KernelValidationError(
+                f"checkpoint contradiction cannot reference the same evidence item twice: {lhs_ref}"
+            )
+        for ref in (lhs_ref, rhs_ref):
+            if ref not in evidence_index:
+                raise KernelValidationError(
+                    f"checkpoint contradiction reference {ref!r} does not resolve to a known evidence item"
+                )
+            referenced_evidence_ids.append(ref)
+
+    claim_timestamp = timestamp or str(decision_receipt.get("timestamp") or _now_iso())
+    checkpoint_id = str(request_dict["checkpoint_id"])
+    checkpoint_type = str(request_dict["checkpoint_type"])
+    evaluation_id = str(evaluation_dict["evaluation_id"])
+    episode_id = str(request_dict["subject"]["episode_id"])
+
+    artifacts: List[ClaimAssertionArtifact] = []
+    for evidence_id in sorted(set(referenced_evidence_ids)):
+        evidence_item = evidence_index[evidence_id]
+        artifact = ClaimAssertionArtifact(
+            claim_id=_checkpoint_contradiction_claim_id(checkpoint_id, evaluation_id, evidence_id),
+            timestamp=claim_timestamp,
+            episode_id=episode_id,
+            claim_text=_checkpoint_contradiction_grounded_claim_text(checkpoint_id, evidence_item),
+            claim_type="FACTUAL",
+            checkable=True,
+            basis={
+                "basis_type": "extracted",
+                "basis_refs": [_checkpoint_contradiction_grounded_claim_basis_ref(evidence_item)],
+                "proof_tier_at_assertion": "CHECKED",
+            },
+            claim_scope=checkpoint_type,
+            source_organ="assay-toolkit",
+        )
+        artifact.validate()
+        artifacts.append(artifact)
+
+    artifacts.sort(key=lambda artifact: artifact.claim_id)
+    return artifacts
+
+
 def adapt_checkpoint_evaluation_to_contradiction_registrations(
     request: Any,
     evaluation: Any,
@@ -1686,6 +1789,7 @@ __all__ = [
     "adapt_contradiction_receipt_to_registration",
     "adapt_checkpoint_decision_to_claim_assertion",
     "adapt_checkpoint_decision_to_proof_budget_snapshot",
+    "adapt_checkpoint_evaluation_to_contradiction_grounded_claims",
     "adapt_checkpoint_evaluation_to_contradiction_registrations",
     "adapt_checkpoint_resolution_to_denial_record",
     "adapt_ccio_refusalstone_to_denial_record",

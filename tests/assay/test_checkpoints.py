@@ -101,14 +101,23 @@ class TestOutboundEmailCheckpointFlow:
         contradictions = [e for e in entries if e["type"] == CONTRADICTION_REGISTRATION_RECEIPT_TYPE]
         snapshots = [e for e in entries if e["type"] == PROOF_BUDGET_SNAPSHOT_RECEIPT_TYPE]
         denials = [e for e in entries if e["type"] == DENIAL_RECORD_RECEIPT_TYPE]
-        assert len(claims) == 1
+        recorded = [e for e in entries if e["type"] == "checkpoint.decision_recorded"][0]
+        evaluated = [e for e in entries if e["type"] == "checkpoint.evaluated"][0]
+        assert len(flow.kernel_claims) == 3
+        assert len(claims) == 3
         assert len(contradictions) == 1
         assert len(snapshots) == 1
         assert len(denials) == 1
-        assert contradictions[0]["parent_receipt_id"] == claims[0]["receipt_id"]
+        assert claims[0]["parent_receipt_id"] == evaluated["receipt_id"]
+        assert claims[1]["parent_receipt_id"] == claims[0]["receipt_id"]
+        assert claims[2]["parent_receipt_id"] == claims[1]["receipt_id"]
+        assert contradictions[0]["parent_receipt_id"] == claims[2]["receipt_id"]
         assert snapshots[0]["parent_receipt_id"] == contradictions[0]["receipt_id"]
         assert snapshots[0]["contradiction_ids"] == [contradictions[0]["contradiction_id"]]
+        assert snapshots[0]["claim_ids"] == [claim["claim_id"] for claim in claims]
         assert denials[0]["contradiction_ids"] == [contradictions[0]["contradiction_id"]]
+        assert denials[0]["related_claim_ids"] == [claim["claim_id"] for claim in claims]
+        assert recorded["kernel_claim_ids"] == [claim["claim_id"] for claim in claims]
         assert resolution.decision_receipt_ids == [decision["receipt_id"]]
 
         # Contradiction resolution should be emitted after checkpoint resolution
@@ -123,8 +132,8 @@ class TestOutboundEmailCheckpointFlow:
         template = _load_example("outbound_action.send_email.allow_if_approved.v0.1.json")
         template["evidence_bundle"]["contradictions"] = [
             {
-                "lhs_ref": "ev_minor_1",
-                "rhs_ref": "ev_minor_2",
+                "lhs_ref": "ev_1",
+                "rhs_ref": "ev_2",
                 "reason_code": "scope_overlap",
                 "severity": "warning",
             }

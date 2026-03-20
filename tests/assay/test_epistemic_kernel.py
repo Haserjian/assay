@@ -1,9 +1,11 @@
 """Tests for canonical kernel claim and denial artifacts."""
 from __future__ import annotations
 
+import copy
 import json
 from importlib import resources
 
+import pytest
 from jsonschema import Draft202012Validator
 
 from assay import (
@@ -15,6 +17,7 @@ from assay import (
     adapt_ccio_refusalstone_to_denial_record,
     adapt_checkpoint_decision_to_claim_assertion,
     adapt_checkpoint_decision_to_proof_budget_snapshot,
+    adapt_checkpoint_evaluation_to_contradiction_grounded_claims,
     adapt_checkpoint_evaluation_to_contradiction_registrations,
     adapt_checkpoint_resolution_to_denial_record,
     emit_belief_update,
@@ -33,6 +36,7 @@ from assay import (
     verify_proof_budget_snapshot,
 )
 from assay._receipts.domains.blockages import create_contradiction_receipt
+from assay.epistemic_kernel import KernelValidationError
 from assay.store import AssayStore
 
 
@@ -344,6 +348,153 @@ def test_checkpoint_evaluation_adapts_to_contradiction_registration(tmp_path) ->
 
     entries = store.read_trace(episode.trace_id)
     assert any(entry["type"] == CONTRADICTION_REGISTRATION_RECEIPT_TYPE for entry in entries)
+
+
+def test_checkpoint_evaluation_adapts_to_grounded_contradiction_claims() -> None:
+    request = _load_example("outbound_action.send_email.request.v0.1.json")
+    evaluation = _load_example("outbound_action.send_email.blocked.v0.1.json")
+    evaluation["evidence_bundle"]["contradictions"] = [
+        {
+            "lhs_ref": "ev_21",
+            "rhs_ref": "ev_22",
+            "reason_code": "context_policy_conflict",
+            "severity": "blocking",
+        }
+    ]
+    decision_receipt = {
+        "receipt_id": "decision_contradiction_001",
+        "timestamp": "2026-03-19T12:15:02Z",
+    }
+
+    claims = adapt_checkpoint_evaluation_to_contradiction_grounded_claims(
+        request,
+        evaluation,
+        decision_receipt,
+    )
+    repeat_claims = adapt_checkpoint_evaluation_to_contradiction_grounded_claims(
+        request,
+        evaluation,
+        decision_receipt,
+    )
+    contradictions = adapt_checkpoint_evaluation_to_contradiction_registrations(
+        request,
+        evaluation,
+        decision_receipt,
+    )
+
+    assert len(claims) == 2
+    assert [claim.claim_id for claim in claims] == [claim.claim_id for claim in repeat_claims]
+    assert [claim.claim_id for claim in claims] == sorted(claim.claim_id for claim in claims)
+    assert {claim.claim_id for claim in claims} == {contradictions[0].claim_a_id, contradictions[0].claim_b_id}
+
+    evidence_index = {
+        item["evidence_id"]: item
+        for item in evaluation["evidence_bundle"]["items"]
+    }
+    by_evidence_id = {claim.basis["basis_refs"][0]["ref_id"]: claim for claim in claims}
+    assert set(by_evidence_id) == {"ev_21", "ev_22"}
+    for evidence_id, claim in by_evidence_id.items():
+        evidence_item = evidence_index[evidence_id]
+        basis_ref = claim.basis["basis_refs"][0]
+        assert claim.claim_type == "FACTUAL"
+        assert claim.checkable is True
+        assert claim.basis["basis_type"] == "extracted"
+        assert claim.basis["proof_tier_at_assertion"] == "CHECKED"
+        assert claim.claim_scope == "outbound_action.send_email"
+        assert claim.source_organ == "assay-toolkit"
+        assert basis_ref["ref_type"] == "external"
+        assert basis_ref["ref_id"] == evidence_id
+        assert basis_ref["ref_uri"] == evidence_item["uri"]
+        assert basis_ref["ref_hash"] == evidence_item["hash"]
+        assert basis_ref["ref_role"] == "supporting"
+        assert evidence_id in claim.claim_text
+
+
+def test_checkpoint_evaluation_grounded_contradiction_claims_dedupe_shared_evidence() -> None:
+    request = _load_example("outbound_action.send_email.request.v0.1.json")
+    evaluation = _load_example("outbound_action.send_email.allow_if_approved.v0.1.json")
+    evaluation["evidence_bundle"]["contradictions"] = [
+        {
+            "lhs_ref": "ev_1",
+            "rhs_ref": "ev_2",
+            "reason_code": "scope_overlap",
+            "severity": "warning",
+        },
+        {
+            "lhs_ref": "ev_1",
+            "rhs_ref": "ev_3",
+            "reason_code": "freshness_conflict",
+            "severity": "warning",
+        },
+    ]
+    decision_receipt = {
+        "receipt_id": "decision_contradiction_dedupe_001",
+        "timestamp": "2026-03-19T12:15:02Z",
+    }
+
+    claims = adapt_checkpoint_evaluation_to_contradiction_grounded_claims(
+        request,
+        evaluation,
+        decision_receipt,
+    )
+    repeat_claims = adapt_checkpoint_evaluation_to_contradiction_grounded_claims(
+        request,
+        evaluation,
+        decision_receipt,
+    )
+
+    assert len(claims) == 3
+    assert [claim.claim_id for claim in claims] == [claim.claim_id for claim in repeat_claims]
+
+    refs = [claim.basis["basis_refs"][0]["ref_id"] for claim in claims]
+    assert refs.count("ev_1") == 1
+    assert set(refs) == {"ev_1", "ev_2", "ev_3"}
+    assert [claim.claim_id for claim in claims] == sorted(claim.claim_id for claim in claims)
+
+
+@pytest.mark.parametrize(
+    "mutator, expected_error",
+    [
+        (
+            "missing_ref",
+            "does not resolve to a known evidence item",
+        ),
+        (
+            "duplicate_item",
+            "duplicate checkpoint contradiction evidence_id",
+        ),
+    ],
+)
+def test_checkpoint_evaluation_grounded_contradiction_claims_fail_closed(
+    mutator: str,
+    expected_error: str,
+) -> None:
+    request = _load_example("outbound_action.send_email.request.v0.1.json")
+    evaluation = copy.deepcopy(_load_example("outbound_action.send_email.blocked.v0.1.json"))
+    evaluation["evidence_bundle"]["contradictions"] = [
+        {
+            "lhs_ref": "ev_21",
+            "rhs_ref": "ev_22",
+            "reason_code": "context_policy_conflict",
+            "severity": "blocking",
+        }
+    ]
+    if mutator == "missing_ref":
+        evaluation["evidence_bundle"]["contradictions"][0]["rhs_ref"] = "ev_missing"
+    elif mutator == "duplicate_item":
+        evaluation["evidence_bundle"]["items"].append(copy.deepcopy(evaluation["evidence_bundle"]["items"][0]))
+
+    decision_receipt = {
+        "receipt_id": "decision_contradiction_fail_closed_001",
+        "timestamp": "2026-03-19T12:15:02Z",
+    }
+
+    with pytest.raises(KernelValidationError, match=expected_error):
+        adapt_checkpoint_evaluation_to_contradiction_grounded_claims(
+            request,
+            evaluation,
+            decision_receipt,
+        )
 
 
 def test_contradiction_receipt_adapts_to_registration_and_verifies(tmp_path) -> None:
