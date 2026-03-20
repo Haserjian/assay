@@ -92,6 +92,21 @@ def _make_bundle(
     return bundle
 
 
+def _authority_snapshot() -> dict:
+    return {
+        "source_system": "ccio",
+        "semantic_authority_version": "0.1.0",
+        "effective_constants": {
+            "D_ABORT": 0.15,
+            "D_QUALITY": 0.70,
+        },
+        "override_sources": {
+            "D_ABORT": "default",
+            "D_QUALITY": "default",
+        },
+    }
+
+
 def _mock_rfc3161_round_trip():
     """Return mock subprocess/urlopen handlers for a successful witness run."""
     fake_token = b"\x30\x03\x02\x01\x00"
@@ -535,6 +550,7 @@ class TestWitnessCli:
             entries=[],
             signer_id=signer_id,
             emit_adc=True,
+            authority_snapshot=_authority_snapshot(),
         )
         built = pp.build(pack_dir, keystore=ks)
         return built
@@ -569,6 +585,7 @@ class TestWitnessCli:
         adc = json.loads(cred_path.read_text())
         assert adc["time_authority"] == "local_clock"
         assert adc["witness_status"] == "unwitnessed"
+        assert adc["authority_snapshot"] == _authority_snapshot()
         assert not (cli_pack_with_adc / "witness_bundle.json").exists()
 
     def test_witness_command_refreshes_adc_state(self, cli_pack_with_adc, isolated_home):
@@ -596,6 +613,7 @@ class TestWitnessCli:
         assert after["time_authority"] == "tsa_anchored"
         assert after["witness_status"] == "witnessed"
         assert after["credential_id"] != before["credential_id"]
+        assert after["authority_snapshot"] == before["authority_snapshot"] == _authority_snapshot()
 
         ks = AssayKeyStore(keys_dir=isolated_home / ".assay" / "keys")
         vk = ks.get_verify_key("assay-local")

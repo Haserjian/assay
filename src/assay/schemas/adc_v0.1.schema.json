@@ -129,6 +129,32 @@
       "minLength": 1
     },
 
+    "_comment_authority_snapshot": { "const": "--- Authority Snapshot (opaque provenance) ---" },
+
+    "authority_snapshot": {
+      "type": "object",
+      "description": "Opaque provenance payload supplied by the caller. Assay preserves it but does not derive, normalize, or enrich policy values locally.",
+      "properties": {
+        "source_system": {
+          "type": "string",
+          "description": "Upstream system that supplied the snapshot."
+        },
+        "semantic_authority_version": {
+          "type": "string",
+          "description": "Version string for the upstream authority registry or snapshot format."
+        },
+        "effective_constants": {
+          "type": "object",
+          "description": "Effective policy constants captured by the upstream authority snapshot."
+        },
+        "override_sources": {
+          "type": "object",
+          "description": "Provenance for any overridden constants in the upstream authority snapshot."
+        }
+      },
+      "additionalProperties": true
+    },
+
     "_comment_results": { "const": "--- Results ---" },
 
     "integrity_result": {
