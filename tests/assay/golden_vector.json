@@ -1,0 +1,52 @@
+{
+  "_comment": "Golden vector for Decision Receipt canonicalization + signing. Asserted in both CCIO and Assay. Change only if canonicalization contract changes.",
+  "_pinned": "2026-03-21",
+  "receipt": {
+    "receipt_id": "golden-vector-001",
+    "receipt_type": "decision_v1",
+    "receipt_version": "0.1.0",
+    "ceid": null,
+    "timestamp": "2026-01-01T00:00:00.000Z",
+    "parent_receipt_id": null,
+    "supersedes": null,
+    "decision_type": "guardian_constitutional_refusal",
+    "decision_subject": "golden:vector",
+    "verdict": "REFUSE",
+    "verdict_reason": "Golden vector test refusal",
+    "verdict_reason_codes": ["clarity_check_failed", "domain:epistemic"],
+    "authority_id": "ccio:settlement:guardian_seat",
+    "authority_class": "BINDING",
+    "authority_scope": "constitutional_baseline",
+    "delegated_from": null,
+    "policy_id": "ccio.settlement.constitutional_baseline.v1",
+    "policy_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "episode_id": "golden-vector-ep",
+    "source_organ": "ccio",
+    "session_state_hash": null,
+    "evidence_refs": [
+      {"ref_type": "receipt", "ref_id": "gate_eval:ece", "ref_role": "supporting"}
+    ],
+    "evidence_sufficient": true,
+    "evidence_gaps": [],
+    "confidence": "high",
+    "conflict_refs": [],
+    "dissent": null,
+    "abstention_reason": null,
+    "unresolved_contradictions": [],
+    "disposition": "block",
+    "disposition_target": null,
+    "obligations_created": [],
+    "proof_tier_at_decision": null,
+    "proof_tier_achieved": null,
+    "proof_tier_minimum_required": null,
+    "provenance_complete": true,
+    "known_provenance_gaps": []
+  },
+  "signing_key_seed_hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "expected": {
+    "content_hash": "78c5bc58927a4b08805a806113b9df0a2dd7244761591d1d6dc84087020d2460",
+    "signature": "p20LkhSQnshpN9KxqkiLZrkbNzCY1uLPEaRMXWkobpbcb0kfebWMX17Yih3Eywj/D6Ed8OM5WqcpO3Z1034lCw==",
+    "signer_pubkey_sha256": "448f04ffcba874db93d9fd02520daa583a92b1f20b100ff791202a6d7a93e0de",
+    "pubkey_b64": "5zTqbCtiV95yNV5HKqBaTEh+a0Y8Ap7TBt8vAbVja1g="
+  }
+}
