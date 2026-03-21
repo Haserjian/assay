@@ -1,0 +1,79 @@
+{
+  "disposition": "incomplete",
+  "claims": {
+    "total": 4,
+    "passed": 3,
+    "failed": 1,
+    "capped": 2
+  },
+  "residual_risk": {
+    "total": 3,
+    "blocking": 0,
+    "unowned": 2
+  },
+  "proof_debt": {
+    "total": 4,
+    "by_source": {
+      "missing_falsifier": 2,
+      "unowned_risk": 2
+    },
+    "by_severity": {
+      "moderate": 2,
+      "severe": 2
+    }
+  },
+  "capped_claims": [
+    {
+      "claim_id": "auth_behavior_preserved",
+      "tier_cap": "capped: no named falsifier",
+      "falsifier_status": "absent"
+    },
+    {
+      "claim_id": "timestamps_valid",
+      "tier_cap": "capped: falsifier named but not executed",
+      "falsifier_status": "named"
+    }
+  ],
+  "residual_risks": [
+    {
+      "claim_id": "auth_behavior_preserved",
+      "risk_statement": "Claim passed but capped: capped: no named falsifier",
+      "owner": "security-team",
+      "next_cheapest_evidence": "Run session expiry matrix"
+    },
+    {
+      "claim_id": "high_receipt_count",
+      "risk_statement": "Warning claim failed: expected >= 10 receipts, actual 3 receipts",
+      "owner": "",
+      "next_cheapest_evidence": ""
+    },
+    {
+      "claim_id": "timestamps_valid",
+      "risk_statement": "Claim passed but capped: capped: falsifier named but not executed",
+      "owner": "",
+      "next_cheapest_evidence": "name a falsifier for this claim"
+    }
+  ],
+  "debt_items": [
+    {
+      "claim_id": "auth_behavior_preserved",
+      "source": "missing_falsifier",
+      "repayment_action": "Name the cheapest test that would disprove this claim"
+    },
+    {
+      "claim_id": "timestamps_valid",
+      "source": "missing_falsifier",
+      "repayment_action": "Name the cheapest test that would disprove this claim"
+    },
+    {
+      "claim_id": "high_receipt_count",
+      "source": "unowned_risk",
+      "repayment_action": "Assign owner and expiry_condition to this residual risk"
+    },
+    {
+      "claim_id": "timestamps_valid",
+      "source": "unowned_risk",
+      "repayment_action": "Assign owner and expiry_condition to this residual risk"
+    }
+  ]
+}
