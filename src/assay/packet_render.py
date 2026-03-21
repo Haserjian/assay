@@ -20,6 +20,7 @@ from typing import Any
 
 _REQUIRED_FILES = ("SETTLEMENT.json", "COVERAGE_MATRIX.md")
 _OPTIONAL_FILES = ("EXECUTIVE_SUMMARY.md", "REVIEWER_GUIDE.md", "CHALLENGE.md", "VERIFY.md")
+_OPTIONAL_JSON_FILES = ("DECISION_BASIS.json",)
 
 
 class PacketRenderError(ValueError):
@@ -70,11 +71,14 @@ def render_packet_html(packet_dir: Path) -> str:
     primary_reason = settlement_basis[0] if settlement_basis else ""
 
     coverage_html = _coverage_md_to_html(coverage_md)
+    decision_basis = _load_json_optional(packet_dir / "DECISION_BASIS.json")
 
     sections: list[str] = []
     if executive_md:
         sections.append(_section("Summary", _md_to_html(executive_md)))
     sections.append(_section("Coverage", coverage_html))
+    if decision_basis:
+        sections.append(_section("Decision basis", _render_decision_basis(decision_basis)))
     if reviewer_guide_md:
         sections.append(_section("Reviewer guide", _md_to_html(reviewer_guide_md)))
     if challenge_md:
@@ -372,6 +376,95 @@ def _coverage_md_to_html(md: str) -> str:
         "</table>"
         "</div>"
     )
+
+
+# ---------------------------------------------------------------------------
+# Decision basis rendering
+# ---------------------------------------------------------------------------
+
+_FRESHNESS_TONE: dict[str, str] = {
+    "current": "pass", "recent": "", "stale": "warn", "unknown": "",
+}
+
+_IMPACT_TONE: dict[str, str] = {
+    "would_change_verdict": "fail",
+    "would_change_confidence": "warn",
+    "informational_only": "",
+}
+
+
+def _render_decision_basis(db: dict[str, Any]) -> str:
+    """Render a decision_basis dict as HTML for the reviewer packet."""
+    parts: list[str] = []
+
+    admitted = db.get("admitted") or []
+    if admitted:
+        rows: list[str] = []
+        for item in admitted:
+            claim = _esc(item.get("claim", ""))
+            source = _esc(item.get("source", ""))
+            freshness = item.get("freshness", "")
+            role = _esc(item.get("role", ""))
+            f_cls = _FRESHNESS_TONE.get(freshness, "")
+            rows.append(
+                f"<tr><td>{claim}</td><td>{source}</td>"
+                f'<td class="{f_cls}">{_esc(freshness)}</td>'
+                f"<td>{role}</td></tr>"
+            )
+        parts.append(
+            '<h3>Admitted</h3>'
+            '<div class="table-wrap"><table>'
+            "<thead><tr><th>Claim</th><th>Source</th>"
+            "<th>Freshness</th><th>Role</th></tr></thead>"
+            f"<tbody>{''.join(rows)}</tbody></table></div>"
+        )
+
+    excluded = db.get("excluded") or []
+    if excluded:
+        rows = []
+        for item in excluded:
+            claim = _esc(item.get("claim", ""))
+            source = _esc(item.get("source", ""))
+            reason = _esc(item.get("reason", ""))
+            detail = _esc(item.get("detail", ""))
+            rows.append(
+                f"<tr><td>{claim}</td><td>{source}</td>"
+                f"<td>{reason}</td><td>{detail}</td></tr>"
+            )
+        parts.append(
+            '<h3>Excluded</h3>'
+            '<div class="table-wrap"><table>'
+            "<thead><tr><th>Claim</th><th>Source</th>"
+            "<th>Reason</th><th>Detail</th></tr></thead>"
+            f"<tbody>{''.join(rows)}</tbody></table></div>"
+        )
+
+    gaps = db.get("gaps") or []
+    if gaps:
+        rows = []
+        for item in gaps:
+            expected = _esc(item.get("expected", ""))
+            impact = item.get("impact", "")
+            i_cls = _IMPACT_TONE.get(impact, "")
+            searched = ", ".join(item.get("searched") or [])
+            search_result = _esc(item.get("search_result", ""))
+            rows.append(
+                f"<tr><td>{expected}</td>"
+                f'<td class="{i_cls}">{_esc(impact)}</td>'
+                f"<td>{_esc(searched)}</td>"
+                f"<td>{search_result}</td></tr>"
+            )
+        parts.append(
+            '<h3>Gaps</h3>'
+            '<div class="table-wrap"><table>'
+            "<thead><tr><th>Expected</th><th>Impact</th>"
+            "<th>Searched</th><th>Result</th></tr></thead>"
+            f"<tbody>{''.join(rows)}</tbody></table></div>"
+        )
+
+    if not parts:
+        return "<p>No decision basis recorded.</p>"
+    return "\n".join(parts)
 
 
 # ---------------------------------------------------------------------------

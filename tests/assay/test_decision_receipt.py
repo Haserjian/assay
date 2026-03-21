@@ -36,6 +36,7 @@ class TestGoldenFixtures:
 
     @pytest.mark.parametrize("name", [
         "approve", "abstain", "defer", "rollback", "conflict", "refuse",
+        "refuse_with_basis",
     ])
     def test_golden_fixture_validates(self, name):
         receipt = _load(name)
@@ -423,3 +424,147 @@ class TestDiagnosticContract:
         rules = [e.rule for e in result.errors]
         # I-1 comes before I-3 in code order
         assert rules.index("I-1") < rules.index("I-3")
+
+
+# ---------------------------------------------------------------------------
+# Decision basis (v0.1.1)
+# ---------------------------------------------------------------------------
+
+class TestDecisionBasis:
+    """Validate the decision_basis field added in v0.1.1."""
+
+    def test_v011_fixture_with_basis_validates(self):
+        r = _load("refuse_with_basis")
+        result = validate_decision_receipt(r)
+        assert result.valid, (
+            "refuse_with_basis fixture failed:\n"
+            + "\n".join(f"  [{e.rule}] {e.message}" for e in result.errors)
+        )
+
+    def test_v010_without_basis_still_valid(self):
+        """Old v0.1.0 receipts without decision_basis remain valid."""
+        r = _load("refuse")
+        result = validate_decision_receipt(r)
+        assert result.valid
+
+    def test_basis_null_is_valid(self):
+        r = _load("refuse_with_basis")
+        r["decision_basis"] = None
+        result = validate_decision_receipt(r)
+        assert result.valid
+
+    def test_basis_not_object_fails(self):
+        r = _load("refuse_with_basis")
+        r["decision_basis"] = "not an object"
+        result = validate_shape(r)
+        assert not result.valid
+        assert any("decision_basis" in (e.field or "") for e in result.errors)
+
+    def test_admitted_missing_claim_fails(self):
+        r = _load("refuse_with_basis")
+        r["decision_basis"]["admitted"] = [{"source": "test"}]
+        result = validate_shape(r)
+        assert not result.valid
+        assert any("claim" in (e.field or "") for e in result.errors)
+
+    def test_admitted_missing_source_fails(self):
+        r = _load("refuse_with_basis")
+        r["decision_basis"]["admitted"] = [{"claim": "test"}]
+        result = validate_shape(r)
+        assert not result.valid
+        assert any("source" in (e.field or "") for e in result.errors)
+
+    def test_admitted_bad_source_type_fails(self):
+        r = _load("refuse_with_basis")
+        r["decision_basis"]["admitted"] = [{
+            "claim": "test", "source": "x", "source_type": "magic",
+        }]
+        result = validate_shape(r)
+        assert not result.valid
+        assert any("source_type" in (e.field or "") for e in result.errors)
+
+    def test_admitted_bad_freshness_fails(self):
+        r = _load("refuse_with_basis")
+        r["decision_basis"]["admitted"] = [{
+            "claim": "test", "source": "x", "freshness": "ancient",
+        }]
+        result = validate_shape(r)
+        assert not result.valid
+        assert any("freshness" in (e.field or "") for e in result.errors)
+
+    def test_admitted_bad_role_fails(self):
+        r = _load("refuse_with_basis")
+        r["decision_basis"]["admitted"] = [{
+            "claim": "test", "source": "x", "role": "main_character",
+        }]
+        result = validate_shape(r)
+        assert not result.valid
+        assert any("role" in (e.field or "") for e in result.errors)
+
+    def test_excluded_missing_claim_fails(self):
+        r = _load("refuse_with_basis")
+        r["decision_basis"]["excluded"] = [{"reason": "stale"}]
+        result = validate_shape(r)
+        assert not result.valid
+
+    def test_excluded_missing_reason_fails(self):
+        r = _load("refuse_with_basis")
+        r["decision_basis"]["excluded"] = [{"claim": "test"}]
+        result = validate_shape(r)
+        assert not result.valid
+
+    def test_excluded_bad_reason_fails(self):
+        r = _load("refuse_with_basis")
+        r["decision_basis"]["excluded"] = [{
+            "claim": "test", "reason": "vibes",
+        }]
+        result = validate_shape(r)
+        assert not result.valid
+
+    def test_gaps_missing_expected_fails(self):
+        r = _load("refuse_with_basis")
+        r["decision_basis"]["gaps"] = [{"impact": "informational_only"}]
+        result = validate_shape(r)
+        assert not result.valid
+
+    def test_gaps_missing_impact_fails(self):
+        r = _load("refuse_with_basis")
+        r["decision_basis"]["gaps"] = [{"expected": "test"}]
+        result = validate_shape(r)
+        assert not result.valid
+
+    def test_gaps_bad_impact_fails(self):
+        r = _load("refuse_with_basis")
+        r["decision_basis"]["gaps"] = [{
+            "expected": "test", "impact": "catastrophic",
+        }]
+        result = validate_shape(r)
+        assert not result.valid
+
+    def test_gaps_bad_search_result_fails(self):
+        r = _load("refuse_with_basis")
+        r["decision_basis"]["gaps"] = [{
+            "expected": "test", "impact": "informational_only",
+            "search_result": "maybe",
+        }]
+        result = validate_shape(r)
+        assert not result.valid
+
+    def test_empty_basis_sections_valid(self):
+        r = _load("refuse_with_basis")
+        r["decision_basis"] = {"admitted": [], "excluded": [], "gaps": []}
+        result = validate_decision_receipt(r)
+        assert result.valid
+
+    def test_basis_with_only_gaps_valid(self):
+        r = _load("refuse_with_basis")
+        r["decision_basis"] = {
+            "gaps": [{
+                "expected": "injury report",
+                "impact": "would_change_confidence",
+                "searched": ["injury_api"],
+                "search_result": "not_found",
+            }],
+        }
+        result = validate_decision_receipt(r)
+        assert result.valid

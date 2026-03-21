@@ -58,6 +58,29 @@ VALID_SOURCE_ORGANS = {
     "ccio", "loom", "agentmesh", "assay-toolkit", "assay-ledger", "puppetlabs",
 }
 
+VALID_RECEIPT_VERSIONS = {"0.1.0", "0.1.1"}
+
+VALID_DB_SOURCE_TYPES = {
+    "tool_output", "receipt", "memory", "user_input", "api", "derived", "policy",
+}
+
+VALID_DB_FRESHNESS = {"current", "recent", "stale", "unknown"}
+
+VALID_DB_ROLES = {"primary_input", "constraint", "context", "corroborating"}
+
+VALID_DB_EXCLUSION_REASONS = {
+    "stale", "low_proof_tier", "conflicting", "irrelevant",
+    "superseded", "insufficient_authority", "not_evaluated",
+}
+
+VALID_DB_GAP_IMPACTS = {
+    "would_change_verdict", "would_change_confidence", "informational_only",
+}
+
+VALID_DB_SEARCH_RESULTS = {
+    "not_found", "found_stale", "found_conflicting", "not_searched",
+}
+
 VALID_PROOF_TIERS = set(PROOF_TIER_RANK.keys()) | {None}
 
 VALID_DISSENT_SEVERITY = {"note", "concern", "objection", "block"}
@@ -128,8 +151,9 @@ def validate_shape(receipt: Dict[str, Any]) -> ValidationResult:
     if receipt.get("receipt_type") != "decision_v1":
         result.add("shape", f"receipt_type must be 'decision_v1', got {receipt.get('receipt_type')!r}", field="receipt_type")
 
-    if receipt.get("receipt_version") != "0.1.0":
-        result.add("shape", f"receipt_version must be '0.1.0', got {receipt.get('receipt_version')!r}", field="receipt_version")
+    rv = receipt.get("receipt_version")
+    if rv not in VALID_RECEIPT_VERSIONS:
+        result.add("shape", f"receipt_version must be one of {VALID_RECEIPT_VERSIONS}, got {rv!r}", field="receipt_version")
 
     verdict = receipt.get("verdict")
     if verdict and verdict not in VALID_VERDICTS:
@@ -175,7 +199,78 @@ def validate_shape(receipt: Dict[str, Any]) -> ValidationResult:
         if rr and rr not in VALID_REF_ROLES:
             result.add("shape", f"evidence_refs[{i}] unknown ref_role: {rr!r}", field=f"evidence_refs[{i}].ref_role")
 
+    # decision_basis (v0.1.1 optional field)
+    db = receipt.get("decision_basis")
+    if db is not None:
+        if not isinstance(db, dict):
+            result.add("shape", "decision_basis must be an object", field="decision_basis")
+        else:
+            _validate_decision_basis_shape(db, result)
+
     return result
+
+
+def _validate_decision_basis_shape(db: Dict[str, Any], result: ValidationResult) -> None:
+    """Validate the shape of decision_basis sub-objects."""
+    for i, item in enumerate(db.get("admitted") or []):
+        if not isinstance(item, dict):
+            result.add("shape", f"decision_basis.admitted[{i}] is not an object",
+                        field=f"decision_basis.admitted[{i}]")
+            continue
+        if "claim" not in item:
+            result.add("shape", f"decision_basis.admitted[{i}] missing 'claim'",
+                        field=f"decision_basis.admitted[{i}].claim")
+        if "source" not in item:
+            result.add("shape", f"decision_basis.admitted[{i}] missing 'source'",
+                        field=f"decision_basis.admitted[{i}].source")
+        st = item.get("source_type")
+        if st is not None and st not in VALID_DB_SOURCE_TYPES:
+            result.add("shape", f"decision_basis.admitted[{i}] unknown source_type: {st!r}",
+                        field=f"decision_basis.admitted[{i}].source_type")
+        fr = item.get("freshness")
+        if fr is not None and fr not in VALID_DB_FRESHNESS:
+            result.add("shape", f"decision_basis.admitted[{i}] unknown freshness: {fr!r}",
+                        field=f"decision_basis.admitted[{i}].freshness")
+        rl = item.get("role")
+        if rl is not None and rl not in VALID_DB_ROLES:
+            result.add("shape", f"decision_basis.admitted[{i}] unknown role: {rl!r}",
+                        field=f"decision_basis.admitted[{i}].role")
+
+    for i, item in enumerate(db.get("excluded") or []):
+        if not isinstance(item, dict):
+            result.add("shape", f"decision_basis.excluded[{i}] is not an object",
+                        field=f"decision_basis.excluded[{i}]")
+            continue
+        if "claim" not in item:
+            result.add("shape", f"decision_basis.excluded[{i}] missing 'claim'",
+                        field=f"decision_basis.excluded[{i}].claim")
+        if "reason" not in item:
+            result.add("shape", f"decision_basis.excluded[{i}] missing 'reason'",
+                        field=f"decision_basis.excluded[{i}].reason")
+        rn = item.get("reason")
+        if rn is not None and rn not in VALID_DB_EXCLUSION_REASONS:
+            result.add("shape", f"decision_basis.excluded[{i}] unknown reason: {rn!r}",
+                        field=f"decision_basis.excluded[{i}].reason")
+
+    for i, item in enumerate(db.get("gaps") or []):
+        if not isinstance(item, dict):
+            result.add("shape", f"decision_basis.gaps[{i}] is not an object",
+                        field=f"decision_basis.gaps[{i}]")
+            continue
+        if "expected" not in item:
+            result.add("shape", f"decision_basis.gaps[{i}] missing 'expected'",
+                        field=f"decision_basis.gaps[{i}].expected")
+        if "impact" not in item:
+            result.add("shape", f"decision_basis.gaps[{i}] missing 'impact'",
+                        field=f"decision_basis.gaps[{i}].impact")
+        im = item.get("impact")
+        if im is not None and im not in VALID_DB_GAP_IMPACTS:
+            result.add("shape", f"decision_basis.gaps[{i}] unknown impact: {im!r}",
+                        field=f"decision_basis.gaps[{i}].impact")
+        sr = item.get("search_result")
+        if sr is not None and sr not in VALID_DB_SEARCH_RESULTS:
+            result.add("shape", f"decision_basis.gaps[{i}] unknown search_result: {sr!r}",
+                        field=f"decision_basis.gaps[{i}].search_result")
 
 
 def validate_invariants(receipt: Dict[str, Any]) -> ValidationResult:

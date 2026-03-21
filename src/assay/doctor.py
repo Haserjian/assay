@@ -134,6 +134,7 @@ _PROFILE_CHECKS: Dict[Profile, List[str]] = {
         "DOCTOR_PACK_001",
         "DOCTOR_PACK_002",
         "DOCTOR_EXIT_001",
+        "DOCTOR_ORPHAN_001",
     ],
     Profile.CI: [
         "DOCTOR_CORE_001",
@@ -149,6 +150,7 @@ _PROFILE_CHECKS: Dict[Profile, List[str]] = {
         "DOCTOR_CI_001",
         "DOCTOR_CI_002",
         "DOCTOR_CI_003",
+        "DOCTOR_ORPHAN_001",
     ],
     Profile.RELEASE: [
         "DOCTOR_CORE_001",
@@ -720,6 +722,57 @@ def _check_ledger_001() -> DoctorCheckResult:
         )
 
 
+def _check_orphan_001() -> DoctorCheckResult:
+    """Detect orphaned episodes (opened but never terminalized)."""
+    try:
+        from assay.orphan_detector import detect_orphaned_episodes
+        from assay.store import get_default_store
+
+        store = get_default_store()
+        result = detect_orphaned_episodes(store, max_traces=500)
+
+        if result.clean:
+            return DoctorCheckResult(
+                id="DOCTOR_ORPHAN_001",
+                status=CheckStatus.PASS,
+                severity=Severity.INFO,
+                message=f"No orphaned episodes ({result.total_episodes_found} episodes in {result.total_traces_scanned} traces)",
+                evidence={
+                    "traces_scanned": result.total_traces_scanned,
+                    "episodes_found": result.total_episodes_found,
+                },
+            )
+
+        orphan_ids = [o.episode_id for o in result.orphans[:5]]
+        return DoctorCheckResult(
+            id="DOCTOR_ORPHAN_001",
+            status=CheckStatus.FAIL,
+            severity=Severity.HIGH,
+            message=f"{result.total_orphans_found} orphaned episode(s) — opened but never closed or abandoned",
+            evidence={
+                "orphan_count": result.total_orphans_found,
+                "orphan_ids": orphan_ids,
+                "traces_scanned": result.total_traces_scanned,
+            },
+            fix="# Investigate orphaned episodes. They indicate missing close()/abandon calls.",
+        )
+    except ImportError:
+        return DoctorCheckResult(
+            id="DOCTOR_ORPHAN_001",
+            status=CheckStatus.SKIP,
+            severity=Severity.INFO,
+            message="Skipped (orphan_detector not available)",
+        )
+    except Exception as e:
+        return DoctorCheckResult(
+            id="DOCTOR_ORPHAN_001",
+            status=CheckStatus.WARN,
+            severity=Severity.LOW,
+            message=f"Orphan check could not run: {e}",
+            evidence={"error": str(e)},
+        )
+
+
 def _check_witness_001(strict: bool = False) -> DoctorCheckResult:
     """Witness policy warning if hash_verified accepted in strict context."""
     if strict:
@@ -760,6 +813,7 @@ _CHECK_FUNCTIONS = {
     "DOCTOR_CI_003": lambda **kw: _check_ci_003(),
     "DOCTOR_LEDGER_001": lambda **kw: _check_ledger_001(),
     "DOCTOR_WITNESS_001": lambda **kw: _check_witness_001(kw.get("strict", False)),
+    "DOCTOR_ORPHAN_001": lambda **kw: _check_orphan_001(),
 }
 
 

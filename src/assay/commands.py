@@ -2075,6 +2075,64 @@ def score_cmd(
 
 
 # ---------------------------------------------------------------------------
+# assay posture -- proof posture from a proof pack
+# ---------------------------------------------------------------------------
+
+
+@assay_app.command("posture", hidden=True, rich_help_panel="Measure")
+def posture_cmd(
+    pack_dir: str = typer.Argument(..., help="Path to proof pack directory"),
+    require_falsifiers: bool = typer.Option(
+        False, "--require-falsifiers", help="Cap claims without named falsifiers"
+    ),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Compute proof posture for a proof pack.
+
+    Proof posture answers four questions:
+      - what is proven?
+      - what is supported but capped?
+      - what remains unresolved but tolerated?
+      - what is still owed?
+
+    Dispositions: verified | supported_but_capped | incomplete | blocked
+
+    Exit 0 = posture computed, exit 1 = pack not found or unreadable.
+
+    Examples:
+
+        assay posture ./proof_pack_20260321/
+
+        assay posture ./proof_pack_20260321/ --require-falsifiers --json
+    """
+    from pathlib import Path as P
+
+    from assay.proof_posture import posture_from_pack, render_proof_posture_text
+
+    root = P(pack_dir).resolve()
+    if not root.exists() or not root.is_dir():
+        msg = f"Pack directory not found: {pack_dir}"
+        if output_json:
+            _output_json({"status": "error", "error": msg}, exit_code=1)
+        console.print(f"[red]{msg}[/]")
+        raise typer.Exit(1)
+
+    result = posture_from_pack(str(root), require_falsifiers=require_falsifiers)
+
+    if output_json:
+        _output_json({"status": "ok", **result.to_dict()})
+
+    # Console output
+    text = render_proof_posture_text(result.posture)
+    console.print()
+    console.print(Panel.fit(text, title="Proof Posture"))
+    if result.warnings:
+        for w in result.warnings:
+            console.print(f"  [yellow]warning:[/] {w}")
+    console.print()
+
+
+# ---------------------------------------------------------------------------
 # assay report -- unified evidence readiness report
 # ---------------------------------------------------------------------------
 
@@ -6258,6 +6316,8 @@ def gate_check_cmd(
     min_score: Optional[float] = typer.Option(None, "--min-score", help="Minimum passing score (0-100)"),
     fail_on_regression: bool = typer.Option(False, "--fail-on-regression", help="Fail if score dropped below baseline"),
     require_lock: bool = typer.Option(False, "--require-lock", help="Fail if assay.lock is missing or invalid"),
+    posture_pack: Optional[str] = typer.Option(None, "--posture-pack", help="Path to proof pack dir for posture gate"),
+    min_disposition: Optional[str] = typer.Option(None, "--min-disposition", help="Minimum posture disposition (blocked|incomplete|supported_but_capped|verified)"),
     baseline: Optional[str] = typer.Option(None, "--baseline", help="Path to score-baseline.json (default: .assay/score-baseline.json)"),
     save_report: Optional[str] = typer.Option(None, "--save-report", help="Write gate JSON report to file"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Include score breakdown and next actions"),
@@ -6268,6 +6328,8 @@ def gate_check_cmd(
     For a detailed diagnostic with component breakdown and fix commands,
     use `assay score` or pass `--verbose` here.
 
+    Use --posture-pack to also check proof-posture disposition.
+
     Exit 0 = PASS, exit 1 = FAIL, exit 3 = bad input.
 
     Examples:
@@ -6277,6 +6339,8 @@ def gate_check_cmd(
         assay gate check --min-score 60 --verbose
 
         assay gate check --fail-on-regression --baseline .assay/score-baseline.json --json
+
+        assay gate check --posture-pack ./proof_pack_*/ --min-disposition supported_but_capped --json
     """
     from pathlib import Path as P
 
@@ -6348,6 +6412,36 @@ def gate_check_cmd(
             else:
                 lock_status = "valid"
 
+    # Optional posture gate
+    posture_gate_report: Optional[Dict[str, Any]] = None
+    pack_posture_data: Optional[Dict[str, Any]] = None
+    if posture_pack is not None:
+        from assay.gate import DISPOSITION_RANK, evaluate_posture_gate
+        from assay.proof_posture import posture_from_pack
+
+        pp = P(posture_pack).resolve()
+        if not pp.exists() or not pp.is_dir():
+            _gate_error(f"Posture pack not found: {posture_pack}", output_json=output_json)
+
+        effective_min = min_disposition or "incomplete"
+        if effective_min not in DISPOSITION_RANK:
+            _gate_error(
+                f"--min-disposition must be one of: {', '.join(sorted(DISPOSITION_RANK))}",
+                output_json=output_json,
+            )
+
+        pack_result = posture_from_pack(str(pp))
+        pack_posture_data = pack_result.to_dict()
+
+        posture_gate_report = evaluate_posture_gate(
+            disposition=pack_result.posture.disposition,
+            min_disposition=effective_min,
+        )
+
+        if posture_gate_report["posture_result"] == "FAIL":
+            report["result"] = "FAIL"
+            report.setdefault("reasons", []).extend(posture_gate_report["reasons"])
+
     exit_code = 0 if report["result"] == "PASS" else 1
     payload: Dict[str, Any] = {
         **report,
@@ -6355,6 +6449,10 @@ def gate_check_cmd(
         "require_lock": require_lock,
         "lock_status": lock_status,
     }
+    if posture_gate_report is not None:
+        payload["posture_gate"] = posture_gate_report
+    if pack_posture_data is not None:
+        payload["proof_posture"] = pack_posture_data
     if verbose:
         payload["breakdown"] = current.get("breakdown", {})
         payload["next_actions"] = current.get("next_actions", [])

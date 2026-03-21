@@ -1,0 +1,428 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://assay.dev/schemas/decision_receipt_v0.1.1.schema.json",
+  "title": "Decision Receipt v0.1.1",
+  "description": "Constitutional decision artifact. Records what was decided, under what authority, with what evidence, and what disposition followed. v0.1.1 adds optional decision_basis for structured evidence context.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "receipt_id",
+    "receipt_type",
+    "receipt_version",
+    "timestamp",
+    "decision_type",
+    "decision_subject",
+    "verdict",
+    "authority_id",
+    "authority_class",
+    "authority_scope",
+    "policy_id",
+    "policy_hash",
+    "episode_id",
+    "disposition",
+    "evidence_sufficient",
+    "provenance_complete"
+  ],
+  "properties": {
+
+    "receipt_id": {
+      "type": "string",
+      "description": "Unique identifier for this receipt. UUID v4.",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "receipt_type": {
+      "type": "string",
+      "description": "Receipt type discriminator.",
+      "const": "decision_v1"
+    },
+    "receipt_version": {
+      "type": "string",
+      "description": "Schema version. Consumers MUST reject unknown versions.",
+      "enum": ["0.1.0", "0.1.1"]
+    },
+    "ceid": {
+      "type": ["string", "null"],
+      "description": "Constitutional Entity ID if available. Null during migration or if CEID generation fails.",
+      "minLength": 1
+    },
+    "timestamp": {
+      "type": "string",
+      "description": "ISO-8601 UTC timestamp when the decision was made.",
+      "format": "date-time"
+    },
+    "parent_receipt_id": {
+      "type": ["string", "null"],
+      "description": "Receipt ID of the prior decision this one supersedes or continues. Null for first-in-chain."
+    },
+    "supersedes": {
+      "type": ["string", "null"],
+      "description": "Receipt ID of a decision this one explicitly reverses or replaces. Null if original."
+    },
+
+    "decision_type": {
+      "type": "string",
+      "description": "What kind of constitutional decision this is. Free string, not enum-locked. Recommended v0 values: gate_evaluation, proof_tier_determination, admissibility_verdict, refusal_classification, settlement_transition, escalation_determination, obligation_assessment, contradiction_resolution, rollback_authorization. New types do not require schema revision.",
+      "minLength": 1
+    },
+    "decision_subject": {
+      "type": "string",
+      "description": "Stable identifier of what this decision is about. E.g. tool grant request ID, settlement packet ID, claim ID, transition ID, proof-tier candidate ID. Enables joining decisions to their subjects without parsing verdict_reason.",
+      "minLength": 1
+    },
+    "verdict": {
+      "type": "string",
+      "description": "The decision outcome. Six canonical values.",
+      "enum": ["APPROVE", "REFUSE", "DEFER", "ABSTAIN", "ROLLBACK", "CONFLICT"]
+    },
+    "verdict_reason": {
+      "type": "string",
+      "description": "Human-readable explanation of why this verdict was reached. Not machine-parsed. Max 500 chars.",
+      "maxLength": 500
+    },
+    "verdict_reason_codes": {
+      "type": "array",
+      "description": "Machine-readable reason codes for the verdict. Ordered by significance.",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+
+    "authority_id": {
+      "type": "string",
+      "description": "Identifier of the deciding authority (e.g. 'loom:guardian:capability_gate', 'ccio:settlement:transitions', 'loom:spine:controller').",
+      "minLength": 1
+    },
+    "authority_class": {
+      "type": "string",
+      "description": "CCOI authority class under which this decision was made.",
+      "enum": ["ADVISORY", "AUDITING", "BINDING", "MUTATING", "OVERRIDING"]
+    },
+    "authority_scope": {
+      "type": "string",
+      "description": "What jurisdiction this authority covers (e.g. 'tool_visibility', 'proof_tier', 'provider_routing', 'settlement'). Prevents authority cross-contamination.",
+      "minLength": 1
+    },
+    "delegated_from": {
+      "type": ["string", "null"],
+      "description": "If this decision was made under delegated authority, the ID of the delegating authority. Null for primary authority."
+    },
+
+
+
+    "policy_id": {
+      "type": "string",
+      "description": "Identifier of the policy that governed this decision.",
+      "minLength": 1
+    },
+    "policy_hash": {
+      "type": "string",
+      "description": "SHA-256 hex digest of the JCS-canonicalized effective policy bundle applied at decision time, including inherited rules after resolution. Computed as: sha256(jcs_canonicalize(resolved_policy_document)). Prevents silent policy swap between decision and audit.",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "policy_hash_alg": {
+      "type": "string",
+      "description": "Hash algorithm used for policy_hash. Always 'sha256' in v0.1.",
+      "const": "sha256"
+    },
+    "policy_version": {
+      "type": ["string", "null"],
+      "description": "Human-readable policy version if available. Recommended format: '<policy_name>.v<N>' (e.g. 'guardian.capability_gate.v3')."
+    },
+
+
+    "episode_id": {
+      "type": "string",
+      "description": "Episode within which this decision was made.",
+      "minLength": 1
+    },
+    "session_state_hash": {
+      "type": ["string", "null"],
+      "description": "SHA-256 prefix (16 hex chars) of the canonical session state at decision time. Enables replay verification.",
+      "pattern": "^[a-f0-9]{16}$"
+    },
+    "proof_tier_at_decision": {
+      "type": ["string", "null"],
+      "description": "Proof tier of the episode when this decision was made.",
+      "enum": ["DRAFT", "CHECKED", "TOOL_VERIFIED", "ADVERSARIAL", "CONSTITUTIONAL", null]
+    },
+    "runtime_condition_vector": {
+      "type": ["object", "null"],
+      "description": "RCV snapshot at decision time. Observational only. Null if no signal was available.",
+      "properties": {
+        "contradiction_pressure": { "type": ["string", "null"] },
+        "coherence_band": { "type": ["string", "null"] },
+        "uncertainty_band": { "type": ["string", "null"] },
+        "dignity_margin": { "type": ["string", "null"] },
+        "routing_stress": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    },
+
+
+    "evidence_refs": {
+      "type": "array",
+      "description": "References to evidence considered for this decision. Each ref is a typed pointer, not the evidence itself.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ref_type", "ref_id", "ref_role"],
+        "properties": {
+          "ref_type": {
+            "type": "string",
+            "description": "Kind of evidence referenced.",
+            "enum": ["receipt", "claim", "attestation", "witness_bundle", "metric", "external"]
+          },
+          "ref_id": {
+            "type": "string",
+            "description": "Identifier of the referenced evidence artifact.",
+            "minLength": 1
+          },
+          "ref_uri": {
+            "type": ["string", "null"],
+            "description": "Locator for the evidence artifact. URI, path, or system-qualified reference. Null if ref_id is sufficient for resolution within the same system."
+          },
+          "ref_hash": {
+            "type": ["string", "null"],
+            "description": "SHA-256 of the referenced artifact for integrity binding.",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "ref_role": {
+            "type": "string",
+            "description": "What role this evidence played in the decision.",
+            "enum": ["supporting", "contradicting", "contextual", "superseded"]
+          }
+        }
+      }
+    },
+    "evidence_sufficient": {
+      "type": "boolean",
+      "description": "Whether the decider judged evidence to be sufficient for this verdict under the governing policy and proof tier. Sufficient means: the evidence meets the minimum threshold defined by the active policy for a verdict of this type. False means: evidence was below threshold, which constrains the verdict (APPROVE is forbidden when false)."
+    },
+    "evidence_gaps": {
+      "type": "array",
+      "description": "Named gaps in evidence that were identified but not resolved at decision time.",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+
+    "decision_basis": {
+      "type": ["object", "null"],
+      "description": "Structured record of what information was considered, excluded, and missing at decision time. Optional. When present, provides human-reviewable transparency into the evidentiary foundation of the decision. Added in v0.1.1.",
+      "properties": {
+        "admitted": {
+          "type": "array",
+          "description": "Information that was available and used in reaching the decision.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["claim", "source"],
+            "properties": {
+              "claim": {
+                "type": "string",
+                "description": "Concise statement of what was considered. Must be human-reviewable.",
+                "maxLength": 300
+              },
+              "source": {
+                "type": "string",
+                "description": "Where this information came from (system, tool, user, policy, etc.)."
+              },
+              "source_type": {
+                "type": "string",
+                "description": "Category of the source.",
+                "enum": ["tool_output", "receipt", "memory", "user_input", "api", "derived", "policy"]
+              },
+              "freshness": {
+                "type": "string",
+                "description": "How current the information was at decision time.",
+                "enum": ["current", "recent", "stale", "unknown"]
+              },
+              "role": {
+                "type": "string",
+                "description": "What role this information played in the decision.",
+                "enum": ["primary_input", "constraint", "context", "corroborating"]
+              }
+            }
+          }
+        },
+        "excluded": {
+          "type": "array",
+          "description": "Information that was available but deliberately not used, with reasons.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["claim", "reason"],
+            "properties": {
+              "claim": {
+                "type": "string",
+                "description": "Concise statement of what was excluded.",
+                "maxLength": 300
+              },
+              "source": {
+                "type": "string",
+                "description": "Where the excluded information came from."
+              },
+              "reason": {
+                "type": "string",
+                "description": "Why this information was excluded.",
+                "enum": ["stale", "low_proof_tier", "conflicting", "irrelevant", "superseded", "insufficient_authority", "not_evaluated"]
+              },
+              "detail": {
+                "type": "string",
+                "description": "Additional context about the exclusion.",
+                "maxLength": 200
+              }
+            }
+          }
+        },
+        "gaps": {
+          "type": "array",
+          "description": "Information that was expected but not available at decision time.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["expected", "impact"],
+            "properties": {
+              "expected": {
+                "type": "string",
+                "description": "What information was expected.",
+                "maxLength": 200
+              },
+              "impact": {
+                "type": "string",
+                "description": "How the absence affected the decision.",
+                "enum": ["would_change_verdict", "would_change_confidence", "informational_only"]
+              },
+              "searched": {
+                "type": "array",
+                "description": "Sources that were checked for this information.",
+                "items": { "type": "string" }
+              },
+              "search_result": {
+                "type": "string",
+                "description": "Outcome of the search.",
+                "enum": ["not_found", "found_stale", "found_conflicting", "not_searched"]
+              }
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+
+
+    "confidence": {
+      "type": ["string", "null"],
+      "description": "Decider's epistemic confidence in the verdict. Enum band, not a float — bands are honest about the granularity of self-assessment. This is an epistemic summary chosen by the authority, constrained by evidence sufficiency and proof tier; it is not a probabilistic claim unless a policy explicitly defines it as such. Null means confidence was not assessed.",
+      "enum": ["high", "moderate", "low", "minimal", null]
+    },
+    "conflict_refs": {
+      "type": "array",
+      "description": "Receipt IDs of authoritative decisions that are incompatible with this one. Used when verdict=CONFLICT. Distinct from dissent: dissent is advisory disagreement metadata; conflict_refs are authoritative contradictions requiring escalation.",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "dissent": {
+      "type": ["object", "null"],
+      "description": "Structured dissent record if any advisory input disagreed with the verdict. Null if no dissent.",
+      "properties": {
+        "dissenter_ids": {
+          "type": "array",
+          "description": "Identifiers of advisory sources that disagreed.",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "dissent_summary": {
+          "type": "string",
+          "description": "Human-readable summary of the dissenting position. Max 300 chars.",
+          "maxLength": 300
+        },
+        "dissent_severity": {
+          "type": "string",
+          "description": "How serious the disagreement is.",
+          "enum": ["note", "concern", "objection", "block"]
+        }
+      },
+      "required": ["dissenter_ids", "dissent_summary", "dissent_severity"],
+      "additionalProperties": false
+    },
+    "abstention_reason": {
+      "type": ["string", "null"],
+      "description": "If verdict is ABSTAIN, why the authority declined to decide. Null otherwise.",
+      "maxLength": 300
+    },
+    "unresolved_contradictions": {
+      "type": "array",
+      "description": "Contradictions that existed at decision time and were NOT resolved by this decision.",
+      "items": { "type": "string", "minLength": 1 }
+    },
+
+
+    "disposition": {
+      "type": "string",
+      "description": "What action followed from this decision.",
+      "enum": [
+        "execute",
+        "block",
+        "defer_with_obligation",
+        "escalate",
+        "compensate",
+        "no_action"
+      ]
+    },
+    "disposition_target": {
+      "type": ["string", "null"],
+      "description": "If disposition routes to a specific system or actor, its identifier. E.g. 'human_review', 'guardian_override', 'loom:spine:controller'."
+    },
+    "obligations_created": {
+      "type": "array",
+      "description": "New obligations that this decision created (must be satisfied before next transition).",
+      "items": { "type": "string", "minLength": 1 }
+    },
+
+
+    "proof_tier_achieved": {
+      "type": ["string", "null"],
+      "description": "If this decision determined or changed a proof tier, the tier achieved. Null if decision does not affect proof tier.",
+      "enum": ["DRAFT", "CHECKED", "TOOL_VERIFIED", "ADVERSARIAL", "CONSTITUTIONAL", null]
+    },
+    "proof_tier_minimum_required": {
+      "type": ["string", "null"],
+      "description": "Minimum proof tier required by policy for this decision to be valid. Null if no minimum was specified.",
+      "enum": ["DRAFT", "CHECKED", "TOOL_VERIFIED", "ADVERSARIAL", "CONSTITUTIONAL", null]
+    },
+
+
+    "provenance_complete": {
+      "type": "boolean",
+      "description": "Whether all required provenance fields for claimed support are present and resolvable. True means: every evidence_ref has a valid ref_id, policy_hash matches a retrievable policy, and no known_provenance_gaps exist. False means: the receipt is structurally valid but epistemically degraded — some upstream references cannot be verified."
+    },
+    "known_provenance_gaps": {
+      "type": "array",
+      "description": "Fields that should be populated but are not, with reasons.",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "source_organ": {
+      "type": "string",
+      "description": "Which system produced this receipt.",
+      "enum": ["ccio", "loom", "agentmesh", "assay-toolkit", "assay-ledger", "puppetlabs"]
+    },
+
+
+    "content_hash": {
+      "type": ["string", "null"],
+      "description": "SHA-256 hex digest of the JCS-canonicalized receipt with signature and content_hash fields removed. Enables content-addressable lookup.",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "signature": {
+      "type": ["string", "null"],
+      "description": "Ed25519 signature over the JCS-canonicalized receipt with signature field removed. Null if unsigned.",
+      "minLength": 1
+    },
+    "signer_pubkey_sha256": {
+      "type": ["string", "null"],
+      "description": "SHA-256 fingerprint of the signing public key. Null if unsigned.",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

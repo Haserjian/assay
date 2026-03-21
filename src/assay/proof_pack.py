@@ -344,13 +344,18 @@ class ProofPack:
         self.policy_hash = policy_hash or _sha256_hex(b"default-policy-v0")
         self.suite_id = suite_id
         self.suite_hash = suite_hash or _sha256_hex(suite_id.encode())
-        self.claim_set_id = claim_set_id
-
         # When claims are provided, compute real claim_set_hash from specs
+        # and derive claim_set_id if caller left it as "none".
         if claims and not claim_set_hash:
             specs = [c.to_dict() for c in claims]
-            self.claim_set_hash = _sha256_hex(to_jcs_bytes(specs))
+            computed_hash = _sha256_hex(to_jcs_bytes(specs))
+            self.claim_set_hash = computed_hash
+            if claim_set_id == "none":
+                self.claim_set_id = f"claims_{computed_hash[:12]}"
+            else:
+                self.claim_set_id = claim_set_id
         else:
+            self.claim_set_id = claim_set_id
             self.claim_set_hash = claim_set_hash or _sha256_hex(claim_set_id.encode())
 
     def build(
@@ -588,6 +593,11 @@ class ProofPack:
             "signature_alg": "ed25519",
             "signature_scope": "JCS(pack_manifest_without_signature)",
         }
+
+        # Persist claim specs so downstream consumers (posture, replay)
+        # can re-evaluate without the original run card.
+        if self.claims:
+            unsigned_manifest["claims"] = [c.to_dict() for c in self.claims]
 
         from assay.manifest_schema import validate_attestation, validate_manifest
 

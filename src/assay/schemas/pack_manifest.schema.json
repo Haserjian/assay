@@ -133,6 +133,35 @@
       "type": "string",
       "description": "Equals attestation_sha256 (D12 invariant). SHA-256 of JCS-canonical attestation object. Single immutable identifier for the evidence unit.",
       "pattern": "^[a-f0-9]{64}$"
+    },
+    "claims": {
+      "type": "array",
+      "description": "Persisted claim specs from run cards. Present when the pack was built with --run-card / -c. Enables downstream posture evaluation and replayable claim verification without the original run card.",
+      "items": {
+        "type": "object",
+        "required": ["claim_id", "description", "check", "severity"],
+        "additionalProperties": true,
+        "properties": {
+          "claim_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string"
+          },
+          "check": {
+            "type": "string",
+            "minLength": 1
+          },
+          "params": {
+            "type": "object"
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["critical", "warning"]
+          }
+        }
+      }
     }
   }
 }

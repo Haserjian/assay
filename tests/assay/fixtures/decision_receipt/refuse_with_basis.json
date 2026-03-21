@@ -1,0 +1,115 @@
+{
+  "receipt_id": "a1b2c3d4-e5f6-4789-abcd-ef0123456789",
+  "receipt_type": "decision_v1",
+  "receipt_version": "0.1.1",
+  "ceid": null,
+  "timestamp": "2026-03-21T16:00:00.000Z",
+  "parent_receipt_id": null,
+  "supersedes": null,
+  "decision_type": "guardian_constitutional_refusal",
+  "decision_subject": "council:task_eval:prediction_request_game_12345",
+  "verdict": "REFUSE",
+  "verdict_reason": "Guardian: insufficient evidence for high-confidence prediction. Missing injury report and recent head-to-head data.",
+  "verdict_reason_codes": [
+    "clarity_check_failed",
+    "domain:epistemic",
+    "admissibility:retryable"
+  ],
+  "authority_id": "ccio:settlement:guardian_seat",
+  "authority_class": "BINDING",
+  "authority_scope": "constitutional_baseline",
+  "delegated_from": null,
+  "policy_id": "ccio.settlement.constitutional_baseline.v1",
+  "policy_hash": "7a5b3c2d1e0f9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b",
+  "policy_version": null,
+  "episode_id": "ep_20260321_mlb_007",
+  "session_state_hash": null,
+  "proof_tier_at_decision": null,
+  "runtime_condition_vector": {
+    "contradiction_pressure": "none",
+    "coherence_band": "strong",
+    "uncertainty_band": "uncalibrated",
+    "dignity_margin": "above_floor",
+    "routing_stress": "nominal"
+  },
+  "evidence_refs": [
+    {
+      "ref_type": "metric",
+      "ref_id": "odds_api_fetch_20260321",
+      "ref_uri": null,
+      "ref_hash": null,
+      "ref_role": "contextual"
+    }
+  ],
+  "evidence_sufficient": false,
+  "evidence_gaps": ["injury_report", "recent_h2h_record"],
+  "decision_basis": {
+    "admitted": [
+      {
+        "claim": "Market odds for Team X: 0.62 win probability",
+        "source": "odds_api_v2",
+        "source_type": "api",
+        "freshness": "current",
+        "role": "primary_input"
+      },
+      {
+        "claim": "User requested prediction for game 12345",
+        "source": "user_message",
+        "source_type": "user_input",
+        "freshness": "current",
+        "role": "constraint"
+      },
+      {
+        "claim": "Constitutional baseline policy requires minimum evidence coverage",
+        "source": "ccio.settlement.constitutional_baseline.v1",
+        "source_type": "policy",
+        "freshness": "current",
+        "role": "constraint"
+      }
+    ],
+    "excluded": [
+      {
+        "claim": "Cached team power ranking from 14 days ago",
+        "source": "memory_graph",
+        "reason": "stale",
+        "detail": "Last updated 14d ago, threshold is 48h for rankings"
+      },
+      {
+        "claim": "Third-party model prediction from unverified scrape",
+        "source": "web_scrape",
+        "reason": "low_proof_tier",
+        "detail": "Source has no provenance chain"
+      }
+    ],
+    "gaps": [
+      {
+        "expected": "Injury report for key players",
+        "impact": "would_change_confidence",
+        "searched": ["injury_api", "memory_graph"],
+        "search_result": "not_found"
+      },
+      {
+        "expected": "Recent head-to-head record (last 5 matchups)",
+        "impact": "informational_only",
+        "searched": [],
+        "search_result": "not_searched"
+      }
+    ]
+  },
+  "confidence": "low",
+  "conflict_refs": [],
+  "dissent": null,
+  "abstention_reason": null,
+  "unresolved_contradictions": [],
+  "disposition": "block",
+  "disposition_target": null,
+  "obligations_created": [],
+  "proof_tier_achieved": null,
+  "proof_tier_minimum_required": null,
+  "provenance_complete": false,
+  "known_provenance_gaps": ["injury_report_source_unavailable"],
+  "source_organ": "ccio",
+  "content_hash": null,
+  "signature": null,
+  "signer_pubkey_sha256": null
+}

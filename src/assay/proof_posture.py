@@ -200,9 +200,158 @@ def render_proof_posture_text(posture: ProofPosture) -> str:
     return "\n".join(lines)
 
 
+@dataclass
+class PackPostureResult:
+    """Result of computing posture from a proof pack directory.
+
+    Includes the posture itself plus structured warnings about input
+    quality so callers can make honest decisions under damaged evidence.
+    """
+
+    posture: ProofPosture
+    pack_dir: str
+    warnings: List[str] = field(default_factory=list)
+    receipts_loaded: int = 0
+    claims_loaded: int = 0
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "pack_dir": self.pack_dir,
+            "warnings": self.warnings,
+            "receipts_loaded": self.receipts_loaded,
+            "claims_loaded": self.claims_loaded,
+            **self.posture.to_dict(),
+        }
+
+
+def posture_from_pack(
+    pack_dir: str,
+    *,
+    require_falsifiers: bool = False,
+) -> PackPostureResult:
+    """Compute proof posture from a proof pack directory.
+
+    This is the single canonical path for posture computation.
+    Both ``assay posture`` and ``assay gate check --posture-pack``
+    call this function.
+
+    Incomplete-input law:
+      If the pack is missing, unreadable, or structurally damaged,
+      the posture degrades honestly — it does not silently produce
+      ``verified``.  Warnings are always surfaced, never swallowed.
+
+    Degradation rules:
+      - missing pack_manifest.json → no claims → verified (with warning)
+      - malformed receipt lines      → skipped with per-line warning count
+      - unreadable manifest          → no claims → verified (with warning)
+      - no receipt_pack.jsonl        → zero receipts (with warning)
+    """
+    import json as _json
+    from pathlib import Path
+
+    from assay.claim_verifier import ClaimSpec, verify_claims
+    from assay.proof_debt import compute_proof_debt
+    from assay.residual_risk import build_residual_risk_from_claims
+
+    root = Path(pack_dir).resolve()
+    warnings: List[str] = []
+
+    # Load receipts
+    receipts: List[Dict[str, Any]] = []
+    receipt_path = root / "receipt_pack.jsonl"
+    decode_errors = 0
+    if receipt_path.exists():
+        for line in receipt_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                receipts.append(_json.loads(line))
+            except _json.JSONDecodeError:
+                decode_errors += 1
+        if decode_errors:
+            warnings.append(f"{decode_errors} malformed receipt line(s) skipped")
+    else:
+        warnings.append("receipt_pack.jsonl not found")
+
+    # Load claims from manifest
+    claims: List[ClaimSpec] = []
+    manifest_path = root / "pack_manifest.json"
+    if manifest_path.exists():
+        try:
+            manifest = _json.loads(manifest_path.read_text(encoding="utf-8"))
+            for c in manifest.get("claims", []):
+                claims.append(ClaimSpec(
+                    claim_id=c.get("claim_id", c.get("id", "")),
+                    description=c.get("description", ""),
+                    check=c.get("check", "receipt_type_present"),
+                    params=c.get("params", {}),
+                    severity=c.get("severity", "critical"),
+                ))
+        except (_json.JSONDecodeError, OSError) as exc:
+            warnings.append(f"pack_manifest.json unreadable: {exc}")
+        if not claims:
+            warnings.append("pack_manifest.json has no claims — posture has nothing to verify")
+    else:
+        warnings.append("pack_manifest.json not found — no claims to verify")
+
+    # Verify claims
+    claim_set_result: Dict[str, Any] = {
+        "n_claims": 0, "n_passed": 0, "n_failed": 0, "n_capped": 0, "results": [],
+    }
+    claim_results_list: List[Dict[str, Any]] = []
+
+    if claims:
+        claim_set = verify_claims(receipts, claims)
+        claim_results_list = [r.to_dict() for r in claim_set.results]
+
+        n_capped = 0
+        enriched: List[Dict[str, Any]] = []
+        for r in claim_results_list:
+            tier_cap = ""
+            if require_falsifiers and r.get("severity") == "critical":
+                fstatus = r.get("falsifier_status", "")
+                if fstatus in ("absent", ""):
+                    tier_cap = "no falsifier named"
+                    n_capped += 1
+            enriched.append({**r, "tier_cap": tier_cap})
+
+        claim_set_result = {
+            "n_claims": claim_set.n_claims,
+            "n_passed": claim_set.n_passed,
+            "n_failed": claim_set.n_failed,
+            "n_capped": n_capped,
+            "results": enriched,
+        }
+        claim_results_list = enriched
+
+    # Build posture primitives
+    residual_risk_ledger = build_residual_risk_from_claims(claim_results_list)
+    proof_debt_ledger = compute_proof_debt(
+        claim_results_list,
+        residual_risk_items=residual_risk_ledger.to_dict().get("items", []),
+    )
+
+    posture = build_proof_posture(
+        claim_set_result=claim_set_result,
+        residual_risk_ledger=residual_risk_ledger.to_dict(),
+        proof_debt_ledger=proof_debt_ledger.to_dict(),
+    )
+
+    return PackPostureResult(
+        posture=posture,
+        pack_dir=str(root),
+        warnings=warnings,
+        receipts_loaded=len(receipts),
+        claims_loaded=len(claims),
+    )
+
+
 __all__ = [
     "ProofPosture",
+    "PackPostureResult",
     "build_proof_posture",
     "compute_disposition",
+    "posture_from_pack",
     "render_proof_posture_text",
 ]

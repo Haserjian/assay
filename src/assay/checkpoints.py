@@ -933,6 +933,23 @@ class OutboundEmailCheckpointFlow:
             timestamp=decision_timestamp,
         )
         self.decision_receipts.append(decision_receipt)
+
+        # Emit the decision receipt into the episode trace so it survives
+        # into receipt_pack.jsonl for downstream posture/replay.
+        #
+        # Identity note: episode.emit() assigns its own envelope receipt_id
+        # (r_<hex>), which overwrites the decision receipt's original UUID.
+        # We preserve the original as decision_receipt_id so cross-linking
+        # (e.g. resolution.decision_receipt_ids) remains resolvable.
+        decision_payload = {
+            **decision_receipt,
+            "decision_receipt_id": decision_receipt["receipt_id"],
+        }
+        self._episode.emit(
+            "decision_v1",
+            decision_payload,
+            parent_receipt_id=self.last_trace_receipt_id,
+        )
         kernel_claim = adapt_checkpoint_decision_to_claim_assertion(
             self.request,
             evaluation,

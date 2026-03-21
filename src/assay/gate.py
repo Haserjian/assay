@@ -108,3 +108,58 @@ def save_score_baseline(score_data: Dict[str, Any], path: Path) -> Path:
 
 
 DEFAULT_BASELINE_PATH = Path(".assay") / "score-baseline.json"
+
+
+# ---------------------------------------------------------------------------
+# Posture-aware gate
+# ---------------------------------------------------------------------------
+
+# Ordered from most strict to most permissive.
+DISPOSITION_RANK = {
+    "blocked": 0,
+    "incomplete": 1,
+    "supported_but_capped": 2,
+    "verified": 3,
+}
+
+
+def evaluate_posture_gate(
+    *,
+    disposition: str,
+    min_disposition: str = "incomplete",
+) -> Dict[str, Any]:
+    """Evaluate a proof-posture disposition against a minimum threshold.
+
+    Returns a gate-report dict with result and reasons.
+
+    Disposition ranking (strictest → most permissive):
+      blocked < incomplete < supported_but_capped < verified
+
+    The default ``min_disposition="incomplete"`` fails only on ``blocked``.
+    Use ``min_disposition="verified"`` to require full verification with no
+    caps or blocking risks.
+    """
+    actual_rank = DISPOSITION_RANK.get(disposition)
+    required_rank = DISPOSITION_RANK.get(min_disposition)
+
+    reasons: List[str] = []
+
+    if actual_rank is None:
+        reasons.append(f"Unknown disposition '{disposition}'")
+    elif required_rank is None:
+        reasons.append(f"Unknown min_disposition '{min_disposition}'")
+    elif actual_rank < required_rank:
+        reasons.append(
+            f"Posture disposition '{disposition}' does not meet "
+            f"minimum '{min_disposition}'"
+        )
+
+    result = "FAIL" if reasons else "PASS"
+
+    return {
+        "posture_result": result,
+        "disposition": disposition,
+        "min_disposition": min_disposition,
+        "reasons": reasons,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
