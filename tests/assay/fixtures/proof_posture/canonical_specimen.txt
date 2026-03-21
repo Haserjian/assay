@@ -1,0 +1,16 @@
+Proof Posture: INCOMPLETE
+
+Claims: 3 verified, 1 failed, 2 capped
+  - auth_behavior_preserved: capped: no named falsifier
+  - timestamps_valid: capped: falsifier named but not executed
+Residual risks: 3 (2 unowned)
+  - auth_behavior_preserved: Claim passed but capped: capped: no named falsifier [security-team]
+    next evidence: Run session expiry matrix
+  - high_receipt_count: Warning claim failed: expected >= 10 receipts, actual 3 receipts [unowned]
+  - timestamps_valid: Claim passed but capped: capped: falsifier named but not executed [unowned]
+    next evidence: name a falsifier for this claim
+Proof debt: 4 items owed
+  - auth_behavior_preserved (missing_falsifier): Name the cheapest test that would disprove this claim
+  - timestamps_valid (missing_falsifier): Name the cheapest test that would disprove this claim
+  - high_receipt_count (unowned_risk): Assign owner and expiry_condition to this residual risk
+  - timestamps_valid (unowned_risk): Assign owner and expiry_condition to this residual risk
