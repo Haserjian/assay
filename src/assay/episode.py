@@ -692,9 +692,21 @@ class Episode:
     # ------------------------------------------------------------------
 
     def transition(self, next_state: EpisodeState) -> None:
-        """Advance the constitutional state machine."""
+        """Advance the constitutional state machine.
+
+        Closed episodes reject all transitions. ABANDONED causes closure,
+        but closure cannot be followed by ABANDONED.
+        """
         if not isinstance(next_state, EpisodeState):
             next_state = EpisodeState(str(next_state))
+
+        # Closed check FIRST — before same-state early return.
+        # A closed episode rejects ALL transitions, even no-ops.
+        if self._closed:
+            raise EpisodeStateError(
+                f"Episode {self._episode_id} is closed; "
+                f"cannot transition to {next_state.value}"
+            )
 
         if next_state == self.state:
             return
@@ -720,8 +732,22 @@ class Episode:
             self.settled_at = now
         elif next_state == EpisodeState.PERSISTED:
             self.persisted_at = now
+        elif next_state == EpisodeState.ABANDONED:
+            # ABANDONED is a terminal state. It MUST emit a receipt.
+            # Without this, episodes can silently disappear — violating
+            # "no silent epistemic death."
+            self._emit_lifecycle("episode.abandoned", {
+                "abandoned_from": self.state.value,
+                "receipt_count": len(self._receipt_ids),
+                "abandoned_at": now.isoformat(),
+            }, enforce_state=False)
 
         self.state = next_state
+
+        # If we just entered ABANDONED, also close the episode to prevent
+        # further emission and ensure episode.closed receipt is emitted.
+        if next_state == EpisodeState.ABANDONED and not self._closed:
+            self.close(status="abandoned")
 
     def start_execution(self) -> None:
         """Enter EXECUTING state."""
