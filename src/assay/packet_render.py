@@ -20,6 +20,7 @@ from typing import Any
 
 _REQUIRED_FILES = ("SETTLEMENT.json", "COVERAGE_MATRIX.md")
 _OPTIONAL_FILES = ("EXECUTIVE_SUMMARY.md", "REVIEWER_GUIDE.md", "CHALLENGE.md", "VERIFY.md")
+_DECISION_RECEIPTS_FILE = "DECISION_RECEIPTS.json"
 
 
 class PacketRenderError(ValueError):
@@ -71,9 +72,17 @@ def render_packet_html(packet_dir: Path) -> str:
 
     coverage_html = _coverage_md_to_html(coverage_md)
 
+    # Decision Receipts (optional — rendered when present)
+    decision_receipts_raw = _load_json_optional(packet_dir / _DECISION_RECEIPTS_FILE)
+    decision_summary_html = _render_decision_summary(
+        decision_receipts_raw if isinstance(decision_receipts_raw, list) else None
+    )
+
     sections: list[str] = []
     if executive_md:
         sections.append(_section("Summary", _md_to_html(executive_md)))
+    if decision_summary_html:
+        sections.append(_section("Decision Summary", decision_summary_html))
     sections.append(_section("Coverage", coverage_html))
     if reviewer_guide_md:
         sections.append(_section("Reviewer guide", _md_to_html(reviewer_guide_md)))
@@ -375,6 +384,174 @@ def _coverage_md_to_html(md: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Decision Summary rendering
+# ---------------------------------------------------------------------------
+
+def _render_decision_summary(receipts: list[dict[str, Any]] | None) -> str:
+    """Render Decision Receipt summary using the shared trust evaluator.
+
+    Trust states (5-state model from decision_receipt_trust.py):
+      verified     — signature present + verification passed
+      unsigned     — structurally sound, no signature
+      unverifiable — signature present, key unavailable
+      invalid      — validation or verification failed
+      missing      — no receipts present
+    """
+    from assay.decision_receipt_trust import (
+        DecisionReceiptTrustState,
+        classify_trust,
+    )
+
+    if receipts is None or not receipts:
+        return _decision_missing_notice()
+
+    # Load validator if available
+    try:
+        from assay.decision_receipt import validate_decision_receipt
+    except ImportError:
+        validate_decision_receipt = None
+
+    parts: list[str] = []
+    for receipt in receipts:
+        trust = classify_trust(receipt, validator=validate_decision_receipt)
+        parts.append(_render_single_decision(receipt, trust))
+
+    return "\n".join(parts)
+
+
+def _decision_missing_notice() -> str:
+    return (
+        '<div class="decision-notice decision-missing">'
+        "<p>No Decision Receipt present in this packet.</p>"
+        "</div>"
+    )
+
+
+def _render_single_decision(
+    receipt: dict[str, Any],
+    trust: Any,
+) -> str:
+    """Render one Decision Receipt based on its trust state."""
+    from assay.decision_receipt_trust import DecisionReceiptTrustState
+
+    state = trust.state
+
+    if state == DecisionReceiptTrustState.INVALID:
+        errors_html = "".join(
+            f"<li>{_esc(e)}</li>" for e in trust.errors
+        )
+        return (
+            '<div class="decision-card decision-invalid">'
+            f'<div class="decision-state warn">Invalid Decision Receipt</div>'
+            f"<ul>{errors_html}</ul>"
+            "</div>"
+        )
+
+    if state == DecisionReceiptTrustState.UNVERIFIABLE:
+        return (
+            '<div class="decision-card decision-unverifiable">'
+            f'<div class="decision-state">{_esc(trust.reason)}</div>'
+            f"{_decision_provenance_row(receipt)}"
+            "</div>"
+        )
+
+    # VERIFIED and UNSIGNED both get full render, with different CSS
+    verdict = receipt.get("verdict", "—")
+    verdict_css = _VERDICT_CSS.get(verdict, "")
+    card_class = (
+        "decision-verified" if state == DecisionReceiptTrustState.VERIFIED
+        else "decision-unsigned"
+    )
+
+    return (
+        f'<div class="decision-card {card_class}">'
+        f'<div class="decision-verdict {verdict_css}">{_esc(verdict)}</div>'
+        f"{_decision_detail_rows(receipt)}"
+        f"{_decision_provenance_row(receipt)}"
+        f"</div>"
+    )
+
+
+def _decision_detail_rows(receipt: dict[str, Any]) -> str:
+    """Render the detail rows for a valid Decision Receipt."""
+    rows: list[str] = []
+
+    authority = receipt.get("authority_id", "—")
+    rows.append(_decision_row("Authority", authority))
+
+    reason = receipt.get("verdict_reason", "")
+    if reason:
+        rows.append(_decision_row("Reason", reason[:200]))
+
+    disposition = receipt.get("disposition", "—")
+    rows.append(_decision_row("Disposition", disposition))
+
+    sufficient = receipt.get("evidence_sufficient")
+    if sufficient is not None:
+        rows.append(_decision_row(
+            "Evidence sufficient",
+            "Yes" if sufficient else "No",
+        ))
+
+    # Extract domain: and clause: codes from verdict_reason_codes
+    codes = receipt.get("verdict_reason_codes", [])
+    domain_codes = [c for c in codes if c.startswith("domain:")]
+    clause_codes = [c for c in codes if c.startswith("clause:")]
+    if domain_codes:
+        rows.append(_decision_row("Failure domain", ", ".join(domain_codes)))
+    if clause_codes:
+        rows.append(_decision_row("Guardian clause", ", ".join(clause_codes)))
+
+    return "\n".join(rows)
+
+
+def _decision_provenance_row(receipt: dict[str, Any]) -> str:
+    """Render provenance: content_hash, signature state, CEID."""
+    parts: list[str] = []
+
+    content_hash = receipt.get("content_hash")
+    if content_hash:
+        parts.append(_decision_row("Content hash", f"{content_hash[:16]}..."))
+    else:
+        parts.append(_decision_row("Content hash", "Not computed"))
+
+    sig = receipt.get("signature")
+    if sig:
+        parts.append(_decision_row("Signature", "Present"))
+    else:
+        parts.append(_decision_row("Signature", "Unsigned"))
+
+    ceid = receipt.get("ceid")
+    if ceid:
+        parts.append(_decision_row("CEID", ceid))
+
+    decision_type = receipt.get("decision_type", "")
+    if decision_type:
+        parts.append(_decision_row("Decision type", decision_type))
+
+    return "\n".join(parts)
+
+
+def _decision_row(label: str, value: str) -> str:
+    return (
+        f'<div class="decision-row">'
+        f'<span class="decision-label">{_esc(label)}</span>'
+        f'<span class="decision-value">{_esc(value)}</span>'
+        f"</div>"
+    )
+
+
+_VERDICT_CSS: dict[str, str] = {
+    "REFUSE": "verdict-refuse",
+    "DEFER": "verdict-defer",
+    "APPROVE": "verdict-approve",
+    "ABSTAIN": "verdict-abstain",
+    "ROLLBACK": "verdict-rollback",
+    "CONFLICT": "verdict-conflict",
+}
+
+
+# ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 
@@ -525,6 +702,54 @@ _CSS = textwrap.dedent("""\
         color: #999;
         font-size: .82rem;
     }
+    .decision-card {
+        background: #fff;
+        border: 1px solid #ddd8cc;
+        border-radius: 8px;
+        padding: 16px 18px;
+        margin-bottom: 12px;
+    }
+    .decision-valid, .decision-verified { border-left: 4px solid #2d6a3f; }
+    .decision-unsigned { border-left: 4px solid #4a7ab5; }
+    .decision-invalid { border-left: 4px solid #8b1a1a; }
+    .decision-unverifiable { border-left: 4px solid #7d5a00; }
+    .decision-missing {
+        background: #f9f7f3;
+        border: 1px dashed #ccc;
+        border-radius: 8px;
+        padding: 16px 18px;
+        color: #888;
+    }
+    .decision-verdict {
+        font-size: 1.05rem;
+        font-weight: 700;
+        margin-bottom: 10px;
+        padding: 4px 10px;
+        border-radius: 4px;
+        display: inline-block;
+    }
+    .verdict-refuse { background: #fde8e8; color: #8b1a1a; }
+    .verdict-defer { background: #fef3cd; color: #7d5a00; }
+    .verdict-approve { background: #d4edda; color: #2d6a3f; }
+    .verdict-abstain { background: #edeae3; color: #555; }
+    .verdict-rollback { background: #fde8e8; color: #8b1a1a; }
+    .verdict-conflict { background: #fde8e8; color: #8b1a1a; }
+    .decision-state { font-weight: 600; margin-bottom: 8px; }
+    .decision-notice p { font-style: italic; }
+    .decision-row {
+        display: flex;
+        gap: 12px;
+        padding: 3px 0;
+        font-size: .88rem;
+    }
+    .decision-label {
+        min-width: 140px;
+        color: #888;
+        font-size: .82rem;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+    }
+    .decision-value { color: #1a201a; word-break: break-all; }
     @media (max-width: 560px) {
         .meta-grid { grid-template-columns: repeat(2, 1fr); }
         h1 { font-size: 1.5rem; }

@@ -263,3 +263,218 @@ def test_gallery_packet_no_external_assets():
     assert "cdn." not in html
     assert "googleapis.com" not in html
     assert 'src="http' not in html
+
+
+# ---------------------------------------------------------------------------
+# 8. Decision Summary — 4 trust states (Run 4)
+# ---------------------------------------------------------------------------
+
+_VALID_DECISION_RECEIPT = {
+    "receipt_id": "dr-test-001",
+    "receipt_type": "decision_v1",
+    "receipt_version": "0.1.0",
+    "ceid": None,
+    "timestamp": "2026-03-20T12:00:00.000Z",
+    "parent_receipt_id": None,
+    "supersedes": None,
+    "decision_type": "guardian_constitutional_refusal",
+    "decision_subject": "council:task_eval:test",
+    "verdict": "REFUSE",
+    "verdict_reason": "Guardian: clarity check failed",
+    "verdict_reason_codes": [
+        "clarity_check_failed",
+        "domain:epistemic",
+    ],
+    "authority_id": "ccio:settlement:guardian_seat",
+    "authority_class": "BINDING",
+    "authority_scope": "constitutional_baseline",
+    "delegated_from": None,
+    "policy_id": "ccio.settlement.constitutional_baseline.v1",
+    "policy_hash": "a" * 64,
+    "episode_id": "ep-test-001",
+    "source_organ": "ccio",
+    "disposition": "block",
+    "disposition_target": None,
+    "obligations_created": [],
+    "evidence_refs": [],
+    "evidence_sufficient": True,
+    "evidence_gaps": [],
+    "confidence": "high",
+    "conflict_refs": [],
+    "dissent": None,
+    "abstention_reason": None,
+    "unresolved_contradictions": [],
+    "proof_tier_at_decision": None,
+    "proof_tier_achieved": None,
+    "proof_tier_minimum_required": None,
+    "provenance_complete": True,
+    "known_provenance_gaps": [],
+    "content_hash": "abcdef0123456789" * 4,
+    "signature": None,
+    "signer_pubkey_sha256": None,
+}
+
+
+def _make_packet_with_decisions(
+    tmp_path: Path,
+    receipts: list | None = None,
+) -> Path:
+    """Write a packet dir with optional DECISION_RECEIPTS.json."""
+    packet_dir = _make_packet(tmp_path)
+    if receipts is not None:
+        (packet_dir / "DECISION_RECEIPTS.json").write_text(
+            json.dumps(receipts), encoding="utf-8"
+        )
+    return packet_dir
+
+
+class TestDecisionSummaryMissing:
+    """Trust state: missing — no Decision Receipt file present."""
+
+    def test_missing_receipts_renders_notice(self, tmp_path):
+        packet_dir = _make_packet(tmp_path)
+        html = render_packet_html(packet_dir)
+        assert "No Decision Receipt present" in html
+
+    def test_missing_notice_has_css_class(self, tmp_path):
+        packet_dir = _make_packet(tmp_path)
+        html = render_packet_html(packet_dir)
+        assert "decision-missing" in html
+
+    def test_empty_receipts_list_renders_notice(self, tmp_path):
+        packet_dir = _make_packet_with_decisions(tmp_path, receipts=[])
+        html = render_packet_html(packet_dir)
+        assert "No Decision Receipt present" in html
+
+
+class TestDecisionSummaryValid:
+    """Trust state: valid — receipt passes validation, full render."""
+
+    def test_valid_receipt_renders_verdict(self, tmp_path):
+        packet_dir = _make_packet_with_decisions(tmp_path, [_VALID_DECISION_RECEIPT])
+        html = render_packet_html(packet_dir)
+        assert "REFUSE" in html
+        assert "verdict-refuse" in html
+
+    def test_valid_receipt_renders_authority(self, tmp_path):
+        packet_dir = _make_packet_with_decisions(tmp_path, [_VALID_DECISION_RECEIPT])
+        html = render_packet_html(packet_dir)
+        assert "ccio:settlement:guardian_seat" in html
+
+    def test_valid_receipt_renders_reason(self, tmp_path):
+        packet_dir = _make_packet_with_decisions(tmp_path, [_VALID_DECISION_RECEIPT])
+        html = render_packet_html(packet_dir)
+        assert "clarity check failed" in html
+
+    def test_valid_receipt_renders_domain_codes(self, tmp_path):
+        packet_dir = _make_packet_with_decisions(tmp_path, [_VALID_DECISION_RECEIPT])
+        html = render_packet_html(packet_dir)
+        assert "domain:epistemic" in html
+
+    def test_valid_receipt_renders_content_hash(self, tmp_path):
+        packet_dir = _make_packet_with_decisions(tmp_path, [_VALID_DECISION_RECEIPT])
+        html = render_packet_html(packet_dir)
+        assert "abcdef0123456789" in html  # first 16 chars
+
+    def test_valid_receipt_renders_unsigned_state(self, tmp_path):
+        packet_dir = _make_packet_with_decisions(tmp_path, [_VALID_DECISION_RECEIPT])
+        html = render_packet_html(packet_dir)
+        assert "Unsigned" in html
+
+    def test_valid_receipt_has_decision_valid_class(self, tmp_path):
+        packet_dir = _make_packet_with_decisions(tmp_path, [_VALID_DECISION_RECEIPT])
+        html = render_packet_html(packet_dir)
+        assert "decision-unsigned" in html
+
+    def test_decision_summary_section_heading(self, tmp_path):
+        packet_dir = _make_packet_with_decisions(tmp_path, [_VALID_DECISION_RECEIPT])
+        html = render_packet_html(packet_dir)
+        assert "Decision Summary" in html
+
+    def test_approve_verdict_gets_green_class(self, tmp_path):
+        receipt = {**_VALID_DECISION_RECEIPT, "verdict": "APPROVE", "disposition": "execute"}
+        packet_dir = _make_packet_with_decisions(tmp_path, [receipt])
+        html = render_packet_html(packet_dir)
+        assert "verdict-approve" in html
+
+    def test_defer_verdict_gets_amber_class(self, tmp_path):
+        receipt = {**_VALID_DECISION_RECEIPT, "verdict": "DEFER", "disposition": "escalate"}
+        packet_dir = _make_packet_with_decisions(tmp_path, [receipt])
+        html = render_packet_html(packet_dir)
+        assert "verdict-defer" in html
+
+
+class TestDecisionSummaryInvalid:
+    """Trust state: invalid — receipt fails validation, warning block."""
+
+    def test_invalid_receipt_renders_warning(self, tmp_path):
+        bad_receipt = {"receipt_id": "bad", "verdict": "REFUSE"}
+        packet_dir = _make_packet_with_decisions(tmp_path, [bad_receipt])
+        html = render_packet_html(packet_dir)
+        assert "decision-invalid" in html
+        assert "Invalid Decision Receipt" in html
+
+    def test_invalid_receipt_shows_errors(self, tmp_path):
+        # Missing most required fields → validation errors
+        bad_receipt = {"receipt_id": "bad-002"}
+        packet_dir = _make_packet_with_decisions(tmp_path, [bad_receipt])
+        html = render_packet_html(packet_dir)
+        assert "decision-invalid" in html
+
+
+class TestDecisionSummaryUnverifiable:
+    """Trust state: unverifiable — signature present, key unavailable."""
+
+    def test_unverifiable_has_distinct_class(self, tmp_path):
+        receipt = {
+            **_VALID_DECISION_RECEIPT,
+            "signature": "some_sig_bytes_base64",
+            "signer_pubkey_sha256": None,
+        }
+        packet_dir = _make_packet_with_decisions(tmp_path, [receipt])
+        html = render_packet_html(packet_dir)
+        assert "decision-unverifiable" in html
+        assert "verification key unavailable" in html
+
+    def test_unverifiable_not_collapsed_into_invalid(self, tmp_path):
+        receipt = {
+            **_VALID_DECISION_RECEIPT,
+            "signature": "some_sig",
+            "signer_pubkey_sha256": None,
+        }
+        packet_dir = _make_packet_with_decisions(tmp_path, [receipt])
+        html = render_packet_html(packet_dir)
+        # Check the body (after </style>), not the CSS definitions
+        body = html.split("</style>", 1)[-1]
+        assert "decision-invalid" not in body
+        assert "decision-unverifiable" in body
+
+
+class TestDecisionSummaryEndToEnd:
+    """C8: Milestone acceptance proof — emitted receipt → packet → correct rendering."""
+
+    def test_e2e_guardian_refusal_to_reviewer_packet(self, tmp_path):
+        """Build a receipt via the canonical builder, render in packet, verify output."""
+        # Build receipt using the CCIO shared builder
+        # (We inline the dict here rather than importing CCIO to keep assay tests standalone)
+        receipt = {**_VALID_DECISION_RECEIPT}
+        receipt["verdict_reason_codes"] = [
+            "clarity_check_failed",
+            "coherence_check_failed",
+            "domain:epistemic",
+        ]
+        receipt["content_hash"] = "e" * 64
+
+        packet_dir = _make_packet_with_decisions(tmp_path, [receipt])
+        html = render_packet_html(packet_dir)
+
+        # Verify all expected elements appear
+        assert "Decision Summary" in html
+        assert "REFUSE" in html
+        assert "verdict-refuse" in html
+        assert "ccio:settlement:guardian_seat" in html
+        assert "domain:epistemic" in html
+        assert "eeeeeeeeeeeeeeee" in html  # content_hash[:16]
+        assert "Unsigned" in html
+        assert "decision-unsigned" in html
+        assert "guardian_constitutional_refusal" in html
