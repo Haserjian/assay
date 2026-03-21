@@ -1,10 +1,8 @@
 # Assay
 
-**Build evidence for what your AI did.**
+**Assay turns AI actions into verifiable evidence instead of unverifiable logs.**
 
-Accountable execution for AI systems.
-Assay creates signed evidence for AI workflows that a reviewer can verify offline.
-It proves what can be responsibly claimed about the artifact, not the truth of every upstream component.
+Assay creates signed, tamper-evident evidence for AI workflows that a reviewer can verify offline — including when something failed.
 
 > **Primary public story today:** Assay is an evidence compiler for AI
 > execution: `scan -> patch -> run -> receipts -> signed proof pack ->
