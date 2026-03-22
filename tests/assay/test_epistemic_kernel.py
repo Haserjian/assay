@@ -57,7 +57,14 @@ def _typed_ref(ref_id: str, *, ref_role: str = "supporting") -> dict:
 
 
 def _checkpoint_examples_root() -> str:
-    return str(Path(__file__).resolve().parent.parent.parent / "docs" / "examples" / "checkpoints")
+    root = Path(__file__).resolve().parent.parent.parent / "docs" / "examples" / "checkpoints"
+    if not root.exists():
+        raise FileNotFoundError(
+            f"Checkpoint examples dir not found at: {root}\n"
+            "Expected layout: <repo-root>/docs/examples/checkpoints/\n"
+            "If the repo layout changed, update the path in _checkpoint_examples_root()."
+        )
+    return str(root)
 
 
 def _load_example(name: str) -> dict:
