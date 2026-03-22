@@ -374,7 +374,7 @@
     <h1>What can an enterprise buyer actually verify about an AI product?</h1>
 
     <div class="lede">
-      Almost nothing. Most enterprise AI products provide dashboards, compliance badges, and self-reported metrics. These may be produced by reputable auditors or monitoring tools, but they rarely cover specific system behavior at the per-decision level. The buyer sees what the vendor chooses to show, at the granularity the vendor chooses. The gap between "we logged it" and "you can independently verify it" is one of the hardest unsolved problems in enterprise AI procurement.
+      Very little at useful granularity. Most enterprise AI products provide dashboards, compliance badges, and self-reported metrics. These may be produced by reputable auditors or monitoring tools, but they rarely cover specific system behavior at the per-decision level. In practice, many vendor artifacts combine stale, human-attested, and out-of-scope evidence — the buyer sees what the vendor chooses to show, at the granularity the vendor chooses. The gap between "we logged it" and "you can independently verify it" is one of the hardest unsolved problems in enterprise AI procurement.
     </div>
 
     <p>
@@ -650,6 +650,39 @@
         <strong>Why this matters:</strong> Everything described on this page — tamper detection, hash chains, signature verification, honest failure reporting — is operational today in an open-source tool. The question for buyers is not whether the technology exists. It is whether their vendors use it.
       </p>
     </div>
+
+    <h3>Current capability boundary</h3>
+
+    <p>
+      Assay is an open-source toolkit, not a turnkey platform. Here is what it demonstrates today and what teams still need to build.
+    </p>
+
+    <table class="evidence-table" style="margin-bottom: 32px;">
+      <thead>
+        <tr>
+          <th>What Assay does today</th>
+          <th>What teams still implement</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Proof pack generation (receipts, manifest, Ed25519 signatures)</td>
+          <td>Full production instrumentation across all call sites</td>
+        </tr>
+        <tr>
+          <td>Offline verification and tamper detection</td>
+          <td>Org-specific policy integration and trust root management</td>
+        </tr>
+        <tr>
+          <td>Receipt completeness checks</td>
+          <td>Coverage discipline (ensuring all contracted call sites emit receipts)</td>
+        </tr>
+        <tr>
+          <td>Honest failure scenarios (system reports its own errors)</td>
+          <td>Continuous evidence pipelines tied to deployment workflows</td>
+        </tr>
+      </tbody>
+    </table>
 
     <h3>One question to ask your vendor</h3>
 
