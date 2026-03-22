@@ -842,6 +842,102 @@ def _check_contradiction_001(store: Any = None) -> DoctorCheckResult:
         )
 
 
+def _check_obligation_001(store: Any = None) -> DoctorCheckResult:
+    """Detect open override obligations (unresolved governance debt).
+
+    Obligations are created when a human overrides a constitutional decision.
+    Each override creates mandatory review debt with a deadline. Unresolved
+    obligations represent governance debt that the organism has not yet
+    metabolized.
+
+    This is the first downstream consumer of the obligation store, proving
+    that obligation data flows beyond the `assay why` interrogation surface.
+    """
+    try:
+        from assay.obligation import ObligationStore
+        from assay.store import assay_home
+        from datetime import datetime, timezone
+
+        ob_store = ObligationStore()
+        pending = ob_store.list_pending()
+
+        if not pending:
+            return DoctorCheckResult(
+                id="DOCTOR_OBLIGATION_001",
+                status=CheckStatus.PASS,
+                severity=Severity.INFO,
+                message="No open override obligations",
+                evidence={"open_count": 0, "overdue_count": 0},
+            )
+
+        now = datetime.now(timezone.utc)
+        overdue = []
+        for ob in pending:
+            try:
+                due = datetime.fromisoformat(ob.due_at.replace("Z", "+00:00"))
+                if due < now:
+                    overdue.append(ob)
+            except (ValueError, AttributeError):
+                overdue.append(ob)  # Treat unparseable due_at as overdue
+
+        if overdue:
+            return DoctorCheckResult(
+                id="DOCTOR_OBLIGATION_001",
+                status=CheckStatus.FAIL,
+                severity=Severity.HIGH,
+                message=(
+                    f"{len(overdue)} overdue override obligation(s) "
+                    f"({len(pending)} total open)"
+                ),
+                evidence={
+                    "open_count": len(pending),
+                    "overdue_count": len(overdue),
+                    "overdue": [
+                        {
+                            "obligation_id": ob.obligation_id,
+                            "source_receipt_id": ob.source_receipt_id,
+                            "owner": ob.owner,
+                            "due_at": ob.due_at,
+                            "severity": ob.severity,
+                        }
+                        for ob in overdue
+                    ],
+                },
+                fix="assay why <receipt-id>  # inspect the override chain and resolve",
+            )
+
+        return DoctorCheckResult(
+            id="DOCTOR_OBLIGATION_001",
+            status=CheckStatus.WARN,
+            severity=Severity.MEDIUM,
+            message=(
+                f"{len(pending)} open override obligation(s), none overdue yet"
+            ),
+            evidence={
+                "open_count": len(pending),
+                "overdue_count": 0,
+                "open": [
+                    {
+                        "obligation_id": ob.obligation_id,
+                        "owner": ob.owner,
+                        "due_at": ob.due_at,
+                        "severity": ob.severity,
+                    }
+                    for ob in pending
+                ],
+            },
+            fix="assay why <receipt-id>  # inspect the override chain",
+        )
+    except Exception as e:
+        return DoctorCheckResult(
+            id="DOCTOR_OBLIGATION_001",
+            status=CheckStatus.SKIP,
+            severity=Severity.INFO,
+            message=f"Obligation check skipped: {e}",
+            evidence={"error": str(e)},
+        )
+
+
 # ---------------------------------------------------------------------------
 # Check dispatch
 # ---------------------------------------------------------------------------
@@ -864,6 +960,7 @@ _CHECK_FUNCTIONS = {
     "DOCTOR_WITNESS_001": lambda **kw: _check_witness_001(kw.get("strict", False)),
     "DOCTOR_ORPHAN_001": lambda **kw: _check_orphan_001(kw.get("store")),
     "DOCTOR_CONTRADICTION_001": lambda **kw: _check_contradiction_001(kw.get("store")),
+    "DOCTOR_OBLIGATION_001": lambda **kw: _check_obligation_001(kw.get("store")),
 }
 
 
@@ -924,6 +1021,8 @@ def run_doctor(
             check_ids.append("DOCTOR_ORPHAN_001")
         if "DOCTOR_CONTRADICTION_001" not in check_ids:
             check_ids.append("DOCTOR_CONTRADICTION_001")
+        if "DOCTOR_OBLIGATION_001" not in check_ids:
+            check_ids.append("DOCTOR_OBLIGATION_001")
 
     kwargs = {
         "pack_dir": pack_dir,

@@ -34,6 +34,7 @@ from assay._receipts.canonicalize import to_jcs_bytes
 from assay.integrity import VerifyResult
 from assay.keystore import AssayKeyStore, get_default_keystore
 from assay.proof_pack import ProofPack
+from assay.receipt_composition import require_allowed_successor
 from assay.store import AssayStore, get_default_store
 
 
@@ -645,6 +646,9 @@ class Episode:
             if self.state == EpisodeState.OPEN:
                 self.transition(EpisodeState.EXECUTING)
 
+        predecessor_type = self.receipts[-1].receipt_type if self.receipts else None
+        require_allowed_successor(predecessor_type, receipt_type)
+
         receipt = Receipt.create(
             episode_id=self._episode_id,
             receipt_type=receipt_type,
@@ -1037,6 +1041,25 @@ class Episode:
             )
 
         self._checkpoint_count += 1
+
+        # Emit governance posture snapshot before sealing.
+        # This makes governance context an artifact in the sealed chain,
+        # not a side-channel comment. Every pack carries its governance weather.
+        try:
+            from assay.governance_posture import (
+                POSTURE_RECEIPT_TYPE,
+                evaluate_posture,
+            )
+            posture = evaluate_posture()
+            posture_data = posture.to_receipt_dict()
+            posture_data.pop("type", None)  # _emit_raw sets the type
+            self._emit_raw(
+                POSTURE_RECEIPT_TYPE,
+                posture_data,
+                enforce_state=False,
+            )
+        except Exception:
+            pass  # Posture emission is best-effort; don't block sealing
 
         # Emit checkpoint receipt before sealing
         self._emit_raw(

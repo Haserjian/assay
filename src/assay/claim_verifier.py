@@ -252,6 +252,100 @@ def check_coverage_contract(
     )
 
 
+def check_posture_eligible(
+    receipts: List[Dict[str, Any]],
+    *,
+    claim_id: str,
+    required_posture: str = "CLEAN",
+    **_: Any,
+) -> ClaimResult:
+    """Governance posture must meet required state for this claim.
+
+    This is the claim eligibility sentinel: posture constrains what status
+    claims evidence may support. Debt does not invalidate evidence; it
+    constrains what the evidence may assert about itself.
+
+    Scans receipts for the latest governance_posture_snapshot and checks
+    the production posture (what was true when evidence was sealed).
+
+    Args:
+        required_posture: Minimum posture state. "CLEAN" means no open
+            obligations. "DEBT_OUTSTANDING" means overdue is not tolerated
+            but open-not-overdue is. Default: "CLEAN".
+    """
+    # Posture severity ordering
+    _POSTURE_RANK = {
+        "CLEAN": 3,
+        "DEBT_OUTSTANDING": 2,
+        "DEBT_OVERDUE": 1,
+        "UNKNOWN": 0,
+        "UNAVAILABLE": 0,
+    }
+
+    # Find latest governance_posture_snapshot in receipts.
+    # "Latest" = last by evaluated_at timestamp, with receipt order as tiebreak.
+    # This is explicit about ordering rather than relying on iteration order.
+    latest_posture = None
+    posture_receipt_id = None
+    latest_eval_at = ""
+    for r in receipts:
+        if r.get("type") == "governance_posture_snapshot":
+            eval_at = r.get("evaluated_at", "")
+            if eval_at >= latest_eval_at:  # ISO-8601 sorts lexicographically
+                latest_posture = r.get("posture", "UNKNOWN")
+                posture_receipt_id = r.get("receipt_id", "")
+                latest_eval_at = eval_at
+
+    if latest_posture is None:
+        return ClaimResult(
+            claim_id=claim_id,
+            passed=False,
+            expected=f"governance posture {required_posture} (embedded in pack)",
+            actual="no governance_posture_snapshot found (pack predates posture embedding)",
+        )
+
+    required_rank = _POSTURE_RANK.get(required_posture, 3)
+    actual_rank = _POSTURE_RANK.get(latest_posture, 0)
+    passed = actual_rank >= required_rank
+
+    return ClaimResult(
+        claim_id=claim_id,
+        passed=passed,
+        expected=f"governance posture >= {required_posture}",
+        actual=f"governance posture {latest_posture}",
+        evidence_receipt_ids=[posture_receipt_id] if posture_receipt_id else [],
+    )
+
+
+# ---------------------------------------------------------------------------
+# Predefined claim specs for governance posture eligibility.
+#
+# Users can include these in their claim sets to assert governance standing.
+# A pack may remain valid evidence while being ineligible for some claims.
+# ---------------------------------------------------------------------------
+
+GOVERNANCE_COMPLIANT_CLAIM = ClaimSpec(
+    claim_id="governance_compliant",
+    description="Evidence was produced under clean governance posture (no open obligations)",
+    check="posture_eligible",
+    params={"required_posture": "CLEAN"},
+    severity="critical",
+)
+
+AUDIT_READY_CLAIM = ClaimSpec(
+    claim_id="audit_ready",
+    description=(
+        "Evidence is audit-ready: clean governance posture and no overdue obligations. "
+        "Currently aliases governance_compliant (same threshold). Future versions may "
+        "add stricter composite requirements (e.g., witness presence, minimum receipt "
+        "coverage, or freshness constraints)."
+    ),
+    check="posture_eligible",
+    params={"required_posture": "CLEAN"},
+    severity="critical",
+)
+
+
 CHECKS: Dict[str, CheckFn] = {
     "receipt_type_present": check_receipt_type_present,
     "no_receipt_type": check_no_receipt_type,
@@ -259,6 +353,7 @@ CHECKS: Dict[str, CheckFn] = {
     "timestamps_monotonic": check_timestamps_monotonic,
     "field_value_matches": check_field_value_matches,
     "coverage_contract": check_coverage_contract,
+    "posture_eligible": check_posture_eligible,
 }
 
 
@@ -378,4 +473,7 @@ __all__ = [
     "check_receipt_count_ge",
     "check_timestamps_monotonic",
     "check_field_value_matches",
+    "check_posture_eligible",
+    "GOVERNANCE_COMPLIANT_CLAIM",
+    "AUDIT_READY_CLAIM",
 ]
