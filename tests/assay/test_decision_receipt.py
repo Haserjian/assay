@@ -12,10 +12,13 @@ from pathlib import Path
 import pytest
 
 from assay.decision_receipt import (
+    AUTHORITY_LAYER_RANK,
     LAYER_FORBIDDEN,
     LAYER_INVARIANTS,
     LAYER_SHAPE,
     PROOF_TIER_RANK,
+    TierEscalationError,
+    assert_tier_monotonic,
     validate_decision_receipt,
     validate_invariants,
     validate_shape,
@@ -423,3 +426,90 @@ class TestDiagnosticContract:
         rules = [e.rule for e in result.errors]
         # I-1 comes before I-3 in code order
         assert rules.index("I-1") < rules.index("I-3")
+
+
+# ---------------------------------------------------------------------------
+# Tier monotonicity guard (Row 3, Stage 2)
+# ---------------------------------------------------------------------------
+
+class TestAuthorityLayerRank:
+    """AUTHORITY_LAYER_RANK ordinal table is present and correct."""
+
+    def test_evidence_is_lowest(self):
+        assert AUTHORITY_LAYER_RANK["EVIDENCE"] < AUTHORITY_LAYER_RANK["CONTINUITY"]
+
+    def test_continuity_is_middle(self):
+        assert AUTHORITY_LAYER_RANK["CONTINUITY"] < AUTHORITY_LAYER_RANK["GOVERNANCE"]
+
+    def test_all_three_layers_present(self):
+        assert set(AUTHORITY_LAYER_RANK.keys()) == {"EVIDENCE", "CONTINUITY", "GOVERNANCE"}
+
+
+class TestTierEscalationError:
+    """TierEscalationError is a named, non-generic ValueError."""
+
+    def test_is_value_error(self):
+        err = TierEscalationError("test")
+        assert isinstance(err, ValueError)
+
+    def test_message_preserved(self):
+        err = TierEscalationError("aggregation does not create authority")
+        assert "aggregation does not create authority" in str(err)
+
+    def test_distinct_from_bare_value_error(self):
+        assert TierEscalationError is not ValueError
+
+
+class TestAssertTierMonotonic:
+    """assert_tier_monotonic enforces: GOVERNANCE cannot be emitted from EVIDENCE-only chain."""
+
+    # Rejection cases — evidence-only inputs without authorized path
+    def test_evidence_only_raises(self):
+        with pytest.raises(TierEscalationError):
+            assert_tier_monotonic(["EVIDENCE"])
+
+    def test_multiple_evidence_inputs_raises(self):
+        with pytest.raises(TierEscalationError):
+            assert_tier_monotonic(["EVIDENCE", "EVIDENCE", "EVIDENCE"])
+
+    def test_continuity_only_raises(self):
+        with pytest.raises(TierEscalationError):
+            assert_tier_monotonic(["CONTINUITY"])
+
+    def test_evidence_and_continuity_raises(self):
+        with pytest.raises(TierEscalationError):
+            assert_tier_monotonic(["EVIDENCE", "CONTINUITY", "EVIDENCE"])
+
+    # Pass cases — governance predecessor present
+    def test_governance_predecessor_passes(self):
+        assert_tier_monotonic(["GOVERNANCE"])  # must not raise
+
+    def test_mixed_with_governance_passes(self):
+        assert_tier_monotonic(["EVIDENCE", "GOVERNANCE"])  # must not raise
+
+    def test_all_three_layers_passes(self):
+        assert_tier_monotonic(["EVIDENCE", "CONTINUITY", "GOVERNANCE"])  # must not raise
+
+    # Pass cases — authorized judgment path declared
+    def test_evidence_with_authorized_path_passes(self):
+        assert_tier_monotonic(["EVIDENCE"], authorized_judgment_path=True)  # must not raise
+
+    def test_continuity_with_authorized_path_passes(self):
+        assert_tier_monotonic(["CONTINUITY"], authorized_judgment_path=True)  # must not raise
+
+    def test_empty_list_passes(self):
+        """Empty predecessor list is unchecked — no assertion possible."""
+        assert_tier_monotonic([])  # must not raise
+
+    # Error message quality
+    def test_error_message_names_received_layers(self):
+        with pytest.raises(TierEscalationError, match="EVIDENCE"):
+            assert_tier_monotonic(["EVIDENCE"])
+
+    def test_error_message_cites_invariant(self):
+        with pytest.raises(TierEscalationError, match="aggregation does not create authority"):
+            assert_tier_monotonic(["EVIDENCE"])
+
+    def test_error_message_names_governance(self):
+        with pytest.raises(TierEscalationError, match="GOVERNANCE"):
+            assert_tier_monotonic(["EVIDENCE"])
