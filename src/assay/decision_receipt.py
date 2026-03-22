@@ -62,6 +62,16 @@ VALID_PROOF_TIERS = set(PROOF_TIER_RANK.keys()) | {None}
 
 VALID_DISSENT_SEVERITY = {"note", "concern", "objection", "block"}
 
+# Authority layer ordinal ranking — used by assert_tier_monotonic
+# These map the three-layer receipt authority model to comparable ordinal values.
+# Law: a Decision Receipt (GOVERNANCE) cannot be produced from EVIDENCE-only inputs
+# without an authorized judgment path. See RECEIPT_AUTHORITY_LADDER.md.
+AUTHORITY_LAYER_RANK: Dict[str, int] = {
+    "EVIDENCE": 0,
+    "CONTINUITY": 1,
+    "GOVERNANCE": 2,
+}
+
 # Verdict -> allowed dispositions (I-1)
 VERDICT_DISPOSITION_MAP: Dict[str, set] = {
     "APPROVE": {"execute"},
@@ -82,6 +92,112 @@ REQUIRED_FIELDS = [
     "policy_id", "policy_hash", "episode_id",
     "disposition", "evidence_sufficient", "provenance_complete",
 ]
+
+
+class TierEscalationError(ValueError):
+    """Raised when a Decision Receipt (GOVERNANCE layer) is emitted from
+    only EVIDENCE or CONTINUITY predecessors without an authorized judgment path.
+
+    Core invariant: aggregation does not create authority.
+    See RECEIPT_AUTHORITY_LADDER.md, propagation law.
+
+    Do not catch this as a bare ValueError — handle it explicitly or let it
+    propagate to the caller as a programming error.
+    """
+
+
+@dataclass(frozen=True)
+class JudgmentPathDeclaration:
+    """Typed declaration that an authorized judgment path was on the predecessor chain.
+
+    Use this instead of a bare boolean to make authority provenance explicit and
+    auditable. Passing this to assert_tier_monotonic means the caller is making a
+    constitutional declaration: governance was reached through authorized judgment,
+    not through composition of evidence receipts alone.
+
+    This is an assertion, not a receipt. It does not replace proper lineage
+    tracking but makes the declaration legible in operator context.
+
+    Fields:
+        reason: Non-empty description of why governance authority is declared.
+            Must be substantive — empty or whitespace-only strings are rejected.
+        authority_ref: Optional reference to the authorizing receipt ID, Guardian
+            judgment ID, or policy reference that grounds this declaration.
+        declared_by: Optional identifier of the subsystem or agent making this
+            declaration (e.g. "ccio:guardian:settlement_seat").
+
+    Future hardening (not enforced now):
+        - reason length / substantiveness check (reject "x", "override", etc.)
+        - authority_ref presence required for OVERRIDING authority class
+        - serialization of declaration context into the Decision Receipt payload
+    """
+    reason: str
+    authority_ref: Optional[str] = None
+    declared_by: Optional[str] = None
+
+    def __post_init__(self) -> None:
+        if not self.reason.strip():
+            raise ValueError(
+                "JudgmentPathDeclaration.reason must be non-empty. "
+                "Provide a substantive description of why governance authority "
+                "is declared on this path."
+            )
+
+
+def assert_tier_monotonic(
+    predecessor_authority_layers: List[str],
+    *,
+    authorized_judgment_path: Optional[JudgmentPathDeclaration] = None,
+) -> None:
+    """Assert that a Decision Receipt (GOVERNANCE tier) may be emitted from
+    the given predecessor authority layers.
+
+    A Decision Receipt is a GOVERNANCE-layer artifact. It cannot be produced
+    from only EVIDENCE or CONTINUITY predecessors without an authorized
+    judgment path.
+
+    Args:
+        predecessor_authority_layers: Authority layer of each predecessor
+            receipt in the chain. Values: "EVIDENCE", "CONTINUITY",
+            "GOVERNANCE". An empty list is treated as unchecked (no-op).
+
+            Note: [] (empty) is currently conflated with "lineage unknown",
+            "lineage complete but empty", and "lineage redacted". These are
+            distinct organism states. See predecessor_completeness planning note
+            in ROW3_RECEIPT_COMPOSITION_DRAFT.md.
+
+        authorized_judgment_path: A JudgmentPathDeclaration when an authorized
+            judgment (Guardian, settlement) was on the path — even if not
+            reflected as a GOVERNANCE predecessor in the layer list. Requires
+            a non-empty reason. This is a typed declaration by the caller,
+            not a silent boolean bypass.
+
+    Raises:
+        TierEscalationError: if no predecessor is GOVERNANCE-tier and
+            authorized_judgment_path is None.
+    """
+    if not predecessor_authority_layers:
+        return  # No predecessors provided — no assertion possible
+
+    if authorized_judgment_path is not None:
+        return  # Caller provided a typed JudgmentPathDeclaration
+
+    governance_rank = AUTHORITY_LAYER_RANK["GOVERNANCE"]
+    has_governance_predecessor = any(
+        AUTHORITY_LAYER_RANK.get(layer, 0) >= governance_rank
+        for layer in predecessor_authority_layers
+    )
+
+    if not has_governance_predecessor:
+        received = sorted(set(predecessor_authority_layers))
+        raise TierEscalationError(
+            f"Decision Receipt (GOVERNANCE layer) cannot be emitted from "
+            f"{received!r} predecessors without an authorized judgment path. "
+            f"Include a GOVERNANCE-layer predecessor (e.g. Guardian judgment receipt) "
+            f"or set authorized_judgment_path=True to declare one. "
+            f"Core invariant: aggregation does not create authority. "
+            f"See RECEIPT_AUTHORITY_LADDER.md."
+        )
 
 
 @dataclass(frozen=True)
@@ -307,6 +423,10 @@ __all__ = [
     "LAYER_FORBIDDEN",
     "SEVERITY_ERROR",
     "PROOF_TIER_RANK",
+    "AUTHORITY_LAYER_RANK",
+    "TierEscalationError",
+    "JudgmentPathDeclaration",
+    "assert_tier_monotonic",
     "ValidationError",
     "ValidationResult",
     "validate_shape",
