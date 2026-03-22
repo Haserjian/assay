@@ -561,6 +561,45 @@
     </p>
 
 
+    <h2>Verify this yourself</h2>
+
+    <p>
+      This page describes machine-verifiable evidence. Here is what that looks like in practice.
+    </p>
+
+    <h3>15-second demo</h3>
+
+    <p>
+      Install Assay and run <code>assay try</code>. It builds a proof pack (2 receipts, 2 claims, Ed25519 signed), verifies it, changes one byte, and verifies again. The tampered pack fails. No server, no API key, no setup.
+    </p>
+
+    <pre style="background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: 16px; font-family: var(--mono); font-size: 14px; overflow-x: auto; line-height: 1.7; margin-bottom: 24px;"><span style="color: var(--green);">$ pip install assay-ai</span>
+<span style="color: var(--green);">$ assay try</span>
+
+<span style="color: var(--text2);">  1. Built a proof pack (2 receipts, 2 claims, Ed25519 signed)</span>
+<span style="color: var(--text2);">  2. Verified it:</span> <span style="color: var(--green); font-weight: 700;">PASS</span>
+<span style="color: var(--text2);">  3. Changed one byte (gpt-4o → gpt-5x)</span>
+<span style="color: var(--text2);">  4. Verified again:</span> <span style="color: var(--red); font-weight: 700;">FAIL</span> <span style="color: var(--text2);">— Hash mismatch</span></pre>
+
+    <h3>Browse real scenarios</h3>
+
+    <p>
+      The <a href="https://haserjian.github.io/assay-proof-gallery/" style="color: var(--accent);">Proof Gallery</a> contains three scenarios that demonstrate the evidence states described above: a clean pass, an honest failure (the system reports its own error), and a tamper attempt (verification catches the edit). Each scenario includes downloadable proof packs.
+    </p>
+
+    <h3>Verify in your browser</h3>
+
+    <p>
+      The <a href="https://haserjian.github.io/assay-proof-gallery/verify.html" style="color: var(--accent);">online verifier</a> checks proof pack integrity client-side. Nothing is uploaded. Drag a proof pack in, see whether it passes. Works with the gallery samples or your own packs.
+    </p>
+
+    <div class="callout">
+      <p>
+        <strong>Why this matters:</strong> Everything described on this page — tamper detection, hash chains, signature verification, honest failure reporting — is operational today in an open-source tool. The question for buyers is not whether the technology exists. It is whether their vendors use it.
+      </p>
+    </div>
+
+
     <div class="citations">
       <h2>References</h2>
       <ol>
