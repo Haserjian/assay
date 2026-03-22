@@ -564,7 +564,7 @@
     <h2>Verify this yourself</h2>
 
     <p>
-      This page describes machine-verifiable evidence. Here is what that looks like in practice.
+      Do not take these claims on faith. Verify one yourself.
     </p>
 
     <h3>15-second demo</h3>
@@ -581,6 +581,24 @@
 <span style="color: var(--text2);">  3. Changed one byte (gpt-4o → gpt-5x)</span>
 <span style="color: var(--text2);">  4. Verified again:</span> <span style="color: var(--red); font-weight: 700;">FAIL</span> <span style="color: var(--text2);">— Hash mismatch</span></pre>
 
+    <h3>What's inside a proof pack</h3>
+
+    <p>
+      A proof pack is a portable evidence bundle. It contains:
+    </p>
+
+    <ul>
+      <li><strong>Receipts</strong> — one per API call or system action, recording what happened</li>
+      <li><strong>Manifest</strong> — lists all expected receipts and their content hashes</li>
+      <li><strong>Signatures</strong> — Ed25519 signature over the manifest, binding the evidence at creation time</li>
+      <li><strong>Claims</strong> — verifiable assertions (e.g., "a guardian verdict was issued")</li>
+      <li><strong>Verification metadata</strong> — schema version, signer identity, timestamp bounds</li>
+    </ul>
+
+    <p>
+      Everything a verifier needs is in the bundle. No server access, no database queries, no trust required.
+    </p>
+
     <h3>Browse real scenarios</h3>
 
     <p>
@@ -593,9 +611,54 @@
       The <a href="https://haserjian.github.io/assay-proof-gallery/verify.html" style="color: var(--accent);">online verifier</a> checks proof pack integrity client-side. Nothing is uploaded. Drag a proof pack in, see whether it passes. Works with the gallery samples or your own packs.
     </p>
 
+    <h3>How to read verification results</h3>
+
+    <table class="evidence-table" style="margin-bottom: 32px;">
+      <thead>
+        <tr>
+          <th>Result</th>
+          <th>What it means</th>
+          <th>What to do</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="state-badge state-machine">PASS</span></td>
+          <td>All hashes match. Signature valid. All claimed receipts present. Evidence integrity intact.</td>
+          <td>Artifact is trustworthy as-is. Check freshness (when was it created?).</td>
+        </tr>
+        <tr>
+          <td><span class="state-badge state-human">Honest fail</span></td>
+          <td>System detected and reported its own failure. Failure receipt is signed and verifiable.</td>
+          <td>Evidence of accountability. The system did not hide the error. Investigate the failure, not the evidence.</td>
+        </tr>
+        <tr>
+          <td><span class="state-badge state-missing">FAIL — hash mismatch</span></td>
+          <td>Content was modified after the pack was signed. Tampering detected.</td>
+          <td>Do not trust this artifact. Request a fresh, unmodified proof pack from the vendor.</td>
+        </tr>
+        <tr>
+          <td><span class="state-badge state-stale">FAIL — missing receipts</span></td>
+          <td>Manifest declares receipts that are not present. Evidence is incomplete.</td>
+          <td>Ask the vendor why receipts were dropped. Completeness failure is a red flag.</td>
+        </tr>
+      </tbody>
+    </table>
+
     <div class="callout">
       <p>
         <strong>Why this matters:</strong> Everything described on this page — tamper detection, hash chains, signature verification, honest failure reporting — is operational today in an open-source tool. The question for buyers is not whether the technology exists. It is whether their vendors use it.
+      </p>
+    </div>
+
+    <h3>One question to ask your vendor</h3>
+
+    <div class="callout" style="border-left-color: var(--green);">
+      <p style="font-size: 16px; color: var(--text); font-weight: 600; margin-bottom: 8px;">
+        "Show me one signed proof pack for one production decision, and let me verify it independently."
+      </p>
+      <p>
+        If the vendor can answer this, they have machine-verifiable evidence. If they cannot, every claim they make about their AI's behavior is — at best — human-attested and vendor-controlled.
       </p>
     </div>
 
