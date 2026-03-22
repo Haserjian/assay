@@ -2519,6 +2519,13 @@ def verify_pack_cmd(
             "remains advisory."
         ),
     ),
+    strict: bool = typer.Option(
+        False, "--strict",
+        help=(
+            "Stage 3b anchor validation: verify that declared governance anchors "
+            "resolve to admissible artifacts in the pack. Exit 1 if any anchor fails."
+        ),
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Verify a Proof Pack's integrity (manifest, signatures, file hashes).
@@ -2875,6 +2882,29 @@ def verify_pack_cmd(
     except Exception:
         pass  # Posture display is best-effort
 
+    # --- Stage 3b: strict anchor validation (--strict) ---
+    _strict_anchor_errors: list = []
+    if strict:
+        from assay.decision_receipt import validate_governance_anchors
+        _s_path = pack_path / "receipt_pack.jsonl"
+        _s_entries: list = []
+        if _s_path.exists():
+            for _line in _s_path.read_text(encoding="utf-8").splitlines():
+                if _line.strip():
+                    try:
+                        _s_entries.append(json.loads(_line))
+                    except Exception:
+                        pass
+        _s_idx = {e["receipt_id"]: e for e in _s_entries if "receipt_id" in e}
+        for _s_entry in _s_entries:
+            _s_vr = validate_governance_anchors(_s_entry, _s_idx)
+            if not _s_vr.valid:
+                _rid = _s_entry.get("receipt_id", "?")
+                for _s_err in _s_vr.errors:
+                    _strict_anchor_errors.append(
+                        f"{_rid}: {_s_err.rule} — {_s_err.message}"
+                    )
+
     if output_json:
         from assay.verification_status import classify_verdict
 
@@ -2917,6 +2947,8 @@ def verify_pack_cmd(
             out["trust_gate"] = "rejected_by_trust_policy"
         if _posture_info:
             out["governance_posture"] = _posture_info
+        if _strict_anchor_errors:
+            out["strict_anchor_errors"] = _strict_anchor_errors
         _output_json(out)
 
     # Print artifact paths in terminal mode
@@ -3068,9 +3100,17 @@ def verify_pack_cmd(
         for w in result.warnings:
             console.print(f"  [yellow]Warning:[/] {w}")
 
+    if strict and _strict_anchor_errors and not output_json:
+        console.print()
+        console.print(Panel.fit(
+            "[bold red]STRICT ANCHOR VALIDATION FAILED[/]\n\n"
+            + "\n".join(f"  {e}" for e in _strict_anchor_errors),
+            title="assay verify-pack --strict",
+        ))
+
     console.print()
 
-    if result.passed and not claim_gate_failed and not coverage_failed and not expiry_failed and not lock and not trust_gate_failed:
+    if result.passed and not claim_gate_failed and not coverage_failed and not expiry_failed and not lock and not trust_gate_failed and not _strict_anchor_errors:
         console.print("Next: [bold]assay lock init[/]")
         console.print()
 
@@ -3084,6 +3124,106 @@ def verify_pack_cmd(
         raise typer.Exit(1)
     if trust_gate_failed:
         raise typer.Exit(1)
+    if _strict_anchor_errors:
+        raise typer.Exit(1)
+
+
+@assay_app.command("posture", rich_help_panel="Build & Verify")
+def posture_cmd(
+    pack_dir: str = typer.Argument(..., help="Path to Proof Pack directory"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Show governance posture for a Proof Pack (epistemic state, obligations, divergence).
+
+    Extracts production posture from pack receipts and compares against current
+    governance state. Use this to answer: is this pack's governance posture
+    still current, or has it drifted?
+
+    Exit 0 on successful evaluation (including diverged posture — divergence is
+    informational, not a gate). Exit 3 on tooling failure (posture cannot be
+    evaluated at all).
+    """
+    from pathlib import Path
+
+    pack_path = Path(pack_dir)
+    receipt_path = pack_path / "receipt_pack.jsonl"
+
+    entries: list = []
+    parse_failures: int = 0
+    if receipt_path.exists():
+        for line in receipt_path.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                try:
+                    entries.append(json.loads(line))
+                except Exception:
+                    parse_failures += 1
+
+    try:
+        from assay.governance_posture import (
+            compute_divergence,
+            evaluate_posture,
+            extract_production_posture,
+        )
+
+        production = extract_production_posture(entries)
+        current = evaluate_posture()
+        divergence = compute_divergence(production, current)
+    except Exception as exc:
+        if output_json:
+            _output_json({"command": "posture", "status": "error", "error": str(exc)}, exit_code=3)
+        console.print(f"[red]Error evaluating posture:[/] {exc}")
+        raise typer.Exit(3)
+
+    if output_json:
+        out: dict = {
+            "command": "posture",
+            "pack_dir": pack_dir,
+            "production_posture": divergence.production_posture,
+            "current_posture": divergence.current_posture,
+            "diverged": divergence.diverged,
+            "divergence_type": divergence.divergence_type,
+        }
+        if parse_failures:
+            out["parse_failures"] = parse_failures
+            out["evidence_quality"] = "partial"
+        if divergence.detail:
+            out["detail"] = divergence.detail
+        if production:
+            out["production_obligations"] = production.obligation_ids
+            out["production_open_count"] = production.open_count
+            out["production_overdue_count"] = production.overdue_count
+        if current.obligation_ids:
+            out["current_obligations"] = current.obligation_ids
+            out["current_open_count"] = current.open_count
+            out["current_overdue_count"] = current.overdue_count
+        _output_json(out)
+
+    diverged_style = "red" if divergence.diverged else "green"
+    evidence_note = (
+        f"\n[yellow]Warning: {parse_failures} receipt line(s) could not be parsed "
+        f"(evidence may be partial)[/yellow]"
+        if parse_failures else ""
+    )
+    console.print()
+    console.print(Panel.fit(
+        f"[bold]Pack:[/] {pack_dir}\n"
+        f"Production posture: [bold]{divergence.production_posture}[/]  "
+        f"(evaluated {divergence.production_evaluated_at or 'unknown'})\n"
+        f"Current posture:    [bold]{divergence.current_posture}[/]  "
+        f"(evaluated {divergence.current_evaluated_at or 'now'})\n"
+        f"Diverged:           [{diverged_style}]{divergence.diverged}[/{diverged_style}]"
+        + (f"\nType:               {divergence.divergence_type}" if divergence.divergence_type else "")
+        + (f"\nDetail:             {divergence.detail}" if divergence.detail else "")
+        + evidence_note,
+        title="assay posture",
+    ))
+
+    if production:
+        console.print(f"  Production obligations: {production.open_count} open, {production.overdue_count} overdue")
+    if current.obligation_ids:
+        console.print(f"  Current obligations:    {current.open_count} open, {current.overdue_count} overdue")
+
+    console.print()
 
 
 @assay_app.command("replay-judge", hidden=True)
