@@ -1,0 +1,46 @@
+# Assay — intentional crawler access policy
+# https://haserjian.github.io/assay/
+#
+# Policy: ALLOW search/retrieval crawlers, BLOCK training crawlers.
+# We want this content discoverable and citable in AI search results.
+# We do not want it used as training data.
+#
+# Note: user-initiated fetches (e.g., when a user pastes a URL into
+# a chat) may not be governed by robots.txt — this file controls
+# automated crawling and indexing behavior only.
+
+User-agent: *
+Allow: /
+
+# --- OpenAI ---
+# OAI-SearchBot: controls appearance in ChatGPT search results.
+# GPTBot: used for training data collection.
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: GPTBot
+Disallow: /
+
+# --- Anthropic ---
+# Claude-SearchBot: search indexing for Claude search features.
+# Claude-User: user-directed retrieval (when a user asks Claude to fetch a page).
+# ClaudeBot: training data collection.
+User-agent: Claude-SearchBot
+Allow: /
+
+User-agent: Claude-User
+Allow: /
+
+User-agent: ClaudeBot
+Disallow: /
+
+# --- Perplexity ---
+User-agent: PerplexityBot
+Allow: /
+
+# --- Google ---
+# Google-Extended: controls use in Gemini and AI features.
+User-agent: Google-Extended
+Allow: /
+
+Sitemap: https://haserjian.github.io/assay/sitemap.xml

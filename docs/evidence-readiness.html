@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>What Can an Enterprise Buyer Actually Verify About an AI Product?</title>
+<meta name="description" content="A framework for evaluating what evidence an AI vendor can produce, what a buyer can independently verify, and where the gaps are. Covers machine-verifiable, human-attested, stale, and missing evidence states.">
+<link rel="canonical" href="https://haserjian.github.io/assay/evidence-readiness.html">
+<meta property="og:title" content="What Can an Enterprise Buyer Actually Verify About an AI Product?">
+<meta property="og:description" content="A framework for evaluating AI vendor evidence: what's machine-verifiable, what's human-attested, what's stale, and what's missing.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://haserjian.github.io/assay/evidence-readiness.html">
+
+<!-- JSON-LD Structured Data -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://haserjian.github.io/assay/#organization",
+      "name": "Assay",
+      "url": "https://haserjian.github.io/assay/",
+      "description": "Open-source toolkit for building tamper-evident evidence trails for AI systems.",
+      "sameAs": [
+        "https://github.com/Haserjian/assay",
+        "https://pypi.org/project/assay-ai/"
+      ]
+    },
+    {
+      "@type": "TechArticle",
+      "@id": "https://haserjian.github.io/assay/evidence-readiness.html",
+      "headline": "What Can an Enterprise Buyer Actually Verify About an AI Product?",
+      "description": "A framework for evaluating what evidence an AI vendor can produce, what a buyer can independently verify, and where the gaps are.",
+      "author": {
+        "@id": "https://haserjian.github.io/assay/#organization"
+      },
+      "publisher": {
+        "@id": "https://haserjian.github.io/assay/#organization"
+      },
+      "datePublished": "2026-03-22",
+      "dateModified": "2026-03-22",
+      "mainEntityOfPage": "https://haserjian.github.io/assay/evidence-readiness.html",
+      "about": [
+        "AI evidence verification",
+        "enterprise AI procurement",
+        "AI auditability",
+        "tamper-evident AI systems"
+      ],
+      "proficiencyLevel": "Expert"
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What can an enterprise buyer verify about an AI product?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Most buyers can only verify what the vendor chooses to show them — dashboards, self-reported metrics, and compliance badges — which rarely cover specific per-decision behavior. Independent verification requires evidence that exists outside the vendor's control: cryptographically signed execution receipts, offline-verifiable proof packs, and completeness checks that fail visibly when evidence is missing."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What is machine-verifiable evidence for AI systems?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Machine-verifiable evidence can be checked by software without trusting the producer. Examples include cryptographic signatures over execution receipts, hash chains linking sequential operations, schema conformance checks, and completeness verification that detects missing or dropped evidence. The key property: the verifier needs no access to the vendor's servers, databases, or trust."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the difference between AI logging and AI evidence?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Logs record what happened on a system the operator controls. Evidence records what happened in a form that a third party can independently verify. Logs can be edited, filtered, or deleted by whoever controls the server. Evidence, when properly constructed, makes tampering detectable — editing one byte causes verification to fail."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What evidence states should a buyer look for?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "There are four evidence states: Machine-verifiable (checkable by software without trusting the producer), Human-attested (requires a person to review and confirm), Stale (evidence existed but is no longer current or was never refreshed), and Missing (evidence that should exist based on the vendor's claims but does not). Most enterprise AI products today have evidence in the Missing or Stale categories for critical claims."
+          }
+        }
+      ]
+    }
+  ]
+}
+</script>
+
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg2: #161b22;
+    --bg3: #1c2128;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text2: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --red: #f85149;
+    --yellow: #d29922;
+    --orange: #db6d28;
+    --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .container { max-width: 760px; margin: 0 auto; padding: 0 24px; }
+
+  /* Nav */
+  nav {
+    border-bottom: 1px solid var(--border);
+    padding: 16px 0;
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 100;
+  }
+  nav .container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    max-width: 960px;
+  }
+  nav .logo {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+    text-decoration: none;
+    font-family: var(--mono);
+  }
+  nav .links { display: flex; gap: 24px; align-items: center; }
+  nav .links a {
+    color: var(--text2);
+    text-decoration: none;
+    font-size: 14px;
+    transition: color 0.2s;
+  }
+  nav .links a:hover { color: var(--text); }
+  nav .links .cta {
+    background: var(--accent);
+    color: var(--bg);
+    padding: 6px 16px;
+    border-radius: 6px;
+    font-weight: 600;
+  }
+  nav .links .cta:hover { opacity: 0.9; color: var(--bg); }
+
+  /* Article */
+  article { padding: 60px 0 40px; }
+
+  article h1 {
+    font-size: 36px;
+    font-weight: 800;
+    line-height: 1.15;
+    margin-bottom: 20px;
+    letter-spacing: -0.02em;
+  }
+
+  .lede {
+    font-size: 18px;
+    color: var(--text);
+    line-height: 1.65;
+    margin-bottom: 40px;
+    border-left: 3px solid var(--accent);
+    padding-left: 20px;
+  }
+
+  article h2 {
+    font-size: 24px;
+    font-weight: 700;
+    margin-top: 48px;
+    margin-bottom: 16px;
+    letter-spacing: -0.01em;
+  }
+
+  article h3 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-top: 32px;
+    margin-bottom: 12px;
+  }
+
+  article p {
+    font-size: 16px;
+    color: var(--text2);
+    margin-bottom: 16px;
+    max-width: 680px;
+  }
+
+  article strong { color: var(--text); }
+
+  article ul, article ol {
+    color: var(--text2);
+    font-size: 16px;
+    margin-bottom: 16px;
+    padding-left: 24px;
+  }
+  article li { margin-bottom: 8px; }
+  article li strong { color: var(--text); }
+
+  article code {
+    font-family: var(--mono);
+    font-size: 14px;
+    background: var(--bg2);
+    padding: 2px 6px;
+    border-radius: 3px;
+    color: var(--green);
+  }
+
+  /* Evidence states table */
+  .evidence-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 24px 0 32px;
+    font-size: 15px;
+  }
+  .evidence-table th {
+    text-align: left;
+    padding: 12px 16px;
+    border-bottom: 2px solid var(--border);
+    color: var(--text2);
+    font-weight: 600;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .evidence-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  .evidence-table tr:last-child td { border-bottom: none; }
+  .evidence-table tr:hover td { background: var(--bg2); }
+
+  .state-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: var(--mono);
+    white-space: nowrap;
+  }
+  .state-machine { background: rgba(63, 185, 80, 0.15); color: var(--green); }
+  .state-human { background: rgba(88, 166, 255, 0.15); color: var(--accent); }
+  .state-stale { background: rgba(210, 153, 34, 0.15); color: var(--yellow); }
+  .state-missing { background: rgba(248, 81, 73, 0.15); color: var(--red); }
+
+  /* Readiness matrix */
+  .readiness-matrix {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 24px 0 32px;
+    font-size: 14px;
+  }
+  .readiness-matrix th {
+    text-align: left;
+    padding: 12px 16px;
+    border-bottom: 2px solid var(--border);
+    color: var(--text2);
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .readiness-matrix td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+    color: var(--text2);
+  }
+  .readiness-matrix tr:last-child td { border-bottom: none; }
+  .readiness-matrix .level {
+    font-weight: 700;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  /* Callout */
+  .callout {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 6px;
+    padding: 16px 20px;
+    margin: 24px 0;
+  }
+  .callout p {
+    color: var(--text2);
+    font-size: 14px;
+    margin-bottom: 0;
+  }
+  .callout strong { color: var(--text); }
+
+  /* Citation */
+  .citations {
+    margin-top: 48px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+  }
+  .citations h2 { font-size: 18px; margin-top: 0; }
+  .citations ol {
+    font-size: 14px;
+    color: var(--text2);
+  }
+  .citations a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .citations a:hover { text-decoration: underline; }
+
+  sup a {
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 12px;
+  }
+
+  /* Footer */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 32px 0;
+    text-align: center;
+    color: var(--text2);
+    font-size: 13px;
+    margin-top: 40px;
+  }
+  footer a { color: var(--text2); text-decoration: none; }
+  footer a:hover { color: var(--text); }
+
+  /* Responsive */
+  @media (max-width: 640px) {
+    article h1 { font-size: 28px; }
+    .lede { font-size: 16px; }
+    .evidence-table, .readiness-matrix { font-size: 13px; }
+    .evidence-table th, .evidence-table td,
+    .readiness-matrix th, .readiness-matrix td { padding: 10px 12px; }
+    nav .links { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="container">
+    <a href="./" class="logo">assay</a>
+    <div class="links">
+      <a href="./">Product</a>
+      <a href="https://github.com/Haserjian/assay" target="_blank">GitHub</a>
+      <a href="https://pypi.org/project/assay-ai/" target="_blank">PyPI</a>
+      <a href="https://haserjian.github.io/assay-proof-gallery/" target="_blank">Proof Gallery</a>
+      <a href="https://github.com/Haserjian/assay/issues/new?template=pilot-inquiry.md" class="cta" target="_blank">Get a Pilot</a>
+    </div>
+  </div>
+</nav>
+
+<article>
+  <div class="container">
+
+    <h1>What can an enterprise buyer actually verify about an AI product?</h1>
+
+    <div class="lede">
+      Almost nothing. Most enterprise AI products provide dashboards, compliance badges, and self-reported metrics. These may be produced by reputable auditors or monitoring tools, but they rarely cover specific system behavior at the per-decision level. The buyer sees what the vendor chooses to show, at the granularity the vendor chooses. The gap between "we logged it" and "you can independently verify it" is one of the hardest unsolved problems in enterprise AI procurement.
+    </div>
+
+    <p>
+      This page defines four <strong>evidence states</strong> for AI system claims, outlines what buyers typically receive versus what they could receive, and provides a framework for evaluating evidence readiness at three levels of maturity. The goal is to help buyers ask better questions and help vendors build evidence that actually withstands scrutiny.
+    </p>
+
+
+    <h2>The four evidence states</h2>
+
+    <p>
+      Every claim an AI vendor makes about their system's behavior falls into one of four evidence states. These states describe how independently verifiable the evidence behind the claim actually is.
+    </p>
+
+    <table class="evidence-table">
+      <thead>
+        <tr>
+          <th>State</th>
+          <th>Definition</th>
+          <th>Example</th>
+          <th>Verification cost</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="state-badge state-machine">Machine-verifiable</span></td>
+          <td>Can be checked by software without trusting the producer. Cryptographic signatures, hash chains, schema conformance.</td>
+          <td>A signed execution receipt whose signature and hash chain can be verified offline by a third party.</td>
+          <td>Seconds. Automated.</td>
+        </tr>
+        <tr>
+          <td><span class="state-badge state-human">Human-attested</span></td>
+          <td>Requires a qualified person to review and confirm. The evidence exists but cannot be machine-checked.</td>
+          <td>A compliance officer reviews model evaluation results and signs off on deployment readiness.</td>
+          <td>Hours to days. Requires expertise.</td>
+        </tr>
+        <tr>
+          <td><span class="state-badge state-stale">Stale</span></td>
+          <td>Evidence existed at one point but is no longer current. The system has changed since the evidence was produced.</td>
+          <td>A model evaluation from six months ago, run against a model version that has since been updated three times.</td>
+          <td>Cannot verify current state. Must re-evaluate.</td>
+        </tr>
+        <tr>
+          <td><span class="state-badge state-missing">Missing</span></td>
+          <td>Evidence that should exist based on the vendor's claims but does not. The claim is unsupported.</td>
+          <td>Vendor claims "all decisions are logged" but no execution receipts exist for the reviewer to inspect.</td>
+          <td>Infinite. Evidence does not exist.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <p>
+        <strong>The key distinction:</strong> Logs record what happened on a system the operator controls. Evidence records what happened in a form a third party can independently verify. Logs can be edited, filtered, or deleted by whoever controls the server. Evidence, when properly constructed, makes tampering detectable — editing one byte causes verification to fail.
+      </p>
+    </div>
+
+
+    <h2>What buyers typically receive today</h2>
+
+    <p>
+      A scan of 30 open-source AI projects covering 202 LLM call sites found zero tamper-evident evidence trails.<sup><a href="#ref-1">1</a></sup> These were open-source projects, not enterprise products — but the underlying pattern (logs on the operator's server, no portable proof artifacts) is common across the industry. Here is what buyers typically receive versus what independent verification would require:
+    </p>
+
+    <table class="evidence-table">
+      <thead>
+        <tr>
+          <th>Buyer question</th>
+          <th>Typical vendor response</th>
+          <th>Evidence state</th>
+          <th>What independent verification requires</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>"What did your AI actually do with our data?"</strong></td>
+          <td>Dashboard showing aggregated metrics. Logs available "on request."</td>
+          <td><span class="state-badge state-missing">Missing</span></td>
+          <td>Per-call execution receipts with input/output hashes, signed at execution time, verifiable without server access.</td>
+        </tr>
+        <tr>
+          <td><strong>"How do we know the AI behaved correctly?"</strong></td>
+          <td>Compliance badge. SOC 2 report. "We follow responsible AI principles."</td>
+          <td><span class="state-badge state-stale">Stale</span></td>
+          <td>Continuous evidence tied to specific model versions and decision points, not point-in-time certifications.</td>
+        </tr>
+        <tr>
+          <td><strong>"Can we audit a specific decision?"</strong></td>
+          <td>"We can pull the logs for you." Delivered days later, from the vendor's own servers.</td>
+          <td><span class="state-badge state-human">Human-attested</span></td>
+          <td>A portable proof artifact the buyer can verify independently, offline, without asking the vendor.</td>
+        </tr>
+        <tr>
+          <td><strong>"What happens when your AI fails?"</strong></td>
+          <td>"We have robust error handling." Rarely includes examples of honest failure evidence.</td>
+          <td><span class="state-badge state-missing">Missing</span></td>
+          <td>Failure receipts that prove the system detected and reported its own failure, not just success-path evidence.</td>
+        </tr>
+        <tr>
+          <td><strong>"Is this the same model you evaluated?"</strong></td>
+          <td>"We continuously monitor performance." Evaluation dates not tied to deployment versions.</td>
+          <td><span class="state-badge state-stale">Stale</span></td>
+          <td>Model version identifiers cryptographically linked to both evaluation results and production execution receipts.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>
+      The pattern is consistent: buyers ask about specific, verifiable behavior, and vendors respond with general assurances backed by evidence the buyer cannot independently check.
+    </p>
+
+
+    <h2>Three levels of evidence readiness</h2>
+
+    <p>
+      Not every AI system needs the same level of evidence. The right level depends on what's at stake — a content recommendation engine and a medical triage system have different evidence requirements. But every system making claims about its behavior should be able to answer: what can a reviewer actually verify?
+    </p>
+
+    <table class="readiness-matrix">
+      <thead>
+        <tr>
+          <th>Level</th>
+          <th>What the vendor proves</th>
+          <th>What the buyer can verify</th>
+          <th>Evidence artifacts</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="level">Baseline</span></td>
+          <td>"This system ran, and here is what it called."</td>
+          <td>That specific API calls were made, to which providers, with which model versions, at which times.</td>
+          <td>Signed execution receipts per call. Call manifest listing all expected receipts. Completeness check: any dropped receipt is visible.</td>
+        </tr>
+        <tr>
+          <td><span class="level">Packet</span></td>
+          <td>"Here is a portable evidence bundle a reviewer can verify offline."</td>
+          <td>Signature validity. Hash chain integrity. Receipt completeness. Schema conformance. All without server access.</td>
+          <td>Proof pack: 5-file bundle (manifest, receipts, signatures, call map, verification metadata). Offline verifier. Tamper detection: edit one byte, verification fails.</td>
+        </tr>
+        <tr>
+          <td><span class="level">Continuous</span></td>
+          <td>"Every decision produces inspectable evidence automatically."</td>
+          <td>Real-time evidence stream. Version-linked evaluations. Failure receipts alongside success receipts. Evidence posture: what percentage of claims have machine-verifiable support.</td>
+          <td>All Packet artifacts, plus: evidence posture reports, freshness checks, model-version binding, honest failure reporting (the system proves it reported its own errors).</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <p>
+        <strong>Honest failure is the hardest test.</strong> Any system can produce evidence when things go right. The real question is: does the system produce evidence when things go wrong? A vendor that can prove their AI failed honestly — and that the failure evidence was not edited after the fact — demonstrates a fundamentally higher standard of accountability than one that only shows success-path logs.
+      </p>
+    </div>
+
+
+    <h2>Questions a buyer should ask</h2>
+
+    <p>
+      These questions are designed to surface the actual evidence state behind vendor claims. They are ordered from easiest to hardest for the vendor to answer.
+    </p>
+
+    <ol>
+      <li><strong>"Can I verify your AI's behavior without accessing your servers?"</strong> — Tests whether evidence exists outside the vendor's control.</li>
+      <li><strong>"Show me the evidence for one specific decision."</strong> — Tests whether per-decision evidence exists or only aggregates.</li>
+      <li><strong>"What happens to your evidence trail if I edit one byte?"</strong> — Tests for tamper detection. If the answer is "nothing," the evidence is not cryptographically bound.</li>
+      <li><strong>"Show me a failure receipt."</strong> — Tests whether the vendor produces evidence for negative outcomes, not just positive ones.</li>
+      <li><strong>"How do I know this evidence was produced at execution time, not reconstructed afterward?"</strong> — Tests for execution-time binding versus retroactive log assembly.</li>
+      <li><strong>"What percentage of your AI's decisions have machine-verifiable evidence?"</strong> — Tests evidence completeness. The answer is usually zero or unknown.</li>
+    </ol>
+
+
+    <h2>Why this matters now</h2>
+
+    <p>
+      The EU AI Act requires that high-risk AI systems maintain logs of operation that enable traceability and auditability.<sup><a href="#ref-2">2</a></sup> The NIST AI Risk Management Framework calls for data and algorithm provenance, documentation that enables third-party evaluation, and governance structures around AI system components.<sup><a href="#ref-3">3</a></sup> ISO/IEC 42001 specifies requirements for AI management systems including documented evidence of conformity.<sup><a href="#ref-4">4</a></sup>
+    </p>
+
+    <p>
+      These frameworks share a common requirement: <strong>evidence that a third party can evaluate</strong>. Not logs the vendor controls. Not dashboards the vendor curates. Evidence that exists independently of the vendor's infrastructure and can be verified by someone who has no reason to trust the vendor.
+    </p>
+
+    <p>
+      The gap between current practice and these requirements is substantial. Most AI systems today produce evidence that is, at best, human-attested and vendor-controlled. Moving toward machine-verifiable, independently checkable evidence is not a theoretical exercise — it is an emerging compliance requirement.
+    </p>
+
+
+    <div class="citations">
+      <h2>References</h2>
+      <ol>
+        <li id="ref-1">Assay scan study: 30 AI projects, 202 LLM call sites, 0 tamper-evident evidence trails. <a href="https://github.com/Haserjian/assay/blob/main/scripts/scan_study/results/report.md">Methodology and results</a> (February 2026).</li>
+        <li id="ref-2">Regulation (EU) 2024/1689 (EU AI Act), Article 12 — Record-keeping: requires high-risk AI systems to have logging capabilities that enable traceability, monitoring, and post-market surveillance. Article 14 requires human oversight with access to operational data.</li>
+        <li id="ref-3">National Institute of Standards and Technology. <em>AI Risk Management Framework (AI RMF 1.0)</em>, January 2023. NIST AI 100-1. See MAP 2.3 (provenance), MEASURE 2.5–2.6 (third-party evaluation), GOVERN 1.2 (documentation).</li>
+        <li id="ref-4">ISO/IEC 42001:2023 — <em>Information technology — Artificial intelligence — Management system</em>. Specifies requirements for establishing, implementing, maintaining, and continually improving an AI management system, including documented evidence of conformity.</li>
+      </ol>
+    </div>
+
+  </div>
+</article>
+
+<footer>
+  <div class="container" style="max-width: 960px;">
+    <p>
+      <a href="./">Assay</a> is open-source (Apache-2.0) and available on <a href="https://pypi.org/project/assay-ai/">PyPI</a>.
+      <code style="font-family: var(--mono); font-size: 12px; background: var(--bg2); padding: 2px 6px; border-radius: 3px; color: var(--green);">pip install assay-ai && assay try</code>
+    </p>
+    <p style="margin-top: 8px;">
+      <a href="https://github.com/Haserjian/assay">Source</a> &middot;
+      <a href="https://haserjian.github.io/assay-proof-gallery/">Proof Gallery</a> &middot;
+      <a href="https://haserjian.github.io/assay-proof-gallery/verify.html">Online Verifier</a>
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>
