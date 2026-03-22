@@ -7,6 +7,7 @@ Includes golden fixture tests for JSON-level verification.
 import json
 import uuid
 from pathlib import Path
+from typing import Optional
 
 import pytest
 
@@ -62,8 +63,8 @@ def _ts(n: int = 0) -> str:
 
 
 def _make_assertion(
-    claim_id: str | None = None,
-    timestamp: str | None = None,
+    claim_id: Optional[str] = None,
+    timestamp: Optional[str] = None,
     **overrides,
 ) -> dict:
     cid = claim_id or _claim_id()
@@ -90,7 +91,7 @@ def _make_support_change(
     prior: str,
     new: str,
     change_type: str = "evidence_added",
-    timestamp: str | None = None,
+    timestamp: Optional[str] = None,
     **overrides,
 ) -> dict:
     return {
@@ -111,8 +112,8 @@ def _make_support_change(
 def _make_contradiction(
     claim_a_id: str,
     claim_b_id: str,
-    contradiction_id: str | None = None,
-    timestamp: str | None = None,
+    contradiction_id: Optional[str] = None,
+    timestamp: Optional[str] = None,
     **overrides,
 ) -> dict:
     # Enforce lexicographic ordering
@@ -142,7 +143,7 @@ def _make_contradiction(
 def _make_resolution(
     contradiction_id: str,
     outcome: str = "claim_a_prevails",
-    timestamp: str | None = None,
+    timestamp: Optional[str] = None,
     **overrides,
 ) -> dict:
     return {
