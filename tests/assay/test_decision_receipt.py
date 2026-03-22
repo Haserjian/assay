@@ -17,6 +17,7 @@ from assay.decision_receipt import (
     LAYER_INVARIANTS,
     LAYER_SHAPE,
     PROOF_TIER_RANK,
+    JudgmentPathDeclaration,
     TierEscalationError,
     assert_tier_monotonic,
     validate_decision_receipt,
@@ -460,6 +461,60 @@ class TestTierEscalationError:
         assert TierEscalationError is not ValueError
 
 
+class TestJudgmentPathDeclaration:
+    """JudgmentPathDeclaration is a typed, validated, auditable override assertion."""
+
+    def test_valid_reason_accepted(self):
+        decl = JudgmentPathDeclaration(reason="Guardian evaluated evidence and issued judgment")
+        assert decl.reason == "Guardian evaluated evidence and issued judgment"
+
+    def test_empty_reason_raises(self):
+        with pytest.raises(ValueError, match="non-empty"):
+            JudgmentPathDeclaration(reason="")
+
+    def test_whitespace_only_reason_raises(self):
+        with pytest.raises(ValueError, match="non-empty"):
+            JudgmentPathDeclaration(reason="   ")
+
+    def test_authority_ref_defaults_to_none(self):
+        decl = JudgmentPathDeclaration(reason="settlement judgment issued")
+        assert decl.authority_ref is None
+
+    def test_declared_by_defaults_to_none(self):
+        decl = JudgmentPathDeclaration(reason="settlement judgment issued")
+        assert decl.declared_by is None
+
+    def test_authority_ref_can_be_set(self):
+        decl = JudgmentPathDeclaration(
+            reason="settlement judgment issued",
+            authority_ref="receipt:guardian-judgment-abc123",
+        )
+        assert decl.authority_ref == "receipt:guardian-judgment-abc123"
+
+    def test_declared_by_can_be_set(self):
+        decl = JudgmentPathDeclaration(
+            reason="settlement judgment issued",
+            declared_by="ccio:guardian:settlement_seat",
+        )
+        assert decl.declared_by == "ccio:guardian:settlement_seat"
+
+    def test_is_frozen(self):
+        """Declaration is immutable — not patchable after construction."""
+        decl = JudgmentPathDeclaration(reason="settlement judgment issued")
+        with pytest.raises((AttributeError, TypeError)):
+            decl.reason = "something else"  # type: ignore[misc]
+
+    def test_equality_by_value(self):
+        d1 = JudgmentPathDeclaration(reason="same reason", authority_ref="ref-1")
+        d2 = JudgmentPathDeclaration(reason="same reason", authority_ref="ref-1")
+        assert d1 == d2
+
+    def test_inequality_on_reason_difference(self):
+        d1 = JudgmentPathDeclaration(reason="reason A")
+        d2 = JudgmentPathDeclaration(reason="reason B")
+        assert d1 != d2
+
+
 class TestAssertTierMonotonic:
     """assert_tier_monotonic enforces: GOVERNANCE cannot be emitted from EVIDENCE-only chain."""
 
@@ -490,12 +545,28 @@ class TestAssertTierMonotonic:
     def test_all_three_layers_passes(self):
         assert_tier_monotonic(["EVIDENCE", "CONTINUITY", "GOVERNANCE"])  # must not raise
 
-    # Pass cases — authorized judgment path declared
-    def test_evidence_with_authorized_path_passes(self):
-        assert_tier_monotonic(["EVIDENCE"], authorized_judgment_path=True)  # must not raise
+    # Pass cases — typed JudgmentPathDeclaration
+    def test_evidence_with_declaration_passes(self):
+        decl = JudgmentPathDeclaration(
+            reason="Guardian evaluated evidence and issued settlement judgment",
+            authority_ref="receipt:guardian-judgment-001",
+            declared_by="ccio:guardian:settlement_seat",
+        )
+        assert_tier_monotonic(["EVIDENCE"], authorized_judgment_path=decl)  # must not raise
 
-    def test_continuity_with_authorized_path_passes(self):
-        assert_tier_monotonic(["CONTINUITY"], authorized_judgment_path=True)  # must not raise
+    def test_continuity_with_declaration_passes(self):
+        decl = JudgmentPathDeclaration(reason="Settlement outcome authorized this emission")
+        assert_tier_monotonic(["CONTINUITY"], authorized_judgment_path=decl)  # must not raise
+
+    def test_declaration_without_authority_ref_passes(self):
+        """authority_ref is optional — minimal valid declaration still passes."""
+        decl = JudgmentPathDeclaration(reason="Guardian judgment on file")
+        assert_tier_monotonic(["EVIDENCE"], authorized_judgment_path=decl)  # must not raise
+
+    def test_none_declaration_does_not_pass_evidence_chain(self):
+        """Explicit None is not a declaration — same as omitting it."""
+        with pytest.raises(TierEscalationError):
+            assert_tier_monotonic(["EVIDENCE"], authorized_judgment_path=None)
 
     def test_empty_list_passes(self):
         """Empty predecessor list is unchecked — no assertion possible."""
