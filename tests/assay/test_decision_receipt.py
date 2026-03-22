@@ -86,7 +86,7 @@ class TestShapeValidation:
 
     def test_wrong_receipt_version_fails(self):
         receipt = _load("approve")
-        receipt["receipt_version"] = "0.2.0"
+        receipt["receipt_version"] = "9.9.9"  # unknown future version
         result = validate_shape(receipt)
         assert not result.valid
 

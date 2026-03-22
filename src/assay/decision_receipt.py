@@ -18,6 +18,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+# Current canonical receipt version (emitted by build.py)
+RECEIPT_VERSION = "0.2.0"
+
+# All versions this validator accepts. Stage 3b reads receipt_version per-receipt
+# to select forensic vs strict mode — the validator must not reject historical receipts.
+SUPPORTED_RECEIPT_VERSIONS = frozenset({"0.1.0", "0.1.1", "0.2.0"})
+
 # Validation layers — used in ValidationError.layer
 LAYER_SHAPE = "shape"
 LAYER_INVARIANTS = "invariants"
@@ -103,6 +110,29 @@ class TierEscalationError(ValueError):
 
     Do not catch this as a bare ValueError — handle it explicitly or let it
     propagate to the caller as a programming error.
+    """
+
+
+class GovernanceEmissionError(ValueError):
+    """Raised when a Decision Receipt is emitted without a declared authorization anchor.
+
+    Governance-class receipts (authority_class in {BINDING, MUTATING, OVERRIDING}) must
+    declare explicit authorization ancestry at emission time. At least one of the following
+    must be non-null:
+      - guardian_authorization_receipt_id — Guardian-path authorization artifact
+      - settlement_outcome_id             — settlement state-machine closure path
+
+    Both anchors may be present; at least one must be non-null.
+
+    Stage 5 enforces declaration only. Resolution and constitutional sufficiency
+    are validated by Stage 3b strict mode.
+
+    ADVISORY and AUDITING class receipts do not require an authorization anchor —
+    they do not impose governance acts.
+
+    Row 3 Stage 5. Follows TierEscalationError(ValueError) naming pattern (Stage 2).
+    Distinct from TierEscalationError: that error guards proof-tier ancestry;
+    this error guards explicit authorization ancestry.
     """
 
 
@@ -244,8 +274,11 @@ def validate_shape(receipt: Dict[str, Any]) -> ValidationResult:
     if receipt.get("receipt_type") != "decision_v1":
         result.add("shape", f"receipt_type must be 'decision_v1', got {receipt.get('receipt_type')!r}", field="receipt_type")
 
-    if receipt.get("receipt_version") != "0.1.0":
-        result.add("shape", f"receipt_version must be '0.1.0', got {receipt.get('receipt_version')!r}", field="receipt_version")
+    if receipt.get("receipt_version") not in SUPPORTED_RECEIPT_VERSIONS:
+        result.add("shape",
+                   f"receipt_version must be one of {sorted(SUPPORTED_RECEIPT_VERSIONS)}, "
+                   f"got {receipt.get('receipt_version')!r}",
+                   field="receipt_version")
 
     verdict = receipt.get("verdict")
     if verdict and verdict not in VALID_VERDICTS:
@@ -418,6 +451,8 @@ def load_and_validate(path: Path) -> ValidationResult:
 
 
 __all__ = [
+    "RECEIPT_VERSION",
+    "SUPPORTED_RECEIPT_VERSIONS",
     "LAYER_SHAPE",
     "LAYER_INVARIANTS",
     "LAYER_FORBIDDEN",
@@ -425,6 +460,7 @@ __all__ = [
     "PROOF_TIER_RANK",
     "AUTHORITY_LAYER_RANK",
     "TierEscalationError",
+    "GovernanceEmissionError",
     "JudgmentPathDeclaration",
     "assert_tier_monotonic",
     "ValidationError",
