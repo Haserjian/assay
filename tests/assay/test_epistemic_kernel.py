@@ -4,6 +4,7 @@ from __future__ import annotations
 import copy
 import json
 from importlib import resources
+from pathlib import Path
 
 import pytest
 from jsonschema import Draft202012Validator
@@ -56,7 +57,7 @@ def _typed_ref(ref_id: str, *, ref_role: str = "supporting") -> dict:
 
 
 def _checkpoint_examples_root() -> str:
-    return "/Users/timmybhaserjian/assay/docs/examples/checkpoints"
+    return str(Path(__file__).resolve().parent.parent.parent / "docs" / "examples" / "checkpoints")
 
 
 def _load_example(name: str) -> dict:
