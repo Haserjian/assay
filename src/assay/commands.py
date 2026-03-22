@@ -2833,6 +2833,48 @@ def verify_pack_cmd(
             badge_path.write_text(svg_str, encoding="utf-8")
             _artifact_paths["badge"] = str(badge_path)
 
+    # --- Governance posture (production + current + divergence) ---
+    _posture_info: Optional[Dict[str, Any]] = None
+    try:
+        from assay.governance_posture import (
+            compute_divergence,
+            evaluate_posture,
+            extract_production_posture,
+        )
+
+        # Load receipts for posture extraction
+        _receipt_path = pack_path / "receipt_pack.jsonl"
+        _pack_entries: list = []
+        if _receipt_path.exists():
+            for _line in _receipt_path.read_text().splitlines():
+                if _line.strip():
+                    _pack_entries.append(json.loads(_line))
+
+        _production = extract_production_posture(_pack_entries)
+        _current = evaluate_posture()
+        _divergence = compute_divergence(_production, _current)
+
+        _posture_info = {
+            "production_posture": _divergence.production_posture,
+            "production_evaluated_at": _divergence.production_evaluated_at,
+            "current_posture": _divergence.current_posture,
+            "current_evaluated_at": _divergence.current_evaluated_at,
+            "diverged": _divergence.diverged,
+            "divergence_type": _divergence.divergence_type,
+        }
+        if _divergence.detail:
+            _posture_info["detail"] = _divergence.detail
+        if _production:
+            _posture_info["production_obligations"] = _production.obligation_ids
+            _posture_info["production_open_count"] = _production.open_count
+            _posture_info["production_overdue_count"] = _production.overdue_count
+        if _current.obligation_ids:
+            _posture_info["current_obligations"] = _current.obligation_ids
+            _posture_info["current_open_count"] = _current.open_count
+            _posture_info["current_overdue_count"] = _current.overdue_count
+    except Exception:
+        pass  # Posture display is best-effort
+
     if output_json:
         from assay.verification_status import classify_verdict
 
@@ -2873,6 +2915,8 @@ def verify_pack_cmd(
             out["trust"] = _trust_out
         if trust_gate_failed:
             out["trust_gate"] = "rejected_by_trust_policy"
+        if _posture_info:
+            out["governance_posture"] = _posture_info
         _output_json(out)
 
     # Print artifact paths in terminal mode
@@ -2914,6 +2958,21 @@ def verify_pack_cmd(
         if coverage_result is not None:
             pct = coverage_result["coverage_pct"]
             cov_line = f"\nCoverage:   {pct:.0%} ({coverage_result['covered_count']}/{coverage_result['total_count']})"
+        posture_line = ""
+        if _posture_info:
+            _prod_p = _posture_info["production_posture"]
+            _curr_p = _posture_info["current_posture"]
+            _div = _posture_info["diverged"]
+            if _prod_p == "CLEAN" and _curr_p == "CLEAN":
+                posture_line = "\nGovernance: CLEAN"
+            elif _prod_p == "UNAVAILABLE":
+                if _curr_p != "CLEAN":
+                    posture_line = f"\nGovernance: [yellow]{_curr_p}[/] (no production posture embedded)"
+                # Don't show anything for UNAVAILABLE + CLEAN (old pack, no debt)
+            else:
+                posture_line = f"\nGovernance: [yellow]{_prod_p}[/] at production"
+                if _div:
+                    posture_line += f" → [yellow]{_curr_p}[/] now"
         console.print()
         console.print(Panel.fit(
             f"[bold green]VERIFICATION PASSED[/]\n\n"
@@ -2925,7 +2984,8 @@ def verify_pack_cmd(
             f"Errors:     0\n"
             f"Warnings:   {len(result.warnings)}"
             f"{lock_line}"
-            f"{cov_line}",
+            f"{cov_line}"
+            f"{posture_line}",
             title="assay verify-pack",
         ))
     elif result.passed and expiry_failed:
@@ -3356,6 +3416,11 @@ def witness_cmd(
         None, "--output", "-o",
         help="Output path for witness_bundle.json. Default: <pack_dir>/witness_bundle.json",
     ),
+    acknowledge_debt: bool = typer.Option(
+        False, "--acknowledge-debt",
+        help="Proceed with witness submission despite governance debt. "
+             "The acknowledgment is recorded in the witness bundle metadata.",
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Request an independent timestamp witness for a Proof Pack.
@@ -3364,8 +3429,15 @@ def witness_cmd(
     proving that the pack's root hash existed at a specific time. The result
     is written as witness_bundle.json.
 
+    Governance posture gate: Witness submission is a trust escalation — you're
+    asking an external authority to attest to your evidence. If the pack was
+    produced under DEBT_OVERDUE governance posture, submission is blocked
+    unless --acknowledge-debt is provided. This is secondary policy (an optional
+    promotion gate), not the primary doctrine (which is claim eligibility).
+
     Exit codes:
       0 = witness obtained successfully
+      1 = governance posture gate blocked submission
       2 = error (network, TSA, missing pack)
     """
     from pathlib import Path
@@ -3387,6 +3459,62 @@ def witness_cmd(
             _output_json({"command": "witness", "status": "error", "error": "pack_manifest.json not found"})
         console.print(f"[red]Error:[/] {manifest_path} not found")
         raise typer.Exit(2)
+
+    # --- Governance posture gate (secondary policy) ---
+    # Witness submission is a trust-escalation boundary. Packs produced under
+    # DEBT_OVERDUE governance posture are blocked unless explicitly acknowledged.
+    # DEBT_OUTSTANDING is warned but allowed. CLEAN passes silently.
+    try:
+        from assay.governance_posture import (
+            DivergenceType,
+            PostureState,
+            compute_divergence,
+            evaluate_posture,
+            extract_production_posture,
+        )
+
+        _receipt_path = pack_path / "receipt_pack.jsonl"
+        if _receipt_path.exists():
+            _entries = []
+            for _line in _receipt_path.read_text().splitlines():
+                if _line.strip():
+                    _entries.append(json.loads(_line))
+
+            _prod_posture = extract_production_posture(_entries)
+            _prod_state = _prod_posture.posture if _prod_posture else "UNAVAILABLE"
+
+            if _prod_state == PostureState.DEBT_OVERDUE.value and not acknowledge_debt:
+                _ob_ids = _prod_posture.obligation_ids if _prod_posture else []
+                _msg = (
+                    f"Witness submission blocked: pack was produced under "
+                    f"DEBT_OVERDUE governance posture.\n"
+                    f"  Overdue obligations: {', '.join(_ob_ids) or 'unknown'}\n\n"
+                    f"  Resolve debt:      assay why <receipt-id>\n"
+                    f"  Override:          assay witness {pack_dir} --acknowledge-debt"
+                )
+                if output_json:
+                    _output_json({
+                        "command": "witness",
+                        "status": "blocked",
+                        "error": "governance_posture_gate",
+                        "production_posture": _prod_state,
+                        "obligation_ids": _ob_ids,
+                        "fix": f"assay witness {pack_dir} --acknowledge-debt",
+                    }, exit_code=1)
+                console.print(f"[bold red]BLOCKED[/]: {_msg}")
+                raise typer.Exit(1)
+
+            if _prod_state == PostureState.DEBT_OUTSTANDING.value:
+                _ob_ids = _prod_posture.obligation_ids if _prod_posture else []
+                console.print(
+                    f"[yellow]Warning:[/] Pack produced under DEBT_OUTSTANDING "
+                    f"governance posture ({len(_ob_ids)} open obligation(s)). "
+                    f"Proceeding with witness submission."
+                )
+    except (typer.Exit, SystemExit):
+        raise  # Re-raise exit from the gate
+    except Exception:
+        pass  # Posture gate is best-effort; don't block on evaluation failure
 
     out_path = Path(output) if output else None
 
@@ -10190,6 +10318,48 @@ def decision_validate_cmd(
 
     console.print()
     raise typer.Exit(0 if result.valid else 1)
+
+
+@assay_app.command("why", rich_help_panel="Operate")
+def why_cmd(
+    receipt_id: str = typer.Argument(..., help="Receipt ID to explain"),
+    output_json: bool = typer.Option(False, "--json", help="Structured JSON output"),
+    trace: bool = typer.Option(False, "--trace", help="Show full backward chain through parent_receipt_id links"),
+):
+    """Explain why a decision was made.
+
+    Traces a Decision Receipt backward through supersession and obligation
+    links, answering: what happened, why, under what authority, and what
+    obligations remain.
+
+    This is a constitutional interrogation surface — it shows execution-why
+    (what rule fired) and constitutional-why (what prior judgments made this
+    permissible or impermissible).
+
+    Examples:
+      assay why r_abc123def456
+      assay why r_abc123def456 --json
+      assay why r_abc123def456 --trace
+    """
+    from assay.why import ReceiptIndex, explain_why, render_text
+
+    trace_depth = 10 if trace else 1
+    result = explain_why(receipt_id, trace_depth=trace_depth)
+
+    if output_json:
+        _output_json({
+            "command": "why",
+            "status": "ok",
+            **result.to_dict(),
+        })
+        return
+
+    text = render_text(result)
+    console.print(text)
+
+    if result.missing_links:
+        raise typer.Exit(1)
+    raise typer.Exit(0)
 
 
 def main():
