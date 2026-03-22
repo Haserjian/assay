@@ -17,16 +17,66 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Optional
 
 from assay._receipts.canonicalize import to_jcs_bytes
 
 ALLOWED_SEVERITIES = {"critical", "warning"}
 
+FALSIFIER_STATUSES = {
+    "not_required",       # warning-severity claim or falsifiers not enforced
+    "absent",             # critical claim with no falsifier named
+    "named",              # falsifier described but not yet executed
+    "executed_passed",    # falsifier was run and claim survived disproof
+    "executed_failed",    # falsifier was run and claim was disproved
+}
+
+# Tier cap decision table.
+# Maps (severity, falsifier_status) -> (cap_applies, cap_reason).
+# This table is the single source of truth for tier cap semantics.
+TIER_CAP_TABLE = {
+    # Warning claims: never capped regardless of falsifier state
+    ("warning", "not_required"):    (False, None),
+    ("warning", "absent"):          (False, None),
+    ("warning", "named"):           (False, None),
+    ("warning", "executed_passed"): (False, None),
+    ("warning", "executed_failed"): (False, None),
+    # Critical claims: cap depends on falsifier posture
+    ("critical", "not_required"):    (False, None),  # enforcement not active
+    ("critical", "absent"):          (True,  "capped: no named falsifier"),
+    ("critical", "named"):           (True,  "capped: falsifier named but not executed"),
+    ("critical", "executed_passed"): (False, None),   # full proof eligible
+    ("critical", "executed_failed"): (True,  "capped: falsifier execution disproved claim"),
+}
+
 
 # ---------------------------------------------------------------------------
 # Data types
 # ---------------------------------------------------------------------------
+
+@dataclass
+class FalsifierSpec:
+    """Cheapest test that would disprove a claim.
+
+    A falsifier answers: "what would most cheaply prove this claim wrong?"
+    Claims without a named falsifier cannot exceed a capped proof tier.
+    """
+
+    description: str
+    test_command: Optional[str] = None
+    evaluation_surface: str = ""
+    executed: Optional[bool] = None   # None=not run, True=passed, False=disproved
+
+    def to_dict(self) -> Dict[str, Any]:
+        d: Dict[str, Any] = {"description": self.description}
+        if self.test_command:
+            d["test_command"] = self.test_command
+        if self.evaluation_surface:
+            d["evaluation_surface"] = self.evaluation_surface
+        if self.executed is not None:
+            d["executed"] = self.executed
+        return d
+
 
 @dataclass
 class ClaimSpec:
@@ -37,15 +87,19 @@ class ClaimSpec:
     check: str  # name of a function in CHECKS
     params: Dict[str, Any] = field(default_factory=dict)
     severity: str = "critical"  # "critical" | "warning"
+    falsifier: Optional[FalsifierSpec] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        d: Dict[str, Any] = {
             "claim_id": self.claim_id,
             "description": self.description,
             "check": self.check,
             "params": self.params,
             "severity": self.severity,
         }
+        if self.falsifier is not None:
+            d["falsifier"] = self.falsifier.to_dict()
+        return d
 
 
 @dataclass
@@ -58,16 +112,22 @@ class ClaimResult:
     actual: str
     severity: str = "critical"
     evidence_receipt_ids: List[str] = field(default_factory=list)
+    falsifier_status: str = "not_required"
+    tier_cap: Optional[str] = None  # None = uncapped; string = cap reason
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        d: Dict[str, Any] = {
             "claim_id": self.claim_id,
             "passed": self.passed,
             "expected": self.expected,
             "actual": self.actual,
             "severity": self.severity,
             "evidence_receipt_ids": self.evidence_receipt_ids,
+            "falsifier_status": self.falsifier_status,
         }
+        if self.tier_cap is not None:
+            d["tier_cap"] = self.tier_cap
+        return d
 
 
 @dataclass
@@ -80,9 +140,11 @@ class ClaimSetResult:
     n_claims: int = 0
     n_passed: int = 0
     n_failed: int = 0
+    n_capped: int = 0
+    falsifier_summary: Dict[str, int] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        d: Dict[str, Any] = {
             "passed": self.passed,
             "n_claims": self.n_claims,
             "n_passed": self.n_passed,
@@ -90,6 +152,10 @@ class ClaimSetResult:
             "discrepancy_fingerprint": self.discrepancy_fingerprint,
             "results": [r.to_dict() for r in self.results],
         }
+        if self.n_capped > 0:
+            d["n_capped"] = self.n_capped
+            d["falsifier_summary"] = self.falsifier_summary
+        return d
 
 
 # ---------------------------------------------------------------------------
@@ -305,12 +371,17 @@ def verify_claims(
     *,
     policy_hash: str = "",
     suite_hash: str = "",
+    require_falsifiers: bool = False,
 ) -> ClaimSetResult:
     """Evaluate all claims against a receipt pack.
 
     Returns ClaimSetResult with deterministic discrepancy_fingerprint.
     Critical claims determine the overall pass/fail; warnings are recorded
     but don't fail the set.
+
+    When require_falsifiers is True, critical claims without a named
+    falsifier are tier-capped (they still pass/fail normally, but carry
+    a cap annotation indicating the claim cannot reach strong proof status).
     """
     results: List[ClaimResult] = []
 
@@ -341,12 +412,50 @@ def verify_claims(
 
         result = check_fn(receipts, claim_id=claim.claim_id, **claim.params)
         result.severity = severity
+
+        # Falsifier assessment: tier-aware enforcement via TIER_CAP_TABLE.
+        # Warning-severity claims: falsifier not required.
+        # Critical claims: cap depends on falsifier posture.
+        if severity == "critical" and require_falsifiers:
+            if claim.falsifier is None:
+                fs = "absent"
+            elif claim.falsifier.executed is True:
+                fs = "executed_passed"
+            elif claim.falsifier.executed is False:
+                fs = "executed_failed"
+            else:
+                fs = "named"
+            result.falsifier_status = fs
+            cap_applies, cap_reason = TIER_CAP_TABLE.get(
+                (severity, fs), (False, None)
+            )
+            if cap_applies:
+                result.tier_cap = cap_reason
+        elif severity == "critical" and claim.falsifier is not None:
+            # Falsifiers not enforced, but one is present -- record it
+            if claim.falsifier.executed is True:
+                result.falsifier_status = "executed_passed"
+            elif claim.falsifier.executed is False:
+                result.falsifier_status = "executed_failed"
+            else:
+                result.falsifier_status = "named"
+        else:
+            result.falsifier_status = "not_required"
+
         results.append(result)
 
     n_passed = sum(1 for r in results if r.passed)
     n_failed = sum(1 for r in results if not r.passed)
+    n_capped = sum(1 for r in results if r.tier_cap is not None)
 
-    # Overall pass: all critical claims pass (warnings don't count)
+    # Falsifier summary: count by status
+    falsifier_counts: Dict[str, int] = {}
+    for r in results:
+        falsifier_counts[r.falsifier_status] = falsifier_counts.get(r.falsifier_status, 0) + 1
+
+    # Overall pass: all critical claims pass (warnings don't count).
+    # Tier caps do NOT cause failure -- they are informational constraints
+    # on how strongly the claim can be relied upon.
     critical_failures = [
         r for r in results
         if not r.passed and r.severity == "critical"
@@ -364,15 +473,21 @@ def verify_claims(
         n_claims=len(results),
         n_passed=n_passed,
         n_failed=n_failed,
+        n_capped=n_capped,
+        falsifier_summary=falsifier_counts,
     )
 
 
 __all__ = [
+    "FalsifierSpec",
     "ClaimSpec",
     "ClaimResult",
     "ClaimSetResult",
     "verify_claims",
     "CHECKS",
+    "ALLOWED_SEVERITIES",
+    "FALSIFIER_STATUSES",
+    "TIER_CAP_TABLE",
     "check_receipt_type_present",
     "check_no_receipt_type",
     "check_receipt_count_ge",
