@@ -18,7 +18,7 @@ import os
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 
 # ---------------------------------------------------------------------------
@@ -740,6 +740,108 @@ def _check_witness_001(strict: bool = False) -> DoctorCheckResult:
     )
 
 
+def _check_orphan_001(store: Any = None) -> DoctorCheckResult:
+    """Detect orphaned episodes (opened but never terminally closed).
+
+    Requires a store. When store=None, uses the default AssayStore.
+    Enabled via --check-orphans (not in default profiles).
+
+    Constitutional law: every episode.opened must have a terminal receipt
+    (episode.closed or episode.abandoned). Orphans are constitutional violations
+    detectable at read time.
+    """
+    try:
+        from assay.orphan_detector import detect_orphaned_episodes
+        from assay.store import get_default_store
+        s = store if store is not None else get_default_store()
+        result = detect_orphaned_episodes(s)
+        if result.clean:
+            return DoctorCheckResult(
+                id="DOCTOR_ORPHAN_001",
+                status=CheckStatus.PASS,
+                severity=Severity.INFO,
+                message=f"No orphaned episodes ({result.total_traces_scanned} traces scanned)",
+                evidence={
+                    "traces_scanned": result.total_traces_scanned,
+                    "episodes_found": result.total_episodes_found,
+                },
+            )
+        return DoctorCheckResult(
+            id="DOCTOR_ORPHAN_001",
+            status=CheckStatus.FAIL,
+            severity=Severity.HIGH,
+            message=f"{result.total_orphans_found} orphaned episode(s) detected",
+            evidence={
+                "total_orphans": result.total_orphans_found,
+                "total_episodes": result.total_episodes_found,
+                "orphans": [o.to_dict() for o in result.orphans],
+            },
+            fix="assay doctor --check-orphans  # then trace and close each orphaned episode",
+        )
+    except Exception as e:
+        return DoctorCheckResult(
+            id="DOCTOR_ORPHAN_001",
+            status=CheckStatus.FAIL,
+            severity=Severity.HIGH,
+            message=f"Orphan check error: {e}",
+            evidence={"error": str(e)},
+        )
+
+
+def _check_contradiction_001(store: Any = None) -> DoctorCheckResult:
+    """Detect open contradictions (registered but never resolved).
+
+    Requires a store. When store=None, uses the default AssayStore.
+    Enabled via --check-orphans (not in default profiles).
+
+    Constitutional law: every contradiction.registered receipt must have a
+    paired contradiction.resolved receipt with the same contradiction_id.
+    An open conflict blocks proof-tier cap removal.
+    """
+    try:
+        from assay.contradiction_detector import detect_open_contradictions
+        from assay.store import get_default_store
+        s = store if store is not None else get_default_store()
+        result = detect_open_contradictions(s)
+        if result.clean:
+            return DoctorCheckResult(
+                id="DOCTOR_CONTRADICTION_001",
+                status=CheckStatus.PASS,
+                severity=Severity.INFO,
+                message=(
+                    f"No open contradictions ({result.total_traces_scanned} traces scanned, "
+                    f"{result.total_registered_found} registered)"
+                ),
+                evidence={
+                    "traces_scanned": result.total_traces_scanned,
+                    "registered_found": result.total_registered_found,
+                },
+            )
+        return DoctorCheckResult(
+            id="DOCTOR_CONTRADICTION_001",
+            status=CheckStatus.FAIL,
+            severity=Severity.HIGH,
+            message=(
+                f"{result.total_open_found} open contradiction(s) detected "
+                f"(blocks proof-tier cap removal)"
+            ),
+            evidence={
+                "total_open": result.total_open_found,
+                "total_registered": result.total_registered_found,
+                "open_contradictions": [c.to_dict() for c in result.open_contradictions],
+            },
+            fix="# Resolve each open contradiction via emit_contradiction_resolution()",
+        )
+    except Exception as e:
+        return DoctorCheckResult(
+            id="DOCTOR_CONTRADICTION_001",
+            status=CheckStatus.FAIL,
+            severity=Severity.HIGH,
+            message=f"Contradiction check error: {e}",
+            evidence={"error": str(e)},
+        )
+
+
 # ---------------------------------------------------------------------------
 # Check dispatch
 # ---------------------------------------------------------------------------
@@ -760,6 +862,8 @@ _CHECK_FUNCTIONS = {
     "DOCTOR_CI_003": lambda **kw: _check_ci_003(),
     "DOCTOR_LEDGER_001": lambda **kw: _check_ledger_001(),
     "DOCTOR_WITNESS_001": lambda **kw: _check_witness_001(kw.get("strict", False)),
+    "DOCTOR_ORPHAN_001": lambda **kw: _check_orphan_001(kw.get("store")),
+    "DOCTOR_CONTRADICTION_001": lambda **kw: _check_contradiction_001(kw.get("store")),
 }
 
 
@@ -794,17 +898,38 @@ def run_doctor(
     pack_dir: Optional[Path] = None,
     lock_path: Optional[Path] = None,
     strict: bool = False,
+    check_orphans: bool = False,
+    store: Any = None,
 ) -> DoctorReport:
-    """Run all checks for the given profile and return a report."""
+    """Run all checks for the given profile and return a report.
+
+    Args:
+        profile: Which check profile to run (local, ci, release, ledger).
+        pack_dir: Proof Pack directory to inspect.
+        lock_path: Lockfile path to inspect.
+        strict: Treat warnings as failures.
+        check_orphans: Also run DOCTOR_ORPHAN_001 and DOCTOR_CONTRADICTION_001.
+            These are store-backed checks not included in any default profile.
+            When store=None, they use the default AssayStore.
+        store: Optional AssayStore to use for store-backed checks. When None,
+            store-backed checks (orphan, contradiction) use get_default_store().
+    """
     from assay import __version__
 
     report = DoctorReport(profile=profile, version=__version__)
-    check_ids = _PROFILE_CHECKS.get(profile, _PROFILE_CHECKS[Profile.LOCAL])
+    check_ids: List[str] = list(_PROFILE_CHECKS.get(profile, _PROFILE_CHECKS[Profile.LOCAL]))
+
+    if check_orphans:
+        if "DOCTOR_ORPHAN_001" not in check_ids:
+            check_ids.append("DOCTOR_ORPHAN_001")
+        if "DOCTOR_CONTRADICTION_001" not in check_ids:
+            check_ids.append("DOCTOR_CONTRADICTION_001")
 
     kwargs = {
         "pack_dir": pack_dir,
         "lock_path": lock_path,
         "strict": strict,
+        "store": store,
     }
 
     for check_id in check_ids:
