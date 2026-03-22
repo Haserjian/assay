@@ -7309,6 +7309,10 @@ def doctor_cmd(
         False, "--fix",
         help="Apply safe automatic fixes (generate key, write lockfile)",
     ),
+    check_orphans: bool = typer.Option(
+        False, "--check-orphans",
+        help="Also detect orphaned episodes and open contradictions (store-backed checks)",
+    ),
 ):
     """Check if Assay is installed, configured, and ready to use.
 
@@ -7317,6 +7321,10 @@ def doctor_cmd(
     2. Can this machine create and verify packs?
     3. Is this repo configured for your claimed workflow?
     4. What is the single next command to become "green"?
+
+    Use --check-orphans to also detect constitutional integrity violations:
+    orphaned episodes (opened but never closed) and open contradictions
+    (registered but never resolved).
     """
     from pathlib import Path
 
@@ -7333,7 +7341,13 @@ def doctor_cmd(
     lock_path = Path(lock) if lock else None
 
     # Run checks
-    report = run_doctor(prof, pack_dir=pack_dir, lock_path=lock_path, strict=strict)
+    report = run_doctor(
+        prof,
+        pack_dir=pack_dir,
+        lock_path=lock_path,
+        strict=strict,
+        check_orphans=check_orphans,
+    )
 
     # Apply fixes if requested
     if fix:
