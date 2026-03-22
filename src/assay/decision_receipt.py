@@ -450,12 +450,166 @@ def load_and_validate(path: Path) -> ValidationResult:
     return validate_decision_receipt(data)
 
 
+# ===================================================================
+# Stage 3b: Governance anchor resolution and admissibility
+# ===================================================================
+
+# Validation layer for anchor resolution checks
+LAYER_ANCHOR = "anchor_resolution"
+
+def _parse_version(v: str) -> tuple:
+    """Parse 'major.minor.patch' to a comparable tuple. Falls back to (0,0,0)."""
+    try:
+        return tuple(int(x) for x in v.split("."))
+    except (ValueError, AttributeError):
+        return (0, 0, 0)
+
+
+# Governance authority classes that require declared anchors (Stage 5)
+# and resolved anchors (Stage 3b)
+_GOVERNANCE_AUTHORITY_CLASSES = {"BINDING", "MUTATING", "OVERRIDING"}
+
+# Advisory classes are exempt from anchor requirements
+_ADVISORY_AUTHORITY_CLASSES = {"ADVISORY", "AUDITING"}
+
+# Admissible receipt types for each anchor slot.
+# guardian_authorization_receipt_id must resolve to an artifact that
+# represents a Guardian assessment/authorization act.
+# settlement_outcome_id must resolve to a settlement state-machine artifact.
+# NOTE: "decision_v1" is a temporary compatibility umbrella in both sets.
+# It allows Decision Receipts to reference other Decision Receipts as
+# authorization anchors during the bootstrap period. This should be
+# reviewed when anchor-specific receipt types are fully established.
+# If decision_v1 remains indefinitely, it becomes a permissive
+# "miscellaneous authority blob" — mark as debt if still present after
+# Stage 3b is wired into assay doctor.
+_GUARDIAN_ANCHOR_ADMISSIBLE_TYPES = frozenset({
+    "guardian_assessment",
+    "guardian_verdict",
+    "guardian_authorization",
+    "proof_tier",
+    "refusal",
+    "decision_v1",  # compatibility — see note above
+})
+
+_SETTLEMENT_ANCHOR_ADMISSIBLE_TYPES = frozenset({
+    "settlement_outcome",
+    "settlement_transition",
+    "settlement_closure",
+    "decision_v1",  # compatibility — see note above
+})
+
+
+def validate_governance_anchors(
+    receipt: Dict[str, Any],
+    receipt_index: Dict[str, Dict[str, Any]],
+) -> ValidationResult:
+    """Stage 3b: Validate that declared authorization anchors resolve and are admissible.
+
+    This is the verification layer that Stage 5 deferred. Stage 5 enforces
+    that governance-class receipts declare at least one non-null anchor.
+    This function verifies that:
+
+      1. The declared anchor ID resolves to a real artifact in the receipt index.
+      2. The resolved artifact's type is admissible for that anchor slot.
+
+    Exemptions:
+      - Advisory/auditing receipts: no anchor requirement.
+      - Pre-v0.2.0 receipts: predate anchor fields (forensic compat).
+      - Receipts without declared anchors: Stage 5 violation, not Stage 3b.
+        This function only validates anchors that ARE declared.
+
+    Args:
+        receipt: The decision receipt dict to validate.
+        receipt_index: Mapping of receipt_id -> receipt dict for all
+            artifacts available in the pack / audit context.
+
+    Returns:
+        ValidationResult with anchor-layer errors if any.
+    """
+    result = ValidationResult(valid=True)
+
+    authority_class = receipt.get("authority_class", "")
+
+    # Advisory/auditing are exempt
+    if authority_class in _ADVISORY_AUTHORITY_CLASSES:
+        return result
+
+    # Pre-v0.2.0 receipts predate anchor fields — forensic compat
+    version = receipt.get("receipt_version", "0.1.0")
+    if _parse_version(version) < (0, 2, 0):
+        return result
+
+    # Not governance class — no anchor requirement
+    if authority_class not in _GOVERNANCE_AUTHORITY_CLASSES:
+        return result
+
+    # Check each declared anchor
+    _check_anchor(
+        receipt, receipt_index, result,
+        field_name="guardian_authorization_receipt_id",
+        admissible_types=_GUARDIAN_ANCHOR_ADMISSIBLE_TYPES,
+    )
+    _check_anchor(
+        receipt, receipt_index, result,
+        field_name="settlement_outcome_id",
+        admissible_types=_SETTLEMENT_ANCHOR_ADMISSIBLE_TYPES,
+    )
+
+    return result
+
+
+def _check_anchor(
+    receipt: Dict[str, Any],
+    receipt_index: Dict[str, Dict[str, Any]],
+    result: ValidationResult,
+    *,
+    field_name: str,
+    admissible_types: frozenset,
+) -> None:
+    """Check one anchor field for resolution and admissibility."""
+    anchor_id = receipt.get(field_name)
+
+    # Null/absent anchor — not a Stage 3b concern (Stage 5 handles presence)
+    if not anchor_id:
+        return
+
+    # Resolution: does the anchor ID exist in the receipt index?
+    anchor_artifact = receipt_index.get(anchor_id)
+    if anchor_artifact is None:
+        result.add(
+            rule="ANCHOR_NOT_FOUND",
+            message=(
+                f"{field_name}='{anchor_id}' declared but not found in "
+                f"receipt index ({len(receipt_index)} artifacts available)"
+            ),
+            field=field_name,
+            layer=LAYER_ANCHOR,
+        )
+        return
+
+    # Admissibility: is the resolved artifact the right kind?
+    artifact_type = anchor_artifact.get("receipt_type", "")
+    if artifact_type not in admissible_types:
+        result.add(
+            rule="ANCHOR_WRONG_KIND",
+            message=(
+                f"{field_name}='{anchor_id}' resolves to receipt_type='{artifact_type}' "
+                f"which is not admissible for this anchor slot "
+                f"(expected one of: {sorted(admissible_types)})"
+            ),
+            field=field_name,
+            layer=LAYER_ANCHOR,
+        )
+
+
 __all__ = [
     "RECEIPT_VERSION",
     "SUPPORTED_RECEIPT_VERSIONS",
     "LAYER_SHAPE",
     "LAYER_INVARIANTS",
     "LAYER_FORBIDDEN",
+    "LAYER_ANCHOR",
     "SEVERITY_ERROR",
     "PROOF_TIER_RANK",
     "AUTHORITY_LAYER_RANK",
@@ -468,5 +622,6 @@ __all__ = [
     "validate_shape",
     "validate_invariants",
     "validate_decision_receipt",
+    "validate_governance_anchors",
     "load_and_validate",
 ]

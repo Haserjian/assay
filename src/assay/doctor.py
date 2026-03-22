@@ -938,6 +938,154 @@ def _check_obligation_001(store: Any = None) -> DoctorCheckResult:
         )
 
 
+def _check_anchor_001(pack_dir: Optional[Path] = None) -> DoctorCheckResult:
+    """Stage 3b: Validate governance anchor resolution in decision receipts.
+
+    Scans the pack directory for decision receipts (v0.2.0+), builds a
+    receipt index from all JSON files in the pack, and verifies that each
+    declared authorization anchor resolves to an admissible artifact.
+
+    This is the operator-visible surface for Stage 3b. It converts the
+    validate_governance_anchors() validator from dark code into a check
+    that appears in `assay doctor --check-orphans` output.
+
+    Semantic note: anchor resolution is adjacent to orphan/forensic
+    integrity but is not the same thing. This check rides --check-orphans
+    provisionally. A future --check-governance or dedicated bundle may
+    be a better permanent home.
+    """
+    if pack_dir is None:
+        return DoctorCheckResult(
+            id="DOCTOR_ANCHOR_001",
+            status=CheckStatus.SKIP,
+            severity=Severity.INFO,
+            message="No pack directory provided — anchor check skipped",
+        )
+
+    if not pack_dir.is_dir():
+        return DoctorCheckResult(
+            id="DOCTOR_ANCHOR_001",
+            status=CheckStatus.SKIP,
+            severity=Severity.INFO,
+            message=f"Pack directory not found: {pack_dir}",
+        )
+
+    try:
+        import json as _json
+        from assay.decision_receipt import (
+            validate_governance_anchors,
+            _GOVERNANCE_AUTHORITY_CLASSES,
+            _parse_version,
+        )
+
+        # Build receipt index from all JSON files in pack
+        receipt_index: Dict[str, Dict[str, Any]] = {}
+        for json_file in pack_dir.rglob("*.json"):
+            try:
+                data = _json.loads(json_file.read_text(encoding="utf-8"))
+                if isinstance(data, dict) and "receipt_id" in data:
+                    receipt_index[data["receipt_id"]] = data
+            except (ValueError, OSError):
+                continue
+
+        if not receipt_index:
+            return DoctorCheckResult(
+                id="DOCTOR_ANCHOR_001",
+                status=CheckStatus.SKIP,
+                severity=Severity.INFO,
+                message=f"No receipts found in {pack_dir}",
+                evidence={"pack_dir": str(pack_dir)},
+            )
+
+        # Find governance-class decision receipts at v0.2.0+
+        governance_receipts = [
+            r for r in receipt_index.values()
+            if r.get("receipt_type") == "decision_v1"
+            and r.get("authority_class") in _GOVERNANCE_AUTHORITY_CLASSES
+            and _parse_version(r.get("receipt_version", "0.1.0")) >= (0, 2, 0)
+        ]
+
+        if not governance_receipts:
+            return DoctorCheckResult(
+                id="DOCTOR_ANCHOR_001",
+                status=CheckStatus.PASS,
+                severity=Severity.INFO,
+                message=(
+                    f"No governance-class v0.2.0+ decision receipts in pack "
+                    f"({len(receipt_index)} total receipts)"
+                ),
+                evidence={
+                    "total_receipts": len(receipt_index),
+                    "governance_decision_receipts": 0,
+                },
+            )
+
+        # Validate each governance receipt
+        all_errors = []
+        for receipt in governance_receipts:
+            result = validate_governance_anchors(receipt, receipt_index)
+            if not result.valid:
+                for err in result.errors:
+                    all_errors.append({
+                        "receipt_id": receipt.get("receipt_id"),
+                        "rule": err.rule,
+                        "field": err.field,
+                        "message": err.message,
+                    })
+
+        if all_errors:
+            return DoctorCheckResult(
+                id="DOCTOR_ANCHOR_001",
+                status=CheckStatus.FAIL,
+                severity=Severity.HIGH,
+                message=(
+                    f"{len(all_errors)} anchor resolution failure(s) in "
+                    f"{len(governance_receipts)} governance decision receipt(s)"
+                ),
+                evidence={
+                    "total_receipts": len(receipt_index),
+                    "governance_decision_receipts": len(governance_receipts),
+                    "failures": all_errors,
+                },
+                fix="Ensure declared authorization anchors reference real artifacts in the pack",
+            )
+
+        return DoctorCheckResult(
+            id="DOCTOR_ANCHOR_001",
+            status=CheckStatus.PASS,
+            severity=Severity.INFO,
+            message=(
+                f"All anchors resolve in {len(governance_receipts)} governance "
+                f"decision receipt(s)"
+            ),
+            evidence={
+                "total_receipts": len(receipt_index),
+                "governance_decision_receipts": len(governance_receipts),
+                "failures": 0,
+            },
+        )
+
+    except (ImportError, OSError) as e:
+        # Environmental: missing dependency or filesystem issue — SKIP is honest
+        return DoctorCheckResult(
+            id="DOCTOR_ANCHOR_001",
+            status=CheckStatus.SKIP,
+            severity=Severity.INFO,
+            message=f"Anchor check skipped (environment): {e}",
+            evidence={"error": str(e), "error_class": type(e).__name__},
+        )
+    except Exception as e:
+        # Internal logic failure — WARN, not silent SKIP.
+        # "Anchor check crashed internally" is not "this pack doesn't participate."
+        return DoctorCheckResult(
+            id="DOCTOR_ANCHOR_001",
+            status=CheckStatus.WARN,
+            severity=Severity.MEDIUM,
+            message=f"Anchor check failed unexpectedly: {e}",
+            evidence={"error": str(e), "error_class": type(e).__name__},
+        )
+
+
 # ---------------------------------------------------------------------------
 # Check dispatch
 # ---------------------------------------------------------------------------
@@ -961,6 +1109,7 @@ _CHECK_FUNCTIONS = {
     "DOCTOR_ORPHAN_001": lambda **kw: _check_orphan_001(kw.get("store")),
     "DOCTOR_CONTRADICTION_001": lambda **kw: _check_contradiction_001(kw.get("store")),
     "DOCTOR_OBLIGATION_001": lambda **kw: _check_obligation_001(kw.get("store")),
+    "DOCTOR_ANCHOR_001": lambda **kw: _check_anchor_001(kw.get("pack_dir")),
 }
 
 
@@ -1023,6 +1172,8 @@ def run_doctor(
             check_ids.append("DOCTOR_CONTRADICTION_001")
         if "DOCTOR_OBLIGATION_001" not in check_ids:
             check_ids.append("DOCTOR_OBLIGATION_001")
+        if "DOCTOR_ANCHOR_001" not in check_ids:
+            check_ids.append("DOCTOR_ANCHOR_001")
 
     kwargs = {
         "pack_dir": pack_dir,
