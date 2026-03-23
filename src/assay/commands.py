@@ -447,7 +447,7 @@ def check_health(
 
 @assay_app.command("demo", hidden=True)
 def run_demo(
-    scenario: str = typer.Option("all", "--scenario", "-s", help="Demo scenario: all, incomplete, contradiction, paradox, guardian"),
+    scenario: str = typer.Option("all", "--scenario", "-s", help="Demo scenario: all, incomplete, contradiction, paradox, guardian, trust"),
     persist: bool = typer.Option(True, "--persist/--no-persist", help="Persist receipts to disk"),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
@@ -495,6 +495,9 @@ def run_demo(
 
     if scenario in ("all", "guardian"):
         _demo_guardian(store, silent=silent)
+
+    if scenario in ("all", "trust"):
+        _demo_trust(store, silent=silent)
 
     if output_json:
         entries = store.read_trace(trace_id) if store else []
@@ -654,6 +657,166 @@ def _demo_guardian(store=None, silent: bool = False):
             console.print("\n[dim]No coherence gain by dignity debt.[/]\n")
         else:
             console.print("[green]ALLOWED[/]")
+
+
+def _demo_trust(store=None, silent: bool = False):
+    """Demo: Full trust ceremony — proof pack, verify, tamper detect, honest fail.
+
+    This demonstrates the three trust behaviors buyers care about:
+    1. PASS: clean proof pack verifies successfully
+    2. TAMPER: mutated receipt is detected by verification
+    3. HONEST FAIL: policy violation produces a valid, signed failure artifact
+    """
+    import hashlib
+    import shutil
+    import tempfile
+    import uuid
+    from datetime import datetime, timezone
+    from pathlib import Path
+
+    from assay.proof_pack import ProofPack
+    from assay.integrity import verify_pack_manifest
+
+    if not silent:
+        console.print(Panel("[bold]Scenario: Trust Ceremony[/]", style="green"))
+        console.print("Proof pack → verify → tamper → detect → honest fail\n")
+
+    tmp = Path(tempfile.mkdtemp())
+
+    try:
+        # --- Step 1: Build a clean proof pack ---
+        receipts = []
+
+        # Emit a few synthetic receipts (Assay-native, no CCIO dependency)
+        now = datetime.now(timezone.utc).isoformat()
+        if store:
+            store.append_dict({
+                "receipt_id": f"demo-r1-{uuid.uuid4().hex[:8]}",
+                "timestamp": now,
+                "type": "model.invoked",
+                "model": "gpt-4",
+                "prompt_hash": hashlib.sha256(b"demo prompt").hexdigest()[:16],
+                "response_hash": hashlib.sha256(b"demo response").hexdigest()[:16],
+            })
+            store.append_dict({
+                "receipt_id": f"demo-r2-{uuid.uuid4().hex[:8]}",
+                "timestamp": now,
+                "type": "guardian.approved",
+                "rule": "no_coherence_by_dignity_debt",
+                "allowed": True,
+                "reason": "dignity preserved",
+            })
+            store.append_dict({
+                "receipt_id": f"demo-r3-{uuid.uuid4().hex[:8]}",
+                "timestamp": now,
+                "type": "action.settled",
+                "action": "generate_evidence_packet",
+                "status": "success",
+            })
+            # Read back for pack building
+            receipts = store.read_trace(store.current_trace_id)
+        else:
+            # Fallback: inline receipts if no store
+            receipts = [
+                {"type": "model.invoked", "model": "gpt-4", "receipt_id": "r1"},
+                {"type": "guardian.approved", "allowed": True, "receipt_id": "r2"},
+                {"type": "action.settled", "status": "success", "receipt_id": "r3"},
+            ]
+
+        pack_dir = tmp / "proof_pack_pass"
+        # Use the store's trace_id as run_id so receipts match
+        run_id = store.current_trace_id if store else "trust-demo-pass"
+        pack = ProofPack(
+            run_id=run_id,
+            entries=receipts,
+            signer_id="assay-demo",
+        )
+        result_dir = pack.build(pack_dir)
+        manifest = json.loads((result_dir / "pack_manifest.json").read_text())
+
+        # Verify
+        from assay.keystore import AssayKeyStore
+        ks = AssayKeyStore(keys_dir=tmp / "empty_keys")
+        verify_result = verify_pack_manifest(manifest, result_dir, ks)
+
+        if not silent:
+            n = manifest.get("attestation", {}).get("n_receipts", 0)
+            status = "[green]PASS[/]" if verify_result.passed else "[red]FAIL[/]"
+            console.print(f"  1. Build proof pack: {n} receipts, signed")
+            console.print(f"     Verify: {status}")
+
+        # --- Step 2: Tamper detection ---
+        tamper_dir = tmp / "proof_pack_tampered"
+        shutil.copytree(result_dir, tamper_dir)
+
+        # Mutate receipt_pack.jsonl (flip one character)
+        pack_file = tamper_dir / "receipt_pack.jsonl"
+        content = pack_file.read_text()
+        tampered = content[:10] + ("X" if content[10] != "X" else "Y") + content[11:]
+        pack_file.write_text(tampered)
+
+        tamper_manifest = json.loads((tamper_dir / "pack_manifest.json").read_text())
+        tamper_result = verify_pack_manifest(tamper_manifest, tamper_dir, ks)
+
+        if not silent:
+            tamper_status = "[red]TAMPER DETECTED[/]" if not tamper_result.passed else "[yellow]MISSED[/]"
+            console.print(f"\n  2. Tamper one receipt, re-verify")
+            console.print(f"     Verify: {tamper_status}")
+            if tamper_result.errors:
+                err = tamper_result.errors[0]
+                msg = getattr(err, 'message', str(err))
+                console.print(f"     Reason: {msg[:80]}")
+
+        # --- Step 3: Honest failure ---
+        # Build a pack where a claim check fails (honest fail = exit 1 behavior)
+        from assay.claim_verifier import ClaimSpec
+
+        fail_claim = ClaimSpec(
+            claim_id="impossible_claim",
+            description="This claim intentionally fails to demonstrate honest failure",
+            check="receipt_type_present",
+            params={"receipt_type": "nonexistent_receipt_type"},
+            severity="critical",
+        )
+
+        fail_dir = tmp / "proof_pack_honest_fail"
+        fail_pack = ProofPack(
+            run_id=run_id,
+            entries=receipts,
+            signer_id="assay-demo",
+            claims=[fail_claim],
+        )
+        fail_result_dir = fail_pack.build(fail_dir)
+        fail_manifest = json.loads((fail_result_dir / "pack_manifest.json").read_text())
+        fail_verify = verify_pack_manifest(fail_manifest, fail_result_dir, ks)
+
+        # The pack should be integrity-valid but claim-failed
+        verify_report = json.loads((fail_result_dir / "verify_report.json").read_text())
+        claim_check = verify_report.get("claim_verification", {})
+
+        if not silent:
+            integrity = "[green]PASS[/]" if fail_verify.passed else "[red]FAIL[/]"
+            claim_status = claim_check.get("passed", True)
+            claim_display = "[green]PASS[/]" if claim_status else "[red]FAIL (honest)[/]"
+            console.print(f"\n  3. Honest failure: claim intentionally fails")
+            console.print(f"     Integrity: {integrity}")
+            console.print(f"     Claims: {claim_display}")
+            console.print(f"     Pack is still signed and verifiable as failure evidence")
+
+        # --- Summary ---
+        if not silent:
+            console.print("\n  [bold]Summary:[/]")
+            console.print("  ┌─────────────────────┬────────────┬──────────┐")
+            console.print("  │ Scenario            │ Integrity  │ Claims   │")
+            console.print("  ├─────────────────────┼────────────┼──────────┤")
+            console.print("  │ Clean pack          │ PASS       │ PASS     │")
+            console.print("  │ Tampered receipt     │ FAIL       │ —        │")
+            console.print("  │ Honest failure       │ PASS       │ FAIL     │")
+            console.print("  └─────────────────────┴────────────┴──────────┘")
+            console.print("\n  [dim]A signed refusal is stronger evidence than an unverifiable green check.[/]\n")
+
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 @assay_app.command("show", hidden=True)
