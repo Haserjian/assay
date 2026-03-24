@@ -716,11 +716,33 @@ def _demo_trust(store=None, silent: bool = False):
             # Read back for pack building
             receipts = store.read_trace(store.current_trace_id)
         else:
-            # Fallback: inline receipts if no store
+            # Fallback: schema-complete inline receipts for deterministic demo.
+            # Must match the store-backed path's schema so downstream verification
+            # (ProofPack.build, verify_pack_manifest) sees consistent receipt shape.
             receipts = [
-                {"type": "model.invoked", "model": "gpt-4", "receipt_id": "r1"},
-                {"type": "guardian.approved", "allowed": True, "receipt_id": "r2"},
-                {"type": "action.settled", "status": "success", "receipt_id": "r3"},
+                {
+                    "receipt_id": "trust-demo-r1",
+                    "timestamp": now,
+                    "type": "model.invoked",
+                    "model": "gpt-4",
+                    "prompt_hash": hashlib.sha256(b"demo prompt").hexdigest()[:16],
+                    "response_hash": hashlib.sha256(b"demo response").hexdigest()[:16],
+                },
+                {
+                    "receipt_id": "trust-demo-r2",
+                    "timestamp": now,
+                    "type": "guardian.approved",
+                    "rule": "no_coherence_by_dignity_debt",
+                    "allowed": True,
+                    "reason": "dignity preserved",
+                },
+                {
+                    "receipt_id": "trust-demo-r3",
+                    "timestamp": now,
+                    "type": "action.settled",
+                    "action": "generate_evidence_packet",
+                    "status": "success",
+                },
             ]
 
         pack_dir = tmp / "proof_pack_pass"
@@ -3047,6 +3069,7 @@ def verify_pack_cmd(
 
     # --- Stage 3b: strict anchor validation (--strict) ---
     _strict_anchor_errors: list = []
+    _strict_parse_failures: int = 0
     if strict:
         from assay.decision_receipt import validate_governance_anchors
         _s_path = pack_path / "receipt_pack.jsonl"
@@ -3057,7 +3080,15 @@ def verify_pack_cmd(
                     try:
                         _s_entries.append(json.loads(_line))
                     except Exception:
-                        pass
+                        _strict_parse_failures += 1
+        # Malformed lines in strict mode are themselves a strict failure.
+        # Silently dropping them would reduce the evidence set and give a false
+        # sense of completeness — strict validation on partial evidence is not strict.
+        if _strict_parse_failures > 0:
+            _strict_anchor_errors.append(
+                f"strict: {_strict_parse_failures} malformed receipt line(s) — "
+                f"anchor validation operated on incomplete evidence"
+            )
         _s_idx = {e["receipt_id"]: e for e in _s_entries if "receipt_id" in e}
         for _s_entry in _s_entries:
             _s_vr = validate_governance_anchors(_s_entry, _s_idx)
@@ -3112,6 +3143,8 @@ def verify_pack_cmd(
             out["governance_posture"] = _posture_info
         if _strict_anchor_errors:
             out["strict_anchor_errors"] = _strict_anchor_errors
+        if _strict_parse_failures:
+            out["strict_parse_failures"] = _strict_parse_failures
         _output_json(out)
 
     # Print artifact paths in terminal mode
@@ -3313,7 +3346,8 @@ def posture_cmd(
 
     entries: list = []
     parse_failures: int = 0
-    if receipt_path.exists():
+    receipt_missing = not receipt_path.exists()
+    if not receipt_missing:
         for line in receipt_path.read_text(encoding="utf-8").splitlines():
             if line.strip():
                 try:
@@ -3346,7 +3380,9 @@ def posture_cmd(
             "diverged": divergence.diverged,
             "divergence_type": divergence.divergence_type,
         }
-        if parse_failures:
+        if receipt_missing:
+            out["evidence_quality"] = "missing"
+        elif parse_failures:
             out["parse_failures"] = parse_failures
             out["evidence_quality"] = "partial"
         if divergence.detail:
@@ -3362,11 +3398,15 @@ def posture_cmd(
         _output_json(out)
 
     diverged_style = "red" if divergence.diverged else "green"
-    evidence_note = (
-        f"\n[yellow]Warning: {parse_failures} receipt line(s) could not be parsed "
-        f"(evidence may be partial)[/yellow]"
-        if parse_failures else ""
-    )
+    if receipt_missing:
+        evidence_note = "\n[yellow]Warning: receipt_pack.jsonl not found — posture evaluated from no evidence[/yellow]"
+    elif parse_failures:
+        evidence_note = (
+            f"\n[yellow]Warning: {parse_failures} receipt line(s) could not be parsed "
+            f"(evidence may be partial)[/yellow]"
+        )
+    else:
+        evidence_note = ""
     console.print()
     console.print(Panel.fit(
         f"[bold]Pack:[/] {pack_dir}\n"
