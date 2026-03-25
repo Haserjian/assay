@@ -743,7 +743,7 @@
     Across 30 projects and 202 LLM call sites, we found zero tamper-evident evidence trails.
   </p>
   <p style="text-align:center; margin-bottom:12px;">
-    <a href="https://github.com/Haserjian/assay/blob/280c25ec46afd3ae6938501f59977162c0dbacd8/scripts/scan_study/results/report.md" target="_blank" style="color:var(--text2); font-size:13px; text-decoration:none;">Scan study methodology (Feb 2026) &#8599;</a>
+    <a href="https://github.com/Haserjian/assay/blob/main/scripts/scan_study/results/report.md" target="_blank" style="color:var(--text2); font-size:13px; text-decoration:none;">Scan study methodology (Feb 2026) &#8599;</a>
   </p>
   <div class="stats-bar">
     <div class="stat">
@@ -1086,6 +1086,13 @@ assay flow ci --apply</span></pre>
         <pre><span class="comment"># Create portable audit bundle</span>
 <span class="cmd">assay audit bundle ./proof_pack_*/
 assay verify-signer ./proof_pack_*/</span></pre>
+      </div>
+      <div class="try-card">
+        <h3>Agent workflow demo</h3>
+        <p>See Assay in a real agent workflow: verify a proof pack, tamper one byte, watch it fail.</p>
+        <pre><span class="comment"># Pre-built proof pack + tampered version</span>
+<span class="cmd"><a href="https://haserjian.github.io/assay-agent-demo/" style="color: var(--accent);">View the live demo &rarr;</a></span></pre>
+        <p style="font-size:12px; color:var(--text2); margin-top:8px; margin-bottom:0;">Includes pre-generated packs you can verify without generating your own.</p>
       </div>
     </div>
   </div>
