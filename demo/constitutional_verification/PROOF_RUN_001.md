@@ -1,7 +1,7 @@
 # Proof Run 001
 
 **Date**: 2026-03-24 17:42 UTC
-**Operator**: Haserjian (MacBook Pro M2)
+**Operator**: Haserjian
 **Setup**: `cd ~/assay-toolkit/demo/constitutional_verification && read -s ANTHROPIC_API_KEY && export ANTHROPIC_API_KEY`
 **Run**: `python3 run.py`
 
