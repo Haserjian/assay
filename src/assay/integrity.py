@@ -197,7 +197,7 @@ def verify_receipt_pack(
         # the previous receipt's hash.  A None head_hash will trigger
         # an explicit comparison failure downstream (not a silent skip).
         try:
-            head_hash = _sha256_hex(to_jcs_bytes(receipt))
+            head_hash = _sha256_hex(jcs_canonicalize(prepare_receipt_for_hashing(receipt)))
         except Exception:
             head_hash = None
 

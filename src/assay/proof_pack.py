@@ -31,7 +31,8 @@ from typing import Any, Dict, List, Optional
 from assay.claim_verifier import ClaimSetResult, ClaimSpec, verify_claims
 from assay.integrity import VerifyResult, verify_receipt_pack
 from assay.keystore import AssayKeyStore, DEFAULT_SIGNER_ID, get_default_keystore
-from assay._receipts.canonicalize import to_jcs_bytes
+from assay._receipts.canonicalize import to_jcs_bytes, prepare_receipt_for_hashing
+from assay._receipts.jcs import canonicalize as jcs_canonicalize
 
 try:
     from assay import __version__ as _assay_version
@@ -418,7 +419,7 @@ class ProofPack:
         # Verifier counts non-empty lines (line.strip()).
         receipt_lines = []
         for entry in sorted_entries:
-            canonical = to_jcs_bytes(entry).decode("utf-8")
+            canonical = jcs_canonicalize(prepare_receipt_for_hashing(entry)).decode("utf-8")
             receipt_lines.append(canonical)
         receipt_pack_content = "\n".join(receipt_lines) + "\n" if receipt_lines else ""
         receipt_pack_bytes = receipt_pack_content.encode("utf-8")

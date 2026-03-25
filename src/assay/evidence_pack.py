@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from assay import __version__ as assay_version
-from assay._receipts.canonicalize import to_jcs_bytes
+from assay._receipts.jcs import canonicalize as jcs_canonicalize
 from assay._receipts.merkle import compute_merkle_root
 
 
@@ -42,7 +42,7 @@ def get_merkle_root(entries: List[Dict[str, Any]]) -> Dict[str, Any]:
 
     leaf_hashes: List[str] = []
     for entry in entries:
-        canonical_bytes = to_jcs_bytes(entry)
+        canonical_bytes = jcs_canonicalize(entry)
         leaf_hashes.append(hashlib.sha256(canonical_bytes).hexdigest())
 
     root = compute_merkle_root(leaf_hashes)
@@ -184,7 +184,7 @@ Merkle Root: `{merkle_root}`
 ```python
 import json
 import hashlib
-from assay._receipts.canonicalize import to_jcs_bytes
+from assay._receipts.jcs import canonicalize as jcs_canonicalize
 from assay._receipts.merkle import compute_merkle_root
 
 def verify_merkle(trace_path, merkle_path):
@@ -192,7 +192,7 @@ def verify_merkle(trace_path, merkle_path):
         entries = [json.loads(line) for line in f if line.strip()]
 
     leaf_hashes = [
-        hashlib.sha256(to_jcs_bytes(entry)).hexdigest()
+        hashlib.sha256(jcs_canonicalize(entry)).hexdigest()
         for entry in entries
     ]
     computed_root = compute_merkle_root(leaf_hashes)
@@ -338,7 +338,7 @@ class EvidencePack:
             else:
                 # Canonicalized (JCS) trace for deterministic replay
                 trace_content = "\n".join(
-                    to_jcs_bytes(entry).decode("utf-8") for entry in self.entries
+                    jcs_canonicalize(entry).decode("utf-8") for entry in self.entries
                 )
                 zf.writestr("trace.jsonl", trace_content)
 
