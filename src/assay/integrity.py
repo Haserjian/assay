@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional
 
 from nacl.signing import VerifyKey
 
-from assay._receipts.canonicalize import to_jcs_bytes, prepare_receipt_for_hashing
+from assay._receipts.canonicalize import prepare_receipt_for_hashing
 from assay._receipts.jcs import canonicalize as jcs_canonicalize
 from assay.pack_verify_policy import inspect_pack_entries, validate_signed_manifest
 
@@ -401,7 +401,7 @@ def verify_pack_manifest(
     # 3. Attestation hash
     attestation_sha256 = manifest.get("attestation_sha256")
     if attestation and attestation_sha256:
-        if _sha256_hex(to_jcs_bytes(attestation)) != attestation_sha256:
+        if _sha256_hex(jcs_canonicalize(attestation)) != attestation_sha256:
             errors.append(VerifyError(
                 code=E_MANIFEST_TAMPER,
                 message="Attestation hash mismatch in manifest",

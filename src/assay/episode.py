@@ -30,7 +30,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from assay.claim_verifier import ClaimSpec
-from assay._receipts.canonicalize import to_jcs_bytes
+from assay._receipts.jcs import canonicalize as jcs_canonicalize
 from assay.integrity import VerifyResult
 from assay.keystore import AssayKeyStore, get_default_keystore
 from assay.proof_pack import ProofPack
@@ -106,7 +106,7 @@ def _normalize_value(value: Any) -> Any:
 
 
 def _canonical_hash(data: Mapping[str, Any]) -> str:
-    return hashlib.sha256(to_jcs_bytes(_normalize_value(dict(data)))).hexdigest()
+    return hashlib.sha256(jcs_canonicalize(_normalize_value(dict(data)))).hexdigest()
 
 
 def _stable_id(prefix: str) -> str:

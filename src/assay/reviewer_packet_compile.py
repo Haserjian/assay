@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from assay._receipts.canonicalize import to_jcs_bytes
+from assay._receipts.jcs import canonicalize as jcs_canonicalize
 from assay.keystore import AssayKeyStore
 from assay.vendorq_models import VendorQInputError, now_utc_iso, resolve_pointer, write_json
 
@@ -427,8 +427,8 @@ def _build_packet_manifest(
             "regression_state": settlement_payload["regression_state"],
             "valid_for": settlement_payload["valid_for"],
             "expires_at": settlement_payload["expires_at"],
-            "boundary_hash": _sha256_hex(to_jcs_bytes(boundary_payload)),
-            "mapping_hash": _sha256_hex(to_jcs_bytes(mapping_payload)),
+            "boundary_hash": _sha256_hex(jcs_canonicalize(boundary_payload)),
+            "mapping_hash": _sha256_hex(jcs_canonicalize(mapping_payload)),
             "baseline_settlement_state": baseline_settlement_state,
         },
         "files": file_entries,
@@ -454,7 +454,7 @@ def _build_packet_manifest(
             "signature_scope": "JCS(packet_manifest_without_signature)",
         }
     )
-    signature_b64 = keystore.sign_b64(to_jcs_bytes(unsigned_manifest), signer_id)
+    signature_b64 = keystore.sign_b64(jcs_canonicalize(unsigned_manifest), signer_id)
     signed_manifest = {
         **unsigned_manifest,
         "signature": signature_b64,

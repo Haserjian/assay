@@ -16,7 +16,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from assay._receipts.canonicalize import to_jcs_bytes
+from assay._receipts.jcs import canonicalize as jcs_canonicalize
 from assay.keystore import AssayKeyStore, get_default_keystore
 
 
@@ -53,12 +53,12 @@ def sign_passport(
     body = {k: v for k, v in data.items() if k not in ("signature", "passport_id")}
 
     # Step 2: content-addressed ID = SHA-256(JCS(body without signature or passport_id))
-    canonical_for_id = to_jcs_bytes(body)
+    canonical_for_id = jcs_canonicalize(body)
     passport_id = "sha256:" + hashlib.sha256(canonical_for_id).hexdigest()
     body["passport_id"] = passport_id
 
     # Step 3: sign JCS(body with passport_id, without signature)
-    canonical_for_signing = to_jcs_bytes(body)
+    canonical_for_signing = jcs_canonicalize(body)
     signature_b64 = ks.sign_b64(canonical_for_signing, sid)
 
     # Step 4: attach signature block
@@ -113,13 +113,13 @@ def verify_passport_signature(
 
     # Reconstruct ID-computation body (no signature, no passport_id)
     id_body = {k: v for k, v in data.items() if k not in ("signature", "passport_id")}
-    canonical_for_id = to_jcs_bytes(id_body)
+    canonical_for_id = jcs_canonicalize(id_body)
     expected_id = "sha256:" + hashlib.sha256(canonical_for_id).hexdigest()
     id_valid = data.get("passport_id") == expected_id
 
     # Reconstruct signing body (no signature, but WITH passport_id)
     sign_body = {k: v for k, v in data.items() if k != "signature"}
-    canonical_for_signing = to_jcs_bytes(sign_body)
+    canonical_for_signing = jcs_canonicalize(sign_body)
     try:
         sig_valid = ks.verify_b64(canonical_for_signing, sig_b64, key_id)
     except Exception as exc:

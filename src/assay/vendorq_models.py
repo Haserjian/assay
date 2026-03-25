@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import referencing
 from jsonschema import Draft202012Validator
 
-from assay._receipts.canonicalize import to_jcs_bytes
+from assay._receipts.jcs import canonicalize as jcs_canonicalize
 
 SCHEMA_VERSION_QUESTION = "vendorq.question.v1"
 SCHEMA_VERSION_ANSWER = "vendorq.answer.v1"
@@ -70,7 +70,7 @@ def now_utc_iso() -> str:
 
 
 def canonical_sha256(obj: Any) -> str:
-    return hashlib.sha256(to_jcs_bytes(obj)).hexdigest()
+    return hashlib.sha256(jcs_canonicalize(obj)).hexdigest()
 
 
 def parse_iso8601(ts: str) -> Optional[datetime]:

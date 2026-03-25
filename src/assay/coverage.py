@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from assay._receipts.canonicalize import to_jcs_bytes
+from assay._receipts.jcs import canonicalize as jcs_canonicalize
 
 
 def compute_callsite_id(path: str, line: int) -> str:
@@ -122,7 +122,7 @@ class CoverageContract:
     def contract_hash(self) -> str:
         """Deterministic hash of the contract's call sites."""
         sites_data = [s.to_dict() for s in self.call_sites]
-        return hashlib.sha256(to_jcs_bytes(sites_data)).hexdigest()
+        return hashlib.sha256(jcs_canonicalize(sites_data)).hexdigest()
 
     @property
     def summary(self) -> Dict[str, int]:

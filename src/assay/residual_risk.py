@@ -18,7 +18,7 @@ import hashlib
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from assay._receipts.canonicalize import to_jcs_bytes
+from assay._receipts.jcs import canonicalize as jcs_canonicalize
 
 
 @dataclass
@@ -66,7 +66,7 @@ class ResidualRiskLedger:
     def fingerprint(self) -> str:
         """Deterministic hash of the ledger contents."""
         canonical = [item.to_dict() for item in sorted(self.items, key=lambda i: i.claim_id)]
-        return hashlib.sha256(to_jcs_bytes(canonical)).hexdigest()
+        return hashlib.sha256(jcs_canonicalize(canonical)).hexdigest()
 
     def to_dict(self) -> Dict[str, Any]:
         return {

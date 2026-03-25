@@ -25,7 +25,7 @@ from typing import Any, Dict, List, Optional
 
 from packaging.version import Version
 
-from assay._receipts.canonicalize import to_jcs_bytes
+from assay._receipts.jcs import canonicalize as jcs_canonicalize
 
 from assay import __version__ as _assay_version
 from assay.run_cards import RunCard, collect_claims_from_cards, get_builtin_card
@@ -101,13 +101,13 @@ def write_lockfile(
 
     # Compute composite hash two ways:
     # 1. Per-card hash composite (for card-level drift detection)
-    composite_material = to_jcs_bytes([e["claim_set_hash"] for e in run_card_entries])
+    composite_material = jcs_canonicalize([e["claim_set_hash"] for e in run_card_entries])
     composite_hash = hashlib.sha256(composite_material).hexdigest()
 
     # 2. Flattened claim set hash (matches ProofPack.claim_set_hash exactly)
     all_claims = collect_claims_from_cards(cards)
     flat_specs = [c.to_dict() for c in all_claims]
-    flat_hash = hashlib.sha256(to_jcs_bytes(flat_specs)).hexdigest()
+    flat_hash = hashlib.sha256(jcs_canonicalize(flat_specs)).hexdigest()
 
     # Compute major.minor for version ceiling (e.g. 1.15.1 -> 1.999.0)
     # This prevents a future major version from silently accepting this lock.
@@ -417,7 +417,7 @@ def check_lockfile(path: Path) -> List[str]:
     if resolved_cards and "run_cards_composite_hash" in data:
         recomputed_hashes = [card.claim_set_hash() for card in resolved_cards]
         recomputed_composite = hashlib.sha256(
-            to_jcs_bytes(recomputed_hashes)
+            jcs_canonicalize(recomputed_hashes)
         ).hexdigest()
         if data["run_cards_composite_hash"] != recomputed_composite:
             issues.append(
@@ -430,7 +430,7 @@ def check_lockfile(path: Path) -> List[str]:
     if resolved_cards and "claim_set_hash" in data:
         all_claims = collect_claims_from_cards(resolved_cards)
         flat_specs = [c.to_dict() for c in all_claims]
-        recomputed_flat = hashlib.sha256(to_jcs_bytes(flat_specs)).hexdigest()
+        recomputed_flat = hashlib.sha256(jcs_canonicalize(flat_specs)).hexdigest()
         if data["claim_set_hash"] != recomputed_flat:
             issues.append(
                 f"claim_set_hash drift: "

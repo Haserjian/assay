@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from assay._receipts.canonicalize import to_jcs_bytes
+from assay._receipts.jcs import canonicalize as jcs_canonicalize
 from assay.keystore import AssayKeyStore, get_default_keystore
 from assay.vendorq_models import now_utc_iso, write_json
 
@@ -21,7 +21,7 @@ def _sign_payload(
     signer_id: str,
     keystore: AssayKeyStore,
 ) -> Dict[str, Any]:
-    signature = keystore.sign_b64(to_jcs_bytes(payload), signer_id)
+    signature = keystore.sign_b64(jcs_canonicalize(payload), signer_id)
     return {
         **payload,
         "signature": signature,
@@ -41,7 +41,7 @@ def build_human_attestation(
     resolved_signer = signer_id or ks.get_active_signer()
     ks.ensure_key(resolved_signer)
     timestamp = created_at or now_utc_iso()
-    attestation_id = f"attest_{_sha256_hex(to_jcs_bytes([question, assertion, attester, timestamp]))[:12]}"
+    attestation_id = f"attest_{_sha256_hex(jcs_canonicalize([question, assertion, attester, timestamp]))[:12]}"
     payload = {
         "artifact_type": "human_attestation",
         "schema_version": "1.0",
@@ -89,7 +89,7 @@ def build_reviewer_challenge(
     settlement = json.loads(settlement_path.read_text())
     settlement_sha256 = _sha256_hex(settlement_path.read_bytes())
     manifest_sha256 = _sha256_hex(manifest_path.read_bytes())
-    challenge_id = f"challenge_{_sha256_hex(to_jcs_bytes([str(packet_dir), reason, claim_ref or '', timestamp]))[:12]}"
+    challenge_id = f"challenge_{_sha256_hex(jcs_canonicalize([str(packet_dir), reason, claim_ref or '', timestamp]))[:12]}"
     payload = {
         "artifact_type": "reviewer_packet_challenge",
         "schema_version": "1.0",

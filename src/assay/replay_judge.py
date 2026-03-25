@@ -21,7 +21,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 import referencing
 from jsonschema import Draft202012Validator
 
-from assay._receipts.canonicalize import to_jcs_bytes
+from assay._receipts.jcs import canonicalize as jcs_canonicalize
 from assay.keystore import AssayKeyStore, DEFAULT_SIGNER_ID, get_default_keystore
 
 
@@ -99,7 +99,7 @@ def _load_optional_json(path: Path) -> Optional[Dict[str, Any]]:
 
 def _unsigned_digest(payload: Dict[str, Any], *, id_field: str) -> str:
     body = {k: v for k, v in payload.items() if k not in (id_field, "signature")}
-    return _sha256_hex(to_jcs_bytes(body))
+    return _sha256_hex(jcs_canonicalize(body))
 
 
 def _semantic_claim_results(adc: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -157,7 +157,7 @@ def _artifact_summary(
         {
             "adc_credential_id": adc.get("credential_id"),
             "adc_unsigned_sha256": _unsigned_digest(adc, id_field="credential_id"),
-            "semantic_sha256": _sha256_hex(to_jcs_bytes(semantic)),
+            "semantic_sha256": _sha256_hex(jcs_canonicalize(semantic)),
             "claim_namespace": semantic["claim_namespace"],
             "claim_ids": semantic["claim_ids"],
             "overall_result": semantic["overall_result"],
@@ -339,9 +339,9 @@ def build_replay_judgment(
         "canon_version": "jcs-rfc8785",
     }
 
-    judgment_id = _sha256_hex(to_jcs_bytes(body))
+    judgment_id = _sha256_hex(jcs_canonicalize(body))
     body["judgment_id"] = judgment_id
-    body["signature"] = sign_fn(to_jcs_bytes(body))
+    body["signature"] = sign_fn(jcs_canonicalize(body))
 
     errors = validate_replay_judgment(body)
     if errors:

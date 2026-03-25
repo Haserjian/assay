@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from nacl.signing import VerifyKey
 
-from assay._receipts.canonicalize import to_jcs_bytes
+from assay._receipts.jcs import canonicalize as jcs_canonicalize
 from assay.checkpoint_reviewer_packet import (
     CHECKPOINT_REVIEWER_PACKET_PROFILE,
     derive_checkpoint_claim_state,
@@ -336,7 +336,7 @@ def _verify_packet_manifest(
         return errors, warnings, False, signed
 
     unsigned_manifest = {k: v for k, v in packet_manifest.items() if k != "signature"}
-    canonical_bytes = to_jcs_bytes(unsigned_manifest)
+    canonical_bytes = jcs_canonicalize(unsigned_manifest)
     signer_pubkey_b64 = str(packet_manifest.get("signer_pubkey") or "")
     signer_pubkey_sha256 = str(packet_manifest.get("signer_pubkey_sha256") or "")
     signer_id = str(packet_manifest.get("signer_id") or "")

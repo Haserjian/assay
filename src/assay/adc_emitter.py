@@ -16,7 +16,7 @@ from __future__ import annotations
 import hashlib
 from typing import Any, Callable, Dict, List, Optional
 
-from assay._receipts.canonicalize import to_jcs_bytes
+from assay._receipts.jcs import canonicalize as jcs_canonicalize
 from assay.claim_verifier import ClaimSetResult
 
 
@@ -80,10 +80,10 @@ def refresh_adc_witness_state(
     body["time_authority"] = time_authority
     body["witness_status"] = witness_status
 
-    credential_id = _sha256_hex(to_jcs_bytes(body))
+    credential_id = _sha256_hex(jcs_canonicalize(body))
     body["credential_id"] = credential_id
 
-    canonical_for_signing = to_jcs_bytes(body)
+    canonical_for_signing = jcs_canonicalize(body)
     body["signature"] = sign_fn(canonical_for_signing)
     return body
 
@@ -202,11 +202,11 @@ def build_adc(
     body["transparency_log_id"] = None
 
     # Step 2: credential_id = SHA-256(JCS(body))
-    credential_id = _sha256_hex(to_jcs_bytes(body))
+    credential_id = _sha256_hex(jcs_canonicalize(body))
     body["credential_id"] = credential_id
 
     # Step 3: signature = Sign(JCS(body + credential_id))
-    canonical_for_signing = to_jcs_bytes(body)
+    canonical_for_signing = jcs_canonicalize(body)
     signature_b64 = sign_fn(canonical_for_signing)
     body["signature"] = signature_b64
 

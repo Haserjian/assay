@@ -31,7 +31,7 @@ from typing import Any, Dict, List, Optional
 from assay.claim_verifier import ClaimSetResult, ClaimSpec, verify_claims
 from assay.integrity import VerifyResult, verify_receipt_pack
 from assay.keystore import AssayKeyStore, DEFAULT_SIGNER_ID, get_default_keystore
-from assay._receipts.canonicalize import to_jcs_bytes, prepare_receipt_for_hashing
+from assay._receipts.canonicalize import prepare_receipt_for_hashing
 from assay._receipts.jcs import canonicalize as jcs_canonicalize
 
 try:
@@ -92,7 +92,7 @@ def _build_deterministic_pack_seed(
         "valid_until": valid_until,
         "superseded_by": superseded_by,
     }
-    return _sha256_hex(to_jcs_bytes(seed_material))
+    return _sha256_hex(jcs_canonicalize(seed_material))
 
 
 import re as _re
@@ -350,7 +350,7 @@ class ProofPack:
         # When claims are provided, compute real claim_set_hash from specs
         if claims and not claim_set_hash:
             specs = [c.to_dict() for c in claims]
-            self.claim_set_hash = _sha256_hex(to_jcs_bytes(specs))
+            self.claim_set_hash = _sha256_hex(jcs_canonicalize(specs))
         else:
             self.claim_set_hash = claim_set_hash or _sha256_hex(claim_set_id.encode())
 
@@ -525,7 +525,7 @@ class ProofPack:
         (staging_dir / "verify_transcript.md").write_bytes(transcript_bytes)
 
         # 6. Build unsigned manifest
-        attestation_bytes = to_jcs_bytes(attestation)
+        attestation_bytes = jcs_canonicalize(attestation)
         attestation_sha256 = _sha256_hex(attestation_bytes)
 
         files_list = [
@@ -605,7 +605,7 @@ class ProofPack:
         # The "signature_scope" field in the manifest is descriptive
         # only — verifiers must use the contract-defined exclusion set
         # {"signature", "pack_root_sha256"}, not the field value.
-        canonical_unsigned = to_jcs_bytes(unsigned_manifest)
+        canonical_unsigned = jcs_canonicalize(unsigned_manifest)
         signature_b64 = ks.sign_b64(canonical_unsigned, self.signer_id)
 
         # 8. Create signed manifest.

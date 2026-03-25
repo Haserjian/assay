@@ -23,7 +23,7 @@ from typing import Any, Dict, List
 
 from assay.claim_verifier import ClaimSpec
 
-from assay._receipts.canonicalize import to_jcs_bytes
+from assay._receipts.jcs import canonicalize as jcs_canonicalize
 
 
 # ---------------------------------------------------------------------------
@@ -44,7 +44,7 @@ class RunCard:
     def claim_set_hash(self) -> str:
         """Deterministic hash of the claim set for attestation binding."""
         specs = [c.to_dict() for c in self.claims]
-        canonical = to_jcs_bytes(specs)
+        canonical = jcs_canonicalize(specs)
         return hashlib.sha256(canonical).hexdigest()
 
     def to_dict(self) -> Dict[str, Any]:

@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from assay._receipts.canonicalize import to_jcs_bytes
+from assay._receipts.jcs import canonicalize as jcs_canonicalize
 from assay.keystore import AssayKeyStore, get_default_keystore
 
 
@@ -91,13 +91,13 @@ def _sign_receipt(
     """
     # Step 1: content-addressed identity
     id_body = {k: v for k, v in body.items() if k not in ("event_id", "signature")}
-    canonical_for_id = to_jcs_bytes(id_body)
+    canonical_for_id = jcs_canonicalize(id_body)
     event_id = "sha256:" + hashlib.sha256(canonical_for_id).hexdigest()
     body["event_id"] = event_id
 
     # Step 2: sign
     sign_body = {k: v for k, v in body.items() if k != "signature"}
-    canonical_for_signing = to_jcs_bytes(sign_body)
+    canonical_for_signing = jcs_canonicalize(sign_body)
     signature_b64 = keystore.sign_b64(canonical_for_signing, signer_id)
 
     # Step 3: attach signature block
@@ -308,7 +308,7 @@ def verify_lifecycle_receipt(
         k: v for k, v in receipt.items()
         if k not in ("event_id", "signature") and not k.startswith("_")
     }
-    canonical_for_id = to_jcs_bytes(id_body)
+    canonical_for_id = jcs_canonicalize(id_body)
     expected_id = "sha256:" + hashlib.sha256(canonical_for_id).hexdigest()
     id_valid = event_id == expected_id
     base_result["id_valid"] = id_valid
@@ -334,7 +334,7 @@ def verify_lifecycle_receipt(
             k: v for k, v in receipt.items()
             if k != "signature" and not k.startswith("_")
         }
-        canonical_for_signing = to_jcs_bytes(sign_body)
+        canonical_for_signing = jcs_canonicalize(sign_body)
         sig_bytes = base64.b64decode(sig_b64)
         vk.verify(canonical_for_signing, sig_bytes)
         base_result["signature_valid"] = True

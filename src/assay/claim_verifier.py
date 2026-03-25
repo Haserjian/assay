@@ -19,7 +19,7 @@ import hashlib
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
-from assay._receipts.canonicalize import to_jcs_bytes
+from assay._receipts.jcs import canonicalize as jcs_canonicalize
 
 ALLOWED_SEVERITIES = {"critical", "warning"}
 
@@ -456,7 +456,7 @@ def _compute_discrepancy_fingerprint(
             key=lambda x: x["claim_id"],
         ),
     }
-    canonical_bytes = to_jcs_bytes(canonical_obj)
+    canonical_bytes = jcs_canonicalize(canonical_obj)
     return hashlib.sha256(canonical_bytes).hexdigest()
 
 

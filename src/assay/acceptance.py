@@ -24,7 +24,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from assay._receipts.canonicalize import to_jcs_bytes
+from assay._receipts.jcs import canonicalize as jcs_canonicalize
 from assay.keystore import AssayKeyStore, get_default_keystore
 from nacl.signing import VerifyKey
 
@@ -93,7 +93,7 @@ def generate_acceptance_receipt(
     # Sign: JCS-canonicalize the receipt with empty signature, then sign
     signable = copy.deepcopy(receipt)
     signable["signer"]["signature"] = ""
-    canonical_bytes = to_jcs_bytes(signable)
+    canonical_bytes = jcs_canonicalize(signable)
     signature_b64 = ks.sign_b64(canonical_bytes, signer_id)
     receipt["signer"]["signature"] = signature_b64
 
@@ -159,7 +159,7 @@ def verify_acceptance_receipt(
         # Reconstruct the signable form (signature = "")
         signable = copy.deepcopy(receipt)
         signable["signer"]["signature"] = ""
-        canonical_bytes = to_jcs_bytes(signable)
+        canonical_bytes = jcs_canonicalize(signable)
 
         verified = False
 
