@@ -586,7 +586,7 @@ class ProofPack:
             "signer_pubkey": base64.b64encode(pubkey_bytes).decode("ascii"),
             "signer_pubkey_sha256": _sha256_hex(pubkey_bytes),
             "signature_alg": "ed25519",
-            "signature_scope": "JCS(pack_manifest_without_signature)",
+            "signature_scope": "JCS(pack_manifest_excluding_signature_and_pack_root_sha256)",
         }
 
         from assay.manifest_schema import validate_attestation, validate_manifest
@@ -598,6 +598,12 @@ class ProofPack:
             )
 
         # 7. Sign: JCS(unsigned_manifest) -> Ed25519
+        # NORMATIVE: The signing base is JCS(unsigned_manifest), where
+        # unsigned_manifest does NOT contain "signature" or
+        # "pack_root_sha256".  Those fields are added AFTER signing.
+        # The "signature_scope" field in the manifest is descriptive
+        # only — verifiers must use the contract-defined exclusion set
+        # {"signature", "pack_root_sha256"}, not the field value.
         canonical_unsigned = to_jcs_bytes(unsigned_manifest)
         signature_b64 = ks.sign_b64(canonical_unsigned, self.signer_id)
 

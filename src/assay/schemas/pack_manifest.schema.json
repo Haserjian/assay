@@ -118,11 +118,16 @@
     },
     "signature_alg": {
       "type": "string",
-      "pattern": "^[A-Za-z0-9._-]+$"
+      "enum": ["ed25519"],
+      "description": "Signature algorithm. Constrained for defense in depth (OCD-10). Adding algorithms requires contract update."
     },
     "signature_scope": {
       "type": "string",
-      "const": "JCS(pack_manifest_without_signature)"
+      "enum": [
+        "JCS(pack_manifest_excluding_signature_and_pack_root_sha256)",
+        "JCS(pack_manifest_without_signature)"
+      ],
+      "description": "Describes the signed content scope. New packs use the precise form. Old packs may use the legacy form."
     },
     "signature": {
       "type": "string",

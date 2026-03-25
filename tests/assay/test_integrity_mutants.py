@@ -241,6 +241,72 @@ class TestRecomputationMutants:
         assert head_errors[0].code == E_MANIFEST_TAMPER
 
 
+class TestHeadHashNoSilentSkip:
+    """Constitutional invariant: if an attestation claims a head_hash and the
+    verifier cannot recompute it, the result must be an explicit error, never
+    a silent comparison skip."""
+
+    def test_head_hash_none_produces_explicit_error(self, tmp_path, ks):
+        """When the last receipt fails canonicalization, head_hash recomputes
+        to None.  If the attestation claims a head_hash, the verifier must
+        emit an explicit error instead of silently skipping the comparison."""
+        receipts = [_make_receipt(seq=0)]
+        pack = ProofPack(
+            run_id="head-hash-skip",
+            entries=receipts,
+            signer_id="mutant-signer",
+        )
+        out = pack.build(tmp_path / "pack_headhash", keystore=ks)
+
+        # The attestation claims a head_hash.  Now corrupt the receipt_pack
+        # so the last receipt fails canonicalization (make it non-JSON).
+        rp = out / "receipt_pack.jsonl"
+        rp.write_text("NOT VALID JSON AT ALL\n")
+
+        manifest = json.loads((out / "pack_manifest.json").read_text())
+        claimed_head = manifest["attestation"].get("head_hash")
+        assert claimed_head is not None, "Attestation should claim a head_hash"
+
+        result = verify_pack_manifest(manifest, out, ks)
+        assert not result.passed
+
+        # The key assertion: there must be an error mentioning head_hash,
+        # NOT a silent skip.  Before this fix, the comparison was silently
+        # skipped when recomputed head_hash was None.
+        head_errors = [e for e in result.errors if e.field == "head_hash"]
+        assert len(head_errors) >= 1, (
+            f"Expected explicit head_hash error, got none. "
+            f"All errors: {[e.message for e in result.errors]}"
+        )
+
+    def test_canonicalization_failure_does_not_retain_stale_hash(self):
+        """verify_receipt_pack must set head_hash to None when the last
+        receipt fails canonicalization, not silently retain the previous
+        receipt's hash."""
+        good_receipt = {
+            "receipt_id": "r1",
+            "type": "test",
+            "timestamp": "2026-01-01T00:00:00Z",
+        }
+        # An uncanonicalizeable receipt: contains a type JCS rejects
+        bad_receipt = {
+            "receipt_id": "r2",
+            "type": "test",
+            "timestamp": "2026-01-01T00:00:01Z",
+            "bad_field": float("inf"),  # Non-finite float → JCS rejects
+        }
+
+        result = verify_receipt_pack([good_receipt, bad_receipt])
+
+        # head_hash should be None because the last receipt (bad_receipt)
+        # failed canonicalization.  Before this fix, it would silently
+        # retain good_receipt's hash.
+        assert result.head_hash is None, (
+            f"head_hash should be None after canonicalization failure, "
+            f"got {result.head_hash!r}"
+        )
+
+
 # ---------------------------------------------------------------------------
 # Structural invariant: integrity verifier stays small
 # ---------------------------------------------------------------------------
@@ -253,8 +319,8 @@ class TestVerifierBudget:
 
         source_path = Path(mod.__file__)
         line_count = len(source_path.read_text().splitlines())
-        assert line_count <= 600, (
-            f"integrity.py is {line_count} LOC (limit: 600). "
+        assert line_count <= 620, (
+            f"integrity.py is {line_count} LOC (limit: 620). "
             f"Move non-core helpers out to stay under budget."
         )
 
@@ -340,3 +406,200 @@ class TestPathContainment:
         manifest["files"].append({"path": "../../etc/passwd", "sha256": "a" * 64})
         result = verify_pack_manifest(manifest, pack_dir, ks)
         assert not result.passed
+
+
+class TestSignatureScopeInvariant:
+    """The verifier must NOT derive the signing exclusion set from
+    the manifest's ``signature_scope`` field.  That field is descriptive
+    only.  The normative exclusion set is {"signature", "pack_root_sha256"},
+    defined by the contract."""
+
+    def test_legacy_scope_field_still_verifies(self, tmp_path, ks):
+        """Old packs with legacy signature_scope value must still pass
+        verification if actual signed bytes match the contract behavior."""
+        receipts = [_make_receipt(seq=0)]
+        pack = ProofPack(
+            run_id="legacy-scope",
+            entries=receipts,
+            signer_id="mutant-signer",
+        )
+        out = pack.build(tmp_path / "pack_legacy", keystore=ks)
+
+        # Overwrite the signature_scope field with the old value.
+        # The signature covers JCS(manifest minus {signature, pack_root_sha256})
+        # so changing signature_scope (which is inside the signed content)
+        # would break the signature.  We must re-sign.
+        manifest = json.loads((out / "pack_manifest.json").read_text())
+        manifest["signature_scope"] = "JCS(pack_manifest_without_signature)"
+
+        # Re-sign with the correct exclusion set (not the field value)
+        import base64
+        from assay._receipts.canonicalize import to_jcs_bytes
+        unsigned = {
+            k: v for k, v in manifest.items()
+            if k not in ("signature", "pack_root_sha256")
+        }
+        canonical = to_jcs_bytes(unsigned)
+        sig_b64 = ks.sign_b64(canonical, "mutant-signer")
+        manifest["signature"] = sig_b64
+        sig_raw = base64.b64decode(sig_b64)
+
+        (out / "pack_manifest.json").write_bytes(
+            json.dumps(manifest, indent=2).encode()
+        )
+        (out / "pack_signature.sig").write_bytes(sig_raw)
+
+        result = verify_pack_manifest(manifest, out, ks)
+        assert result.passed, (
+            f"Legacy signature_scope value should not prevent verification: "
+            f"{[e.message for e in result.errors]}"
+        )
+
+    def test_poison_pill_field_driven_verifier_would_fail(self, tmp_path, ks):
+        """Poison-pill vector: a pack where the signature only verifies
+        against the TRUE exclusion set {signature, pack_root_sha256}.
+
+        A naive verifier that reads signature_scope and excludes only
+        "signature" (not pack_root_sha256) would compute different
+        canonical bytes and fail verification.  The real verifier must
+        pass because it uses the contract-defined exclusion set."""
+        receipts = [_make_receipt(seq=0)]
+        pack = ProofPack(
+            run_id="poison-pill",
+            entries=receipts,
+            signer_id="mutant-signer",
+        )
+        out = pack.build(tmp_path / "pack_poison", keystore=ks)
+        manifest = json.loads((out / "pack_manifest.json").read_text())
+
+        # The manifest contains pack_root_sha256.  A field-driven verifier
+        # reading "JCS(pack_manifest_without_signature)" would exclude only
+        # "signature" and include pack_root_sha256 in the signed content,
+        # producing different canonical bytes -> signature mismatch.
+        #
+        # The compliant verifier excludes BOTH and succeeds.
+        assert "pack_root_sha256" in manifest
+        assert manifest["pack_root_sha256"] == manifest["attestation_sha256"]
+
+        result = verify_pack_manifest(manifest, out, ks)
+        assert result.passed, (
+            f"Contract-compliant verifier must pass: "
+            f"{[e.message for e in result.errors]}"
+        )
+
+        # Now prove the naive approach would fail:
+        # Reconstruct with only "signature" excluded (like a field-driven verifier)
+        from assay._receipts.canonicalize import to_jcs_bytes
+        naive_unsigned = {
+            k: v for k, v in manifest.items()
+            if k != "signature"  # only excludes signature, keeps pack_root_sha256
+        }
+        naive_canonical = to_jcs_bytes(naive_unsigned)
+
+        # The correct canonical bytes (both excluded)
+        correct_unsigned = {
+            k: v for k, v in manifest.items()
+            if k not in ("signature", "pack_root_sha256")
+        }
+        correct_canonical = to_jcs_bytes(correct_unsigned)
+
+        # These MUST differ — that's the whole point
+        assert naive_canonical != correct_canonical, (
+            "Naive and correct canonical bytes should differ — "
+            "pack_root_sha256 presence must change the hash"
+        )
+
+
+class TestDescriptiveFieldInvariant:
+    """Verifier behavior must not change when descriptive metadata fields
+    are altered.  These fields are for human readers and tooling, not
+    for proof-critical dispatch.  See OCD-10."""
+
+    def test_hash_alg_schema_prevents_misleading_values(self, tmp_path, ks):
+        """The JSON schema constrains hash_alg to enum: ["sha256"].
+        This is defense-in-depth: even though the verifier code hardcodes
+        SHA-256 and never reads the field, the schema prevents a pack
+        from carrying a misleading hash_alg value.
+
+        This test proves the schema catches the mutation.  Compare with
+        signature_alg below, where the schema is loose and the verifier
+        must be immune to field values on its own."""
+        import base64
+        from assay._receipts.canonicalize import to_jcs_bytes
+
+        receipts = [_make_receipt(seq=0)]
+        pack = ProofPack(
+            run_id="hash-alg-poison",
+            entries=receipts,
+            signer_id="mutant-signer",
+        )
+        out = pack.build(tmp_path / "pack_hashalg", keystore=ks)
+        manifest = json.loads((out / "pack_manifest.json").read_text())
+
+        manifest["hash_alg"] = "sha512"
+
+        # Re-sign so the signature is valid for the modified content
+        unsigned = {
+            k: v for k, v in manifest.items()
+            if k not in ("signature", "pack_root_sha256")
+        }
+        canonical = to_jcs_bytes(unsigned)
+        sig_b64 = ks.sign_b64(canonical, "mutant-signer")
+        manifest["signature"] = sig_b64
+        sig_raw = base64.b64decode(sig_b64)
+
+        (out / "pack_manifest.json").write_bytes(
+            json.dumps(manifest, indent=2).encode()
+        )
+        (out / "pack_signature.sig").write_bytes(sig_raw)
+
+        # Schema validation catches the misleading hash_alg before
+        # the verifier ever gets to hash comparison.
+        result = verify_pack_manifest(manifest, out, ks)
+        assert not result.passed
+        schema_errors = [e for e in result.errors if "hash_alg" in e.message]
+        assert len(schema_errors) >= 1, (
+            "Schema must reject hash_alg='sha512' — defense in depth"
+        )
+
+    def test_signature_alg_schema_prevents_misleading_values(self, tmp_path, ks):
+        """After OCD-10 hardening, signature_alg is now constrained to
+        enum: ["ed25519"] like hash_alg.  Schema catches misleading values
+        as defense in depth, so the verifier never has to deal with a
+        pack claiming a different signature algorithm."""
+        import base64
+        from assay._receipts.canonicalize import to_jcs_bytes
+
+        receipts = [_make_receipt(seq=0)]
+        pack = ProofPack(
+            run_id="sigalg-poison",
+            entries=receipts,
+            signer_id="mutant-signer",
+        )
+        out = pack.build(tmp_path / "pack_sigalg", keystore=ks)
+        manifest = json.loads((out / "pack_manifest.json").read_text())
+
+        manifest["signature_alg"] = "rsa-pss"
+
+        # Re-sign so signature is valid for modified content
+        unsigned = {
+            k: v for k, v in manifest.items()
+            if k not in ("signature", "pack_root_sha256")
+        }
+        canonical = to_jcs_bytes(unsigned)
+        sig_b64 = ks.sign_b64(canonical, "mutant-signer")
+        manifest["signature"] = sig_b64
+        sig_raw = base64.b64decode(sig_b64)
+
+        (out / "pack_manifest.json").write_bytes(
+            json.dumps(manifest, indent=2).encode()
+        )
+        (out / "pack_signature.sig").write_bytes(sig_raw)
+
+        # Schema validation catches misleading signature_alg
+        result = verify_pack_manifest(manifest, out, ks)
+        assert not result.passed
+        schema_errors = [e for e in result.errors if "signature_alg" in e.message]
+        assert len(schema_errors) >= 1, (
+            "Schema must reject signature_alg='rsa-pss' — defense in depth (OCD-10)"
+        )

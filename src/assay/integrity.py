@@ -188,11 +188,14 @@ def verify_receipt_pack(
                 ))
             seen_ids.add(rid)
 
-        # Compute running head hash (last receipt's canonical hash)
+        # Compute running head hash (last receipt's canonical hash).
+        # On failure, record it explicitly — do not silently retain
+        # the previous receipt's hash.  A None head_hash will trigger
+        # an explicit comparison failure downstream (not a silent skip).
         try:
             head_hash = _sha256_hex(to_jcs_bytes(receipt))
         except Exception:
-            pass
+            head_hash = None
 
     return VerifyResult(
         passed=len(all_errors) == 0,
@@ -363,12 +366,33 @@ def verify_pack_manifest(
             field="receipt_integrity",
         ))
     claimed_head = attestation.get("head_hash")
-    if claimed_head and recomputed.head_hash and claimed_head != recomputed.head_hash:
-        errors.append(VerifyError(
-            code=E_MANIFEST_TAMPER,
-            message="Recomputed head_hash does not match attestation",
-            field="head_hash",
-        ))
+    if claimed_head:
+        # Empty packs: builder uses SHA256(b"empty") as sentinel when
+        # there are no receipts.  Verifier recomputes the same sentinel
+        # so empty-pack head_hash still round-trips.
+        _EMPTY_PACK_HEAD_HASH = _sha256_hex(b"empty")
+        effective_recomputed = recomputed.head_hash
+        if effective_recomputed is None and recomputed.receipt_count == 0:
+            effective_recomputed = _EMPTY_PACK_HEAD_HASH
+
+        if effective_recomputed is None:
+            # Attestation claims a head_hash but verifier could not
+            # recompute it (non-empty pack, last receipt failed
+            # canonicalization).  This is an explicit failure, not a
+            # silent skip.  Constitutional rule: if an attestation claims
+            # a value, inability to verify it is a verification error.
+            errors.append(VerifyError(
+                code=E_MANIFEST_TAMPER,
+                message="Attestation claims head_hash but verifier could not "
+                        "recompute it (last receipt failed canonicalization)",
+                field="head_hash",
+            ))
+        elif claimed_head != effective_recomputed:
+            errors.append(VerifyError(
+                code=E_MANIFEST_TAMPER,
+                message="Recomputed head_hash does not match attestation",
+                field="head_hash",
+            ))
 
     # 3. Attestation hash
     attestation_sha256 = manifest.get("attestation_sha256")
@@ -428,10 +452,15 @@ def verify_pack_manifest(
                     field="pack_signature.sig",
                 ))
 
-    # 4b. Reconstruct unsigned manifest (remove post-signing fields)
+    # 4b. Reconstruct unsigned manifest (remove post-signing fields).
+    # NORMATIVE: The signing base is JCS(manifest excluding {"signature",
+    # "pack_root_sha256"}).  Do NOT derive this exclusion set from the
+    # manifest's "signature_scope" field — that field is descriptive only
+    # and older packs carry a legacy value that omits pack_root_sha256.
+    _MANIFEST_SIGNING_EXCLUSIONS = ("signature", "pack_root_sha256")
     unsigned = {
         k: v for k, v in manifest.items()
-        if k not in ("signature", "pack_root_sha256")
+        if k not in _MANIFEST_SIGNING_EXCLUSIONS
     }
     canonical_bytes = to_jcs_bytes(unsigned)
 
