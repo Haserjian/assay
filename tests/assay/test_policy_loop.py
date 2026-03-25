@@ -478,7 +478,7 @@ class TestCLI:
         class _Dt(datetime):
             @classmethod
             def now(cls, tz=None):
-                return _frozen
+                return _frozen if tz is None else _frozen.replace(tzinfo=tz)
 
         with patch("assay.policy_loop.datetime", _Dt):
             result = runner.invoke(
@@ -506,7 +506,7 @@ class TestCLI:
         class _Dt(datetime):
             @classmethod
             def now(cls, tz=None):
-                return _frozen
+                return _frozen if tz is None else _frozen.replace(tzinfo=tz)
 
         with patch("assay.policy_loop.datetime", _Dt):
             result = runner.invoke(
