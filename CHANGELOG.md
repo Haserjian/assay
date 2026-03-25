@@ -5,8 +5,36 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [1.18.0] - 2026-03
+
+### Added
+- Episode SDK: runtime evidence bridge, settlement gate, closed-episode immutability, and orphan detection
+- Epistemic kernel: checkpoint lifecycle, contradiction runtime emission, and protocol claim/contradiction invariant registry with verifier
+- Proof posture triad: falsifier tracking, residual risk, and proof debt assessment
+- Trust infrastructure: signer registry, acceptance matrix, optional trust evaluation for proof packs, and `--enforce-trust-gate` for verify-pack
+- Decision receipt trust evaluation with verification and reviewer rendering
+- CI-org signer trust gate bootstrap for organizational CI pipelines
+- Constitutional circulation loop with posture claim eligibility
+- `assay doctor` contradiction closure check (Stage 3a) and governance anchor validation (Stage 3b)
+- Tier monotonicity assertion for decision receipts
+- Authority snapshot seam in ADC emission
+- Evidence readiness documentation and crawlability infrastructure
+- Canonical Evidence Semantics Matrix
+
+### Fixed
+- Witness lifecycle: ADC now updated to witnessed state after `assay witness` runs
+- Fingerprint-primary identity binding enforcement in trust evaluation
+- Trust authorization gaps closed in signer verification
+- Trust policy load errors surfaced instead of swallowed
+- Path containment enforced for manifest-listed files in verifier
+- Atomic pack publication via staging directory prevents partial writes
+- Keystore and verifier IO hardening (symlink traversal, permission checks)
+- FalsifierSpec and TIER_CAP_TABLE restoration for Python 3.9 compatibility
+- Test stability: frozen datetime tz-awareness and policy_loop time-freeze
+
 ### Changed
-- Signer ID validation is stricter: dot-prefixed IDs such as `.hidden` are now rejected, in addition to traversal and separator-containing values. This is a compatibility-tightening hardening change in the local keystore.
+- Receipt schema upgraded to v0.2.0 with `GovernanceEmissionError` enforcement
+- Signer ID validation stricter: dot-prefixed IDs now rejected in local keystore
 
 ## [1.17.0] - 2026-03
 
