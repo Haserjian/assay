@@ -7,6 +7,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List
+from unittest.mock import patch
 
 import pytest
 from typer.testing import CliRunner
@@ -470,10 +471,20 @@ class TestCLI:
         recs = [_receipt(offset=i) for i in range(5)]
         _write_receipts(store, recs, day="2026-02-20")
 
-        result = runner.invoke(
-            assay_app,
-            ["policy", "recommend", "--store-dir", str(store), "--window", "30", "--json"],
-        )
+        # Pin time near fixture data so receipts stay inside the 30-day window.
+        # Subclass preserves all datetime ops; only now() is frozen.
+        _frozen = _T0 + timedelta(days=1)
+
+        class _Dt(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return _frozen
+
+        with patch("assay.policy_loop.datetime", _Dt):
+            result = runner.invoke(
+                assay_app,
+                ["policy", "recommend", "--store-dir", str(store), "--window", "30", "--json"],
+            )
         assert result.exit_code == 0
         data = json.loads(result.stdout)
         assert data["command"] == "policy recommend"
@@ -490,10 +501,18 @@ class TestCLI:
             recs.append(r)
         _write_receipts(store, recs, day="2026-02-20")
 
-        result = runner.invoke(
-            assay_app,
-            ["policy", "recommend", "--store-dir", str(store), "--window", "30", "--json"],
-        )
+        _frozen = _T0 + timedelta(days=1)
+
+        class _Dt(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return _frozen
+
+        with patch("assay.policy_loop.datetime", _Dt):
+            result = runner.invoke(
+                assay_app,
+                ["policy", "recommend", "--store-dir", str(store), "--window", "30", "--json"],
+            )
         assert result.exit_code == 1
         data = json.loads(result.stdout)
         assert data["has_critical"] is True
