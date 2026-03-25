@@ -91,8 +91,9 @@ def _prepare_for_canonicalization(obj: Any) -> Any:
 # ---------------------------------------------------------------------------
 
 # Versioned signature field exclusion sets.  Single source of truth for
-# which fields are stripped before hashing.  v0 matches the historical
-# strip_signatures() behaviour in compat/pyd.py.
+# which top-level fields are stripped before hashing.  Root-level only:
+# nested structures are payload, not signature-bearing.  v0 matches the
+# historical strip_signatures() behaviour in compat/pyd.py.
 _SIGNATURE_FIELD_SETS: dict[str, frozenset[str]] = {
     "v0": frozenset({
         "signatures",
@@ -109,7 +110,8 @@ def prepare_receipt_for_hashing(receipt: Any, *, version: str = "v0") -> dict:
 
     1. Converts Pydantic models to plain dicts (``model_dump`` / ``.dict()``).
     2. Recursively unwraps frozen containers.
-    3. Strips signature-related fields per the versioned exclusion set.
+    3. Strips top-level signature-related fields per the versioned exclusion
+       set.  Root-level only — nested structures are payload.
 
     No legacy normalization is performed (Layer 3 is vestigial).
     No silent ``except`` passes — failures are raised to the caller.
@@ -119,7 +121,7 @@ def prepare_receipt_for_hashing(receipt: Any, *, version: str = "v0") -> dict:
         version: Exclusion-set version (currently only ``"v0"``).
 
     Returns:
-        Plain dict with signature fields removed, ready for
+        Plain dict with top-level signature fields removed, ready for
         ``jcs.canonicalize()``.
 
     Raises:
