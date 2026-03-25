@@ -1,5 +1,4 @@
 """Exit-code truth table: assert the advertised contract.
-
 The exit codes are a public API:
   0 = integrity PASS (+ claim gate PASS if --require-claim-pass)
   1 = claim gate failed (integrity PASS but claims not PASS)
@@ -8,6 +7,8 @@ The exit codes are a public API:
 These are the exact exit codes documented in every post, the HTML report,
 and the README. If they break, the launch messaging is a lie.
 """
+from __future__ import annotations
+
 from __future__ import annotations
 
 import json

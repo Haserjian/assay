@@ -4,6 +4,8 @@ Tests shape validation, lifecycle legality, append-only rules,
 backward reference rules, and cross-artifact consistency.
 Includes golden fixture tests for JSON-level verification.
 """
+from __future__ import annotations
+
 import json
 import uuid
 from pathlib import Path

@@ -1,5 +1,4 @@
 """MCP Hostile Scenario Pack — Torture Garden v1.
-
 Three MCP-layer attack scenarios. Each case makes assertions across three layers:
 
   A. Operation result   — did the call succeed or fail as expected?
@@ -27,6 +26,7 @@ The proxy is not a semantic firewall for arbitrary model behavior.
 
 Manifest: docs/hostile_scenarios/manifest.yaml
 """
+from __future__ import annotations
 
 from __future__ import annotations
 
