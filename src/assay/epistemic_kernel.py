@@ -1687,7 +1687,7 @@ def adapt_checkpoint_resolution_to_denial_record(
     return artifact
 
 
-def adapt_ccio_refusalstone_to_denial_record(
+def adapt_guardian_refusal_to_denial_record(
     refusal_stone: Mapping[str, Any],
     *,
     denial_id: Optional[str] = None,
@@ -1751,6 +1751,25 @@ def adapt_ccio_refusalstone_to_denial_record(
     return artifact
 
 
+def adapt_ccio_refusalstone_to_denial_record(
+    refusal_stone: Mapping[str, Any],
+    *,
+    denial_id: Optional[str] = None,
+) -> DenialRecordArtifact:
+    """Deprecated: use adapt_guardian_refusal_to_denial_record instead."""
+    import warnings
+
+    warnings.warn(
+        "adapt_ccio_refusalstone_to_denial_record is deprecated; "
+        "use adapt_guardian_refusal_to_denial_record",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return adapt_guardian_refusal_to_denial_record(
+        refusal_stone, denial_id=denial_id,
+    )
+
+
 __all__ = [
     "SCHEMA_VERSION",
     "CLAIM_ASSERTION_RECEIPT_TYPE",
@@ -1792,5 +1811,6 @@ __all__ = [
     "adapt_checkpoint_evaluation_to_contradiction_grounded_claims",
     "adapt_checkpoint_evaluation_to_contradiction_registrations",
     "adapt_checkpoint_resolution_to_denial_record",
+    "adapt_guardian_refusal_to_denial_record",
     "adapt_ccio_refusalstone_to_denial_record",
 ]

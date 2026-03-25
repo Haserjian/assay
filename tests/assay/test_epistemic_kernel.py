@@ -14,6 +14,7 @@ from assay import (
     CONTRADICTION_RESOLUTION_RECEIPT_TYPE,
     PROOF_BUDGET_SNAPSHOT_RECEIPT_TYPE,
     adapt_contradiction_receipt_to_registration,
+    adapt_guardian_refusal_to_denial_record,
     adapt_ccio_refusalstone_to_denial_record,
     adapt_checkpoint_decision_to_claim_assertion,
     adapt_checkpoint_decision_to_proof_budget_snapshot,
@@ -741,13 +742,33 @@ def test_ccio_refusalstone_fixture_maps_to_canonical_denial() -> None:
         "timestamp": "2026-03-19T12:00:00Z",
     }
 
-    denial = adapt_ccio_refusalstone_to_denial_record(refusal_fixture)
+    denial = adapt_guardian_refusal_to_denial_record(refusal_fixture)
     assert denial.source_surface == "ccio.refusalstone"
     assert denial.subject["subject_id"] == "case-123"
     assert denial.attempted_action["action_name"] == "approve_claim"
     assert denial.missing_evidence == ["clinical_labs", "updated_documentation"]
     assert denial.cheaper_next_move == "Collect the missing clinical lab records."
     assert denial.backward_refs["source_receipt_id"] == "REF_UNIT"
+
+
+def test_ccio_refusalstone_deprecation_alias() -> None:
+    import warnings as _w
+
+    refusal_fixture = {
+        "receipt_id": "REF_DEPRECATION",
+        "reason": "Test deprecation path",
+        "domain": "test",
+        "details": {
+            "upgrade_conditions": ["provide:evidence"],
+        },
+    }
+    with _w.catch_warnings(record=True) as caught:
+        _w.simplefilter("always")
+        denial = adapt_ccio_refusalstone_to_denial_record(refusal_fixture)
+    assert len(caught) == 1
+    assert issubclass(caught[0].category, DeprecationWarning)
+    assert "adapt_guardian_refusal_to_denial_record" in str(caught[0].message)
+    assert denial.source_surface == "ccio.refusalstone"
 
 
 def test_checkpoint_resolution_adapts_to_contradiction_resolutions() -> None:

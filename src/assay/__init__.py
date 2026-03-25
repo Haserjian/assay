@@ -58,6 +58,7 @@ from .epistemic_kernel import (
     adapt_checkpoint_decision_to_proof_budget_snapshot,
     adapt_checkpoint_evaluation_to_contradiction_grounded_claims,
     adapt_checkpoint_evaluation_to_contradiction_registrations,
+    adapt_guardian_refusal_to_denial_record,
     adapt_ccio_refusalstone_to_denial_record,
     adapt_checkpoint_resolution_to_contradiction_resolutions,
     adapt_checkpoint_resolution_to_denial_record,
@@ -165,6 +166,7 @@ __all__ = [
     "adapt_checkpoint_evaluation_to_contradiction_registrations",
     "adapt_checkpoint_resolution_to_contradiction_resolutions",
     "adapt_checkpoint_resolution_to_denial_record",
+    "adapt_guardian_refusal_to_denial_record",
     "adapt_ccio_refusalstone_to_denial_record",
     # Episode SDK (Mode 2: Runtime, Mode 3: Settlement)
     "Checkpoint",
