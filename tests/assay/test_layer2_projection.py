@@ -16,9 +16,9 @@ from pydantic import BaseModel as PydanticBaseModel
 
 from assay._receipts.canonicalize import (
     _SIGNATURE_FIELD_SETS,
+    compute_payload_hash,
     prepare_receipt_for_hashing,
-    to_jcs_bytes,
-    _prepare_for_canonicalization,
+    verify_jcs_stability,
 )
 from assay._receipts.jcs import canonicalize as jcs_canonicalize
 
@@ -215,34 +215,6 @@ class TestFailureBehavior:
 
 
 # ---------------------------------------------------------------------------
-# Equivalence with old pipeline
-# ---------------------------------------------------------------------------
-
-class TestOldPipelineEquivalence:
-    """prepare_receipt_for_hashing() + jcs_canonicalize() must produce
-    identical bytes to the old to_jcs_bytes() path for all receipt shapes."""
-
-    @pytest.mark.parametrize("receipt", [
-        PLAIN_RECEIPT,
-        RECEIPT_ALL_SIG_FIELDS,
-        RECEIPT_NO_SIG_FIELDS,
-        {"receipt_id": "empty", "type": "t", "timestamp": "2026-01-01T00:00:00Z"},
-        {"receipt_id": "nested", "type": "t", "timestamp": "2026-01-01T00:00:00Z",
-         "data": {"a": [1, 2, {"b": 3}]}, "signature": "s"},
-    ], ids=["plain", "all_sig_fields", "no_sig_fields", "minimal", "deeply_nested"])
-    def test_canonical_bytes_match_old_pipeline(self, receipt):
-        old_bytes = to_jcs_bytes(receipt)
-        new_bytes = jcs_canonicalize(prepare_receipt_for_hashing(receipt))
-        assert old_bytes == new_bytes
-
-    def test_pydantic_model_equivalence(self):
-        model = SampleReceipt()
-        old_bytes = to_jcs_bytes(model)
-        new_bytes = jcs_canonicalize(prepare_receipt_for_hashing(model))
-        assert old_bytes == new_bytes
-
-
-# ---------------------------------------------------------------------------
 # Output shape
 # ---------------------------------------------------------------------------
 
@@ -265,3 +237,44 @@ class TestOutputShape:
         canonical = jcs_canonicalize(result)
         assert isinstance(canonical, bytes)
         assert len(canonical) > 0
+
+
+# ---------------------------------------------------------------------------
+# Migration equivalence: compute_payload_hash and verify_jcs_stability
+# now route through prepare_receipt_for_hashing, not _prepare_for_canonicalization.
+# These tests guard against divergence between the old and new paths.
+# ---------------------------------------------------------------------------
+
+class TestMigrationEquivalence:
+    """compute_payload_hash() and verify_jcs_stability() must produce
+    correct results through the explicit Layer 2 path."""
+
+    def test_payload_hash_strips_signature_fields(self):
+        """Hash excludes signature fields — the core contract."""
+        hash_with_sig = compute_payload_hash(RECEIPT_ALL_SIG_FIELDS)
+        hash_without_sig = compute_payload_hash(RECEIPT_NO_SIG_FIELDS)
+        # Same payload data, different signature fields → same hash
+        assert hash_with_sig == hash_without_sig
+
+    def test_payload_hash_stable_across_calls(self):
+        h1 = compute_payload_hash(RECEIPT_ALL_SIG_FIELDS)
+        h2 = compute_payload_hash(RECEIPT_ALL_SIG_FIELDS)
+        assert h1 == h2
+
+    def test_payload_hash_on_pydantic_model(self):
+        h = compute_payload_hash(SampleReceipt())
+        assert h.startswith("sha256:")
+        assert len(h) > 10
+
+    def test_payload_hash_on_plain_dict(self):
+        h = compute_payload_hash(PLAIN_RECEIPT)
+        assert h.startswith("sha256:")
+
+    def test_jcs_stability_true_for_receipt(self):
+        assert verify_jcs_stability(RECEIPT_ALL_SIG_FIELDS) is True
+
+    def test_jcs_stability_true_for_pydantic_model(self):
+        assert verify_jcs_stability(SampleReceipt()) is True
+
+    def test_jcs_stability_true_for_plain_dict(self):
+        assert verify_jcs_stability(RECEIPT_NO_SIG_FIELDS) is True

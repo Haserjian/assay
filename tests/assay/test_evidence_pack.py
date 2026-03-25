@@ -26,7 +26,7 @@ class TestMerkleRoot:
     def test_get_merkle_root_with_entries(self):
         """Entries produce valid merkle root."""
         from assay.evidence_pack import get_merkle_root
-        from assay._receipts.canonicalize import to_jcs_bytes
+        from assay._receipts.jcs import canonicalize as jcs_canonicalize
         from assay._receipts.merkle import compute_merkle_root
 
         entries = [
@@ -36,7 +36,7 @@ class TestMerkleRoot:
         result = get_merkle_root(entries)
 
         leaf_hashes = [
-            hashlib.sha256(to_jcs_bytes(entry)).hexdigest()
+            hashlib.sha256(jcs_canonicalize(entry)).hexdigest()
             for entry in entries
         ]
         expected_root = compute_merkle_root(leaf_hashes)

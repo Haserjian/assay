@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 
 import pytest
 
-from assay._receipts.canonicalize import to_jcs_bytes
+from assay._receipts.jcs import canonicalize as jcs_canonicalize
 from assay.claim_verifier import ClaimSpec
 from assay.keystore import AssayKeyStore
 from assay.proof_pack import ProofPack

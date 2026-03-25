@@ -173,11 +173,11 @@ class TestVerifyReceipts:
             keystore=keystore,
             signer_id="test-signer",
         )
-        from assay._receipts.canonicalize import to_jcs_bytes
+        from assay._receipts.jcs import canonicalize as jcs_canonicalize
 
         body = {k: v for k, v in receipt.items()
                 if k not in ("event_id", "signature")}
-        expected = "sha256:" + hashlib.sha256(to_jcs_bytes(body)).hexdigest()
+        expected = "sha256:" + hashlib.sha256(jcs_canonicalize(body)).hexdigest()
         assert receipt["event_id"] == expected
 
 
@@ -236,10 +236,10 @@ class TestTampering:
             signer_id="test-signer",
         )
         # Replace signature with one from different key
-        from assay._receipts.canonicalize import to_jcs_bytes
+        from assay._receipts.jcs import canonicalize as jcs_canonicalize
 
         sign_body = {k: v for k, v in receipt.items() if k != "signature"}
-        fake_sig = other_keystore.sign_b64(to_jcs_bytes(sign_body), "other-signer")
+        fake_sig = other_keystore.sign_b64(jcs_canonicalize(sign_body), "other-signer")
         receipt["signature"]["signature"] = fake_sig
         vr = verify_lifecycle_receipt(receipt)
         assert vr["valid"] is False

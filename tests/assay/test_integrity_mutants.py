@@ -434,12 +434,12 @@ class TestSignatureScopeInvariant:
 
         # Re-sign with the correct exclusion set (not the field value)
         import base64
-        from assay._receipts.canonicalize import to_jcs_bytes
+        from assay._receipts.jcs import canonicalize as jcs_canonicalize
         unsigned = {
             k: v for k, v in manifest.items()
             if k not in ("signature", "pack_root_sha256")
         }
-        canonical = to_jcs_bytes(unsigned)
+        canonical = jcs_canonicalize(unsigned)
         sig_b64 = ks.sign_b64(canonical, "mutant-signer")
         manifest["signature"] = sig_b64
         sig_raw = base64.b64decode(sig_b64)
@@ -489,19 +489,19 @@ class TestSignatureScopeInvariant:
 
         # Now prove the naive approach would fail:
         # Reconstruct with only "signature" excluded (like a field-driven verifier)
-        from assay._receipts.canonicalize import to_jcs_bytes
+        from assay._receipts.jcs import canonicalize as jcs_canonicalize
         naive_unsigned = {
             k: v for k, v in manifest.items()
             if k != "signature"  # only excludes signature, keeps pack_root_sha256
         }
-        naive_canonical = to_jcs_bytes(naive_unsigned)
+        naive_canonical = jcs_canonicalize(naive_unsigned)
 
         # The correct canonical bytes (both excluded)
         correct_unsigned = {
             k: v for k, v in manifest.items()
             if k not in ("signature", "pack_root_sha256")
         }
-        correct_canonical = to_jcs_bytes(correct_unsigned)
+        correct_canonical = jcs_canonicalize(correct_unsigned)
 
         # These MUST differ — that's the whole point
         assert naive_canonical != correct_canonical, (
@@ -525,7 +525,7 @@ class TestDescriptiveFieldInvariant:
         signature_alg below, where the schema is loose and the verifier
         must be immune to field values on its own."""
         import base64
-        from assay._receipts.canonicalize import to_jcs_bytes
+        from assay._receipts.jcs import canonicalize as jcs_canonicalize
 
         receipts = [_make_receipt(seq=0)]
         pack = ProofPack(
@@ -543,7 +543,7 @@ class TestDescriptiveFieldInvariant:
             k: v for k, v in manifest.items()
             if k not in ("signature", "pack_root_sha256")
         }
-        canonical = to_jcs_bytes(unsigned)
+        canonical = jcs_canonicalize(unsigned)
         sig_b64 = ks.sign_b64(canonical, "mutant-signer")
         manifest["signature"] = sig_b64
         sig_raw = base64.b64decode(sig_b64)
@@ -568,7 +568,7 @@ class TestDescriptiveFieldInvariant:
         as defense in depth, so the verifier never has to deal with a
         pack claiming a different signature algorithm."""
         import base64
-        from assay._receipts.canonicalize import to_jcs_bytes
+        from assay._receipts.jcs import canonicalize as jcs_canonicalize
 
         receipts = [_make_receipt(seq=0)]
         pack = ProofPack(
@@ -586,7 +586,7 @@ class TestDescriptiveFieldInvariant:
             k: v for k, v in manifest.items()
             if k not in ("signature", "pack_root_sha256")
         }
-        canonical = to_jcs_bytes(unsigned)
+        canonical = jcs_canonicalize(unsigned)
         sig_b64 = ks.sign_b64(canonical, "mutant-signer")
         manifest["signature"] = sig_b64
         sig_raw = base64.b64decode(sig_b64)

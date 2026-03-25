@@ -1,21 +1,19 @@
 """
 JCS (JSON Canonicalization Scheme) helpers for receipts.
 
-This module implements RFC 8785 canonicalization for deterministic hashing.
+This module provides the layered canonicalization API:
 
-Critical properties:
-- Identical data → identical bytes (always)
-- No whitespace ambiguity
-- Sorted keys
-- IEEE 754 exact float representation
-- Frozen container unwrapping
+- **Layer 1** (``jcs.canonicalize``): pure RFC 8785 serialization.
+- **Layer 2** (``prepare_receipt_for_hashing``): explicit projection that
+  strips top-level signature fields per a versioned exclusion set.
+- **Layer 3**: removed 2026-03-25 (was vestigial legacy normalization).
 
 Usage:
-    from assay._receipts.canonicalize import to_jcs_bytes, compute_payload_hash
+    from assay._receipts.canonicalize import prepare_receipt_for_hashing
+    from assay._receipts.jcs import canonicalize as jcs_canonicalize
 
-    receipt = ProphecyStone(...)
-    canonical_bytes = to_jcs_bytes(receipt)
-    payload_hash = compute_payload_hash(receipt)
+    prepared = prepare_receipt_for_hashing(receipt)
+    canonical_bytes = jcs_canonicalize(prepared)
 """
 
 import hashlib
@@ -23,67 +21,7 @@ from typing import Any
 
 from .merkle import compute_merkle_root
 from assay._receipts.jcs import canonicalize as _jcs_canonicalize
-from assay._receipts.compat.pyd import unwrap_frozen, strip_signatures
-try:
-    # Prefer normal package import within the project
-    from .compatibility import normalize_legacy_fields  # type: ignore
-except Exception:
-    # Fallback: load compatibility module directly from package directory to
-    # avoid collisions with a top-level `receipts` package installed on the
-    # system or present on PYTHONPATH. This ensures we always use the
-    # repository-local adapter.
-    from importlib.machinery import SourceFileLoader
-    from importlib.util import spec_from_loader, module_from_spec
-    from pathlib import Path
-
-    _compat_path = Path(__file__).resolve().parent / "compatibility.py"
-    if _compat_path.exists():
-        _loader = SourceFileLoader("_repo_receipts_compat", str(_compat_path))
-        _spec = spec_from_loader(_loader.name, _loader)
-        _mod = module_from_spec(_spec) if _spec is not None else None
-        if _mod is not None:
-            _loader.exec_module(_mod)
-            normalize_legacy_fields = getattr(_mod, "normalize_legacy_fields")
-        else:
-            def normalize_legacy_fields(x):
-                return x
-    else:
-        def normalize_legacy_fields(x):
-            return x
-
-
-def to_jcs_bytes(obj: Any) -> bytes:
-    """
-    Serialize object to JCS (RFC 8785) canonical bytes.
-    """
-    normalized = _prepare_for_canonicalization(obj)
-    return _jcs_canonicalize(normalized)
-
-
-def _prepare_for_canonicalization(obj: Any) -> Any:
-    """Normalize payloads before canonicalization/hashing."""
-    if hasattr(obj, "model_dump"):
-        data = obj.model_dump(mode="json")
-    elif hasattr(obj, "dict"):
-        data = obj.dict()
-    elif isinstance(obj, dict):
-        data = obj
-    else:
-        data = obj
-
-    unwrapped = unwrap_frozen(data)
-
-    # Layer 3 (normalize_legacy_fields) verified vestigial 2026-03-25:
-    # compatibility.py does not exist, function is always identity,
-    # zero external callers, zero test dependencies.
-    # Bypassed in proof-critical path — do not re-add without evidence.
-
-    try:
-        unwrapped = strip_signatures(unwrapped)
-    except Exception:
-        pass
-
-    return unwrapped
+from assay._receipts.compat.pyd import unwrap_frozen
 
 
 # ---------------------------------------------------------------------------
@@ -164,7 +102,7 @@ def compute_payload_hash(obj: Any, algorithm: str = "sha256") -> str:
     Returns:
         Hex-encoded hash string
     """
-    canonical_bytes = _jcs_canonicalize(_prepare_for_canonicalization(obj))
+    canonical_bytes = _jcs_canonicalize(prepare_receipt_for_hashing(obj))
 
     if algorithm == "sha256":
         h = hashlib.sha256(canonical_bytes)
@@ -201,8 +139,8 @@ def verify_jcs_stability(obj: Any) -> bool:
     Returns:
         True if stable (canonical bytes identical across 2 serializations)
     """
-    bytes1 = to_jcs_bytes(obj)
-    bytes2 = to_jcs_bytes(obj)
+    bytes1 = _jcs_canonicalize(prepare_receipt_for_hashing(obj))
+    bytes2 = _jcs_canonicalize(prepare_receipt_for_hashing(obj))
     return bytes1 == bytes2
 
 
@@ -211,9 +149,9 @@ def verify_jcs_stability(obj: Any) -> bool:
 
 
 __all__ = [
-    "to_jcs_bytes",
     "prepare_receipt_for_hashing",
     "compute_payload_hash",
+    "compute_payload_hash_hex",
     "verify_jcs_stability",
     "compute_merkle_root",
 ]

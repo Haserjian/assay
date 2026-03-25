@@ -21,7 +21,7 @@ from unittest.mock import patch, MagicMock
 import pytest
 from typer.testing import CliRunner
 
-from assay._receipts.canonicalize import to_jcs_bytes
+from assay._receipts.jcs import canonicalize as jcs_canonicalize
 from assay.commands import assay_app
 from assay.keystore import AssayKeyStore
 from assay.proof_pack import ProofPack
@@ -618,7 +618,7 @@ class TestWitnessCli:
         ks = AssayKeyStore(keys_dir=isolated_home / ".assay" / "keys")
         vk = ks.get_verify_key("assay-local")
         body = {k: v for k, v in after.items() if k != "signature"}
-        vk.verify(to_jcs_bytes(body), base64.b64decode(after["signature"]))
+        vk.verify(jcs_canonicalize(body), base64.b64decode(after["signature"]))
 
         bundle = json.loads((cli_pack_with_adc / "witness_bundle.json").read_text())
         assert bundle["pack_root_sha256"] == pack_root

@@ -47,7 +47,7 @@ from assay.run_cards import (
     get_builtin_card,
     load_run_card,
 )
-from assay._receipts.canonicalize import to_jcs_bytes
+from assay._receipts.jcs import canonicalize as jcs_canonicalize
 
 
 # ---------------------------------------------------------------------------
@@ -123,19 +123,19 @@ class TestCanonicalisation:
     def test_jcs_stability(self):
         """Same dict produces same bytes twice."""
         d = {"b": 2, "a": 1, "c": [3, 4]}
-        b1 = to_jcs_bytes(d)
-        b2 = to_jcs_bytes(d)
+        b1 = jcs_canonicalize(d)
+        b2 = jcs_canonicalize(d)
         assert b1 == b2
 
     def test_jcs_rejects_nan(self):
         """NaN float raises an error."""
         with pytest.raises((ValueError, TypeError, RuntimeError)):
-            to_jcs_bytes({"value": float("nan")})
+            jcs_canonicalize({"value": float("nan")})
 
     def test_jcs_rejects_infinity(self):
         """Infinity float raises an error."""
         with pytest.raises((ValueError, TypeError, RuntimeError)):
-            to_jcs_bytes({"value": float("inf")})
+            jcs_canonicalize({"value": float("inf")})
 
     def test_jcs_locked_vector(self):
         """Locked test vector: known input -> known canonical bytes -> known hash.
@@ -148,7 +148,7 @@ class TestCanonicalisation:
         expected_canonical = b'{"a":1,"b":2,"c":[3,4],"d":"hello"}'
         expected_sha256 = hashlib.sha256(expected_canonical).hexdigest()
 
-        actual_canonical = to_jcs_bytes(vector_input)
+        actual_canonical = jcs_canonicalize(vector_input)
         actual_sha256 = hashlib.sha256(actual_canonical).hexdigest()
 
         assert actual_canonical == expected_canonical, (
@@ -260,7 +260,7 @@ class TestProofPackBuilder:
         manifest = json.loads((out / "pack_manifest.json").read_text())
 
         att = manifest["attestation"]
-        att_bytes = to_jcs_bytes(att)
+        att_bytes = jcs_canonicalize(att)
         expected = hashlib.sha256(att_bytes).hexdigest()
         assert manifest["attestation_sha256"] == expected
 
@@ -784,7 +784,7 @@ class TestAuditHardeningFields:
         assert manifest["pack_root_sha256"] == manifest["attestation_sha256"]
 
         # Verify attestation_sha256 is correct
-        att_bytes = to_jcs_bytes(manifest["attestation"])
+        att_bytes = jcs_canonicalize(manifest["attestation"])
         expected = hashlib.sha256(att_bytes).hexdigest()
         assert manifest["attestation_sha256"] == expected
 

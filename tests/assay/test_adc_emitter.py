@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from assay._receipts.canonicalize import to_jcs_bytes
+from assay._receipts.jcs import canonicalize as jcs_canonicalize
 from assay.adc_emitter import (
     _derive_claim_results,
     _derive_overall_result,
@@ -188,7 +188,7 @@ class TestBuildAdc:
 
         # Reconstruct: remove signature and credential_id, hash body
         body = {k: v for k, v in adc.items() if k not in ("signature", "credential_id")}
-        expected_id = _sha256_hex(to_jcs_bytes(body))
+        expected_id = _sha256_hex(jcs_canonicalize(body))
         assert adc["credential_id"] == expected_id
 
     def test_signature_verifies(self, tmp_path):
@@ -198,7 +198,7 @@ class TestBuildAdc:
 
         # Verify: remove signature, JCS-canonicalize, verify
         without_sig = {k: v for k, v in adc.items() if k != "signature"}
-        canonical = to_jcs_bytes(without_sig)
+        canonical = jcs_canonicalize(without_sig)
 
         vk = ks.get_verify_key("test-signer")
         sig_bytes = base64.b64decode(adc["signature"])
@@ -270,12 +270,12 @@ class TestBuildAdc:
         assert adc["authority_snapshot"] == snapshot
 
         body = {k: v for k, v in adc.items() if k not in ("signature", "credential_id")}
-        expected_id = _sha256_hex(to_jcs_bytes(body))
+        expected_id = _sha256_hex(jcs_canonicalize(body))
         assert adc["credential_id"] == expected_id
 
         vk = ks.get_verify_key("test-signer")
         sig_bytes = base64.b64decode(adc["signature"])
-        vk.verify(to_jcs_bytes({k: v for k, v in adc.items() if k != "signature"}), sig_bytes)
+        vk.verify(jcs_canonicalize({k: v for k, v in adc.items() if k != "signature"}), sig_bytes)
 
         schema_path = Path(__file__).resolve().parent.parent.parent / "src" / "assay" / "schemas" / "adc_v0.1.schema.json"
         schema = json.loads(schema_path.read_text())
@@ -320,12 +320,12 @@ class TestBuildAdc:
         assert refreshed["authority_snapshot"] == snapshot
 
         body = {k: v for k, v in refreshed.items() if k not in ("credential_id", "signature")}
-        expected_id = _sha256_hex(to_jcs_bytes(body))
+        expected_id = _sha256_hex(jcs_canonicalize(body))
         assert refreshed["credential_id"] == expected_id
 
         vk = ks.get_verify_key("test-signer")
         sig_bytes = base64.b64decode(refreshed["signature"])
-        vk.verify(to_jcs_bytes({k: v for k, v in refreshed.items() if k != "signature"}), sig_bytes)
+        vk.verify(jcs_canonicalize({k: v for k, v in refreshed.items() if k != "signature"}), sig_bytes)
 
         schema_path = Path(__file__).resolve().parent.parent.parent / "src" / "assay" / "schemas" / "adc_v0.1.schema.json"
         schema = json.loads(schema_path.read_text())
@@ -490,7 +490,7 @@ class TestProofPackIntegration:
         adc = json.loads(get_decision_credential_path(out, legacy_fallback=False).read_text())
 
         without_sig = {k: v for k, v in adc.items() if k != "signature"}
-        canonical = to_jcs_bytes(without_sig)
+        canonical = jcs_canonicalize(without_sig)
         vk = ks.get_verify_key("test-signer")
         sig_bytes = base64.b64decode(adc["signature"])
         vk.verify(canonical, sig_bytes)

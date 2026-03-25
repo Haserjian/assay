@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from assay._receipts.canonicalize import to_jcs_bytes
+from assay._receipts.jcs import canonicalize as jcs_canonicalize
 from assay.claim_verifier import ClaimSpec
 from assay.keystore import AssayKeyStore
 from assay.proof_pack import ProofPack
@@ -238,7 +238,7 @@ class TestReplayJudge:
             issued_at=_TS,
         )
 
-        canonical = to_jcs_bytes({k: v for k, v in judgment.items() if k != "signature"})
+        canonical = jcs_canonicalize({k: v for k, v in judgment.items() if k != "signature"})
         signature = base64.b64decode(judgment["signature"])
         ks.get_verify_key("test-signer").verify(canonical, signature)
 
