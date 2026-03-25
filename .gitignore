@@ -57,3 +57,6 @@ evidence_gap_report.*
 
 # Internal commercial docs (not public)
 docs/commercial/
+
+# Generated demo outputs (run locally, review before publishing)
+demo/constitutional_verification/demo_output/
