@@ -73,10 +73,10 @@ def _prepare_for_canonicalization(obj: Any) -> Any:
 
     unwrapped = unwrap_frozen(data)
 
-    try:
-        unwrapped = normalize_legacy_fields(unwrapped)
-    except Exception:
-        pass
+    # Layer 3 (normalize_legacy_fields) verified vestigial 2026-03-25:
+    # compatibility.py does not exist, function is always identity,
+    # zero external callers, zero test dependencies.
+    # Bypassed in proof-critical path — do not re-add without evidence.
 
     try:
         unwrapped = strip_signatures(unwrapped)
@@ -84,6 +84,68 @@ def _prepare_for_canonicalization(obj: Any) -> Any:
         pass
 
     return unwrapped
+
+
+# ---------------------------------------------------------------------------
+# Layer 2: Explicit receipt projection for hashing/signing
+# ---------------------------------------------------------------------------
+
+# Versioned signature field exclusion sets.  Single source of truth for
+# which fields are stripped before hashing.  v0 matches the historical
+# strip_signatures() behaviour in compat/pyd.py.
+_SIGNATURE_FIELD_SETS: dict[str, frozenset[str]] = {
+    "v0": frozenset({
+        "signatures",
+        "signature",
+        "cose_signature",
+        "receipt_hash",
+        "anchor",
+    }),
+}
+
+
+def prepare_receipt_for_hashing(receipt: Any, *, version: str = "v0") -> dict:
+    """Layer 2: project a receipt into a plain dict suitable for hashing.
+
+    1. Converts Pydantic models to plain dicts (``model_dump`` / ``.dict()``).
+    2. Recursively unwraps frozen containers.
+    3. Strips signature-related fields per the versioned exclusion set.
+
+    No legacy normalization is performed (Layer 3 is vestigial).
+    No silent ``except`` passes — failures are raised to the caller.
+
+    Args:
+        receipt: Receipt object (Pydantic model, dict, or dict-like).
+        version: Exclusion-set version (currently only ``"v0"``).
+
+    Returns:
+        Plain dict with signature fields removed, ready for
+        ``jcs.canonicalize()``.
+
+    Raises:
+        ValueError: If *version* is unknown.
+        TypeError: If *receipt* cannot be converted to a dict.
+    """
+    exclusions = _SIGNATURE_FIELD_SETS.get(version)
+    if exclusions is None:
+        raise ValueError(
+            f"Unknown signature strip version: {version!r}. "
+            f"Known: {sorted(_SIGNATURE_FIELD_SETS)}"
+        )
+
+    if hasattr(receipt, "model_dump"):
+        data = receipt.model_dump(mode="json")
+    elif hasattr(receipt, "dict") and not isinstance(receipt, dict):
+        data = receipt.dict()
+    elif isinstance(receipt, dict):
+        data = receipt
+    else:
+        raise TypeError(
+            f"Cannot convert {type(receipt).__name__} to dict for hashing"
+        )
+
+    data = unwrap_frozen(data)
+    return {k: v for k, v in data.items() if k not in exclusions}
 
 
 def compute_payload_hash(obj: Any, algorithm: str = "sha256") -> str:
@@ -148,6 +210,7 @@ def verify_jcs_stability(obj: Any) -> bool:
 
 __all__ = [
     "to_jcs_bytes",
+    "prepare_receipt_for_hashing",
     "compute_payload_hash",
     "verify_jcs_stability",
     "compute_merkle_root",

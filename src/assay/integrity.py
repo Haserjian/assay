@@ -11,7 +11,8 @@ from typing import Any, Dict, List, Optional
 
 from nacl.signing import VerifyKey
 
-from assay._receipts.canonicalize import to_jcs_bytes
+from assay._receipts.canonicalize import to_jcs_bytes, prepare_receipt_for_hashing
+from assay._receipts.jcs import canonicalize as jcs_canonicalize
 from assay.pack_verify_policy import inspect_pack_entries, validate_signed_manifest
 
 E_CANON_MISMATCH = "E_CANON_MISMATCH"
@@ -135,11 +136,14 @@ def verify_receipt(
                 message="Missing receipt-level signature or payload_hash",
                 receipt_index=index, field="signature"))
 
-    # Canonicalization stability
+    # Canonicalization stability — explicit Layer 2 → Layer 1 pipeline.
+    # First pass: strip signature fields (Layer 2), then canonicalize (Layer 1).
+    # Second pass: roundtrip is already a plain stripped dict, Layer 1 only.
     try:
-        canonical_bytes = to_jcs_bytes(receipt)
+        prepared = prepare_receipt_for_hashing(receipt)
+        canonical_bytes = jcs_canonicalize(prepared)
         roundtrip = json.loads(canonical_bytes.decode("utf-8"))
-        canonical_bytes_2 = to_jcs_bytes(roundtrip)
+        canonical_bytes_2 = jcs_canonicalize(roundtrip)
         if canonical_bytes != canonical_bytes_2:
             errors.append(VerifyError(
                 code=E_CANON_MISMATCH,
@@ -462,7 +466,9 @@ def verify_pack_manifest(
         k: v for k, v in manifest.items()
         if k not in _MANIFEST_SIGNING_EXCLUSIONS
     }
-    canonical_bytes = to_jcs_bytes(unsigned)
+    # Layer 1 only: unsigned is a pre-projected plain dict (signature and
+    # pack_root_sha256 already excluded above).  No Layer 2 stripping needed.
+    canonical_bytes = jcs_canonicalize(unsigned)
 
     # 4c. Verify Ed25519 signature (embedded pubkey preferred, keystore fallback).
     if signature and signature_bytes is not None:
