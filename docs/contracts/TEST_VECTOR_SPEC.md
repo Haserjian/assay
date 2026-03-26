@@ -122,7 +122,7 @@ For each golden receipt, provide:
 - Expected JCS canonical bytes (exact)
 - Expected SHA-256 hash of canonical bytes
 
-**BLOCKED by OCD-1**: Hash format (prefixed vs raw) must be resolved before finalizing expected hashes.
+Hash format resolved (OCD-1): all hashes are raw lowercase hex. Expected hashes below use this format.
 
 ### Adversarial
 
@@ -218,10 +218,9 @@ These vectors cannot be finalized until the referenced OCD item is resolved:
 
 | Vector | Blocked By | Reason |
 |--------|-----------|--------|
-| All receipt hash expectations | OCD-1 | Hash output format (prefixed vs raw) — last remaining HIGH blocker |
 | PK-A11, PK-A13b | OCD-9 | Direct vs indirect verifier enforcement |
 
-**Unblocked (2026-03-25)**: Payload hash vectors were previously blocked by OCD-2 (signature stripping) and OCD-3 (legacy normalization). Both are now resolved — Layer 2 extraction complete, Layer 3 removed. These vectors are now blocked only by OCD-1 (hash format).
+**Unblocked (2026-03-25)**: All previously blocked vectors are now unblocked except PK-A11 and PK-A13b (OCD-9). OCD-1 (hash format), OCD-2 (signature stripping), and OCD-3 (legacy normalization) are all resolved. Corpus generation prerequisites are met.
 
 JCS golden vectors (JCS-G*) and Merkle vectors (MK-G*, MK-A*) test pure Layer 1 and have never been blocked. See VERIFICATION_LAYERS.md.
 
@@ -239,4 +238,4 @@ The corpus should be generated programmatically from a script that:
 
 The generation script itself is part of the contract — it documents how vectors are produced and can be re-run after contract changes.
 
-**Prerequisite**: OCD-1 (hash format) must be resolved before corpus generation can produce stable vectors. OCD-2 and OCD-3 are resolved (extraction complete 2026-03-25).
+**Prerequisites met**: OCD-1, OCD-2, and OCD-3 are all resolved (2026-03-25). Corpus generation can now produce stable vectors. Only OCD-9 (direct/indirect verifier obligations) blocks 2 edge-case vectors (PK-A11, PK-A13b).

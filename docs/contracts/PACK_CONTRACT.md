@@ -146,16 +146,15 @@ No legacy normalization (removed — was vestigial). No silent exception swallow
 
 ### Current behavior
 
-Two hash output formats coexist:
+All hash output is raw lowercase hex:
 
 | Function | Returns | Example |
 |----------|---------|---------|
-| `compute_payload_hash()` | `"{algorithm}:{hexdigest}"` | `"sha256:a1b2c3..."` |
-| `compute_payload_hash_hex()` | raw hexdigest | `"a1b2c3..."` |
-| `_sha256_hex()` | raw hexdigest | `"a1b2c3..."` |
+| `compute_payload_hash()` | raw hexdigest | `"a1b2c3d4..."` |
+| `compute_payload_hash_hex()` | raw hexdigest (alias) | `"a1b2c3d4..."` |
+| `_sha256_hex()` | raw hexdigest | `"a1b2c3d4..."` |
 
-The prefixed format (`sha256:abcd...`) is used by `compute_payload_hash()`.
-The raw format is used by `_sha256_hex()` everywhere else: file hashes, head hash, attestation hash, pubkey fingerprint, Merkle leaves.
+OCD-1 resolved (2026-03-25): the prefixed format (`sha256:hex`) was removed from `compute_payload_hash()`. The algorithm is declared at the manifest level via `hash_alg`, not per-value.
 
 ### Frozen contract
 
@@ -167,7 +166,7 @@ The raw format is used by `_sha256_hex()` everywhere else: file hashes, head has
 
 ### Open decision
 
-- **Which output format is canonical?** The codebase uses BOTH `"sha256:hex"` and raw `"hex"`. A second implementation needs exactly one answer. See OPEN_CONTRACT_DECISIONS.
+- **RESOLVED (2026-03-25)**: Raw hex is the canonical format for all proof pack hashes. The `hash_alg` field in the manifest declares the algorithm. See OCD-1.
 
 ---
 

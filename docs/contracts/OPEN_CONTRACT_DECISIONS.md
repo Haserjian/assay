@@ -1,7 +1,7 @@
 # Open Contract Decisions
 
 **Date**: 2026-03-25 (reconciled post-extraction 2026-03-25)
-**Status**: 5 of 10 items resolved. 2 HIGH remain (OCD-1), 1 MEDIUM remain (OCD-9), 2 LOW remain (OCD-5, OCD-6, OCD-7).
+**Status**: 6 of 10 items resolved. 0 HIGH remain. 1 MEDIUM remain (OCD-9). 3 LOW remain (OCD-5, OCD-6, OCD-7).
 
 These are questions that must be answered before the Proof Pack contract can be fully frozen for second implementations.
 
@@ -9,9 +9,9 @@ Each item records: the question, current behavior, options, and a preliminary re
 
 ---
 
-## OCD-1: Canonical Hash Output Format
+## OCD-1: Canonical Hash Output Format — RESOLVED (2026-03-25)
 
-**Blocker level**: HIGH — directly affects interop.
+**Blocker level**: ~~HIGH~~ → **RESOLVED**.
 
 **Current behavior**: Two formats coexist:
 - `compute_payload_hash()` → `"sha256:a1b2c3..."` (prefixed)
@@ -26,7 +26,7 @@ Each item records: the question, current behavior, options, and a preliminary re
 2. **Standardize on prefixed everywhere.** Change all internal hashes to `sha256:hex`. More self-describing, but requires updating every hash comparison.
 3. **Freeze current split.** Document which fields use which format. Workable but awkward.
 
-**Recommendation**: Option 1 (raw hex everywhere). The algorithm is declared at the manifest level (`hash_alg: "sha256"`). Per-field prefixing adds complexity without information. `compute_payload_hash_hex()` already exists as evidence that the prefix is friction, not value.
+**Resolution**: Option 1 implemented. `compute_payload_hash()` now returns raw hex (`canonicalize.py:115`). `compute_payload_hash_hex()` retained as alias for backward compatibility. `commands.py` normalization workarounds updated to strip prefix from stored hashes (backward compatible with old prefixed data). 2678 tests pass. Evidence: `canonicalize.py:114-115`, `test_layer2_projection.py::TestMigrationEquivalence`.
 
 ---
 

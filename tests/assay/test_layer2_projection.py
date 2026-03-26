@@ -263,12 +263,15 @@ class TestMigrationEquivalence:
 
     def test_payload_hash_on_pydantic_model(self):
         h = compute_payload_hash(SampleReceipt())
-        assert h.startswith("sha256:")
-        assert len(h) > 10
+        # OCD-1 resolved: raw hex, no prefix
+        assert len(h) == 64  # SHA-256 hex digest
+        assert all(c in "0123456789abcdef" for c in h)
 
     def test_payload_hash_on_plain_dict(self):
         h = compute_payload_hash(PLAIN_RECEIPT)
-        assert h.startswith("sha256:")
+        # OCD-1 resolved: raw hex, no prefix
+        assert len(h) == 64
+        assert ":" not in h
 
     def test_jcs_stability_true_for_receipt(self):
         assert verify_jcs_stability(RECEIPT_ALL_SIG_FIELDS) is True

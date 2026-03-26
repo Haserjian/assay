@@ -960,13 +960,13 @@ def verify_trace(
                         # Exclude proof and trace metadata for hash computation
                         payload = {k: v for k, v in entry.items()
                                    if k not in ("proof", "_trace_id", "_stored_at")}
-                        # compute_payload_hash already returns "sha256:..." prefixed
+                        # compute_payload_hash returns raw hex (OCD-1 resolved)
                         computed_hash = compute_payload_hash(payload, algorithm="sha256")
 
-                        # Normalize stored hash to have prefix for comparison
+                        # Normalize stored hash: strip prefix if present
                         hash_to_check = content_hash
-                        if ":" not in hash_to_check:
-                            hash_to_check = f"sha256:{hash_to_check}"
+                        if ":" in hash_to_check:
+                            hash_to_check = hash_to_check.split(":", 1)[1]
 
                         if hash_to_check != computed_hash:
                             errors.append(f"Entry {entry_num}: hash mismatch (computed {computed_hash[:25]}..., got {hash_to_check[:25]}...)")
@@ -985,9 +985,10 @@ def verify_trace(
                                    if k not in ("proof", "_trace_id", "_stored_at", "receipt_hash")}
                         computed_receipt_hash = compute_payload_hash(payload, algorithm="sha256")
 
+                        # Normalize stored hash: strip prefix if present
                         hash_to_check = receipt_hash
-                        if ":" not in hash_to_check:
-                            hash_to_check = f"sha256:{hash_to_check}"
+                        if ":" in hash_to_check:
+                            hash_to_check = hash_to_check.split(":", 1)[1]
 
                         if hash_to_check != computed_receipt_hash:
                             errors.append(

@@ -111,22 +111,18 @@ def compute_payload_hash(obj: Any, algorithm: str = "sha256") -> str:
     else:
         raise ValueError(f"Unsupported algorithm: {algorithm}")
 
-    # Return algorithm-prefixed digest for clarity/stability across environments
-    return f"{algorithm}:{h.hexdigest()}"
+    # OCD-1 resolved: raw hex everywhere.  The algorithm is declared at
+    # the manifest level (hash_alg field), not per-value.
+    return h.hexdigest()
 
 
 def compute_payload_hash_hex(obj: Any, algorithm: str = "sha256") -> str:
-    """
-    Convenience shim returning the raw hex digest (no algorithm prefix).
+    """Alias for compute_payload_hash (both now return raw hex).
 
-    Some callers historically expect a plain hex digest; this helper
-    preserves that contract while the canonical prefixed form remains
-    the canonical API.
+    Retained for backward compatibility.  OCD-1 resolved: compute_payload_hash
+    now returns raw hex directly, so this function is a trivial passthrough.
     """
-    pref = compute_payload_hash(obj, algorithm=algorithm)
-    if ":" in pref:
-        return pref.split(":", 1)[1]
-    return pref
+    return compute_payload_hash(obj, algorithm=algorithm)
 
 
 def verify_jcs_stability(obj: Any) -> bool:
