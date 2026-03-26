@@ -14,6 +14,7 @@ from nacl.signing import VerifyKey
 from assay._receipts.canonicalize import prepare_receipt_for_hashing
 from assay._receipts.jcs import canonicalize as jcs_canonicalize
 from assay.pack_verify_policy import inspect_pack_entries, validate_signed_manifest
+from assay.stage_receipt import StageCollector, StageReceipt
 
 E_CANON_MISMATCH = "E_CANON_MISMATCH"
 E_SCHEMA_UNKNOWN = "E_SCHEMA_UNKNOWN"
@@ -65,6 +66,7 @@ class VerifyResult:
     warnings: List[str] = field(default_factory=list)
     receipt_count: int = 0
     head_hash: Optional[str] = None
+    stages: List[StageReceipt] = field(default_factory=list)
 
     @property
     def failure_mechanisms(self) -> Dict[str, int]:
@@ -79,6 +81,8 @@ class VerifyResult:
         d: Dict[str, Any] = {"passed": self.passed, "errors": [e.to_dict() for e in self.errors],
                               "warnings": self.warnings, "receipt_count": self.receipt_count,
                               "head_hash": self.head_hash}
+        if self.stages:
+            d["stages"] = [s.to_dict() for s in self.stages]
         if self.failure_mechanisms:
             d["failure_mechanisms"] = self.failure_mechanisms
         return d
@@ -231,9 +235,12 @@ def verify_pack_manifest(
     pack_dir = Path(pack_dir)
     errors: List[VerifyError] = []
     warnings: List[str] = []
+    sc = StageCollector()
 
+    # --- validate_schema ---
     schema_errors = validate_signed_manifest(manifest)
     if schema_errors:
+        sc.record("validate_schema", False, reason=schema_errors[0])
         return VerifyResult(
             passed=False,
             errors=[
@@ -247,11 +254,15 @@ def verify_pack_manifest(
             warnings=warnings,
             receipt_count=0,
             head_hash=None,
+            stages=sc.stages,
         )
+    sc.record("validate_schema", True)
 
     warnings.extend(inspect_pack_entries(manifest, pack_dir))
 
-    # 1. Verify file hashes
+    # --- validate_paths + validate_file_hashes ---
+    paths_ok = True
+    file_hash_ok = True
     files_list = manifest.get("files", [])
     for file_entry in files_list:
         file_path = pack_dir / file_entry["path"]
@@ -259,6 +270,7 @@ def verify_pack_manifest(
             errors.append(VerifyError(
                 code=E_PATH_ESCAPE, message=f"Path escapes pack directory: {file_entry['path']}",
                 field=file_entry["path"]))
+            paths_ok = False
             continue
         expected_hash = file_entry.get("sha256")
         expected_bytes = file_entry.get("bytes")
@@ -269,6 +281,7 @@ def verify_pack_manifest(
                 message=f"File missing: {file_entry['path']}",
                 field=file_entry["path"],
             ))
+            file_hash_ok = False
             continue
 
         try:
@@ -279,6 +292,7 @@ def verify_pack_manifest(
                 message=f"Cannot read {file_entry['path']}: {exc}",
                 field=file_entry["path"],
             ))
+            file_hash_ok = False
             continue
         actual_hash = _sha256_hex(actual_data)
 
@@ -289,6 +303,7 @@ def verify_pack_manifest(
                         f"expected {expected_hash[:16]}..., got {actual_hash[:16]}...",
                 field=file_entry["path"],
             ))
+            file_hash_ok = False
 
         if expected_bytes is not None and len(actual_data) != expected_bytes:
             warnings.append(
@@ -301,6 +316,7 @@ def verify_pack_manifest(
         if not _check_containment(pack_dir / name, pack_dir):
             errors.append(VerifyError(code=E_PATH_ESCAPE,
                 message=f"Expected file path escapes pack directory: {name}", field=name))
+            paths_ok = False
             continue
         if not (pack_dir / name).exists() and not any(e.field == name for e in errors):
             errors.append(VerifyError(
@@ -308,7 +324,13 @@ def verify_pack_manifest(
                 message=f"Expected file missing: {name}",
                 field=name,
             ))
+            file_hash_ok = False
 
+    sc.record("validate_paths", paths_ok, detail={"paths_checked": len(files_list) + len(manifest.get("expected_files") or [])})
+    sc.record("validate_file_hashes", file_hash_ok, detail={"files_checked": len(files_list)})
+
+    # --- validate_receipts ---
+    receipts_ok = True
     # 2. Parse receipt_pack.jsonl, recompute integrity, cross-check attestation
     receipt_pack_path = pack_dir / "receipt_pack.jsonl"
     parsed: List[Dict[str, Any]] = []
@@ -398,6 +420,17 @@ def verify_pack_manifest(
                 field="head_hash",
             ))
 
+    # Derive receipts_ok from whether any receipt-section errors were added
+    if parse_failed or not recomputed.passed:
+        receipts_ok = False
+    if claimed_integrity and ("PASS" if recomputed.passed else "FAIL") != claimed_integrity:
+        receipts_ok = False
+    if claimed_head and (effective_recomputed is None or claimed_head != effective_recomputed):
+        receipts_ok = False
+    sc.record("validate_receipts", receipts_ok, detail={"receipt_count": len(parsed), "head_hash": recomputed.head_hash})
+
+    # --- validate_attestation ---
+    attestation_ok = True
     # 3. Attestation hash
     attestation_sha256 = manifest.get("attestation_sha256")
     if attestation and attestation_sha256:
@@ -407,7 +440,11 @@ def verify_pack_manifest(
                 message="Attestation hash mismatch in manifest",
                 field="attestation_sha256",
             ))
+            attestation_ok = False
+    sc.record("validate_attestation", attestation_ok)
 
+    # --- verify_signature ---
+    _sig_errors_before = len(errors)
     # 4. Manifest signature verification
     signature = manifest.get("signature")
     signer_id = manifest.get("signer_id")
@@ -519,14 +556,19 @@ def verify_pack_manifest(
             except Exception:
                 pass
 
+    sc.record("verify_signature", len(errors) == _sig_errors_before)
+
+    # --- check_d12_invariant ---
     # 4d. Verify pack_root_sha256 = attestation_sha256 (D12)
     pack_root = manifest.get("pack_root_sha256")
-    if pack_root and attestation_sha256 and pack_root != attestation_sha256:
+    d12_ok = not (pack_root and attestation_sha256 and pack_root != attestation_sha256)
+    if not d12_ok:
         errors.append(VerifyError(
             code=E_MANIFEST_TAMPER,
             message="pack_root_sha256 does not match attestation_sha256",
             field="pack_root_sha256",
         ))
+    sc.record("check_d12_invariant", d12_ok)
 
     # 5. Optional freshness check (replay/staleness mitigation)
     if max_age_hours is not None:
@@ -585,6 +627,7 @@ def verify_pack_manifest(
         warnings=warnings,
         receipt_count=len(parsed),
         head_hash=recomputed.head_hash,
+        stages=sc.stages,
     )
 
 
