@@ -1,11 +1,11 @@
 # Open Contract Decisions
 
-**Date**: 2026-03-25
-**Status**: Unresolved — each item blocks full contract freeze.
+**Date**: 2026-03-25 (reconciled post-extraction 2026-03-25)
+**Status**: 5 of 10 items resolved. 2 HIGH remain (OCD-1), 1 MEDIUM remain (OCD-9), 2 LOW remain (OCD-5, OCD-6, OCD-7).
 
-These are questions that must be answered before the Proof Pack contract can be frozen for second implementations. They are extracted from PACK_CONTRACT.md and BOUNDARY_MAP.md.
+These are questions that must be answered before the Proof Pack contract can be fully frozen for second implementations.
 
-Each item records: the question, current behavior, options, and a preliminary recommendation.
+Each item records: the question, current behavior, options, and a preliminary recommendation. Resolved items are marked with date and evidence.
 
 ---
 
@@ -30,9 +30,9 @@ Each item records: the question, current behavior, options, and a preliminary re
 
 ---
 
-## OCD-2: Signature Stripping in Hash Path
+## OCD-2: Signature Stripping in Hash Path — RESOLVED (2026-03-25)
 
-**Blocker level**: HIGH — boundary violation, affects all second implementations.
+**Blocker level**: ~~HIGH~~ → **RESOLVED**.
 
 **Current behavior**: `_prepare_for_canonicalization()` calls `strip_signatures()` inside the hash path with silent exception swallowing. The stripped field set `{signatures, signature, cose_signature, receipt_hash, anchor}` is hardcoded in `pyd.py:267-274`.
 
@@ -54,13 +54,13 @@ Silent `except Exception: pass` means failures are invisible. If stripping fails
 
 See VERIFICATION_LAYERS.md for the three-layer doctrine.
 
-**Recommendation**: Option 1. The canonicalization module should implement RFC 8785 and nothing else. Stripping is a Layer 2 (projection) concern. Move it to a named `project_for_signing(obj, version="v0")` function that callers invoke explicitly. The function documents its field set per version and raises on failure instead of swallowing.
+**Resolution**: Option 1 implemented. `prepare_receipt_for_hashing(receipt, version="v0")` is the explicit Layer 2 projection function (`canonicalize.py:46-88`). Versioned exclusion set at `_SIGNATURE_FIELD_SETS` (`canonicalize.py:35-43`). `to_jcs_bytes()` and `_prepare_for_canonicalization()` deleted. No silent exception swallowing remains. All callers migrated. 2678 tests pass. Evidence: commits `5b5566e`..`670129e`, `test_layer2_projection.py`.
 
 ---
 
-## OCD-3: Legacy Normalization in Hash Path
+## OCD-3: Legacy Normalization in Hash Path — RESOLVED (2026-03-25)
 
-**Blocker level**: HIGH — invisible transformation in mechanical path.
+**Blocker level**: ~~HIGH~~ → **RESOLVED**.
 
 **Current behavior**: `_prepare_for_canonicalization()` calls `normalize_legacy_fields()` with silent exception swallowing. The function is imported via a fragile fallback mechanism (`SourceFileLoader` with hardcoded path).
 
@@ -78,13 +78,13 @@ If the import fails (which it silently handles), the normalization is skipped en
 
 **Additional finding (audit 2026-03-25)**: The `SourceFileLoader` fallback mechanism makes normalization behavior dependent on PYTHONPATH and whether a `receipts` package exists on the system. If the fallback import succeeds on one machine but fails on another, the same receipt produces different hashes on different machines. This is environmentally non-deterministic behavior in a proof-critical path. See VERIFICATION_LAYERS.md constitutional prohibition: "No environment-dependent transform may exist in any path that influences signed bytes, hashed bytes, or equality comparisons."
 
-**Recommendation**: Option 1, then Option 2 when feasible. Legacy normalization is a Layer 3 concern and must not exist in the hash path. If data needs transformation, transform it at write time or at an explicit Layer 3 preprocessing step, not silently during hashing. The `SourceFileLoader` fallback must be eliminated from any proof-critical path regardless of which option is chosen.
+**Resolution**: Option 2 implemented. `normalize_legacy_fields()` confirmed vestigial — `compatibility.py` does not exist, function was always identity, zero external callers, zero test dependencies. Entire import machinery (including `SourceFileLoader` fallback) deleted from `canonicalize.py`. No environment-dependent transforms remain in any proof-critical path. Evidence: `canonicalize.py` has no reference to `normalize_legacy_fields`.
 
 ---
 
-## OCD-4: Head Hash Failure Behavior
+## OCD-4: Head Hash Failure Behavior — RESOLVED (2026-03-25)
 
-**Blocker level**: MEDIUM — semantic integrity ambiguity.
+**Blocker level**: ~~MEDIUM~~ → **RESOLVED**.
 
 **Current behavior** (`integrity.py:192-195`):
 ```python
@@ -111,7 +111,7 @@ This is worse than a wrong answer — it's a silent wrong answer.
 - The verifier (`integrity.py:366`) checks `if claimed_head and recomputed.head_hash and ...` — if `recomputed.head_hash` is None, the comparison is **silently skipped**
 - Result: the attestation claims a head_hash, but the verifier doesn't verify it. This is worse than a visible failure.
 
-**Revised recommendation**: Option 1 (hard-fail) or Option 3 (explicit error + documented fallback). If Option 2 is chosen, the verifier MUST be patched to emit an explicit error when `head_hash` is None but the attestation claims a non-None value. The constitutional rule is: **if an attestation claims a value and the verifier cannot recompute the comparator, that must produce an explicit failure or explicit degraded-state error.** No silent skips.
+**Resolution**: Hybrid of Options 1 and 2. Canonicalization failure sets `head_hash = None` (not stale retention). Downstream, if attestation claims a head_hash but recomputed is None, verifier emits explicit `E_MANIFEST_TAMPER` (not silent skip). Empty-pack sentinel (`SHA256(b"empty")`) handled as special case. Constitutional rule enforced: **if an attestation claims a value and the verifier cannot recompute the comparator, the result is an explicit error.** Evidence: `integrity.py:195-202` (None on failure), `integrity.py:373-395` (explicit error), `test_integrity_mutants.py::TestHeadHashNoSilentSkip` (2 regression tests).
 
 ---
 
@@ -176,9 +176,9 @@ No item should be resolved by "whatever the code currently does" unless that beh
 
 ---
 
-## OCD-10: Descriptive Manifest/Attestation Fields vs Normative Verifier Behavior
+## OCD-10: Descriptive Manifest/Attestation Fields vs Normative Verifier Behavior — RESOLVED (2026-03-25)
 
-**Blocker level**: HIGH — named interop-risk class, not a single field fix.
+**Blocker level**: ~~HIGH~~ → **RESOLVED** (doctrine established, schema hardened, regression tests installed).
 
 **Core rule**: **Verifiers MUST NOT derive algorithmic behavior, covered-component behavior, version-conditional verification behavior, or other proof-critical behavior from descriptive manifest/attestation fields unless the contract explicitly designates that field as normative.**
 
@@ -227,7 +227,7 @@ Any future change that intends field-driven dispatch must:
 
 ### Sub-decision: signature_alg schema posture
 
-**Current state**: `signature_alg` uses `pattern: "^[A-Za-z0-9._-]+$"` — any alphanumeric string is schema-valid.
+**Current state**: `signature_alg` now constrained to `enum: ["ed25519"]` in `pack_manifest.schema.json`.
 
 **Comparison**: `hash_alg` uses `enum: ["sha256"]` — constrained, defense in depth.
 
@@ -243,13 +243,13 @@ Any future change that intends field-driven dispatch must:
 - Marginally less flexible for experimental signers (but those should not be producing proof packs)
 - Requires schema update when adding algorithms (but that's the correct forcing function)
 
-**Verdict**: Constrain. The cons describe exactly the behavior we want: any new algorithm must be an explicit contract change, not a quiet field edit.
+**Verdict**: Constrain. Implemented — `pack_manifest.schema.json` now has `enum: ["ed25519"]` for `signature_alg`. Regression test: `test_integrity_mutants.py::TestDescriptiveFieldInvariant::test_signature_alg_schema_prevents_misleading_values`.
 
 ---
 
-## OCD-8: signature_scope Field vs Code Mismatch
+## OCD-8: signature_scope Field vs Code Mismatch — RESOLVED (2026-03-25)
 
-**Blocker level**: HIGH — live interop hazard. **PARTIALLY RESOLVED (2026-03-25).**
+**Blocker level**: ~~HIGH~~ → **RESOLVED**.
 
 **Current behavior**: The manifest field `signature_scope` previously contained `"JCS(pack_manifest_without_signature)"`. The actual signing code (`integrity.py:432-435`) excludes both `signature` AND `pack_root_sha256`.
 
@@ -260,7 +260,7 @@ Any future change that intends field-driven dispatch must:
 - The contract must specify that verifiers should NOT use the `signature_scope` field to determine the exclusion set — it is informational
 - The actual exclusion set `{signature, pack_root_sha256}` is defined by the contract, not the field value
 
-**Remaining action**: Add a note to PACK_CONTRACT.md Section 6 (done). Consider whether old packs need a migration note.
+**Fully resolved**: Field value corrected (`proof_pack.py:607`), schema accepts both old and new values (`pack_manifest.schema.json`), normative comment in verifier code (`integrity.py:455-467`), poison-pill regression tests prove verifier ignores field value (`test_integrity_mutants.py::TestSignatureScopeInvariant`). PACK_CONTRACT.md Section 6 updated. OCD-10 generalizes this fix to the entire descriptive-field class.
 
 ---
 
@@ -275,7 +275,7 @@ Any future change that intends field-driven dispatch must:
 | JSONL lines are JCS-canonical | File hash integrity (SHA-256 of whole file) | Indirect — verifier checks file hash, not per-line canonicality |
 | Receipt sort order | File hash integrity | Indirect |
 | Signature base formation | Hardcoded exclusion set in `integrity.py:432-435` | Direct |
-| Head hash correctness | Comparison of recomputed vs claimed head_hash | Direct, but with silent skip on recomputation failure (see OCD-4) |
+| Head hash correctness | Comparison of recomputed vs claimed head_hash | Direct — explicit `E_MANIFEST_TAMPER` on unrecomputable comparator (OCD-4 resolved) |
 | Attestation integrity | `SHA256(JCS(attestation))` vs `attestation_sha256` | Direct |
 | Receipt count | `len(parsed)` vs `receipt_count_expected` | Direct |
 

@@ -1,8 +1,8 @@
 # Verification Core Boundary Map
 
-**Date**: 2026-03-25
+**Date**: 2026-03-25 (reconciled post-extraction 2026-03-25)
 **Scope**: `src/assay/` — modules involved in receipt hashing, signing, canonicalization, Merkle operations, and pack verification.
-**Purpose**: Classify every verification-path module as mechanical, semantic, or mixed — and name the boundary violations precisely.
+**Purpose**: Classify every verification-path module as mechanical, semantic, or mixed. Document the current clean layer separation.
 
 ---
 
@@ -10,7 +10,7 @@
 
 A second implementation (e.g., TypeScript browser verifier) must reproduce identical verification results given the same pack. That is only possible if the mechanical verification contract is fully separable from semantic interpretation.
 
-This document maps where the boundary is clean and where it leaks.
+This document maps where the boundary is clean. Historical boundary violations were resolved 2026-03-25 via the canonicalization extraction (see EXTRACTION_PLAN.md).
 
 ---
 
@@ -34,48 +34,39 @@ These modules are primarily mechanical but contain minor policy decisions or fra
 
 | Module | Lines | Contract | Caveats |
 |--------|-------|----------|---------|
-| `integrity.py` | 577 | Pack verification engine | **Caveat 1**: `verify_receipt` strict mode (lines 124-136) checks for `schema_version`, `policy_hash`/`governance_hash`, `signature`/`payload_hash` — these are policy choices about what "strict" means. **Caveat 2**: `verify_receipt_pack` head_hash computation (line 192-195) silently passes on canonicalization failure, falling back to previous receipt's hash. See OPEN_CONTRACT_DECISIONS. **Caveat 3**: `verify_pack_manifest` line 524 re-shadows `attestation` variable from line 356. **Caveat 4**: The JCS stability check (lines 139-154) uses `to_jcs_bytes()` which goes through the full contaminated preparation pipeline. It tests pipeline stability, not pure JCS (Layer 1) stability. See VERIFICATION_LAYERS.md. |
+| `integrity.py` | ~606 | Pack verification engine | **Caveat 1**: `verify_receipt` strict mode (lines 124-136) checks for `schema_version`, `policy_hash`/`governance_hash`, `signature`/`payload_hash` — these are policy choices about what "strict" means. **Caveat 2 (resolved)**: head_hash failure now sets `head_hash = None` and triggers explicit `E_MANIFEST_TAMPER` downstream — no silent skip (`integrity.py:195-202, 373-395`). **Caveat 3**: `verify_pack_manifest` re-shadows `attestation` variable. **Caveat 4 (resolved)**: The stability check now uses explicit `prepare_receipt_for_hashing()` (Layer 2) + `jcs_canonicalize()` (Layer 1) — no contaminated pipeline (`integrity.py:142-146`). |
 | `pack_verify_policy.py` | 37 | Pack entry inspection | `_ALLOWED_SUPPLEMENTARY_DIRS` and `_ALLOWED_LEGACY_ROOT_SIDECARS` are policy constants. Mechanical in execution, policy in definition. |
 
-### BOUNDARY VIOLATION — Semantic Leaks in Mechanical Path
+### LAYER 2 — Explicit Receipt Projection (clean, freezable)
 
-**This is the headline finding.** These modules sit in the hash-computation path but contain semantic knowledge that does not belong there.
+*This section replaces the former "BOUNDARY VIOLATION" section. The violations described there were resolved 2026-03-25 via the canonicalization extraction. See EXTRACTION_PLAN.md for the full history.*
 
-#### `_receipts/canonicalize.py` (lines 63-86) — PRIMARY VIOLATION
+#### `_receipts/canonicalize.py` — Layer 2 API
 
-**What happens**: `_prepare_for_canonicalization()` is called by `to_jcs_bytes()`, which means ALL JCS operations in the system go through the contaminated path. This includes not just receipt payload hashing, but also manifest signing (`proof_pack.py:601`), attestation integrity hashing (`proof_pack.py:527`), the JCS stability check in the verifier (`integrity.py:140`), and head hash computation (`integrity.py:193`). Inside that preparation:
+**Current state**: `prepare_receipt_for_hashing(receipt, version="v0")` is the explicit Layer 2 projection function (`canonicalize.py:46-88`). It:
 
-1. **Pydantic model serialization** (line 65-72): Calls `model_dump(mode="json")` or `.dict()`. This applies Pydantic's JSON serialization rules (e.g., datetime → string, enum → value). The exact output depends on which Pydantic version is running.
+1. Converts Pydantic models to plain dicts (`model_dump(mode="json")` or `.dict()`)
+2. Recursively unwraps frozen containers via `unwrap_frozen()`
+3. Strips top-level signature fields per a versioned exclusion set (`_SIGNATURE_FIELD_SETS` at `canonicalize.py:35-43`)
+4. Returns a plain dict suitable for `jcs_canonicalize()` (Layer 1)
 
-2. **Frozen container unwrapping** (line 74): Delegates to `pyd.unwrap_frozen()`. Recursively converts Pydantic frozen models to plain dicts. Necessary for JCS, but the boundary between "unwrap for serialization" and "interpret model structure" is blurred.
+**What was removed**:
+- `to_jcs_bytes()` — deleted, zero callers remain
+- `_prepare_for_canonicalization()` — deleted
+- `normalize_legacy_fields()` — confirmed vestigial, import machinery deleted (including `SourceFileLoader` fallback)
+- Silent `except Exception: pass` — no longer exists in any hash path
 
-3. **Legacy field normalization** (lines 76-79): Calls `normalize_legacy_fields()` with **silent exception swallowing** (`except Exception: pass`). This means:
-   - Migration logic runs inside the hash path
-   - Failures are invisible
-   - A second implementation that doesn't know about legacy fields will hash different bytes
-   - The function itself is imported via a fragile fallback mechanism (lines 27-52) that tries normal import, then falls back to `SourceFileLoader` with hardcoded path resolution
+**Single source of truth for signature exclusion**: `_SIGNATURE_FIELD_SETS` dict in `canonicalize.py:35-43`, versioned by key (currently only `"v0"`). The v0 set is `{signatures, signature, cose_signature, receipt_hash, anchor}` — root-level only.
 
-4. **Signature field stripping** (lines 81-84): Calls `strip_signatures()` with **silent exception swallowing** (`except Exception: pass`). This means:
-   - The hash path knows which fields are "signatures" — that is semantic knowledge
-   - The field set `{signatures, signature, cose_signature, receipt_hash, anchor}` is hardcoded in `pyd.py:267-274` with no versioning
-   - A second implementation must strip the exact same fields to produce the same hash
-   - Failures are invisible
+**Portability**: A second implementation needs to:
+1. Implement `_SIGNATURE_FIELD_SETS["v0"]` — 5 named fields
+2. Strip those fields from root level only
+3. Pass the result to RFC 8785 canonicalization
+This is fully specifiable without reading the Python source.
 
-**Impact on second implementations**: If a TypeScript verifier does not implement the exact same preparation pipeline — same Pydantic unwrapping, same legacy normalization, same signature stripping, same silent failure handling — it will compute different hashes for the same receipt. The "mechanical" path is not actually reproducible from JCS spec alone.
+#### `_receipts/compat/pyd.py` — Pydantic compatibility (narrowed scope)
 
-**Recommended fix direction**: Move signature stripping and legacy normalization to explicit, versioned preprocessing steps that run BEFORE the data enters the canonicalization path. The canonicalization path should accept only plain dicts with no further transformation.
-
-#### `_receipts/compat/pyd.py` (lines 254-331) — SECONDARY VIOLATION
-
-**What happens**: This file is nominally a Pydantic compatibility shim, but it also contains:
-
-1. **`is_signature_field()`** (lines 254-274): Hardcoded set of 5 field names that are considered "signature-related." This is semantic knowledge — which fields are signatures is a domain concept, not a serialization concern.
-
-2. **`strip_signatures()`** (lines 312-331): Uses `is_signature_field()` to filter dict keys. Called from the hash path in `canonicalize.py`.
-
-3. **`unwrap_frozen()`** (lines 277-309): Recursively unwraps Pydantic models and frozen containers. The decision to call `model_dump(mode="json")` vs `.dict()` is Pydantic-version-dependent behavior embedded in the verification path.
-
-**Impact**: These functions belong in a preparation/preprocessing module, not in a Pydantic compatibility layer. Their current placement makes it hard for a second implementation to know they exist — you'd have to trace the call chain from `compute_payload_hash` through `_prepare_for_canonicalization` through `unwrap_frozen` and `strip_signatures` to find them.
+`unwrap_frozen()` remains in `pyd.py` and is called by `prepare_receipt_for_hashing()`. This is acceptable — it converts Pydantic frozen containers to plain dicts, which is a necessary mechanical step before JCS. The `strip_signatures()` and `is_signature_field()` functions remain in `pyd.py` but are **no longer called from any hash path** — `prepare_receipt_for_hashing()` uses its own `_SIGNATURE_FIELD_SETS` directly.
 
 ### SEMANTIC / GOVERNANCE — Not Portable
 
@@ -106,31 +97,38 @@ These modules contain business logic, judgment, or interpretation that a second 
 
 ---
 
-## Call Chain: Hash Path (Critical for Second Implementations)
+## Call Chains: Current Architecture (post-extraction)
 
-This is the exact sequence of operations that produces the bytes that get signed:
+Two distinct entry points, cleanly separated by layer:
 
 ```
-ANY CALLER using to_jcs_bytes()
-  ├─ compute_payload_hash(receipt)              # receipt hashing
-  ├─ integrity.py:140 — JCS stability check     # verifier
-  ├─ integrity.py:193 — head hash               # verifier
-  ├─ integrity.py:376 — attestation hash         # verifier
-  ├─ proof_pack.py:601 — manifest signing        # builder
-  └─ proof_pack.py:527 — attestation hash        # builder
+RECEIPT HASHING (Layer 2 → Layer 1)
+  ├─ integrity.py:142 — stability check
+  ├─ integrity.py:200 — head hash
+  ├─ compute_payload_hash()
+  └─ proof_pack.py JSONL line generation
        │
        ▼
-  to_jcs_bytes(obj)                              # canonicalize.py:55
-    └─ _prepare_for_canonicalization(obj)         # Layer 3+2 (contaminated)
-    │    ├─ model_dump(mode="json") OR .dict()   # Pydantic serialization
-    │    ├─ unwrap_frozen(data)                  # pyd.py:277 — recursive unwrap
-    │    ├─ normalize_legacy_fields(data)        # SILENT EXCEPT PASS (Layer 3)
-    │    └─ strip_signatures(data)               # SILENT EXCEPT PASS (Layer 2)
-    └─ _jcs_canonicalize(prepared_data)          # jcs.py:21 — pure Layer 1
-    └─ hashlib.sha256(canonical_bytes)           # stdlib → OpenSSL
+  prepare_receipt_for_hashing(receipt)      # canonicalize.py:46 — Layer 2
+    ├─ model_dump / .dict() / passthrough   # Pydantic → plain dict
+    ├─ unwrap_frozen(data)                  # frozen containers → plain
+    └─ strip root-level signature fields    # per _SIGNATURE_FIELD_SETS["v0"]
+       │
+       ▼
+  jcs_canonicalize(prepared_dict)           # jcs.py:21 — pure Layer 1 (RFC 8785)
+
+
+PLAIN DICT HASHING (Layer 1 only)
+  ├─ integrity.py:400 — attestation hash
+  ├─ integrity.py:467 — manifest signing base
+  ├─ proof_pack.py — attestation, seed, claim hashes
+  └─ all other callers (~40 sites)
+       │
+       ▼
+  jcs_canonicalize(plain_dict)              # jcs.py:21 — pure Layer 1 (RFC 8785)
 ```
 
-Everything above the `_jcs_canonicalize` line is preparation (Layers 2+3). Everything from `_jcs_canonicalize` down is pure mechanical (Layer 1). The boundary violation is that ALL JCS operations — including manifest signing and the verifier's own stability checks — go through the contaminated path. See VERIFICATION_LAYERS.md for the three-layer doctrine.
+Layer 1 is pure RFC 8785. Layer 2 is explicit projection. No Layer 3 exists (removed — was vestigial). No silent exception handling in any hash path. See VERIFICATION_LAYERS.md.
 
 ---
 
@@ -138,9 +136,9 @@ Everything above the `_jcs_canonicalize` line is preparation (Layers 2+3). Every
 
 | Classification | Modules | Portable? |
 |---------------|---------|-----------|
-| **Pure mechanical** | jcs.py, merkle.py, keystore.py, manifest_schema.py, failure_mechanisms.py | Yes — from spec alone |
-| **Mostly mechanical** | integrity.py, pack_verify_policy.py | Yes — with documented caveats |
-| **Boundary violation** | canonicalize.py, pyd.py (signature/unwrap functions) | No — requires knowledge of Python-specific preparation pipeline |
+| **Pure mechanical (Layer 1)** | jcs.py, merkle.py, keystore.py, manifest_schema.py, failure_mechanisms.py | Yes — from spec alone |
+| **Explicit projection (Layer 2)** | canonicalize.py (`prepare_receipt_for_hashing`) | Yes — versioned exclusion set, fully specifiable |
+| **Mostly mechanical** | integrity.py, pack_verify_policy.py | Yes — with documented caveats (strict mode is policy) |
 | **Semantic/governance** | claim_verifier.py, reviewer_packet_verify.py, evidence_pack.py, witness.py, passport_sign.py | Not applicable — not part of verification contract |
-| **Mixed** | proof_pack.py, decision_receipt_verify.py | Mechanical core extractable; semantic parts stay in Python |
+| **Mixed** | proof_pack.py, decision_receipt_verify.py | Mechanical core extracted; semantic parts stay in Python |
 | **IO/presentation** | detect_ci_binding, transcript generation, explain_pack | Environment-dependent — not part of contract |

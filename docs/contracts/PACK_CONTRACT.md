@@ -114,34 +114,31 @@ Legacy sidecars (`PACK_SUMMARY.md`, `decision_credential.json`) may also appear 
 
 ---
 
-## 4. Payload Preparation (BOUNDARY VIOLATION — see BOUNDARY_MAP.md)
+## 4. Payload Preparation (Layer 2 Projection)
 
-### Current behavior (`_receipts/canonicalize.py`)
+### Current behavior (`_receipts/canonicalize.py:46-88`)
 
-Before JCS canonicalization, receipts pass through `_prepare_for_canonicalization()`:
+Before JCS canonicalization, receipts pass through `prepare_receipt_for_hashing(receipt, version="v0")`:
 
-1. Pydantic model → dict via `model_dump(mode="json")` or `.dict()`
+1. Pydantic model → dict via `model_dump(mode="json")` or `.dict()`, or dict passthrough
 2. `unwrap_frozen()` — recursively converts frozen containers to plain dicts/lists
-3. `normalize_legacy_fields()` — silent `except Exception: pass`
-4. `strip_signatures()` — removes fields in `{signatures, signature, cose_signature, receipt_hash, anchor}` — silent `except Exception: pass`
+3. Strip top-level signature fields per versioned exclusion set `_SIGNATURE_FIELD_SETS["v0"]`
+4. Return plain dict for Layer 1 canonicalization
 
-This pipeline runs inside the hash path. Failures at steps 3 and 4 are invisible.
+No legacy normalization (removed — was vestigial). No silent exception swallowing. Failures raise to caller.
 
 ### Frozen contract
 
-**NOT YET FREEZABLE.** This is the primary boundary violation identified in BOUNDARY_MAP.md. The preparation pipeline must be refactored before freezing:
-
-- Signature stripping must be an explicit, versioned preprocessing step
-- Legacy normalization must be explicit and documented, not silent
-- The set of stripped fields must be versioned
-- Silent exception swallowing must be eliminated from the hash path
+- `prepare_receipt_for_hashing()` is the canonical Layer 2 projection function
+- Signature field exclusion set v0: `{signatures, signature, cose_signature, receipt_hash, anchor}` — root-level only
+- The exclusion set is versioned via `_SIGNATURE_FIELD_SETS` dict (`canonicalize.py:35-43`)
+- Unknown version → `ValueError` (fail closed)
+- Unsupported receipt type → `TypeError` (fail closed)
+- A second implementation must strip the same v0 field set at root level, then pass the result to RFC 8785 canonicalization
 
 ### Open decision
 
-- Should signature stripping live outside the canonicalization module?
-- Should legacy normalization be a versioned preprocessing step?
-- What is the canonical set of signature fields per version?
-- See OPEN_CONTRACT_DECISIONS.
+- None for the current Layer 2 API. The extraction is complete (see EXTRACTION_PLAN.md).
 
 ---
 
@@ -163,7 +160,7 @@ The raw format is used by `_sha256_hex()` everywhere else: file hashes, head has
 ### Frozen contract
 
 - **SHA-256** is the hash algorithm for all mechanical verification (Layer 1)
-- **SHA-512** is optionally supported for payload hashing only, but only through `compute_payload_hash()` which currently goes through the contaminated preparation path (Layers 2+3). SHA-512 support cannot be frozen until the preparation path is separated per VERIFICATION_LAYERS.md
+- **SHA-512** is optionally supported for payload hashing via `compute_payload_hash(obj, algorithm="sha512")`. This function uses the clean Layer 2 projection (`prepare_receipt_for_hashing`) followed by Layer 1 canonicalization (`canonicalize.py:105`)
 - Merkle operations use SHA-256 exclusively
 - File manifest hashes use SHA-256 exclusively
 - Pubkey fingerprint = `SHA256(raw_32_byte_ed25519_pubkey).hexdigest()`
@@ -262,7 +259,7 @@ The raw format is used by `_sha256_hex()` everywhere else: file hashes, head has
 
 - `receipt_id`, `type`, `timestamp` are always required
 - `timestamp` must be valid ISO 8601
-- **Pipeline stability** is verified for every receipt: the full preparation pipeline (Layers 2+3+1) must produce identical bytes across two round-trips. Note: this is broader than pure JCS (Layer 1) stability — it tests the entire `to_jcs_bytes()` path including signature stripping and legacy normalization. See VERIFICATION_LAYERS.md
+- **Canonicalization stability** is verified for every receipt: Layer 2 projection (`prepare_receipt_for_hashing`) followed by Layer 1 canonicalization (`jcs_canonicalize`) must produce identical bytes when the output is parsed and re-canonicalized (`integrity.py:142-146`). No Layer 3 normalization is involved.
 - Duplicate `receipt_id` values within a pack are rejected
 
 ### Open decision
@@ -375,7 +372,7 @@ The signed manifest contains:
 
 ### Open decision
 
-- `head_hash` uses silent fallback on canonicalization failure. See OPEN_CONTRACT_DECISIONS.
+- **RESOLVED (2026-03-25)**: `head_hash` failure now produces explicit `E_MANIFEST_TAMPER` instead of silent skip (`integrity.py:373-395`). See OCD-4.
 - `time_authority` is always `"local_clock"` — no witness-anchored time yet in attestation
 
 ---
@@ -393,7 +390,7 @@ The signed manifest contains:
 **Receipt pack** (`verify_receipt_pack`):
 1. Run `verify_receipt` on each receipt
 2. Detect duplicate `receipt_id` values
-3. Compute running head_hash (SHA256(JCS(last receipt)), silently passes on error)
+3. Compute running head_hash (SHA256(JCS(last receipt))); on failure, sets `head_hash = None` (no silent retention of stale value)
 
 **Pack manifest** (`verify_pack_manifest`):
 1. JSON Schema validation (fail closed)
@@ -412,7 +409,7 @@ The signed manifest contains:
 
 ### Frozen contract
 
-- Steps 1-11 constitute the mechanical verification contract, with this caveat: **steps that invoke `to_jcs_bytes()` (steps 4 and 6) currently depend on the contaminated preparation path (Layers 2+3).** The mechanical contract is not fully separable from the preparation pipeline until OCD-2 and OCD-3 are resolved. See VERIFICATION_LAYERS.md
+- Steps 1-11 constitute the mechanical verification contract. Steps 4 and 6 use the clean Layer 2 → Layer 1 pipeline (`prepare_receipt_for_hashing` + `jcs_canonicalize`). No contaminated paths remain (OCD-2 and OCD-3 resolved).
 - Steps 12-13 are optional and policy-configured
 - Verification MUST fail closed: any error → `passed = False`
 - File hash verification uses SHA-256 only
