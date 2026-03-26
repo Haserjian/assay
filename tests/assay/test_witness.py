@@ -623,6 +623,40 @@ class TestWitnessCli:
         bundle = json.loads((cli_pack_with_adc / "witness_bundle.json").read_text())
         assert bundle["pack_root_sha256"] == pack_root
 
+    def test_witness_command_rejects_resigned_adc_with_wrong_key(
+        self,
+        cli_pack_with_adc,
+        tmp_path,
+    ):
+        """A replay-sidecar ADC re-signed by another key must fail closed."""
+        cred_path = get_decision_credential_path(cli_pack_with_adc, legacy_fallback=False)
+        adc = json.loads(cred_path.read_text())
+
+        attacker_ks = AssayKeyStore(keys_dir=tmp_path / "attacker-keys")
+        attacker_ks.generate_key("attacker")
+        attacker_pubkey = base64.b64encode(
+            attacker_ks.get_verify_key("attacker").encode()
+        ).decode("ascii")
+
+        adc["signer_pubkey"] = attacker_pubkey
+        adc["signer_pubkey_sha256"] = attacker_ks.signer_fingerprint("attacker")
+        adc["signature"] = attacker_ks.sign_b64(
+            jcs_canonicalize({k: v for k, v in adc.items() if k != "signature"}),
+            "attacker",
+        )
+        cred_path.write_text(json.dumps(adc))
+
+        result = runner.invoke(
+            assay_app,
+            ["witness", str(cli_pack_with_adc)],
+        )
+
+        assert result.exit_code == 2
+        assert "signature verification failed" in result.stdout.lower()
+        assert not (cli_pack_with_adc / "witness_bundle.json").exists()
+        after = json.loads(cred_path.read_text())
+        assert after["signer_pubkey_sha256"] == attacker_ks.signer_fingerprint("attacker")
+
     def test_verify_witness_command_with_valid_bundle(self, cli_pack):
         """verify-witness with valid bundle should exit 0."""
         manifest = json.loads((cli_pack / "pack_manifest.json").read_text())

@@ -47,6 +47,7 @@ Commands:
 """
 from __future__ import annotations
 
+import base64
 import json
 from collections import Counter
 from typing import Any, Dict, List, Optional
@@ -3541,6 +3542,22 @@ def witness_cmd(
             if not keystore.has_key(signer_id):
                 raise WitnessError(
                     f"Signer key not found for witness refresh: {signer_id}"
+                )
+
+            from assay.replay_judge import _verify_adc_signature
+
+            expected_pubkey = base64.b64encode(
+                keystore.get_verify_key(signer_id).encode()
+            ).decode("ascii")
+            expected_fp = keystore.signer_fingerprint(signer_id)
+            if not _verify_adc_signature(
+                decision_credential,
+                expected_signer_pubkey=expected_pubkey,
+                expected_signer_pubkey_sha256=expected_fp,
+            ):
+                raise WitnessError(
+                    "decision_credential.json signature verification failed; "
+                    "cannot refresh witness state"
                 )
 
         bundle = generate_witness_bundle(

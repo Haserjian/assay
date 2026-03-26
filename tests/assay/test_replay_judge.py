@@ -368,3 +368,91 @@ class TestReplayJudge:
         assert judgment_a["judgment_id"] == judgment_b["judgment_id"]
         assert judgment_a["signature"] == judgment_b["signature"]
         assert trace_a == trace_b
+
+    def test_tampered_adc_treated_as_absent(self, tmp_path: Path) -> None:
+        """A tampered ADC must fail signature verification and be treated as missing."""
+        ks = _make_keystore(tmp_path)
+        original = _build_pack(
+            tmp_path,
+            ks,
+            output_name="original",
+            run_id="run-tamper",
+            pack_id="pack_tamper",
+        )
+        replay = _build_pack(
+            tmp_path,
+            ks,
+            output_name="replay",
+            run_id="run-tamper",
+            pack_id="pack_tamper",
+        )
+
+        # Tamper with the replay ADC: flip the overall_result field
+        from assay.proof_pack import get_decision_credential_path
+
+        adc_path = get_decision_credential_path(replay)
+        adc = json.loads(adc_path.read_text(encoding="utf-8"))
+        adc["overall_result"] = "TAMPERED_BY_TEST"
+        adc_path.write_text(json.dumps(adc), encoding="utf-8")
+
+        judgment, trace = judge_replay(
+            original,
+            replay,
+            keystore=ks,
+            signer_id="test-signer",
+            issued_at=_TS,
+        )
+
+        # The tampered ADC should be treated as absent → unverifiable
+        assert judgment["verdict"] == "unverifiable"
+        assert "missing_decision_credential" in judgment["divergence_reasons"]
+        assert trace["verdict"] == "unverifiable"
+
+    def test_resigned_adc_with_wrong_key_treated_as_absent(self, tmp_path: Path) -> None:
+        """A replay ADC re-signed by a non-pack signer must fail closed."""
+        ks = _make_keystore(tmp_path)
+        original = _build_pack(
+            tmp_path,
+            ks,
+            output_name="original",
+            run_id="run-resign",
+            pack_id="pack_resign",
+        )
+        replay = _build_pack(
+            tmp_path,
+            ks,
+            output_name="replay",
+            run_id="run-resign",
+            pack_id="pack_resign",
+        )
+
+        attacker_ks = AssayKeyStore(tmp_path / "attacker-keys")
+        attacker_ks.generate_key("attacker")
+        attacker_pubkey = base64.b64encode(
+            attacker_ks.get_verify_key("attacker").encode()
+        ).decode("ascii")
+
+        from assay.proof_pack import get_decision_credential_path
+
+        adc_path = get_decision_credential_path(replay)
+        adc = json.loads(adc_path.read_text(encoding="utf-8"))
+        adc["overall_result"] = "TAMPERED_BY_ATTACKER"
+        adc["signer_pubkey"] = attacker_pubkey
+        adc["signer_pubkey_sha256"] = attacker_ks.signer_fingerprint("attacker")
+        adc["signature"] = attacker_ks.sign_b64(
+            jcs_canonicalize({k: v for k, v in adc.items() if k != "signature"}),
+            "attacker",
+        )
+        adc_path.write_text(json.dumps(adc), encoding="utf-8")
+
+        judgment, trace = judge_replay(
+            original,
+            replay,
+            keystore=ks,
+            signer_id="test-signer",
+            issued_at=_TS,
+        )
+
+        assert judgment["verdict"] == "unverifiable"
+        assert "missing_decision_credential" in judgment["divergence_reasons"]
+        assert trace["verdict"] == "unverifiable"

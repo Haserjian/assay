@@ -50,6 +50,51 @@ def _sha256_hex(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def _verify_adc_signature(
+    adc: Dict[str, Any],
+    *,
+    expected_signer_pubkey: Optional[str] = None,
+    expected_signer_pubkey_sha256: Optional[str] = None,
+) -> bool:
+    """Verify the Ed25519 signature on an ADC.
+
+    Returns True only if the ADC contains a valid signature over its
+    JCS-canonicalized body (all fields except ``signature``), and the
+    embedded signer matches the expected pack signer when provided.
+    Returns False if any required field is missing, malformed, or if
+    the signature does not verify. Fail-closed: all exceptions → False.
+    """
+    try:
+        from nacl.signing import VerifyKey
+
+        pubkey_b64 = adc.get("signer_pubkey")
+        signature_b64 = adc.get("signature")
+        if not pubkey_b64 or not signature_b64:
+            return False
+
+        pubkey_bytes = base64.b64decode(pubkey_b64)
+        actual_signer_pubkey_sha256 = _sha256_hex(pubkey_bytes)
+        if adc.get("signer_pubkey_sha256") not in (None, actual_signer_pubkey_sha256):
+            return False
+        if expected_signer_pubkey_sha256 and actual_signer_pubkey_sha256 != expected_signer_pubkey_sha256:
+            return False
+        if expected_signer_pubkey:
+            expected_pubkey_bytes = base64.b64decode(expected_signer_pubkey)
+            if expected_pubkey_bytes != pubkey_bytes:
+                return False
+
+        signature_bytes = base64.b64decode(signature_b64)
+
+        # Reconstruct the signing base: body WITHOUT 'signature', then JCS.
+        body = {k: v for k, v in adc.items() if k != "signature"}
+        canonical = jcs_canonicalize(body)
+
+        VerifyKey(pubkey_bytes).verify(canonical, signature_bytes)
+        return True
+    except Exception:
+        return False
+
+
 def _load_schema_validator(schema_name: str) -> Draft202012Validator:
     schema_path = _SCHEMA_DIR / schema_name
     if not schema_path.exists():
@@ -422,6 +467,31 @@ def judge_replay(
 
     original_adc = _load_optional_json(get_decision_credential_path(original_pack_dir))
     replay_adc = _load_optional_json(get_decision_credential_path(replay_pack_dir))
+
+    # Verify ADC signatures before any trust-relevant comparison.
+    # A failed signature check nulls out the ADC, which the existing
+    # require_decision_credential path treats as absent (fail-closed).
+    original_signer_pubkey = original_manifest.get("signer_pubkey")
+    original_signer_pubkey_sha256 = original_manifest.get("signer_pubkey_sha256")
+    replay_signer_pubkey = replay_manifest.get("signer_pubkey")
+    replay_signer_pubkey_sha256 = replay_manifest.get("signer_pubkey_sha256")
+
+    if not original_signer_pubkey or not original_signer_pubkey_sha256:
+        original_adc = None
+    elif original_adc is not None and not _verify_adc_signature(
+        original_adc,
+        expected_signer_pubkey=original_signer_pubkey,
+        expected_signer_pubkey_sha256=original_signer_pubkey_sha256,
+    ):
+        original_adc = None
+    if not replay_signer_pubkey or not replay_signer_pubkey_sha256:
+        replay_adc = None
+    elif replay_adc is not None and not _verify_adc_signature(
+        replay_adc,
+        expected_signer_pubkey=replay_signer_pubkey,
+        expected_signer_pubkey_sha256=replay_signer_pubkey_sha256,
+    ):
+        replay_adc = None
 
     judgment = build_replay_judgment(
         original_manifest=original_manifest,
