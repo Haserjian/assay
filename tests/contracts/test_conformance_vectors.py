@@ -23,6 +23,8 @@ from assay._receipts.merkle import (
     verify_merkle_inclusion,
 )
 from assay._receipts.canonicalize import prepare_receipt_for_hashing
+from assay.integrity import verify_pack_manifest, E_MANIFEST_TAMPER
+from assay.keystore import AssayKeyStore
 
 VECTORS_DIR = Path(__file__).resolve().parent / "vectors"
 
@@ -188,4 +190,76 @@ class TestReceiptProjectionConformance:
         code_set = _SIGNATURE_FIELD_SETS["v0"]
         assert doc_set == code_set, (
             f"Exclusion set drift: doc={sorted(doc_set)}, code={sorted(code_set)}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Adversarial pack specimen: tampered receipt content
+# ---------------------------------------------------------------------------
+
+class TestAdversarialTamperedReceipt:
+    """PK-A01-class vector: single-byte tamper in receipt_pack.jsonl.
+
+    Preregistration:
+    - Mutation: receipt_pack.jsonl line 1, 'conformance-r001' → 'xonformance-r001'
+      (byte 62: 0x63 → 0x78)
+    - File size: unchanged (387 bytes)
+    - Expected failure step: step_1_file_hash_verification
+    - Expected error: E_MANIFEST_TAMPER on field receipt_pack.jsonl
+    - Occurs before: Ed25519 signature verification
+    - Verifier continuation: implementation-dependent (Python does not short-circuit)
+    """
+
+    SPECIMEN_DIR = VECTORS_DIR / "pack" / "tampered_receipt_content"
+    SPEC_PATH = VECTORS_DIR / "pack" / "tampered_receipt_content_spec.json"
+
+    @pytest.fixture(scope="class")
+    def spec(self):
+        return json.loads(self.SPEC_PATH.read_text())
+
+    @pytest.fixture(scope="class")
+    def result(self, tmp_path_factory):
+        """Run verify_pack_manifest once for the class."""
+        manifest = json.loads(
+            (self.SPECIMEN_DIR / "pack_manifest.json").read_text()
+        )
+        tmp = tmp_path_factory.mktemp("ks")
+        ks = AssayKeyStore(keys_dir=tmp)
+        return verify_pack_manifest(manifest, self.SPECIMEN_DIR, ks)
+
+    def test_verification_fails(self, result):
+        """Tampered pack must fail verification."""
+        assert not result.passed
+
+    def test_primary_error_is_manifest_tamper(self, result):
+        """Primary error must be E_MANIFEST_TAMPER on receipt_pack.jsonl."""
+        tamper_errors = [
+            e for e in result.errors
+            if e.code == E_MANIFEST_TAMPER and e.field == "receipt_pack.jsonl"
+        ]
+        assert len(tamper_errors) >= 1, (
+            f"Expected E_MANIFEST_TAMPER on receipt_pack.jsonl, got: "
+            f"{[(e.code, e.field) for e in result.errors]}"
+        )
+
+    def test_error_mentions_hash_mismatch(self, result):
+        """Error message must mention hash mismatch."""
+        tamper_errors = [
+            e for e in result.errors
+            if e.code == E_MANIFEST_TAMPER and e.field == "receipt_pack.jsonl"
+        ]
+        assert any("Hash mismatch" in e.message for e in tamper_errors)
+
+    def test_file_size_unchanged(self, spec):
+        """Tamper must not change file size (spec requirement)."""
+        assert not spec["preregistration"]["file_size_changed"]
+        original_size = (VECTORS_DIR / "pack" / "golden_minimal" / "receipt_pack.jsonl").stat().st_size
+        tampered_size = (self.SPECIMEN_DIR / "receipt_pack.jsonl").stat().st_size
+        assert original_size == tampered_size
+
+    def test_tampered_hash_differs_from_golden(self, spec):
+        """Tampered file SHA-256 must differ from golden specimen."""
+        assert (
+            spec["preregistration"]["tampered_file_sha256"]
+            != spec["preregistration"]["original_file_sha256"]
         )

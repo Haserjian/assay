@@ -1,0 +1,30 @@
+{
+  "format_version": "0.1.0",
+  "generated_by": "assay corpus generator (adversarial specimen)",
+  "generated_at": "2026-03-25",
+  "contract_ref": "docs/contracts/PACK_CONTRACT.md §11 step 3, §12 E_MANIFEST_TAMPER",
+  "specimen": "tampered_receipt_content",
+  "description": "Adversarial pack: single-byte mutation in receipt_pack.jsonl. All other files identical to golden_minimal.",
+
+  "preregistration": {
+    "mutation": "receipt_pack.jsonl line 1: 'conformance-r001' → 'xonformance-r001' (byte 62: 0x63 → 0x78)",
+    "file_size_changed": false,
+    "original_file_sha256": "63d3052911e4f4e017740d744483bf0e7f81ec6f55a1d7790930dbe9085aae2d",
+    "tampered_file_sha256": "4e8033cc3c10b3347601b94658b8c1d2d2cf75fa89499a6388ea31e1387d5b89",
+    "files_identical_to_golden": ["pack_manifest.json", "pack_signature.sig", "verify_report.json", "verify_transcript.md"]
+  },
+
+  "expected_verification": {
+    "passed": false,
+    "primary_error": {
+      "code": "E_MANIFEST_TAMPER",
+      "field": "receipt_pack.jsonl",
+      "message_contains": "Hash mismatch",
+      "verification_step": "step_1_file_hash_verification",
+      "occurs_before": "step_4c_ed25519_verification"
+    },
+    "downstream_errors_note": "The verifier does NOT short-circuit. Additional downstream errors may occur (head_hash mismatch, receipt_integrity mismatch) because the tampered content changes the recomputed receipt integrity. These downstream errors are implementation-dependent — second implementations may short-circuit after the first E_MANIFEST_TAMPER."
+  },
+
+  "conformance_requirement": "A conforming verifier MUST report passed=false. It MUST include at least one error with code E_MANIFEST_TAMPER referencing receipt_pack.jsonl. Whether additional downstream errors are reported is implementation-specific."
+}

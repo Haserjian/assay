@@ -1,0 +1,11 @@
+{
+  "pack_id": "pack_deterministic_ddef95aa",
+  "run_id": "conformance-run-001",
+  "passed": true,
+  "errors": [],
+  "warnings": [],
+  "receipt_count": 2,
+  "head_hash": "8070489bebfc93df39263ef96c5791a1ed5650072ce4b66ed86384ad0c5cff84",
+  "verified_at": "2026-01-15T12:00:00+00:00",
+  "verifier_version": "1.14.0"
+}
