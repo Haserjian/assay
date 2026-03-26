@@ -13,6 +13,7 @@
 | `jcs_vectors.json` | Layer 1 (RFC 8785) | 16 golden | JCS canonicalization produces exact bytes and hashes |
 | `merkle_vectors.json` | Layer 1 (SHA-256 tree) | 4 golden + 2 adversarial | Merkle root, inclusion proofs, odd-node duplication |
 | `receipt_projection_vectors.json` | Layer 2 (projection) | 3 golden + 2 assertions | Signature stripping, root-only doctrine, hash equivalence |
+| `pack-schema-depth/` | Pack manifest / attestation structure | 7 mutated manifests | Schema-depth rejection parity across Python and TS |
 
 ### Full Pack Specimen
 
@@ -35,7 +36,6 @@ conformance testing only — do not use zero-byte seeds for operational signing.
 
 - Adversarial/tampered pack variants (PK-A01 through PK-A18)
 - PK-A11, PK-A13b (blocked by OCD-9: direct vs indirect verifier obligations)
-- Schema validation vectors (isolated)
 - CI binding vectors
 - Freshness policy vectors
 
