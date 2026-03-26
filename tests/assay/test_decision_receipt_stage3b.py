@@ -1,5 +1,4 @@
 """Stage 3b anchor resolution — assay-toolkit acceptance tests.
-
 Stage 5 enforces that governance-class receipts declare an authorization
 anchor. Stage 3b verifies that the declared anchor actually resolves to
 an admissible artifact.
@@ -8,6 +7,8 @@ Declaration ≠ verification. This is the verification layer.
 
 Row 3 Stage 3b.
 """
+from __future__ import annotations
+
 from __future__ import annotations
 
 import pytest

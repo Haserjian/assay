@@ -1,5 +1,4 @@
 """MCP Gateway Conformance Tests for Assay MCP Proxy v0.
-
 Maps all 9 MUSTs from MCP_MINIMUM_PROFILE.md (assay-protocol) to test
 functions against assay's mcp_proxy.py.
 
@@ -28,6 +27,8 @@ protocol's required schema, and incident mode is not yet implemented.
 
 Reference: https://github.com/Haserjian/assay-protocol/blob/main/MCP_MINIMUM_PROFILE.md
 """
+from __future__ import annotations
+
 from __future__ import annotations
 
 import warnings
