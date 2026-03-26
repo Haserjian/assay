@@ -1,0 +1,42 @@
+{
+  "pack_id": "pack_deterministic_7be826b3",
+  "run_id": "sem-run-001",
+  "passed": true,
+  "errors": [],
+  "warnings": [],
+  "receipt_count": 2,
+  "head_hash": "ae3699a141956b2f4d7f85371dde74b6aac93b2b2ef1584e7a1e9e597ea2d1c5",
+  "verified_at": "2026-01-15T12:00:00+00:00",
+  "verifier_version": "1.14.0",
+  "claim_verification": {
+    "passed": true,
+    "n_claims": 2,
+    "n_passed": 2,
+    "n_failed": 0,
+    "discrepancy_fingerprint": "7c480eca37357d631496ffbde7b0df06d012ef7560a267abf487e6d8ec043a0b",
+    "results": [
+      {
+        "claim_id": "model_executed",
+        "passed": true,
+        "expected": "at least 1 receipt of type 'model_call'",
+        "actual": "found 1",
+        "severity": "critical",
+        "evidence_receipt_ids": [
+          "sem-r001"
+        ],
+        "falsifier_status": "not_required"
+      },
+      {
+        "claim_id": "guardian_checked",
+        "passed": true,
+        "expected": "at least 1 receipt of type 'guardian_verdict'",
+        "actual": "found 1",
+        "severity": "critical",
+        "evidence_receipt_ids": [
+          "sem-r002"
+        ],
+        "falsifier_status": "not_required"
+      }
+    ]
+  }
+}

@@ -1,0 +1,2 @@
+{"model":"test-model","receipt_id":"sem-r001","run_id":"sem-run-001","seq":1,"timestamp":"2026-01-15T11:59:00+00:00","type":"model_call"}
+{"receipt_id":"sem-r002","run_id":"sem-run-001","seq":2,"timestamp":"2026-01-15T11:59:30+00:00","type":"guardian_verdict","verdict":"ALLOW"}

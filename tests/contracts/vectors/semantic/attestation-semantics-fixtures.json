@@ -1,0 +1,64 @@
+{
+  "format_version": "0.1.0",
+  "description": "Attestation semantics specimens. These are NOT cross-implementation conformance vectors yet — they document what attestation semantic fields mean with executable examples. Only Python evaluates claims today.",
+  "contract_ref": "docs/contracts/PACK_CONTRACT.md §10 (attestation structure)",
+
+  "claim_set": {
+    "claim_set_id": "semantics-demo-v1",
+    "claims": [
+      {
+        "claim_id": "model_executed",
+        "description": "A model call receipt exists",
+        "check": "receipt_type_present",
+        "params": {"receipt_type": "model_call"},
+        "severity": "critical"
+      },
+      {
+        "claim_id": "guardian_checked",
+        "description": "A guardian verdict receipt exists",
+        "check": "receipt_type_present",
+        "params": {"receipt_type": "guardian_verdict"},
+        "severity": "critical"
+      }
+    ]
+  },
+
+  "specimens": [
+    {
+      "name": "claim_pass",
+      "description": "Both required receipt types present. All claims satisfied.",
+      "receipts": ["model_call (sem-r001)", "guardian_verdict (sem-r002)"],
+      "expected": {
+        "claim_check": "PASS",
+        "n_claims": 2,
+        "n_passed": 2,
+        "n_failed": 0,
+        "all_claims_passed": true
+      },
+      "reviewer_interpretation": "The evidence contains both a model execution record and a guardian safety check. Both claims in the claim set are satisfied. A reviewer may treat this as sufficient evidence that the model was executed under guardian oversight — subject to trust in the signer, key integrity, and pack mechanical integrity (verified separately)."
+    },
+    {
+      "name": "claim_insufficient",
+      "description": "Only model_call receipt present. Guardian verdict missing. One claim fails.",
+      "receipts": ["model_call (sem-r001)"],
+      "expected": {
+        "claim_check": "FAIL",
+        "n_claims": 2,
+        "n_passed": 1,
+        "n_failed": 1,
+        "all_claims_passed": false,
+        "failed_claim_ids": ["guardian_checked"],
+        "failure_reason": "guardian_verdict receipt type not found in evidence"
+      },
+      "reviewer_interpretation": "The evidence shows a model execution but no guardian safety check. The claim that guardian oversight occurred is NOT supported by the evidence. A reviewer should treat this as a gap in the evidence chain — the model ran, but there is no proof it was checked. This may or may not be acceptable depending on the governance context and required assurance level."
+    }
+  ],
+
+  "notes": {
+    "scope": "These specimens demonstrate attestation-level semantic interpretation only. They do not define governance rules, proof-tier requirements, or reviewer decision procedures.",
+    "claim_evaluation_runtime": "Python only (claim_verifier.py). TS verifier does not evaluate claims — it verifies mechanical integrity only.",
+    "discrepancy_fingerprint": "A deterministic hash of the claim evaluation results. Different discrepancy fingerprints indicate different evaluation outcomes. The exact fingerprint values are specimen-specific and may change if claim evaluation logic changes.",
+    "what_claim_check_PASS_means": "All critical claims in the claim set were satisfied by the evidence. This does NOT mean the evidence is complete, correct, or trustworthy in all contexts — only that the specific claims evaluated were supported by the receipts present.",
+    "what_claim_check_FAIL_means": "At least one critical claim was NOT satisfied. The discrepancy_fingerprint identifies which combination of claims failed. The verify_report.json contains per-claim details."
+  }
+}
