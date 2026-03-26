@@ -1,17 +1,24 @@
 name: CI Org Trust Gate
 
 on:
+  # TEMPORARILY: push trigger disabled until trust-epoch key ceremony
+  # is completed and ASSAY_CI_ORG_MAIN_* secrets/variables are configured.
+  # Without trust material, this workflow produces false-red on every push.
+  #
+  # TODO: Restore push trigger after key ceremony. Tracked in
+  # memory/project_trust_epoch_v2_remediation.md
+  #
+  # push:
+  #   branches: [main]
+  #   paths:
+  #     - "pyproject.toml"
+  #     - "src/assay/**"
+  #     - "scripts/ci/**"
+  #     - "trust/**"
+  #     - "docs/ci-integration.md"
+  #     - "docs/spec-ci-org-signer-operating-model-v1.md"
+  #     - ".github/workflows/ci-org-trust-gate.yml"
   pull_request:
-    paths:
-      - "pyproject.toml"
-      - "src/assay/**"
-      - "scripts/ci/**"
-      - "trust/**"
-      - "docs/ci-integration.md"
-      - "docs/spec-ci-org-signer-operating-model-v1.md"
-      - ".github/workflows/ci-org-trust-gate.yml"
-  push:
-    branches: [main]
     paths:
       - "pyproject.toml"
       - "src/assay/**"
