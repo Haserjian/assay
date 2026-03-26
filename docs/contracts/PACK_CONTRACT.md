@@ -443,7 +443,11 @@ The signed manifest contains:
 - Error codes are string constants, not enums
 - Each error includes: `code`, `message`, optional `receipt_index`, optional `field`, optional `failure_mechanism`
 - Mechanism families: `stale_evidence`, `schema_mismatch`, `witness_gap`, `tamper_detected`, `policy_conflict`
-- Second implementations MUST produce the same error codes for the same failure conditions
+- Second implementations:
+  - MUST detect the same failure conditions
+  - MUST agree on pass/fail verdict
+  - SHOULD converge on the same raw error codes where contract-defined
+  - MAY differ in raw error code path only where explicitly documented in §13 (Canonical Fault Classes), provided the canonical fault class is the same
 
 ---
 
@@ -495,7 +499,8 @@ Both are valid. The fault class is the same. Second implementations MUST detect 
 ### Stage Topology
 
 Stage topology is **informational**, not normative. Implementations:
-- MUST produce the same pass/fail verdict and error codes (normative)
+- MUST produce the same pass/fail verdict (normative)
+- SHOULD produce the same error codes; MAY differ where §13 documents a valid fault-class-level divergence
 - MAY organize their verification into different internal stages
 - SHOULD use these stage names when emitting audit traces for interoperability
 
