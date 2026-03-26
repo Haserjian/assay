@@ -3,13 +3,20 @@
 **Date**: 2026-03-25
 **Status**: ACTIVE — governs all contract docs and code changes.
 
+> **Resolution (2026-03-25):** The three layers are now separated in code.
+> `to_jcs_bytes()` and `_prepare_for_canonicalization()` have been removed.
+> Layer 3 (legacy normalization) was confirmed vestigial and deleted.
+> Canonical hashing is defined over explicit receipt projections
+> (`prepare_receipt_for_hashing`), not arbitrary object normalization.
+> No generic object-to-canonical-bytes helper exists anymore — by design.
+
 ---
 
-## The Problem
+## The Problem (historical — resolved)
 
-The current codebase conflates three distinct operations into a single call path (`to_jcs_bytes()` → `_prepare_for_canonicalization()` → `_jcs_canonicalize()`). This makes it impossible to state what "JCS canonicalization" means without also describing signature stripping, legacy normalization, and Pydantic unwrapping.
+The codebase previously conflated three distinct operations into a single call path (`to_jcs_bytes()` → `_prepare_for_canonicalization()` → `_jcs_canonicalize()`). This made it impossible to state what "JCS canonicalization" meant without also describing signature stripping, legacy normalization, and Pydantic unwrapping.
 
-That conflation is a contract contamination bug. It must be resolved before any freeze.
+That conflation was a contract contamination bug. It was resolved 2026-03-25 via the extraction plan.
 
 ---
 

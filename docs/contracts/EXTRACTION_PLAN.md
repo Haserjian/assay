@@ -1,8 +1,16 @@
 # to_jcs_bytes() Extraction Plan
 
 **Date**: 2026-03-25
-**Status**: PLAN — not yet executed.
+**Status**: COMPLETE — fully executed 2026-03-25.
 **Purpose**: Separate the three verification layers in code, matching the VERIFICATION_LAYERS.md doctrine.
+
+> **Completion note (2026-03-25):** All steps executed. `to_jcs_bytes()` removed
+> (zero callers). `prepare_receipt_for_hashing()` is the explicit Layer 2 API.
+> All ~50 call sites migrated. Layer 3 (`normalize_legacy_fields`) confirmed
+> vestigial and removed. 2678 tests pass. See commits `5b5566e`..`670129e`.
+>
+> **API break:** `to_jcs_bytes` removed from `__all__`. This is a semver event
+> for `assay-ai` on PyPI. Next release must bump minor (or major if strict).
 
 ---
 
