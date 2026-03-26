@@ -30,6 +30,7 @@ htmlcov/
 proof_pack_*/
 challenge_pack/
 *.jsonl
+!tests/contracts/vectors/**/*.jsonl
 assay.lock
 
 # Package manager lock (library, not app -- consumers use their own lock)

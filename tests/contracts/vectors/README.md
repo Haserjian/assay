@@ -59,6 +59,19 @@ A conforming verifier must:
 4. Match all expected values in `pack/expected_outputs.json` (head_hash, attestation_sha256, file hashes, etc.)
 5. Ed25519 verification uses only the embedded `signer_pubkey` — no external keystore needed
 
+## Specimen Trust Model
+
+This corpus uses deterministic test material to make outputs reproducible; it is
+not an example operational signing workflow. The distinction matters:
+
+| Property | Conformance specimen | Operational signing |
+|----------|---------------------|-------------------|
+| Key material | Deterministic seed (zero bytes) | Real generated keypair |
+| Embedded pubkey | Authoritative for verification | Supplementary — trust root is keystore |
+| Purpose | Prove contract portability | Prove evidence integrity |
+
+Do not use conformance specimen patterns as a template for production trust chains.
+
 ## Contract References
 
 - JCS: `docs/contracts/PACK_CONTRACT.md` §3
