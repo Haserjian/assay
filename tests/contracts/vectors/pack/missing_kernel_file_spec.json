@@ -1,0 +1,16 @@
+{
+  "format_version": "0.1.0",
+  "specimen": "missing_kernel_file",
+  "description": "verify_report.json deleted from pack. All other files unchanged.",
+  "mutation": "verify_report.json: deleted",
+  "expected_verification": {
+    "passed": false,
+    "primary_error": {
+      "code": "E_MANIFEST_TAMPER",
+      "field": "verify_report.json",
+      "message_contains": "missing",
+      "verification_step": "step_1_file_hash_verification"
+    }
+  },
+  "conformance_requirement": "A conforming verifier MUST report passed=false with at least one E_MANIFEST_TAMPER referencing the missing file."
+}

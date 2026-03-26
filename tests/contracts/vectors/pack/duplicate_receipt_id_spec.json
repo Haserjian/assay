@@ -1,0 +1,22 @@
+{
+  "format_version": "0.1.0",
+  "specimen": "duplicate_receipt_id",
+  "description": "Two receipts with receipt_id 'dup-001'. Pack is otherwise valid-shaped and re-signed.",
+  "mutation": "receipt_pack.jsonl: two receipts share receipt_id 'dup-001'. Manifest updated and re-signed.",
+  "expected_verification": {
+    "passed": false,
+    "primary_error": {
+      "code": "E_MANIFEST_TAMPER",
+      "field": "receipt_integrity",
+      "verification_step": "step_2c_receipt_integrity_crosscheck",
+      "message_contains": "receipt_integrity"
+    },
+    "root_cause": {
+      "code": "E_DUPLICATE_ID",
+      "detection_layer": "verify_receipt_pack (sub-verifier)",
+      "note": "The pack verifier detects duplicate receipt_ids via verify_receipt_pack, which sets passed=False. The pack-level error surfaces as receipt_integrity mismatch (attestation claims PASS but recomputed is FAIL). E_DUPLICATE_ID is not directly propagated to the pack result."
+    }
+  },
+  "note": "The duplicate receipt_id is the root cause, but the pack verifier reports it as a receipt_integrity mismatch. File hashes, signature, attestation hash, and D12 all pass independently.",
+  "conformance_requirement": "A conforming verifier MUST report passed=false. The specific error may be E_MANIFEST_TAMPER on receipt_integrity (pack-level) or E_DUPLICATE_ID (receipt-level). Both are valid conforming behaviors."
+}

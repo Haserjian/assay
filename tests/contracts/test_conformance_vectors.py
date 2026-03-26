@@ -263,3 +263,87 @@ class TestAdversarialTamperedReceipt:
             spec["preregistration"]["tampered_file_sha256"]
             != spec["preregistration"]["original_file_sha256"]
         )
+
+
+# ---------------------------------------------------------------------------
+# Adversarial specimen suite: one-fault-per-pack
+# ---------------------------------------------------------------------------
+
+class _AdversarialSpecimenBase:
+    """Base for one-fault adversarial specimens. Subclasses set SPECIMEN_NAME,
+    EXPECTED_CODE, and optionally EXPECTED_FIELD."""
+
+    SPECIMEN_NAME: str
+    EXPECTED_CODE: str
+    EXPECTED_FIELD: str | None = None
+
+    @pytest.fixture(scope="class")
+    def result(self, tmp_path_factory):
+        pack_dir = VECTORS_DIR / "pack" / self.SPECIMEN_NAME
+        manifest = json.loads((pack_dir / "pack_manifest.json").read_text())
+        tmp = tmp_path_factory.mktemp("ks")
+        ks = AssayKeyStore(keys_dir=tmp)
+        return verify_pack_manifest(manifest, pack_dir, ks)
+
+    @pytest.fixture(scope="class")
+    def spec(self):
+        spec_path = VECTORS_DIR / "pack" / f"{self.SPECIMEN_NAME}_spec.json"
+        return json.loads(spec_path.read_text())
+
+    def test_verification_fails(self, result):
+        assert not result.passed
+
+    def test_expected_error_code_present(self, result):
+        matching = [e for e in result.errors if e.code == self.EXPECTED_CODE]
+        assert len(matching) >= 1, (
+            f"Expected {self.EXPECTED_CODE}, got: "
+            f"{[(e.code, e.field) for e in result.errors]}"
+        )
+
+    def test_expected_field_if_specified(self, result):
+        if self.EXPECTED_FIELD is None:
+            pytest.skip("No specific field assertion for this specimen")
+        matching = [
+            e for e in result.errors
+            if e.code == self.EXPECTED_CODE and e.field and self.EXPECTED_FIELD in e.field
+        ]
+        assert len(matching) >= 1, (
+            f"Expected {self.EXPECTED_CODE} on field containing '{self.EXPECTED_FIELD}', "
+            f"got: {[(e.code, e.field) for e in result.errors]}"
+        )
+
+
+class TestTamperedSignature(_AdversarialSpecimenBase):
+    """Detached signature replaced with invalid bytes."""
+    SPECIMEN_NAME = "tampered_signature"
+    EXPECTED_CODE = "E_PACK_SIG_INVALID"
+    EXPECTED_FIELD = "pack_signature.sig"
+
+
+class TestMissingKernelFile(_AdversarialSpecimenBase):
+    """verify_report.json deleted from pack."""
+    SPECIMEN_NAME = "missing_kernel_file"
+    EXPECTED_CODE = "E_MANIFEST_TAMPER"
+    EXPECTED_FIELD = "verify_report.json"
+
+
+class TestD12InvariantBreak(_AdversarialSpecimenBase):
+    """pack_root_sha256 differs from attestation_sha256."""
+    SPECIMEN_NAME = "d12_invariant_break"
+    EXPECTED_CODE = "E_MANIFEST_TAMPER"
+    EXPECTED_FIELD = "pack_root_sha256"
+
+
+class TestPathTraversal(_AdversarialSpecimenBase):
+    """Manifest files array includes path traversal entry."""
+    SPECIMEN_NAME = "path_traversal"
+    EXPECTED_CODE = "E_PATH_ESCAPE"
+    EXPECTED_FIELD = None  # field value varies by implementation
+
+
+class TestDuplicateReceiptId(_AdversarialSpecimenBase):
+    """Two receipts with same receipt_id. Root cause is E_DUPLICATE_ID
+    at receipt level; pack verifier surfaces as receipt_integrity mismatch."""
+    SPECIMEN_NAME = "duplicate_receipt_id"
+    EXPECTED_CODE = "E_MANIFEST_TAMPER"
+    EXPECTED_FIELD = "receipt_integrity"
