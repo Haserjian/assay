@@ -287,3 +287,7 @@ Any future change that intends field-driven dispatch must:
 3. **Define verification profiles.** "Full pack verification" (checks everything, needs raw files). "Receipt-only verification" (checks individual receipt integrity, no file-level guarantees).
 
 **Recommendation**: Option 1, with Option 3 as a future refinement. The distinction between direct and indirect enforcement must be visible in the contract so second implementations can make informed decisions about what they're actually verifying.
+
+**Clarification artifact**: `docs/contracts/OCD-9_DIRECT_VS_INDIRECT_VERIFIER_OBLIGATIONS.md`
+
+**Current status**: partially clarified. Direct obligations are now enumerated as explicit verifier checks; indirect obligations are identified as properties only guaranteed through verified enclosing artifacts or builder discipline. The remaining open question is whether JSONL canonicality should stay indirect or be promoted to a direct verifier obligation in a future profile.
