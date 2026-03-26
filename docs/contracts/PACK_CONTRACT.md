@@ -444,3 +444,82 @@ The signed manifest contains:
 - Each error includes: `code`, `message`, optional `receipt_index`, optional `field`, optional `failure_mechanism`
 - Mechanism families: `stale_evidence`, `schema_mismatch`, `witness_gap`, `tamper_detected`, `policy_conflict`
 - Second implementations MUST produce the same error codes for the same failure conditions
+
+---
+
+## 13. Canonical Fault Classes
+
+*Added 2026-03-26. Fault classes sit above raw error codes and provide cross-implementation comparability even when outward code paths differ.*
+
+Fault classes are the vocabulary for "what kind of thing went wrong," independent of which verification step or code path detected it.
+
+### Fault Class Table
+
+| Fault Class | Meaning | Error Codes | Adversarial Specimens |
+|------------|---------|-------------|----------------------|
+| `file_integrity_violation` | Pack file content does not match manifest declaration | `E_MANIFEST_TAMPER` (hash mismatch, missing file, count mismatch) | tampered_receipt_content, missing_kernel_file |
+| `signature_authenticity_failure` | Ed25519 signature is invalid, missing, or detached sig disagrees | `E_PACK_SIG_INVALID` | tampered_signature |
+| `structural_invariant_violation` | Pack-level invariant broken (D12, attestation hash) | `E_MANIFEST_TAMPER` (on `pack_root_sha256` or `attestation_sha256`) | d12_invariant_break |
+| `containment_violation` | Manifest-controlled path escapes pack root | `E_PATH_ESCAPE` | path_traversal |
+| `receipt_identity_violation` | Duplicate receipt_id within a pack | `E_DUPLICATE_ID` (receipt-level) or `E_MANIFEST_TAMPER` on `receipt_integrity` (pack-level) | duplicate_receipt_id |
+| `schema_violation` | Missing required fields, malformed structure | `E_SCHEMA_UNKNOWN`, `E_CANON_MISMATCH` | — |
+| `temporal_violation` | Timestamp invalid or pack too old | `E_TIMESTAMP_INVALID`, `E_PACK_STALE` | — |
+| `policy_violation` | Missing policy hash, CI binding mismatch | `E_POLICY_MISSING`, `E_CI_BINDING_MISSING`, `E_CI_BINDING_MISMATCH` | — |
+
+### Cross-Implementation Note
+
+For `receipt_identity_violation`, implementations may differ in which raw code surfaces:
+- Python's pack verifier detects duplicates via `verify_receipt_pack` (receipt-level), then surfaces the failure as `E_MANIFEST_TAMPER` on `receipt_integrity` (pack-level cross-check)
+- TypeScript detects duplicates directly at the pack level as `E_DUPLICATE_ID`
+
+Both are valid. The fault class is the same. Second implementations MUST detect the fault; they MAY report it at either the receipt or pack level.
+
+---
+
+## 14. Verification Stages
+
+*Added 2026-03-26. Stage names are the provisional shared vocabulary for verification traces.*
+
+### Stage Map
+
+| Stage | What It Checks | Contract Section |
+|-------|---------------|-----------------|
+| `validate_shape` | Manifest structure (fields are correct types) | §0 (schema validation) |
+| `validate_paths` | All manifest-driven paths contained within pack root | §11 step 4 |
+| `validate_file_hashes` | SHA-256 per file matches manifest; expected files present | §11 steps 1-1b |
+| `validate_receipts` | JSONL parse, receipt count, duplicate IDs, head hash cross-check | §11 steps 2-2c |
+| `validate_attestation` | SHA256(JCS(attestation)) matches manifest field | §11 step 3 |
+| `verify_signature` | Detached sig parity, unsigned manifest reconstruction, Ed25519, fingerprint | §11 steps 4a-4c |
+| `check_d12_invariant` | pack_root_sha256 == attestation_sha256 | §11 step 4d |
+
+### Stage Topology
+
+Stage topology is **informational**, not normative. Implementations:
+- MUST produce the same pass/fail verdict and error codes (normative)
+- MAY organize their verification into different internal stages
+- SHOULD use these stage names when emitting audit traces for interoperability
+
+### Python ↔ TypeScript Stage Mapping
+
+| Stage | Python Location | TS Location | Mechanism Divergence |
+|-------|----------------|-------------|---------------------|
+| `validate_shape` | `integrity.py` JSON Schema (Draft 2020-12) | `verify.ts` Array.isArray guards | Python uses formal schema validator; TS uses manual type guards. Same intent. |
+| `validate_paths` | `integrity.py:251-303` | `verify.ts` isContainedPath() | Identical logic |
+| `validate_file_hashes` | `integrity.py:248-291` | `verify.ts` file hash loop | Identical logic |
+| `validate_receipts` | `integrity.py:306-395` | `verify.ts` JSONL parse + checks | Python sub-delegates to verify_receipt_pack; TS does it inline |
+| `validate_attestation` | `integrity.py:397-405` | `verify.ts` attestation hash check | Identical logic |
+| `verify_signature` | `integrity.py:407-519` | `verify.ts` signature block | Identical logic |
+| `check_d12_invariant` | `integrity.py:521-528` | `verify.ts` D12 check | Identical logic |
+
+### Adversarial Specimen → Fault Class → Failing Stage
+
+| Specimen | Fault Class | Expected Failing Stage | Python Code | TS Code |
+|----------|------------|----------------------|-------------|---------|
+| tampered_receipt_content | file_integrity_violation | validate_file_hashes | `E_MANIFEST_TAMPER` | `E_MANIFEST_TAMPER` |
+| tampered_signature | signature_authenticity_failure | verify_signature | `E_PACK_SIG_INVALID` | `E_PACK_SIG_INVALID` |
+| missing_kernel_file | file_integrity_violation | validate_file_hashes | `E_MANIFEST_TAMPER` | `E_MANIFEST_TAMPER` |
+| d12_invariant_break | structural_invariant_violation | check_d12_invariant | `E_MANIFEST_TAMPER` | `E_MANIFEST_TAMPER` |
+| path_traversal | containment_violation | validate_paths | `E_PATH_ESCAPE` | `E_PATH_ESCAPE` |
+| duplicate_receipt_id | receipt_identity_violation | validate_receipts | `E_MANIFEST_TAMPER`* | `E_DUPLICATE_ID` |
+
+*Python surfaces duplicate detection as receipt_integrity mismatch at the pack level. See Cross-Implementation Note in §13.
