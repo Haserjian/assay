@@ -33,10 +33,10 @@ jobs:
     # repo variable. These are set during the trust-epoch key ceremony.
     #
     # TODO: Complete trust-epoch key rotation ceremony, then remove
-    # the secrets.ASSAY_CI_ORG_MAIN_PUB_B64 != '' guard.
+    # the vars.ASSAY_CI_ORG_MAIN_FINGERPRINT != '' guard.
     # See: memory/project_trust_epoch_v2_remediation.md
     if: |
-      secrets.ASSAY_CI_ORG_MAIN_PUB_B64 != '' &&
+      vars.ASSAY_CI_ORG_MAIN_FINGERPRINT != '' &&
       (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 15
