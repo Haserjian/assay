@@ -1,0 +1,81 @@
+{
+  "format_version": "0.1.0",
+  "generated_by": "assay corpus generator (signed pack specimen)",
+  "generated_at": "2026-03-25",
+  "contract_ref": "docs/contracts/PACK_CONTRACT.md",
+  "description": "Expected verification outputs for golden_minimal pack specimen. A conforming second implementation must produce equivalent results.",
+
+  "specimen": "golden_minimal",
+
+  "generation_inputs": {
+    "key_seed": "32 zero bytes (0x00 * 32) — deterministic Ed25519 keypair (TEST ONLY, not for operational use)",
+    "deterministic_ts": "2026-01-15T12:00:00+00:00",
+    "signer_id": "conformance-test-signer",
+    "run_id": "conformance-run-001",
+    "receipts": [
+      {
+        "receipt_id": "conformance-r001",
+        "type": "model_call",
+        "timestamp": "2026-01-15T11:59:00+00:00",
+        "run_id": "conformance-run-001",
+        "seq": 1,
+        "model": "test-model-v1",
+        "prompt_hash": "abc123",
+        "response_hash": "def456"
+      },
+      {
+        "receipt_id": "conformance-r002",
+        "type": "guardian_verdict",
+        "timestamp": "2026-01-15T11:59:30+00:00",
+        "run_id": "conformance-run-001",
+        "seq": 2,
+        "verdict": "ALLOW",
+        "rule": "safety-check-v1"
+      }
+    ]
+  },
+
+  "expected_verification": {
+    "passed": true,
+    "errors": [],
+    "receipt_count": 2,
+    "head_hash": "8070489bebfc93df39263ef96c5791a1ed5650072ce4b66ed86384ad0c5cff84",
+    "attestation_sha256": "f543e680ad5a20cbe8c96e0aa4234b4dcee31a872363470a2bdc5d1fe26c677d",
+    "pack_root_sha256": "f543e680ad5a20cbe8c96e0aa4234b4dcee31a872363470a2bdc5d1fe26c677d",
+    "d12_invariant_holds": true
+  },
+
+  "expected_manifest_fields": {
+    "pack_id": "pack_deterministic_ddef95aa",
+    "signer_pubkey": "O2onvM62pC1io6jQKm8Nc2UyFXcd4kOmOsBIoYtZ2ik=",
+    "signer_pubkey_sha256": "139e3940e64b5491722088d9a0d741628fc826e09475d341a780acde3c4b8070",
+    "signature_alg": "ed25519",
+    "hash_alg": "sha256",
+    "receipt_count_expected": 2
+  },
+
+  "expected_file_hashes": {
+    "receipt_pack.jsonl": "63d3052911e4f4e017740d744483bf0e7f81ec6f55a1d7790930dbe9085aae2d",
+    "verify_report.json": "3231490671b73aafe701f51752e3e49083a863835bf511f3f67ccd214ff29a43",
+    "verify_transcript.md": "42228da2ac0de2acca447abc04a5145a0c85d1f528519bf9442412295d2d1b94"
+  },
+
+  "verification_steps_exercised": [
+    "step_0_schema_validation",
+    "step_0b_expected_files_present",
+    "step_1_file_hash_verification",
+    "step_2_receipt_count_crosscheck",
+    "step_2b_head_hash_computation",
+    "step_3_attestation_hash_check",
+    "step_4a_detached_sig_parity",
+    "step_4b_unsigned_manifest_reconstruction",
+    "step_4c_ed25519_verification",
+    "step_4d_d12_invariant",
+    "extra_signer_pubkey_sha256_check"
+  ],
+
+  "not_exercised": [
+    "step_5_freshness_check (optional, policy-configured)",
+    "step_6_ci_binding (optional, not set in specimen)"
+  ]
+}
