@@ -27,7 +27,17 @@ permissions:
 
 jobs:
   ci-org-trust-gate:
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    # Gate: skip if trust material is not yet configured.
+    # This workflow requires ASSAY_CI_ORG_MAIN_PUB_B64 and
+    # ASSAY_CI_ORG_MAIN_KEY_B64 secrets plus ASSAY_CI_ORG_MAIN_FINGERPRINT
+    # repo variable. These are set during the trust-epoch key ceremony.
+    #
+    # TODO: Complete trust-epoch key rotation ceremony, then remove
+    # the secrets.ASSAY_CI_ORG_MAIN_PUB_B64 != '' guard.
+    # See: memory/project_trust_epoch_v2_remediation.md
+    if: |
+      secrets.ASSAY_CI_ORG_MAIN_PUB_B64 != '' &&
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
