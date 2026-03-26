@@ -2,8 +2,89 @@
 
 All notable changes to Assay are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
+This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [1.19.0] - 2026-03-25
+
+### Internal API changes
+
+These changes affect `assay._receipts.canonicalize`, a private submodule
+(underscore-prefixed). No top-level public API (`assay.__all__`) was changed.
+Any downstream use of these functions was unsupported internal imports.
+
+- **`to_jcs_bytes()` removed.** This function conflated Layer 1 (JCS
+  canonicalization) with Layer 2 (receipt projection / signature stripping).
+  Replaced by the explicit two-step pipeline:
+  `prepare_receipt_for_hashing()` then `jcs_canonicalize()`.
+- **`compute_payload_hash()` return format changed.** Now returns raw hex
+  (e.g., `a1b2c3...`) instead of prefixed format (`sha256:a1b2c3...`).
+  Resolves OCD-1 (Open Contract Decision #1). Callers that parsed the
+  `sha256:` prefix must update.
+- **`compute_payload_hash_hex()` is unaffected** — retained as a trivial
+  alias. Both functions now return identical raw hex output. Callers using
+  `compute_payload_hash_hex()` require no changes.
+
+### Added
+
+- **`prepare_receipt_for_hashing()`** — explicit Layer 2 receipt projection.
+  Strips root-level signature fields (v0 exclusion set: `anchor`,
+  `cose_signature`, `receipt_hash`, `signature`, `signatures`) and returns
+  a plain dict ready for JCS canonicalization.
+- **First conformance corpus** (developer/verifier quality infrastructure):
+  - 16 JCS canonicalization vectors (Layer 1, RFC 8785)
+  - 4 golden + 2 adversarial Merkle tree vectors (Layer 1)
+  - 3 golden + 2 assertion receipt projection vectors (Layer 2)
+  - 1 golden signed pack specimen (full 11-step verification pipeline)
+  - 1 adversarial tampered pack specimen (`E_MANIFEST_TAMPER`)
+  - 46 conformance tests exercising all vectors
+- **Pack contract documentation** — `PACK_CONTRACT.md` (12 sections),
+  `VERIFICATION_LAYERS.md`, `BOUNDARY_MAP.md`, `EXTRACTION_PLAN.md`,
+  `TEST_VECTOR_SPEC.md`, `OPEN_CONTRACT_DECISIONS.md`.
+
+### Fixed
+
+- **`head_hash` silent skip eliminated.** Previously, if `head_hash` was
+  absent from the manifest, the verifier silently skipped the check. Now
+  raises `E_MANIFEST_TAMPER` with an explicit error message.
+- **`signature_scope` field corrected** in newly built packs. Schema
+  accepts both old and new values for backward compatibility.
+- **`signature_alg` schema tightened** to `enum: ["ed25519"]`. Previously
+  accepted any string.
+
+### Compatibility / Migration Notes
+
+**If you imported `to_jcs_bytes` from `assay._receipts.canonicalize`:**
+
+```python
+# Before (1.18.0)
+from assay._receipts.canonicalize import to_jcs_bytes
+canonical_bytes = to_jcs_bytes(receipt)
+
+# After (1.19.0)
+from assay._receipts.canonicalize import prepare_receipt_for_hashing
+from assay._receipts.jcs import canonicalize as jcs_canonicalize
+prepared = prepare_receipt_for_hashing(receipt)
+canonical_bytes = jcs_canonicalize(prepared)
+```
+
+**If you parsed the `sha256:` prefix from `compute_payload_hash`:**
+
+```python
+# Before (1.18.0)
+hash_str = compute_payload_hash(obj)  # "sha256:a1b2c3..."
+raw_hex = hash_str.split(":", 1)[1]
+
+# After (1.19.0)
+raw_hex = compute_payload_hash(obj)   # "a1b2c3..."
+```
+
+`compute_payload_hash_hex()` continues to work unchanged.
+
+**Existing signed packs are not affected.** The verification pipeline
+accepts both old and new `signature_scope` values. Packs built with
+1.18.0 verify correctly under 1.19.0.
 
 ## [1.18.0] - 2026-03
 
