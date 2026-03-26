@@ -79,7 +79,7 @@ Legacy sidecars (`PACK_SUMMARY.md`, `decision_credential.json`) may also appear 
 
 ---
 
-## 3. JCS Canonicalization (RFC 8785)
+## 3. JCS Canonicalization (Assay JCS Profile v1)
 
 ### Current behavior (`_receipts/jcs.py`)
 
@@ -100,12 +100,13 @@ Legacy sidecars (`PACK_SUMMARY.md`, `decision_credential.json`) may also appear 
 
 ### Frozen contract
 
-- RFC 8785 compliance is the contract
+- **Assay JCS Profile v1** — based on RFC 8785 with one documented deviation
 - UTF-16-BE key sort
 - Compact separators, no whitespace
 - Non-finite floats rejected
 - Non-string keys rejected
-- Number formatting per RFC 8785 (ES6 `JSON.stringify` semantics)
+- Number formatting follows RFC 8785 thresholds (-6 ≤ adjusted ≤ 20 → plain notation)
+- **Deviation**: Scientific notation uses uppercase `E` without explicit `+` sign (`1E21` not `1e+21`). This is Python-originated behavior frozen into the conformance corpus. See `assay-verify-ts/CANONICALIZATION_PROFILE.md` for full details.
 
 ### Open decision
 
