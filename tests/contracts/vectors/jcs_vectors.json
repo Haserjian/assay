@@ -1,0 +1,123 @@
+{
+  "format_version": "0.1.0",
+  "generated_by": "assay corpus generator (first pass)",
+  "generated_at": "2026-03-25",
+  "contract_ref": "docs/contracts/PACK_CONTRACT.md §3",
+  "layer": "Layer 1 (pure RFC 8785 canonicalization)",
+  "hash_format": "raw hex (OCD-1 resolved)",
+  "vectors": [
+    {
+      "id": "JCS-G01",
+      "input": {},
+      "expected_canonical_utf8": "{}",
+      "expected_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "description": "Empty object"
+    },
+    {
+      "id": "JCS-G02",
+      "input": {"b": 1, "a": 2},
+      "expected_canonical_utf8": "{\"a\":2,\"b\":1}",
+      "expected_sha256": "d3626ac30a87e6f7a6428233b3c68299976865fa5508e4267c5415c76af7a772",
+      "description": "Key sorting"
+    },
+    {
+      "id": "JCS-G03",
+      "input": {"β": 1, "α": 2},
+      "expected_canonical_utf8": "{\"α\":2,\"β\":1}",
+      "expected_sha256": "c17a9a072d00df46e0ac35f115d064df4efb086058d8668d13e1037ebe2313f9",
+      "description": "Unicode key sort (UTF-16-BE order)"
+    },
+    {
+      "id": "JCS-G05",
+      "input": [1, 2, 3],
+      "expected_canonical_utf8": "[1,2,3]",
+      "expected_sha256": "a615eeaee21de5179de080de8c3052c8da901138406ba71c38c032845f7d54f4",
+      "description": "Array, no whitespace"
+    },
+    {
+      "id": "JCS-G06",
+      "input": {"a": null},
+      "expected_canonical_utf8": "{\"a\":null}",
+      "expected_sha256": "d091f9c83c091f79652fe8786375b3fe4ce0861a56f5bfbafedbe431877ff0e8",
+      "description": "Null value"
+    },
+    {
+      "id": "JCS-G07",
+      "input": {"a": true, "b": false},
+      "expected_canonical_utf8": "{\"a\":true,\"b\":false}",
+      "expected_sha256": "cf5ce5d22cc0da3c5aa620a9652583597ad367d1e69a668b4ddceecaf010d5a8",
+      "description": "Boolean values"
+    },
+    {
+      "id": "JCS-G08",
+      "input": {"a": 0},
+      "expected_canonical_utf8": "{\"a\":0}",
+      "expected_sha256": "45b619e97b5d9b029af4522e9ffb02fa99ff2bf226c82ee22a7cc10269a557e8",
+      "description": "Zero integer"
+    },
+    {
+      "id": "JCS-G09",
+      "input": {"a": 0},
+      "input_note": "Language-level input is float -0.0. JSON cannot represent negative zero, so this vector's JSON input field contains 0. The test must construct -0.0 in the host language and verify canonical output is {\"a\":0}.",
+      "expected_canonical_utf8": "{\"a\":0}",
+      "expected_sha256": "45b619e97b5d9b029af4522e9ffb02fa99ff2bf226c82ee22a7cc10269a557e8",
+      "description": "Negative zero serializes as 0 (RFC 8785)"
+    },
+    {
+      "id": "JCS-G10",
+      "input": {"a": 1e20},
+      "expected_canonical_utf8": "{\"a\":100000000000000000000}",
+      "expected_sha256": "c125828e7797f96ed628b16510a00360bfb7ea19ea08f003b43c9668f195f087",
+      "description": "Large number plain notation (adjusted exponent = 20, threshold boundary)"
+    },
+    {
+      "id": "JCS-G11",
+      "input": {"a": 1e21},
+      "expected_canonical_utf8": "{\"a\":1E21}",
+      "expected_sha256": "034c1f01e18d463408ec150b74247a74fbdedff0d470d037cdf4b990eb9af125",
+      "description": "Large number scientific notation (adjusted exponent = 21, above threshold)"
+    },
+    {
+      "id": "JCS-G12",
+      "input": {"a": 1e-6},
+      "expected_canonical_utf8": "{\"a\":0.000001}",
+      "expected_sha256": "73316665f7916cb06cb29b316b8987b6cc89a7fea4a4fff0ce661eb6ad1eeffb",
+      "description": "Small number plain notation (adjusted exponent = -6, threshold boundary)"
+    },
+    {
+      "id": "JCS-G13",
+      "input": {"a": 1e-7},
+      "expected_canonical_utf8": "{\"a\":1E-7}",
+      "expected_sha256": "67158dd3b8d1d7d9a4b94ba8d5d631dad3ca0748c5e26573a7f36c2daadfede0",
+      "description": "Small number scientific notation (adjusted exponent = -7, below threshold)"
+    },
+    {
+      "id": "JCS-G14",
+      "input": {"a": "hello\nworld"},
+      "expected_canonical_utf8": "{\"a\":\"hello\\nworld\"}",
+      "expected_sha256": "7c41d2d94dc23fa9357c132fe3ee421ff617fc582e2a710a946f92d656c6942b",
+      "description": "String with control character (newline escaped)"
+    },
+    {
+      "id": "JCS-G15",
+      "input": {"a": "日本語"},
+      "expected_canonical_utf8": "{\"a\":\"日本語\"}",
+      "expected_sha256": "b019077fad3f09225e38f194c05edf83cd5a5a504fa04c55b9ac1f4a78fa2707",
+      "description": "Non-ASCII string passes through unescaped (ensure_ascii=False per RFC 8785)"
+    },
+    {
+      "id": "JCS-G16",
+      "input": {"z": {"b": {"a": 1}}, "a": 2},
+      "expected_canonical_utf8": "{\"a\":2,\"z\":{\"b\":{\"a\":1}}}",
+      "expected_sha256": "3bf1444bc068b05af312315576e5efcb61a6244cd6b9ac549e04ddfe1aec0ea3",
+      "description": "Nested object, keys sorted at every depth"
+    },
+    {
+      "id": "JCS-G17",
+      "input": {"": 1},
+      "expected_canonical_utf8": "{\"\":1}",
+      "expected_sha256": "f3d86de1bf4b354382f91a12a4487daaeb56692b2c46f2df52f6f83a84610074",
+      "description": "Empty string key"
+    }
+  ]
+}

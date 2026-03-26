@@ -1,0 +1,83 @@
+{
+  "format_version": "0.1.0",
+  "generated_by": "assay corpus generator (first pass)",
+  "generated_at": "2026-03-25",
+  "contract_ref": "docs/contracts/PACK_CONTRACT.md §4, docs/contracts/VERIFICATION_LAYERS.md",
+  "layer": "Layer 2 (receipt projection via prepare_receipt_for_hashing v0)",
+  "hash_format": "raw hex (OCD-1 resolved)",
+  "exclusion_set_version": "v0",
+  "exclusion_set": ["anchor", "cose_signature", "receipt_hash", "signature", "signatures"],
+  "stripping_scope": "root-level only — nested structures are payload",
+  "vectors": [
+    {
+      "id": "RC-G01",
+      "input": {
+        "receipt_id": "r1",
+        "type": "test",
+        "timestamp": "2026-01-01T00:00:00Z",
+        "data": {"value": 42}
+      },
+      "expected_prepared": {
+        "receipt_id": "r1",
+        "type": "test",
+        "timestamp": "2026-01-01T00:00:00Z",
+        "data": {"value": 42}
+      },
+      "expected_canonical_utf8": "{\"data\":{\"value\":42},\"receipt_id\":\"r1\",\"timestamp\":\"2026-01-01T00:00:00Z\",\"type\":\"test\"}",
+      "expected_sha256": "95fb69a532f3079c504c51efbacb47c224ed569e15e4c2d3218b9cf0d526e6bc",
+      "description": "Plain receipt with no signature fields — stripping is no-op"
+    },
+    {
+      "id": "RC-G02",
+      "input": {
+        "receipt_id": "r1",
+        "type": "test",
+        "timestamp": "2026-01-01T00:00:00Z",
+        "data": {"value": 42},
+        "signature": "should_be_stripped",
+        "signatures": ["also_stripped"],
+        "anchor": {"stripped": true}
+      },
+      "stripped_fields": ["signature", "signatures", "anchor"],
+      "expected_prepared": {
+        "receipt_id": "r1",
+        "type": "test",
+        "timestamp": "2026-01-01T00:00:00Z",
+        "data": {"value": 42}
+      },
+      "expected_canonical_utf8": "{\"data\":{\"value\":42},\"receipt_id\":\"r1\",\"timestamp\":\"2026-01-01T00:00:00Z\",\"type\":\"test\"}",
+      "expected_sha256": "95fb69a532f3079c504c51efbacb47c224ed569e15e4c2d3218b9cf0d526e6bc",
+      "description": "Receipt with signature fields — stripped before hashing, same hash as RC-G01"
+    },
+    {
+      "id": "RC-G03",
+      "input": {
+        "receipt_id": "r1",
+        "type": "test",
+        "timestamp": "2026-01-01T00:00:00Z",
+        "data": {"nested": {"signature": "not_stripped_because_nested"}}
+      },
+      "expected_prepared": {
+        "receipt_id": "r1",
+        "type": "test",
+        "timestamp": "2026-01-01T00:00:00Z",
+        "data": {"nested": {"signature": "not_stripped_because_nested"}}
+      },
+      "expected_canonical_utf8": "{\"data\":{\"nested\":{\"signature\":\"not_stripped_because_nested\"}},\"receipt_id\":\"r1\",\"timestamp\":\"2026-01-01T00:00:00Z\",\"type\":\"test\"}",
+      "expected_sha256": "b5a99fa101c0c43af3d23355f9ec57ad050d0a90ac907029369d2454adcc1e73",
+      "description": "Nested signature field is NOT stripped — root-only doctrine"
+    }
+  ],
+  "assertions": [
+    {
+      "id": "RC-A01",
+      "assertion": "RC-G01 and RC-G02 produce identical hashes",
+      "reason": "Same payload data, different root-level signature fields. Stripping makes them identical."
+    },
+    {
+      "id": "RC-A02",
+      "assertion": "RC-G03 hash differs from RC-G01",
+      "reason": "Nested 'signature' field is preserved (root-only stripping). Different payload → different hash."
+    }
+  ]
+}

@@ -1,0 +1,79 @@
+{
+  "format_version": "0.1.0",
+  "generated_by": "assay corpus generator (first pass)",
+  "generated_at": "2026-03-25",
+  "contract_ref": "docs/contracts/PACK_CONTRACT.md §7",
+  "layer": "Layer 1 (SHA-256 Merkle tree)",
+  "notes": {
+    "leaf_encoding": "Leaves are hex-encoded SHA-256 digests. Leaf bytes = bytes.fromhex(leaf_hex).",
+    "internal_node": "SHA256(left_bytes || right_bytes) — no domain separation prefix (v0 contract).",
+    "odd_count": "Last node duplicated when count is odd.",
+    "empty_tree": "SHA256(b'') = e3b0c44..."
+  },
+  "vectors": [
+    {
+      "id": "MK-G01",
+      "leaves": [],
+      "expected_root": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "description": "Empty tree: root = SHA256(empty bytes)"
+    },
+    {
+      "id": "MK-G02",
+      "leaves": [
+        "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb"
+      ],
+      "expected_root": "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb",
+      "description": "Single leaf: root = leaf (no hashing of leaf itself)"
+    },
+    {
+      "id": "MK-G03",
+      "leaves": [
+        "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb",
+        "3e23e8160039594a33894f6564e1b1348bbd7a0088d42c4acb73eeaed59c009d"
+      ],
+      "expected_root": "e5a01fee14e0ed5c48714f22180f25ad8365b53f9779f79dc4a3d7e93963f94a",
+      "inclusion_proofs": [
+        {
+          "leaf_index": 0,
+          "proof": ["3e23e8160039594a33894f6564e1b1348bbd7a0088d42c4acb73eeaed59c009d"],
+          "expected_valid": true
+        }
+      ],
+      "description": "Two leaves: SHA256(a) and SHA256(b)"
+    },
+    {
+      "id": "MK-G04",
+      "leaves": [
+        "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb",
+        "3e23e8160039594a33894f6564e1b1348bbd7a0088d42c4acb73eeaed59c009d",
+        "2e7d2c03a9507ae265ecf5b5356885a53393a2029d241394997265a1a25aefc6"
+      ],
+      "expected_root": "d31a37ef6ac14a2db1470c4316beb5592e6afd4465022339adafda76a18ffabe",
+      "inclusion_proofs": [
+        {
+          "leaf_index": 2,
+          "proof": [
+            "2e7d2c03a9507ae265ecf5b5356885a53393a2029d241394997265a1a25aefc6",
+            "e5a01fee14e0ed5c48714f22180f25ad8365b53f9779f79dc4a3d7e93963f94a"
+          ],
+          "expected_valid": true
+        }
+      ],
+      "description": "Three leaves (odd count): last node duplicated for pairing"
+    }
+  ],
+  "adversarial_vectors": [
+    {
+      "id": "MK-A01",
+      "description": "Proof with wrong leaf index",
+      "operation": "verify_merkle_inclusion with index 1 using proof for index 0",
+      "expected_valid": false
+    },
+    {
+      "id": "MK-A02",
+      "description": "Proof with tampered sibling",
+      "operation": "Flip one hex char in proof node",
+      "expected_valid": false
+    }
+  ]
+}
