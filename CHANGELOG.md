@@ -8,11 +8,19 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [1.19.0] - 2026-03-25
 
+### Deprecated
+
+- **`adapt_ccio_refusalstone_to_denial_record`** deprecated in favor of
+  `adapt_guardian_refusal_to_denial_record`. The old name leaked a private
+  repo's vocabulary into the public PyPI API surface. It remains available
+  as a compatibility alias in 1.19.0 but emits a `DeprecationWarning`.
+  Migration is a rename-only change.
+
 ### Internal API changes
 
 These changes affect `assay._receipts.canonicalize`, a private submodule
-(underscore-prefixed). No top-level public API (`assay.__all__`) was changed.
-Any downstream use of these functions was unsupported internal imports.
+(underscore-prefixed). These functions were not in top-level `assay.__all__`;
+any downstream use was unsupported internal imports.
 
 - **`to_jcs_bytes()` removed.** This function conflated Layer 1 (JCS
   canonicalization) with Layer 2 (receipt projection / signature stripping).
