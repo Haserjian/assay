@@ -347,3 +347,59 @@ class TestDuplicateReceiptId(_AdversarialSpecimenBase):
     SPECIMEN_NAME = "duplicate_receipt_id"
     EXPECTED_CODE = "E_MANIFEST_TAMPER"
     EXPECTED_FIELD = "receipt_integrity"
+
+
+# ---------------------------------------------------------------------------
+# Shared fixture-driven conformance (same JSON as TS verifier)
+# ---------------------------------------------------------------------------
+
+class TestSharedConformanceFixtures:
+    """Load conformance expectations from the shared spec file
+    (conformance-fixtures.json) and verify Python agrees.
+
+    This is the same fixture file consumed by the TypeScript verifier.
+    Both implementations must agree on pass/fail for every specimen."""
+
+    FIXTURES_PATH = VECTORS_DIR / "pack" / "conformance-fixtures.json"
+
+    @pytest.fixture(scope="class")
+    def fixtures(self):
+        return json.loads(self.FIXTURES_PATH.read_text())["fixtures"]
+
+    @pytest.fixture(scope="class")
+    def ks(self, tmp_path_factory):
+        tmp = tmp_path_factory.mktemp("shared-ks")
+        return AssayKeyStore(keys_dir=tmp)
+
+    def test_fixture_count(self, fixtures):
+        """Sanity: shared fixtures file has expected specimen count."""
+        assert len(fixtures) >= 7
+
+    @pytest.mark.parametrize("idx", range(7))
+    def test_shared_fixture(self, fixtures, ks, idx):
+        """Each shared fixture must match Python's verification outcome."""
+        if idx >= len(fixtures):
+            pytest.skip("Fixture index out of range")
+        f = fixtures[idx]
+        pack_dir = VECTORS_DIR / "pack" / f["name"]
+        manifest = json.loads((pack_dir / "pack_manifest.json").read_text())
+        result = verify_pack_manifest(manifest, pack_dir, ks)
+
+        assert result.passed == f["expectPassed"], (
+            f"[{f['name']}] expected passed={f['expectPassed']}, "
+            f"got {result.passed}. Errors: {[(e.code, e.field) for e in result.errors]}"
+        )
+
+        expected_code = f.get("expectCode")
+        if expected_code:
+            # For duplicate_receipt_id, Python may surface E_MANIFEST_TAMPER
+            # instead of E_DUPLICATE_ID (documented in §13). Accept either.
+            if f["name"] == "duplicate_receipt_id":
+                matching = [e for e in result.errors
+                            if e.code in (expected_code, E_MANIFEST_TAMPER)]
+            else:
+                matching = [e for e in result.errors if e.code == expected_code]
+            assert len(matching) >= 1, (
+                f"[{f['name']}] expected error code {expected_code}, "
+                f"got: {[(e.code, e.field) for e in result.errors]}"
+            )

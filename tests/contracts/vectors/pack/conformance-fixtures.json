@@ -1,0 +1,69 @@
+{
+  "format_version": "0.1.0",
+  "description": "Conformance fixture expectations for pack verification. Any conforming verifier implementation must produce the specified outcome for each specimen.",
+  "contract_ref": "docs/contracts/PACK_CONTRACT.md §11-§14",
+  "notes": {
+    "expectPassed": "MUST match exactly",
+    "expectCode": "primary error code MUST be present in errors array (null for pass)",
+    "expectFailStage": "this stage SHOULD report status=fail IF present (verifiers that short-circuit may skip later stages)",
+    "faultClass": "canonical fault class per PACK_CONTRACT §13"
+  },
+  "fixtures": [
+    {
+      "name": "golden_minimal",
+      "expectPassed": true,
+      "expectCode": null,
+      "expectFailStage": null,
+      "faultClass": null,
+      "description": "Valid pack with 2 receipts, deterministic key, all stages pass"
+    },
+    {
+      "name": "tampered_receipt_content",
+      "expectPassed": false,
+      "expectCode": "E_MANIFEST_TAMPER",
+      "expectFailStage": "validate_file_hashes",
+      "faultClass": "file_integrity_violation",
+      "description": "One byte changed in receipt_pack.jsonl (byte 62: c→x)"
+    },
+    {
+      "name": "tampered_signature",
+      "expectPassed": false,
+      "expectCode": "E_PACK_SIG_INVALID",
+      "expectFailStage": "verify_signature",
+      "faultClass": "signature_authenticity_failure",
+      "description": "pack_signature.sig replaced with invalid bytes"
+    },
+    {
+      "name": "missing_kernel_file",
+      "expectPassed": false,
+      "expectCode": "E_MANIFEST_TAMPER",
+      "expectFailStage": "validate_file_hashes",
+      "faultClass": "file_integrity_violation",
+      "description": "verify_report.json deleted from pack"
+    },
+    {
+      "name": "d12_invariant_break",
+      "expectPassed": false,
+      "expectCode": "E_MANIFEST_TAMPER",
+      "expectFailStage": "check_d12_invariant",
+      "faultClass": "structural_invariant_violation",
+      "description": "pack_root_sha256 set to zeros, re-signed"
+    },
+    {
+      "name": "path_traversal",
+      "expectPassed": false,
+      "expectCode": "E_PATH_ESCAPE",
+      "expectFailStage": "validate_paths",
+      "faultClass": "containment_violation",
+      "description": "../../../etc/passwd in manifest files array, re-signed"
+    },
+    {
+      "name": "duplicate_receipt_id",
+      "expectPassed": false,
+      "expectCode": "E_DUPLICATE_ID",
+      "expectFailStage": "validate_receipts",
+      "faultClass": "receipt_identity_violation",
+      "description": "Two receipts with receipt_id 'dup-001', re-signed. Note: Python surfaces as E_MANIFEST_TAMPER on receipt_integrity (pack-level). Both are valid per §13."
+    }
+  ]
+}
