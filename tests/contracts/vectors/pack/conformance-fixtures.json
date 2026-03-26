@@ -61,9 +61,10 @@
       "name": "duplicate_receipt_id",
       "expectPassed": false,
       "expectCode": "E_DUPLICATE_ID",
+      "expectCodesAnyOf": ["E_DUPLICATE_ID", "E_MANIFEST_TAMPER"],
       "expectFailStage": "validate_receipts",
       "faultClass": "receipt_identity_violation",
-      "description": "Two receipts with receipt_id 'dup-001', re-signed. Note: Python surfaces as E_MANIFEST_TAMPER on receipt_integrity (pack-level). Both are valid per §13."
+      "description": "Two receipts with receipt_id 'dup-001', re-signed. Python surfaces as E_MANIFEST_TAMPER on receipt_integrity (pack-level); TS surfaces as E_DUPLICATE_ID (direct). Both are valid per §13."
     }
   ]
 }
