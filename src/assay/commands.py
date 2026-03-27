@@ -10380,6 +10380,160 @@ def why_cmd(
     raise typer.Exit(0)
 
 
+# ---------------------------------------------------------------------------
+# Compiled Packet commands
+# ---------------------------------------------------------------------------
+
+packet_app = typer.Typer(
+    name="packet",
+    help="Compiled reviewer-ready evidence packets.",
+    no_args_is_help=True,
+)
+assay_app.add_typer(packet_app, name="packet", rich_help_panel="Compliance & Audit")
+
+
+@packet_app.command("init")
+def packet_init_cmd(
+    questionnaire: str = typer.Option(..., "--questionnaire", "-q", help="Path to questionnaire (JSON or CSV)"),
+    packs: List[str] = typer.Option(..., "--packs", "-p", help="Path(s) to proof pack directories"),
+    output: str = typer.Option("./packet_draft", "--output", "-o", help="Output directory for draft"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Scaffold a packet workdir with stub bindings for every questionnaire item."""
+    from pathlib import Path
+    from assay.compiled_packet import init_packet
+
+    q_path = Path(questionnaire)
+    from_csv = q_path.suffix.lower() == ".csv"
+    pack_dirs = [Path(p) for p in packs]
+
+    try:
+        result = init_packet(
+            questionnaire_path=q_path,
+            pack_dirs=pack_dirs,
+            output_dir=Path(output),
+            from_csv=from_csv,
+        )
+    except Exception as e:
+        if output_json:
+            console.print(json.dumps({"status": "error", "error": str(e)}))
+            raise typer.Exit(1)
+        console.print(f"[red]Error:[/] {e}")
+        raise typer.Exit(1)
+
+    if output_json:
+        console.print(json.dumps(result, indent=2))
+    else:
+        console.print(f"[green]Packet draft initialized[/] at {result['output_dir']}")
+        console.print(f"  Questionnaire items: {result['questionnaire_items']}")
+        console.print(f"  Stub bindings: {result['stub_bindings']}")
+        console.print(f"  Pack references: {result['pack_references']}")
+        console.print(f"\n[dim]Next: edit {result['output_dir']}/claim_bindings.jsonl to author claim bindings.[/]")
+        console.print(f"[dim]Then: assay packet compile --draft {result['output_dir']} --packs {' '.join(packs)}[/]")
+    raise typer.Exit(0)
+
+
+@packet_app.command("compile")
+def packet_compile_cmd(
+    draft: str = typer.Option(..., "--draft", "-d", help="Path to packet draft directory"),
+    packs: List[str] = typer.Option(..., "--packs", "-p", help="Path(s) to proof pack directories"),
+    output: str = typer.Option("./compiled_packet", "--output", "-o", help="Output directory"),
+    bundle: bool = typer.Option(True, "--bundle/--no-bundle", help="Bundle proof packs into output"),
+    signer: str = typer.Option("assay-local", "--signer", "-s", help="Signer ID"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Validate, canonicalize, sign, and package a compiled packet."""
+    from pathlib import Path
+    from assay.compiled_packet import compile_packet
+
+    try:
+        result = compile_packet(
+            draft_dir=Path(draft),
+            pack_dirs=[Path(p) for p in packs],
+            output_dir=Path(output),
+            bundle=bundle,
+            signer_id=signer,
+        )
+    except Exception as e:
+        if output_json:
+            console.print(json.dumps({"status": "error", "error": str(e)}))
+            raise typer.Exit(1)
+        console.print(f"[red]Error:[/] {e}")
+        raise typer.Exit(1)
+
+    if output_json:
+        console.print(json.dumps(result, indent=2))
+    else:
+        console.print(f"[green]Packet compiled[/] → {result['output_dir']}")
+        console.print(f"  Packet ID: {result['packet_id']}")
+        console.print(f"  Root: {result['packet_root_sha256'][:16]}...")
+        console.print(f"  Bindings: {result['bindings_count']}")
+        console.print(f"  Bundle: {result['bundle_mode']}")
+        cov = result.get("coverage", {})
+        if cov.get("unbound_items"):
+            console.print(f"  [yellow]Unbound items: {len(cov['unbound_items'])}[/]")
+        console.print(f"\n[dim]Verify: assay packet verify {result['output_dir']}[/]")
+    raise typer.Exit(0)
+
+
+@packet_app.command("verify")
+def packet_verify_cmd(
+    packet_dir: str = typer.Argument(..., help="Path to compiled packet directory"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Verify a compiled packet independently."""
+    from pathlib import Path
+    from assay.compiled_packet import verify_packet
+
+    result = verify_packet(Path(packet_dir))
+
+    if output_json:
+        console.print(json.dumps(result.to_dict(), indent=2))
+    else:
+        verdict_color = {
+            "PASS": "green",
+            "PARTIAL": "yellow",
+            "DEGRADED": "yellow",
+            "TAMPERED": "red",
+            "INVALID": "red",
+        }.get(result.verdict, "white")
+
+        integrity_color = {"INTACT": "green", "DEGRADED": "yellow", "TAMPERED": "red", "INVALID": "red"}.get(result.integrity_verdict, "white")
+        completeness_color = {"COMPLETE": "green", "PARTIAL": "yellow", "INCOMPLETE": "red"}.get(result.completeness_verdict, "white")
+
+        console.print(f"Verdict: [{verdict_color}]{result.verdict}[/{verdict_color}]")
+        console.print(f"  Integrity:    [{integrity_color}]{result.integrity_verdict}[/{integrity_color}]")
+        console.print(f"  Completeness: [{completeness_color}]{result.completeness_verdict}[/{completeness_color}]")
+        console.print(f"Packet: {result.packet_id}")
+        console.print(f"Root: {result.packet_root_sha256[:16]}..." if result.packet_root_sha256 else "Root: none")
+
+        if result.pack_results:
+            console.print("\nPack results:")
+            for pr in result.pack_results:
+                status = pr.get("pack_integrity", "?")
+                color = "green" if status == "PASS" else "red" if status in ("FAIL", "MISSING") else "dim"
+                console.print(f"  [{color}]{pr['pack_id']}: {status}[/{color}]")
+
+        if result.coverage:
+            cov = result.coverage
+            console.print(f"\nCoverage: {cov.get('total_bindings', 0)}/{cov.get('total_questionnaire_items', 0)} items bound")
+            if cov.get("status_counts"):
+                for s, c in sorted(cov["status_counts"].items()):
+                    console.print(f"  {s}: {c}")
+
+        if result.warnings:
+            console.print(f"\n[yellow]Warnings ({len(result.warnings)}):[/]")
+            for w in result.warnings:
+                console.print(f"  - {w}")
+
+        if result.errors:
+            console.print(f"\n[red]Errors ({len(result.errors)}):[/]")
+            for e in result.errors:
+                console.print(f"  [{e.code}] {e.message}")
+
+    raise typer.Exit(0 if result.verdict == "PASS" else 1)
+
+
 def main():
     """Entrypoint for assay CLI."""
     assay_app()
