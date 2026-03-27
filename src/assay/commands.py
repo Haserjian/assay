@@ -10577,9 +10577,11 @@ def packet_verify_cmd(
             for e in result.errors:
                 console.print(f"  [{e.code}] {e.message}")
 
-    # Exit 0 if admissible (the gate's question), not just if verdict == PASS.
-    # A packet can be admissible with PARTIAL completeness (honest gaps are not failures).
-    raise typer.Exit(0 if result.admissible else 1)
+    # Exit code reflects verification integrity, not admissibility policy.
+    # Exit 0 = INTACT (packet is structurally sound; PARTIAL coverage is honest, not a failure).
+    # Exit 1 = structural problem (TAMPERED, DEGRADED, INVALID).
+    # Admissibility is available in the JSON output for callers that need it (e.g. assay-gate.sh).
+    raise typer.Exit(0 if result.integrity_verdict == "INTACT" else 1)
 
 
 def main():

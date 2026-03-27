@@ -30,13 +30,20 @@ if [ ! -d "$PACKET_DIR" ]; then
     exit 1
 fi
 
-# Run verifier and capture JSON from stdout only.
-# stderr is sent to /dev/null so warnings/Rich formatting don't corrupt JSON.
-# The verifier may return non-zero for non-admissible packets — that's expected.
-VERIFY_OUTPUT=$(assay packet verify "$PACKET_DIR" --json 2>/dev/null) || true
+# Run verifier: capture stdout (JSON) and stderr (diagnostics) separately.
+# stdout must contain only JSON when --json is passed.
+# stderr is preserved so that verifier crashes are visible on gate failure.
+VERIFY_STDERR_FILE=$(mktemp)
+VERIFY_OUTPUT=$(assay packet verify "$PACKET_DIR" --json 2>"$VERIFY_STDERR_FILE") || true
+VERIFY_STDERR=$(cat "$VERIFY_STDERR_FILE")
+rm -f "$VERIFY_STDERR_FILE"
 
 if [ -z "$VERIFY_OUTPUT" ]; then
     echo "GATE BLOCKED: verifier failed to produce output" >&2
+    if [ -n "$VERIFY_STDERR" ]; then
+        echo "--- Verifier stderr ---" >&2
+        echo "$VERIFY_STDERR" >&2
+    fi
     exit 1
 fi
 
@@ -48,6 +55,10 @@ SUBJECT_ID=$(echo "$VERIFY_OUTPUT" | python3 -c "import json,sys; s=json.load(sy
 
 if [ -z "$INTEGRITY" ] || [ -z "$ADMISSIBLE" ]; then
     echo "GATE BLOCKED: could not parse verifier output" >&2
+    if [ -n "$VERIFY_STDERR" ]; then
+        echo "--- Verifier stderr ---" >&2
+        echo "$VERIFY_STDERR" >&2
+    fi
     exit 1
 fi
 
