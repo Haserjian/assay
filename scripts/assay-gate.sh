@@ -30,10 +30,10 @@ if [ ! -d "$PACKET_DIR" ]; then
     exit 1
 fi
 
-# Run verifier and capture JSON output.
-# The verifier returns non-zero for non-PASS verdicts, but the gate
-# consumes the structured output, not the exit code.
-VERIFY_OUTPUT=$(assay packet verify "$PACKET_DIR" --json 2>&1) || true
+# Run verifier and capture JSON from stdout only.
+# stderr is sent to /dev/null so warnings/Rich formatting don't corrupt JSON.
+# The verifier may return non-zero for non-admissible packets — that's expected.
+VERIFY_OUTPUT=$(assay packet verify "$PACKET_DIR" --json 2>/dev/null) || true
 
 if [ -z "$VERIFY_OUTPUT" ]; then
     echo "GATE BLOCKED: verifier failed to produce output" >&2

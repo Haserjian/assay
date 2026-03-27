@@ -10442,7 +10442,7 @@ def packet_compile_cmd(
     signer: str = typer.Option("assay-local", "--signer", "-s", help="Signer ID"),
     subject_type: str = typer.Option(..., "--subject-type", help="Subject type: artifact, run, or decision"),
     subject_id: str = typer.Option(..., "--subject-id", help="Stable human-readable subject identifier"),
-    subject_digest: str = typer.Option(..., "--subject-digest", help="Canonical bytes identity (e.g. git SHA)"),
+    subject_digest: str = typer.Option(..., "--subject-digest", help="SHA-256 content digest: 'sha256:<64hex>' or bare 64 hex chars"),
     subject_uri: Optional[str] = typer.Option(None, "--subject-uri", help="Optional locator URI"),
     policy_id: str = typer.Option("default", "--policy-id", help="Policy identifier for admissibility"),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
@@ -10577,7 +10577,9 @@ def packet_verify_cmd(
             for e in result.errors:
                 console.print(f"  [{e.code}] {e.message}")
 
-    raise typer.Exit(0 if result.verdict == "PASS" else 1)
+    # Exit 0 if admissible (the gate's question), not just if verdict == PASS.
+    # A packet can be admissible with PARTIAL completeness (honest gaps are not failures).
+    raise typer.Exit(0 if result.admissible else 1)
 
 
 def main():
