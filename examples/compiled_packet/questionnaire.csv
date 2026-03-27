@@ -1,0 +1,5 @@
+question_id,question_text,type_hint,required_format
+Q1,Does the system produce tamper-evident audit trails for AI model calls?,yes_no,text
+Q2,Is human approval required before the system executes destructive actions?,yes_no,text
+Q3,Are evidence artifacts retained for at least 90 days after generation?,yes_no,text
+Q4,Does the system support offline verification of generated evidence?,yes_no,text

@@ -149,12 +149,56 @@ Exit 1 is not a tool failure. It means the system produced authentic
 evidence that it did not meet the declared behavioral requirements.
 That is Assay working correctly.
 
+### Stage 6: Compiled packet gate
+
+Stages 1–5 gate on evidence pack integrity and behavioral claims. The compiled
+packet gate answers a different question: **is this packet admissible as a
+reviewer-ready trust artifact?**
+
+A compiled packet bundles a proof pack with a questionnaire, authored claim
+bindings, and a declared subject. The gate enforces that the packet is
+structurally INTACT, subject-bound, and fully bundled for offline verification.
+
+```yaml
+- name: Compile packet
+  run: |
+    assay packet compile \
+      --draft ./draft/ \
+      --packs ./proof_pack_*/ \
+      --subject-type artifact \
+      --subject-id "${{ github.repository }}@${{ github.sha }}" \
+      --subject-digest "sha256:${{ env.ARTIFACT_SHA256 }}" \
+      --output ./compiled_packet/
+
+- name: Gate on packet admissibility
+  run: bash scripts/assay-gate.sh ./compiled_packet/
+  # Exit 0 = INTACT + admissible → proceed
+  # Exit 1 = blocked → review assay packet verify --json output
+```
+
+The gate script captures verifier stdout (JSON) and stderr (diagnostics) in
+separate streams. On failure it prints captured stderr so crash traces appear
+in CI logs rather than a silent empty-output message.
+
+**Naming note:** "Gate" in Stages 1–4 means `assay diff` regression thresholds
+(cost/latency/errors). The packet gate in Stage 6 is `scripts/assay-gate.sh`
+with different semantics: it enforces compiled packet admissibility, not
+behavioral regression. Both are fail-closed; they gate on different questions.
+
+See [docs/packets.md](packets.md) and
+[docs/specs/COMPILED_PACKET_VERIFY_CONTRACT.md](specs/COMPILED_PACKET_VERIFY_CONTRACT.md).
+
+---
+
 ## Terminology
 
 - **Evidence pack**: the signed, verifiable bundle produced by `assay run`
+- **Compiled packet**: a sealed, signed bundle of questionnaire claims and evidence —
+  the reviewer-ready trust artifact a third party can verify offline
+- **Diff gate**: `assay diff` regression thresholds on cost, latency, errors (Stages 1–4)
+- **Packet gate**: `scripts/assay-gate.sh` — enforces compiled packet admissibility (Stage 6)
 - **Lockfile**: a machine-readable contract that pins which claims are
   checked and how, preventing silent governance drift
-- **Gate**: a CI check that blocks merge based on evidence pack results
 - **Honest failure**: integrity PASS with claims FAIL -- genuine evidence
   proving the run did not meet standards
 
@@ -164,3 +208,4 @@ That is Assay working correctly.
 - [Quickstart](README_quickstart.md) -- full command reference and Golden Path
 - [Assay Verify Action](https://github.com/Haserjian/assay-verify-action) -- GitHub Action for PR-level verification
 - [For Compliance Teams](for-compliance.md) -- what auditors see
+- [Packet Systems](packets.md) -- compiled packet vs reviewer packet

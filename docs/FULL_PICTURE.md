@@ -82,6 +82,30 @@ Exit 1 is **audit gold**: authentic evidence that a control failed, with
 no ability to edit history. Auditors value "controls can fail, but failure
 is detectable and retained."
 
+### Layer 3.5: Compiled Packet
+
+`assay packet compile` turns a proof pack into a compiled packet — a sealed,
+signed bundle that a third party can verify offline and use for a trust decision.
+
+Evidence that only the producer can interpret is a log. Evidence that a third
+party can verify offline and use for a trust decision is a product.
+
+A compiled packet adds three things on top of the evidence pack:
+
+- **Questionnaire + claim bindings**: authored links from compliance claims to
+  pack roots, with explicit statuses (`SUPPORTED`, `PARTIAL`, `UNSUPPORTED`, …)
+- **Subject binding**: what system or artifact the packet is about, signed into
+  the manifest — mutating it after signing yields `TAMPERED`
+- **Two-axis verdict**: `integrity_verdict × completeness_verdict` — structural
+  soundness and evidence coverage are evaluated independently
+
+The gate (`scripts/assay-gate.sh`) enforces admissibility: INTACT integrity +
+valid subject + bundled packs. Exit 0 = pass. Exit 1 = blocked.
+
+See [docs/packets.md](packets.md) for the full compiled packet overview and
+[docs/specs/COMPILED_PACKET_ARCHITECTURE.md](specs/COMPILED_PACKET_ARCHITECTURE.md)
+for the architecture.
+
 ### Layer 4: CI gate
 
 Three commands in your GitHub Actions workflow:

@@ -2,7 +2,7 @@
 
 Six steps from install to evidence in CI.
 
-If you are evaluating Assay for buyer-facing review workflows, pair this guide with [Reviewer Packets](reviewer-packets.md). `START_HERE` explains how to instrument and verify the underlying proof path; the reviewer packet docs show the forwardable artifact another team actually receives.
+If you are evaluating Assay for buyer-facing review workflows, see [Packet Systems](packets.md) for the two artifact types available: compiled packets (general-purpose, canonical) and reviewer packets (VendorQ-specific). `START_HERE` explains how to instrument and verify the underlying proof path; the packet docs explain the forwardable artifact another team receives.
 
 ## 1. Install
 
