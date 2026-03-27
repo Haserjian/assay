@@ -39,6 +39,13 @@ CLAIM_TYPE_VALUES = {
     "CERTIFICATION", "PROCESS", "TECH_CONTROL",
     "INCIDENT", "METRIC", "COMMITMENT", "LEGAL",
 }
+SUBJECT_TYPE_VALUES = {"artifact", "run", "decision"}
+
+# Canonical subject_digest format: "sha256:<64 hex chars>"
+# This is the only accepted format. Raw hex, bare hashes, or other
+# algorithms are rejected. The algorithm tag is part of the identity.
+import re
+_SUBJECT_DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 
 PACKET_MANIFEST_FILE = "packet_manifest.json"
 PACKET_SIGNATURE_FILE = "packet_signature.sig"
@@ -289,6 +296,28 @@ def init_packet(
 # compile_packet — validate, canonicalize, sign, bundle
 # ---------------------------------------------------------------------------
 
+def _validate_subject(subject: Dict[str, Any]) -> List[str]:
+    """Validate a subject binding. Returns list of errors."""
+    errors = []
+    st = subject.get("subject_type", "")
+    if not st:
+        errors.append("subject.subject_type is required")
+    elif st not in SUBJECT_TYPE_VALUES:
+        errors.append(f"subject.subject_type '{st}' not in {sorted(SUBJECT_TYPE_VALUES)}")
+    if not subject.get("subject_id"):
+        errors.append("subject.subject_id is required")
+    digest = subject.get("subject_digest", "")
+    if not digest:
+        errors.append("subject.subject_digest is required")
+    elif not _SUBJECT_DIGEST_RE.match(digest):
+        errors.append(
+            f"subject.subject_digest must be 'sha256:<64 hex chars>', got '{digest[:40]}...'"
+            if len(digest) > 40 else
+            f"subject.subject_digest must be 'sha256:<64 hex chars>', got '{digest}'"
+        )
+    return errors
+
+
 def compile_packet(
     *,
     draft_dir: Path,
@@ -297,6 +326,9 @@ def compile_packet(
     bundle: bool = True,
     signer_id: str = DEFAULT_SIGNER_ID,
     keystore: Optional[AssayKeyStore] = None,
+    subject: Optional[Dict[str, Any]] = None,
+    policy_id: str = "default",
+    freshness_policy: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Compile a packet from a draft workdir.
 
@@ -304,8 +336,24 @@ def compile_packet(
     - questionnaire_import.json (JCS-canonical)
     - claim_bindings.jsonl (operator-authored, one binding per line)
 
+    Subject binding is required. Pass subject dict with:
+    - subject_type: "artifact", "run", or "decision"
+    - subject_id: stable human/reference identity
+    - subject_digest: canonical bytes identity (e.g. git SHA)
+    - subject_uri: optional locator
+
     Returns compilation result dict.
     """
+    if subject is None:
+        raise ValueError(
+            "Subject binding is required. Pass subject={subject_type, subject_id, subject_digest}. "
+            "The packet must be about something."
+        )
+    subject_errors = _validate_subject(subject)
+    if subject_errors:
+        raise ValueError(
+            "Invalid subject binding:\n" + "\n".join(f"  - {e}" for e in subject_errors)
+        )
     draft_dir = Path(draft_dir)
     output_dir = Path(output_dir)
     ks = keystore or get_default_keystore()
@@ -412,10 +460,12 @@ def compile_packet(
         pack_references.append(ref)
 
     # 10. Compute packet root (first-principles: content identity)
-    # Root covers: questionnaire + bindings + pack references
-    # Two compilations of the same inputs = same root, regardless of timing/signer
+    # Root covers: subject + questionnaire + bindings + pack references
+    # Subject digest is included so the root changes if the subject changes.
+    # Two compilations of the same inputs = same root, regardless of timing/signer.
     sorted_pack_roots = sorted(p["pack_root_sha256"] for p in pack_references)
     root_input = {
+        "subject_digest": subject["subject_digest"],
         "questionnaire_sha256": _sha256_hex(questionnaire_bytes),
         "bindings_sha256": _sha256_hex(bindings_bytes),
         "pack_references": sorted_pack_roots,
@@ -446,12 +496,30 @@ def compile_packet(
     vk = ks.get_verify_key(signer_id)
     pubkey_bytes = vk.encode()
 
+    # Build subject block (integrity-covered — inside unsigned manifest)
+    subject_block = {
+        "subject_type": subject["subject_type"],
+        "subject_id": subject["subject_id"],
+        "subject_digest": subject["subject_digest"],
+    }
+    if subject.get("subject_uri"):
+        subject_block["subject_uri"] = subject["subject_uri"]
+
+    # Build admissibility contract
+    admissibility = {
+        "policy_id": policy_id,
+        "subject_digest": subject["subject_digest"],
+        "freshness_policy": freshness_policy or {"mode": "advisory"},
+    }
+
     unsigned_manifest = {
         "packet_id": _generate_packet_id(),
-        "packet_version": "0.1.0",
+        "packet_version": "0.2.0",
         "manifest_version": "1.0.0",
-        "schema_version": "compiled_packet.v1",
+        "schema_version": "compiled_packet.v2",
         "hash_alg": "sha256",
+        "subject": subject_block,
+        "admissibility": admissibility,
         "questionnaire_id": questionnaire.get("source", "unknown"),
         "questionnaire_sha256": _sha256_hex(questionnaire_bytes),
         "bindings_sha256": _sha256_hex(bindings_bytes),
@@ -545,6 +613,8 @@ class PacketVerifyResult:
         warnings: Optional[List[str]] = None,
         pack_results: Optional[List[Dict[str, Any]]] = None,
         coverage: Optional[Dict[str, Any]] = None,
+        subject: Optional[Dict[str, Any]] = None,
+        admissible: bool = False,
     ):
         self.integrity_verdict = integrity_verdict
         self.completeness_verdict = completeness_verdict
@@ -554,6 +624,9 @@ class PacketVerifyResult:
         self.warnings = warnings or []
         self.pack_results = pack_results or []
         self.coverage = coverage or {}
+        self.subject = subject or {}
+        self.admissible = admissible
+        self.admissibility_reasons: List[Dict[str, str]] = []
 
     @property
     def verdict(self) -> str:
@@ -562,7 +635,7 @@ class PacketVerifyResult:
 
     def to_dict(self) -> Dict[str, Any]:
         return {
-            "schema_version": "packet_verification.v1",
+            "schema_version": "packet_verification.v2",
             "packet_id": self.packet_id,
             "packet_root_sha256": self.packet_root_sha256,
             "verified_at": _now_iso(),
@@ -570,6 +643,9 @@ class PacketVerifyResult:
             "verdict": self.verdict,
             "integrity_verdict": self.integrity_verdict,
             "completeness_verdict": self.completeness_verdict,
+            "admissible": self.admissible,
+            "admissibility_reasons": self.admissibility_reasons,
+            "subject": self.subject,
             "pack_results": self.pack_results,
             "coverage": self.coverage,
             "warnings": self.warnings,
@@ -690,12 +766,47 @@ def verify_packet(
     else:
         errors.append(PacketVerifyError("E_PKT_TAMPER", f"Missing {PACKET_SIGNATURE_FILE}"))
 
-    # 5. Packet root invariant
+    # 5. Subject binding check
+    subject_block = manifest.get("subject")
+    if not subject_block:
+        errors.append(PacketVerifyError("E_PKT_SCHEMA", "Missing subject binding"))
+    else:
+        for field in ("subject_type", "subject_id", "subject_digest"):
+            if not subject_block.get(field):
+                errors.append(PacketVerifyError(
+                    "E_PKT_SCHEMA", f"Missing subject.{field}"
+                ))
+        st = subject_block.get("subject_type", "")
+        if st and st not in SUBJECT_TYPE_VALUES:
+            errors.append(PacketVerifyError(
+                "E_PKT_SCHEMA", f"Invalid subject_type: {st}"
+            ))
+        digest = subject_block.get("subject_digest", "")
+        if digest and not _SUBJECT_DIGEST_RE.match(digest):
+            errors.append(PacketVerifyError(
+                "E_PKT_SCHEMA", f"Invalid subject_digest format: must be 'sha256:<64 hex>'"
+            ))
+
+    # 5b. Admissibility contract check
+    admissibility = manifest.get("admissibility")
+    if admissibility:
+        # Verify subject_digest in admissibility matches subject block
+        adm_digest = admissibility.get("subject_digest", "")
+        subj_digest = (subject_block or {}).get("subject_digest", "")
+        if adm_digest and subj_digest and adm_digest != subj_digest:
+            errors.append(PacketVerifyError(
+                "E_PKT_TAMPER",
+                "admissibility.subject_digest does not match subject.subject_digest"
+            ))
+
+    # 6. Packet root invariant (now includes subject_digest)
+    subject_digest_for_root = (subject_block or {}).get("subject_digest", "")
     q_sha = manifest.get("questionnaire_sha256", "")
     b_sha = manifest.get("bindings_sha256", "")
     pack_refs = manifest.get("pack_references", [])
     sorted_pack_roots = sorted(ref.get("pack_root_sha256", "") for ref in pack_refs)
     root_input = {
+        "subject_digest": subject_digest_for_root,
         "questionnaire_sha256": q_sha,
         "bindings_sha256": b_sha,
         "pack_references": sorted_pack_roots,
@@ -847,7 +958,37 @@ def verify_packet(
     else:
         completeness_verdict = "COMPLETE"
 
-    return PacketVerifyResult(
+    # Admissibility: the gate's decision function.
+    # Admissible requires ALL of:
+    #   1. Integrity is INTACT
+    #   2. Subject binding is present and valid
+    #   3. Bundle mode is "bundled" (self-contained, offline-verifiable)
+    # Completeness is NOT required for admissibility — a packet with
+    # UNSUPPORTED bindings is honest, not inadmissible.
+    # Freshness is advisory in v1 (schema present, enforcement deferred).
+    admissibility_reasons: List[Dict[str, str]] = []
+
+    if integrity_verdict != "INTACT":
+        admissibility_reasons.append({
+            "code": "INTEGRITY_FAILURE",
+            "message": f"Integrity is {integrity_verdict}, must be INTACT",
+        })
+
+    if not subject_block or not subject_block.get("subject_digest"):
+        admissibility_reasons.append({
+            "code": "SUBJECT_BINDING_MISSING",
+            "message": "No valid subject binding in manifest",
+        })
+
+    if bundle_mode != "bundled":
+        admissibility_reasons.append({
+            "code": "NOT_SELF_CONTAINED",
+            "message": "Packet is not bundled — evidence cannot be verified offline",
+        })
+
+    admissible = len(admissibility_reasons) == 0
+
+    result = PacketVerifyResult(
         integrity_verdict=integrity_verdict,
         completeness_verdict=completeness_verdict,
         packet_id=packet_id,
@@ -856,4 +997,8 @@ def verify_packet(
         warnings=warnings,
         pack_results=pack_results,
         coverage=coverage_data,
+        subject=subject_block or {},
+        admissible=admissible,
     )
+    result.admissibility_reasons = admissibility_reasons
+    return result

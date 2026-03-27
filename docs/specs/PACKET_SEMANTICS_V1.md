@@ -135,7 +135,7 @@ Stable meanings. Implementations MUST use these codes for these conditions.
 | `E_PKT_PACK_MISSING` | DEGRADING | → DEGRADED | Referenced bundled pack directory not found | Re-bundle with all referenced packs |
 | `E_PKT_PACK_INVALID` | DEGRADING | → DEGRADED | Bundled pack fails its own verification (tampered receipt, broken sig, etc.) | Replace corrupted pack with valid copy and recompile |
 | `E_PKT_REF_BROKEN` | WARNING | completeness only | Binding references a receipt/pack not declared in manifest | Fix binding evidence_refs or add pack reference |
-| `E_PKT_REF_MISMATCH` | WARNING | completeness only | `pack_root_sha256` in binding does not match referenced pack | Fix evidence_ref or update pack reference |
+| `E_PKT_REF_MISMATCH` | DEGRADING | → DEGRADED | `pack_root_sha256` in binding does not match referenced pack. This is an integrity issue: the manifest declares one pack identity but the actual pack has a different root. | Recompile with correct pack references |
 | `E_PKT_COVERAGE_GAP` | WARNING | completeness only | Questionnaire item has no binding | Author missing bindings |
 | `E_PKT_STALE` | POLICY | completeness only | Evidence freshness exceeds threshold | Refresh evidence and recompile |
 

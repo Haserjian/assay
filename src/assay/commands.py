@@ -10440,11 +10440,50 @@ def packet_compile_cmd(
     output: str = typer.Option("./compiled_packet", "--output", "-o", help="Output directory"),
     bundle: bool = typer.Option(True, "--bundle/--no-bundle", help="Bundle proof packs into output"),
     signer: str = typer.Option("assay-local", "--signer", "-s", help="Signer ID"),
+    subject_type: str = typer.Option(..., "--subject-type", help="Subject type: artifact, run, or decision"),
+    subject_id: str = typer.Option(..., "--subject-id", help="Stable human-readable subject identifier"),
+    subject_digest: str = typer.Option(..., "--subject-digest", help="Canonical bytes identity (e.g. git SHA)"),
+    subject_uri: Optional[str] = typer.Option(None, "--subject-uri", help="Optional locator URI"),
+    policy_id: str = typer.Option("default", "--policy-id", help="Policy identifier for admissibility"),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
-    """Validate, canonicalize, sign, and package a compiled packet."""
+    """Validate, canonicalize, sign, and package a compiled packet with subject binding."""
     from pathlib import Path
     from assay.compiled_packet import compile_packet
+
+    # Validate and normalize subject_digest to canonical sha256:<64hex> form.
+    # Only bare 64-char lowercase hex is auto-prefixed. Everything else must
+    # be explicit or is rejected with a diagnostic message.
+    import re
+    normalized_digest = subject_digest
+    if normalized_digest.startswith("sha256:"):
+        pass  # already canonical form
+    elif re.fullmatch(r"[0-9a-f]{64}", normalized_digest):
+        normalized_digest = f"sha256:{normalized_digest}"
+    elif re.fullmatch(r"[0-9a-fA-F]{64}", normalized_digest):
+        normalized_digest = f"sha256:{normalized_digest.lower()}"
+    elif re.fullmatch(r"[0-9a-f]{40}", normalized_digest):
+        console.print(
+            f"[red]Error:[/] --subject-digest looks like a 40-char Git SHA-1 object ID.\n"
+            f"  Assay requires a SHA-256 content digest (64 hex chars).\n"
+            f"  To get a SHA-256 digest of a file: sha256sum <file> | cut -d' ' -f1\n"
+            f"  To get a SHA-256 of a git tree: git hash-object --stdin < <file>"
+        )
+        raise typer.Exit(1)
+    else:
+        console.print(
+            f"[red]Error:[/] --subject-digest must be 'sha256:<64 hex chars>' or bare 64 hex chars.\n"
+            f"  Got: {normalized_digest[:60]}{'...' if len(normalized_digest) > 60 else ''}"
+        )
+        raise typer.Exit(1)
+
+    subject = {
+        "subject_type": subject_type,
+        "subject_id": subject_id,
+        "subject_digest": normalized_digest,
+    }
+    if subject_uri:
+        subject["subject_uri"] = subject_uri
 
     try:
         result = compile_packet(
@@ -10453,6 +10492,8 @@ def packet_compile_cmd(
             output_dir=Path(output),
             bundle=bundle,
             signer_id=signer,
+            subject=subject,
+            policy_id=policy_id,
         )
     except Exception as e:
         if output_json:
@@ -10488,7 +10529,7 @@ def packet_verify_cmd(
     result = verify_packet(Path(packet_dir))
 
     if output_json:
-        console.print(json.dumps(result.to_dict(), indent=2))
+        print(json.dumps(result.to_dict(), indent=2))
     else:
         verdict_color = {
             "PASS": "green",
@@ -10501,9 +10542,14 @@ def packet_verify_cmd(
         integrity_color = {"INTACT": "green", "DEGRADED": "yellow", "TAMPERED": "red", "INVALID": "red"}.get(result.integrity_verdict, "white")
         completeness_color = {"COMPLETE": "green", "PARTIAL": "yellow", "INCOMPLETE": "red"}.get(result.completeness_verdict, "white")
 
+        adm_color = "green" if result.admissible else "red"
         console.print(f"Verdict: [{verdict_color}]{result.verdict}[/{verdict_color}]")
         console.print(f"  Integrity:    [{integrity_color}]{result.integrity_verdict}[/{integrity_color}]")
         console.print(f"  Completeness: [{completeness_color}]{result.completeness_verdict}[/{completeness_color}]")
+        console.print(f"  Admissible:   [{adm_color}]{result.admissible}[/{adm_color}]")
+        if result.subject:
+            s = result.subject
+            console.print(f"Subject: {s.get('subject_type', '?')}:{s.get('subject_id', '?')} [{s.get('subject_digest', '?')[:16]}...]")
         console.print(f"Packet: {result.packet_id}")
         console.print(f"Root: {result.packet_root_sha256[:16]}..." if result.packet_root_sha256 else "Root: none")
 
