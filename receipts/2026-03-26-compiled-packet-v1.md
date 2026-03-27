@@ -26,8 +26,9 @@ Introduces a four-object model:
 
 ## Evidence
 
-- **Tests**: 2705 passed, 11 skipped, 0 failed (22 new compiled packet tests)
-- **Tamper matrix**: 5 scenarios tested (modified binding, missing pack, broken sig, corrupted nested receipt, missing manifest)
+- **Tests**: 2705 passed, 11 skipped, 0 failed (22 new compiled packet tests: 12 truth table + 7 end-to-end + 3 unit)
+- **End-to-end tests**: 7 total (init, compile-verify round-trip, 5 tamper scenarios)
+- **Tamper scenarios**: 5 (modified binding, missing pack, broken sig, corrupted nested receipt, missing manifest)
 - **Truth table**: all 12 integrity x completeness cells tested
 - **No regressions**: full test suite green
 - **Gauntlet**: not run (first implementation, no attack surface yet)
