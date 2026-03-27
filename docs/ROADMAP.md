@@ -40,6 +40,9 @@ when they're stable and don't require private infrastructure.
 | verify-pack --check-expiry | Expiry enforcement for time-bounded credentials | Shipped |
 | stale/superseded verifier support | Lifecycle-aware pack verification | Shipped |
 | VendorQ (ingest, compile, lock, verify) | Verifiable vendor questionnaire packets | Shipped |
+| packet init, compile | Init draft + compile sealed compiled packet from questionnaire + proof packs | Shipped |
+| packet verify (--json) | Two-axis offline verification: integrity_verdict × completeness_verdict + admissibility | Shipped |
+| Subject binding + admissibility contract | Cryptographic subject scope, structured reason codes, fail-closed gate script | Shipped |
 
 ### Passport Lifecycle (v1.17.0)
 

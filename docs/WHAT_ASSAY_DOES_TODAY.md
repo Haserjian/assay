@@ -12,8 +12,24 @@ Assay today is a public evidence layer for existing AI workflows. It finds suppo
    Runs your real program or test command and packages any receipts emitted during that run into a signed proof pack.
 4. `assay verify-pack ./proof_pack_*`
    Checks integrity and declared claims offline.
-5. `assay vendorq export-reviewer ...`
-   Optionally compiles a reviewer-ready packet from the proof pack.
+5. Optionally compile a reviewer-ready packet. Two paths exist — see [docs/packets.md](packets.md) for the full comparison.
+
+   **Compiled packet** (general-purpose, canonical):
+   ```
+   assay packet init --questionnaire q.csv --packs ./proof_pack --output draft/
+   assay packet compile --draft draft/ --packs ./proof_pack \
+     --subject-type artifact --subject-id myapp@v1 \
+     --subject-digest sha256:<64hex> --output compiled/
+   assay packet verify compiled/
+   scripts/assay-gate.sh compiled/
+   ```
+
+   **Reviewer packet** (VendorQ-specific):
+   ```
+   assay vendorq export-reviewer --proof-pack ./proof_pack \
+     --boundary boundary.json --mapping mapping.json --out reviewer_packet/
+   assay reviewer verify reviewer_packet/
+   ```
 
 ## What the important words mean
 
@@ -23,13 +39,14 @@ Assay today is a public evidence layer for existing AI workflows. It finds suppo
 - `receipt`: a structured event record emitted when an instrumented AI event happens.
 - `proof pack`: the signed evidence artifact built from the receipts.
 - `verify-pack`: the offline check that the artifact was not tampered with and that declared checks passed or failed honestly.
+- `compiled packet`: a signed, self-contained bundle of questionnaire claims, evidence bindings, and bundled packs — the artifact another team verifies offline. Evidence that only the producer can interpret is a log. Evidence that a third party can verify offline and use for a trust decision is a product.
 
 ## Who does what
 
 - The seller or builder integrates Assay into their own workflow.
 - Assay emits receipts and builds the signed proof pack.
 - Another team can verify the proof pack offline on their own machine.
-- Reviewer packets are the readable wrapper around the proof pack, not the trust root itself.
+- Two packet types sit on top: compiled packets (general-purpose, canonical trust artifact) and reviewer packets (VendorQ-specific). See [docs/packets.md](packets.md).
 
 ## What Assay is not
 
@@ -44,4 +61,4 @@ Assay also exposes episode/checkpoint APIs such as `open_episode`, `seal_checkpo
 
 ## One paragraph you should be able to say out loud
 
-Assay is a public evidence compiler for AI execution. It scans for supported call sites, patches the runtime hooks needed for receipts, runs your normal command, packages the receipts from that real run into a signed proof pack, and lets another team verify that pack offline. Reviewer packets sit on top when you need a bounded artifact for security or procurement review. The larger Loom/CCIO membrane exists, but that is not the whole public product today.
+Assay is a public evidence compiler for AI execution. It scans for supported call sites, patches the runtime hooks needed for receipts, runs your normal command, packages the receipts from that real run into a signed proof pack, and lets another team verify that pack offline. Evidence that only the producer can interpret is a log. Evidence that a third party can verify offline and use for a trust decision is a product. Compiled packets are the trust artifact that makes that possible: a signed, subject-bound bundle of claims and evidence that a reviewer can verify without access to the original system. The larger Loom/CCIO membrane exists, but that is not the whole public product today.
