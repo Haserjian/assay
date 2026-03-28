@@ -81,6 +81,18 @@ This does NOT solve the auto-bundle problem, but it enriches the receipt
 for later correlation. The bundle would still need to be declared for
 application-level fields.
 
+## Organic workflow status (2026-03-28)
+
+First end-to-end comparability workflow ran with real gpt-4o-mini API
+calls via `examples/llm_judge/eval_runner.py`. Organic verdicts produced:
+SATISFIED, DOWNGRADED (judge_max_tokens change), DENIED (prompt template
+change). UNDETERMINED not yet tested organically.
+
+Bundle authoring friction was low for this controlled setup (5 items,
+one model, static config). Main pain point: computing content hashes
+for eval_dataset and input_format. Friction in messier workflows is
+not yet characterized.
+
 ## Reopen triggers
 
 Auto-bundle generation becomes worth building when:
