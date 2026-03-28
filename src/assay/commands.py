@@ -6993,7 +6993,7 @@ def contract_diff_cmd(
         console.print()
         console.print(Panel(
             "[bold green]No verdict flips[/]\n"
-            "The contract amendment is safe for this evidence corpus.",
+            "The contract amendment is safe for the current organic corpus.",
             border_style="green",
         ))
 

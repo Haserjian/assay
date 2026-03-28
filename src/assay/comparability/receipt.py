@@ -1,9 +1,12 @@
 """Comparability receipt emission.
 
 Emits a structured receipt for every comparability verdict — SATISFIED,
-DENIED, DOWNGRADED, and UNDETERMINED. These receipts are the seed
-crystal for case law: each one records what was compared, what the
-contract said, and what consequence followed.
+DENIED, DOWNGRADED, and UNDETERMINED. Each receipt records what was
+compared, what the contract said, and what consequence followed.
+
+Only receipts from real API-backed runs constitute case law (organic
+precedent). Receipts from synthetic fixture runs are engine proof
+only and should not be cited as precedent.
 
 Receipts are emitted via the standard assay store (emit_receipt),
 making them part of the trace and available for proof pack inclusion.
