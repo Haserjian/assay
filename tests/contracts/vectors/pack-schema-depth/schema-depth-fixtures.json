@@ -1,0 +1,48 @@
+{
+  "format_version": "0.1.0",
+  "status": "pending",
+  "description": "Schema-validation-depth parity fixtures. These specimens are intentionally not yet wired into shared conformance-fixtures.json. They define the target cases for Python/TS structural parity work.",
+  "contract_ref": "Python integrity.py validate_schema stage + pack_manifest.schema.json + attestation.schema.json",
+  "acceptance_target": {
+    "expected_error_code": "E_MANIFEST_TAMPER",
+    "expected_fail_stage": "validate_schema",
+    "canonical_implementation": "python"
+  },
+  "fixtures": [
+    {
+      "name": "schema_missing_pack_id",
+      "description": "Top-level required field missing: pack_id",
+      "mutation_class": "required_top_level_field"
+    },
+    {
+      "name": "schema_extra_top_level_field",
+      "description": "Unknown top-level manifest field present",
+      "mutation_class": "additional_properties_top_level"
+    },
+    {
+      "name": "schema_bad_hash_alg",
+      "description": "hash_alg set to unsupported value",
+      "mutation_class": "top_level_enum_violation"
+    },
+    {
+      "name": "schema_bad_signature_alg",
+      "description": "signature_alg set to unsupported value",
+      "mutation_class": "top_level_enum_violation"
+    },
+    {
+      "name": "schema_malformed_file_entry",
+      "description": "files[0].bytes has wrong type",
+      "mutation_class": "nested_field_type_violation"
+    },
+    {
+      "name": "schema_attestation_missing_proof_tier",
+      "description": "Attestation missing required proof_tier field",
+      "mutation_class": "attestation_required_field"
+    },
+    {
+      "name": "schema_attestation_bad_proof_tier",
+      "description": "Attestation proof_tier uses unsupported enum value",
+      "mutation_class": "attestation_enum_violation"
+    }
+  ]
+}
