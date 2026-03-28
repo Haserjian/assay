@@ -1,0 +1,38 @@
+{
+  "label": "gpt-4o @ v2.3 prompt (baseline, Tuesday)",
+  "ref": "results/baseline/",
+  "fields": {
+    "judge_model": "gpt-4o",
+    "judge_model_version": "gpt-4o-2024-08-06",
+    "judge_prompt_template": "Rate the following response on helpfulness from 1 to 5.\nConsider clarity, completeness, and accuracy.\n",
+    "judge_system_prompt": "You are an expert evaluator.\n",
+    "scoring_rubric": "1=unhelpful, 2=slightly helpful, 3=moderately helpful, 4=helpful, 5=very helpful\n",
+    "judge_temperature": 0.0,
+    "judge_max_tokens": 1024,
+    "judge_top_p": 1.0,
+    "judge_passes": 1,
+    "eval_dataset": "sha256:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+    "eval_dataset_version": "v3",
+    "presentation_order": "fixed",
+    "input_format": "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+    "score_type": "likert",
+    "score_range": "1-5"
+  },
+  "requested_config": {
+    "judge_model": "gpt-4o",
+    "judge_model_version": "gpt-4o-2024-08-06",
+    "judge_temperature": 0.0
+  },
+  "executed_config": {
+    "judge_model": "gpt-4o",
+    "judge_model_version": "gpt-4o-2024-08-06",
+    "judge_temperature": 0.0
+  },
+  "field_sources": {
+    "judge_model": "config:eval/judge_config.yaml",
+    "judge_model_version": "config:eval/judge_config.yaml",
+    "judge_prompt_template": "file:prompts/helpfulness_v2.3.txt",
+    "judge_temperature": "config:eval/judge_config.yaml",
+    "eval_dataset": "file:eval/dataset_v3.jsonl"
+  }
+}
