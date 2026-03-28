@@ -53,6 +53,9 @@ scripts/scan_study/clones/
 # Floating diagnostic artifacts (regenerable)
 evidence_gap_report.*
 
+# Generated compiled packet outputs (not fixtures)
+artifacts/
+
 # Local Assay runtime state
 .assay/
 
