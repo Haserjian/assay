@@ -1,0 +1,72 @@
+{
+  "command": "assay gate compare",
+  "gate_result": "FAIL",
+  "constitutional_diff": {
+    "version": "0.1.0",
+    "diff_id": "cd-8df0ae3f9b42",
+    "created_at": "2026-03-28T14:40:23.706666+00:00",
+    "entities": {
+      "baseline": {
+        "ref": "examples/llm_judge/organic/run_a",
+        "label": "gpt-4o-mini-2024-07-18 @ run_a"
+      },
+      "candidate": {
+        "ref": "examples/llm_judge/organic/run_b",
+        "label": "gpt-4o-mini-2024-07-18 @ run_b"
+      }
+    },
+    "comparability": {
+      "verdict": "DOWNGRADED",
+      "instrument_continuity": "PRESERVED",
+      "mismatches": [
+        {
+          "field": "judge_max_tokens",
+          "baseline_value": 512,
+          "candidate_value": 256,
+          "severity": "DEGRADING",
+          "rule": "exact",
+          "group": "execution_params",
+          "explanation": "Token limit can truncate judge reasoning, potentially affecting scores.\n"
+        }
+      ],
+      "satisfied_fields": [
+        "judge_model",
+        "judge_model_version",
+        "judge_prompt_template",
+        "judge_system_prompt",
+        "scoring_rubric",
+        "score_type",
+        "score_range",
+        "judge_temperature",
+        "judge_top_p",
+        "judge_passes",
+        "eval_dataset",
+        "eval_dataset_version",
+        "presentation_order",
+        "input_format"
+      ]
+    },
+    "lineage": {
+      "contract_id": "judge-comparability-v1",
+      "contract_version": "0.1.0",
+      "contract_hash": "sha256:779b735889310e84c86d3ab48b95dfe062efc00df2a80399dae1017242a27f91"
+    },
+    "consequence": {
+      "claim_status": "ADMISSIBLE_WITH_CAVEAT",
+      "blocked_actions": [
+        "report_without_caveat"
+      ],
+      "required_actions": [
+        "attach_mismatch_disclosure"
+      ]
+    },
+    "baseline_completeness": {
+      "status": "COMPLETE",
+      "present_count": 15
+    },
+    "candidate_completeness": {
+      "status": "COMPLETE",
+      "present_count": 15
+    }
+  }
+}

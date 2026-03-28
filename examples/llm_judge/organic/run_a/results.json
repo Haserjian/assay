@@ -1,0 +1,52 @@
+[
+  {
+    "id": "q1",
+    "score": 3,
+    "raw_output": "3",
+    "model": "gpt-4o-mini-2024-07-18",
+    "usage": {
+      "prompt_tokens": 79,
+      "completion_tokens": 1
+    }
+  },
+  {
+    "id": "q2",
+    "score": 3,
+    "raw_output": "3",
+    "model": "gpt-4o-mini-2024-07-18",
+    "usage": {
+      "prompt_tokens": 77,
+      "completion_tokens": 1
+    }
+  },
+  {
+    "id": "q3",
+    "score": 4,
+    "raw_output": "4",
+    "model": "gpt-4o-mini-2024-07-18",
+    "usage": {
+      "prompt_tokens": 79,
+      "completion_tokens": 1
+    }
+  },
+  {
+    "id": "q4",
+    "score": 4,
+    "raw_output": "4",
+    "model": "gpt-4o-mini-2024-07-18",
+    "usage": {
+      "prompt_tokens": 84,
+      "completion_tokens": 1
+    }
+  },
+  {
+    "id": "q5",
+    "score": 4,
+    "raw_output": "4",
+    "model": "gpt-4o-mini-2024-07-18",
+    "usage": {
+      "prompt_tokens": 83,
+      "completion_tokens": 1
+    }
+  }
+]
