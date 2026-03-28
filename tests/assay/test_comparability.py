@@ -1634,3 +1634,145 @@ class TestGoldenIncidentReceipt:
 
         # JSON-serializable
         json.dumps(captured, default=str)
+
+        # Contract hash present and stable
+        assert "contract_hash" in captured
+        assert captured["contract_hash"].startswith("sha256:")
+
+
+# ===================================================================
+# End-to-end receipt persistence: constitutional transaction test
+# ===================================================================
+
+class TestReceiptPersistence:
+    """Verify that CLI commands actually persist receipts to the store.
+
+    This closes the gap between "receipt payload is correct" (mock tests)
+    and "constitutional transaction actually persisted" (e2e).
+    """
+
+    def test_compare_persists_receipt(self, tmp_path: Path):
+        """assay compare writes a comparability_verdict receipt to the trace."""
+        from typer.testing import CliRunner
+        from assay.commands import assay_app
+        from assay.store import AssayStore
+
+        # Set up isolated store
+        store_dir = tmp_path / "store"
+        store_dir.mkdir()
+
+        contract = tmp_path / "contract.json"
+        contract.write_text(json.dumps({
+            "name": "E2E Test",
+            "id": "e2e-test-001",
+            "version": "0.1.0",
+            "parity_fields": [
+                {"field": "judge_model", "match_rule": "exact",
+                 "severity": "INVALIDATING", "group": "instrument_identity"},
+            ],
+        }))
+
+        baseline = tmp_path / "base.json"
+        baseline.write_text(json.dumps({
+            "label": "baseline",
+            "ref": "packs/base/",
+            "fields": {"judge_model": "gpt-4o"},
+        }))
+
+        candidate = tmp_path / "cand.json"
+        candidate.write_text(json.dumps({
+            "label": "candidate",
+            "ref": "packs/cand/",
+            "fields": {"judge_model": "different-model"},
+        }))
+
+        # Patch the default store to use our isolated directory
+        import assay.store as store_mod
+        original_store = store_mod._default_store
+        store_mod._default_store = AssayStore(base_dir=store_dir)
+        try:
+            runner = CliRunner()
+            result = runner.invoke(assay_app, [
+                "compare",
+                str(baseline), str(candidate),
+                "-c", str(contract),
+                "--json",
+            ])
+            assert result.exit_code == 1  # DENIED
+
+            # Find the receipt in the store
+            store = store_mod._default_store
+            trace_id = store.trace_id
+            assert trace_id is not None
+
+            entries = store.read_trace(trace_id)
+            receipts = [e for e in entries if e.get("type") == "comparability_verdict"]
+            assert len(receipts) == 1
+
+            r = receipts[0]
+            assert r["verdict"] == "DENIED"
+            assert r["contract_id"] == "e2e-test-001"
+            assert r["contract_version"] == "0.1.0"
+            assert r["contract_hash"].startswith("sha256:")
+            assert r["source"] == "assay compare"
+            assert r["baseline_ref"] == "packs/base/"
+            assert r["candidate_ref"] == "packs/cand/"
+            assert r["engine_version"]  # non-empty
+            assert r["exit_code"] == 1
+            assert r["instrument_continuity"] == "BROKEN"
+            assert len(r["mismatches"]) == 1
+            assert r["mismatches"][0]["field"] == "judge_model"
+            assert r["consequence"]["claim_status"] == "INADMISSIBLE"
+            assert r["receipt_id"]  # auto-generated
+            assert r["timestamp"]  # auto-generated
+        finally:
+            store_mod._default_store = original_store
+
+    def test_gate_compare_persists_receipt(self, tmp_path: Path):
+        """assay gate compare writes a receipt AND the verdict is recoverable."""
+        from typer.testing import CliRunner
+        from assay.commands import assay_app
+        from assay.store import AssayStore
+
+        store_dir = tmp_path / "store"
+        store_dir.mkdir()
+
+        contract = tmp_path / "contract.json"
+        contract.write_text(json.dumps({
+            "name": "Gate E2E",
+            "id": "gate-e2e-001",
+            "parity_fields": [
+                {"field": "x", "match_rule": "exact",
+                 "severity": "INVALIDATING", "group": "instrument_identity"},
+            ],
+        }))
+
+        baseline = tmp_path / "base.json"
+        baseline.write_text(json.dumps({"fields": {"x": "same"}}))
+        candidate = tmp_path / "cand.json"
+        candidate.write_text(json.dumps({"fields": {"x": "same"}}))
+
+        import assay.store as store_mod
+        original_store = store_mod._default_store
+        store_mod._default_store = AssayStore(base_dir=store_dir)
+        try:
+            runner = CliRunner()
+            result = runner.invoke(assay_app, [
+                "gate", "compare",
+                str(baseline), str(candidate),
+                "-c", str(contract),
+                "--json",
+            ])
+            assert result.exit_code == 0  # SATISFIED
+
+            store = store_mod._default_store
+            entries = store.read_trace(store.trace_id)
+            receipts = [e for e in entries if e.get("type") == "comparability_verdict"]
+            assert len(receipts) == 1
+
+            r = receipts[0]
+            assert r["verdict"] == "SATISFIED"
+            assert r["source"] == "assay gate compare"
+            assert r["contract_id"] == "gate-e2e-001"
+        finally:
+            store_mod._default_store = original_store

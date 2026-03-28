@@ -44,6 +44,7 @@ def emit_comparability_receipt(
     payload: Dict[str, Any] = {
         "contract_id": diff.contract_id,
         "contract_version": diff.contract_version,
+        "contract_hash": diff.contract_hash,
         "verdict": diff.verdict.value,
         "exit_code": diff.exit_code,
         "baseline_ref": diff.baseline_ref,

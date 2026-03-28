@@ -223,6 +223,7 @@ def evaluate(
         consequence=consequence,
         contract_id=contract.contract_id,
         contract_version=contract.version,
+        contract_hash=contract.content_hash(),
     )
 
     return diff

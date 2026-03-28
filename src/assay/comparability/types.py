@@ -220,6 +220,7 @@ class ConstitutionalDiff:
     # Lineage
     contract_id: str = ""
     contract_version: str = ""
+    contract_hash: str = ""
     prior_diff_ids: List[str] = field(default_factory=list)
     supersedes: Optional[str] = None
 
@@ -248,6 +249,7 @@ class ConstitutionalDiff:
                 "lineage": {
                     "contract_id": self.contract_id,
                     "contract_version": self.contract_version,
+                    "contract_hash": self.contract_hash,
                 },
             }
         }

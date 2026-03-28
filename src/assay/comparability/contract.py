@@ -102,6 +102,21 @@ class ComparabilityContract:
             if pf.group == ParityFieldGroup.INSTRUMENT_IDENTITY
         ]
 
+    def content_hash(self) -> str:
+        """Deterministic fingerprint of the contract's parity fields.
+
+        Covers field names, rules, severities, and groups — the parts
+        that affect verdict computation. Metadata (author, created_at)
+        is excluded so cosmetic edits don't change the hash.
+        """
+        import hashlib
+        parts = []
+        for pf in self.parity_fields:
+            parts.append(f"{pf.field}:{pf.match_rule}:{pf.severity.value}:{pf.group.value}:{pf.requirement.value}")
+        material = "|".join(sorted(parts))
+        digest = hashlib.sha256(material.encode("utf-8")).hexdigest()
+        return f"sha256:{digest}"
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "comparability_contract": {
