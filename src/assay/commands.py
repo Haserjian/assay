@@ -6770,6 +6770,81 @@ def gate_compare_cmd(
 
 
 # ---------------------------------------------------------------------------
+# bundle subcommands
+# ---------------------------------------------------------------------------
+
+bundle_app = typer.Typer(
+    name="bundle",
+    help="Evidence bundle utilities for comparability workflows",
+    no_args_is_help=True,
+)
+assay_app.add_typer(bundle_app, name="bundle", hidden=True, rich_help_panel="Advanced")
+
+
+@bundle_app.command("init")
+def bundle_init_cmd(
+    contract: str = typer.Option(..., "--contract", "-c", help="Path to comparability contract (YAML/JSON)"),
+    output: str = typer.Option("evidence_bundle.json", "--output", "-o", help="Output file path"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON to stdout instead of file"),
+):
+    """Scaffold a template evidence bundle from a comparability contract.
+
+    Reads the contract's parity fields and generates a JSON file with
+    all required fields stubbed to null. Fill in the values, then use
+    with `assay compare` or `assay gate compare`.
+
+    Examples:
+
+        assay bundle init -c contracts/judge-comparability-v1.yaml
+
+        assay bundle init -c contracts/judge-comparability-v1.yaml -o my_bundle.json
+    """
+    from pathlib import Path as P
+
+    from assay.comparability.contract import ContractValidationError, load_contract
+
+    try:
+        ctr = load_contract(contract)
+    except ContractValidationError as e:
+        console.print(f"[red]Contract error:[/] {e}")
+        raise typer.Exit(3)
+    except FileNotFoundError:
+        console.print(f"[red]Contract not found:[/] {contract}")
+        raise typer.Exit(3)
+
+    # Build scaffold with all parity fields stubbed
+    fields: dict = {}
+    field_sources: dict = {}
+    for pf in ctr.parity_fields:
+        fields[pf.field] = None
+        field_sources[pf.field] = "TODO"
+
+    scaffold = {
+        "label": "TODO: descriptive label (e.g. gpt-4o @ prompt v2.3)",
+        "ref": "TODO: path to results or proof pack",
+        "fields": fields,
+        "requested_config": {},
+        "executed_config": {},
+        "field_sources": field_sources,
+    }
+
+    import json
+
+    payload = json.dumps(scaffold, indent=2) + "\n"
+
+    if output_json:
+        typer.echo(payload)
+        return
+
+    out_path = P(output)
+    out_path.write_text(payload, encoding="utf-8")
+    console.print(f"[green]Wrote template bundle:[/] {out_path}")
+    console.print(f"  {len(fields)} fields stubbed from contract [bold]{ctr.contract_id}[/]")
+    console.print(f"  Fill in field values, then run:")
+    console.print(f"    [dim]assay compare baseline.json {out_path} -c {contract}[/]")
+
+
+# ---------------------------------------------------------------------------
 # cards subcommands
 # ---------------------------------------------------------------------------
 
