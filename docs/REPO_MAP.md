@@ -1,14 +1,19 @@
 # Assay Repo Map
 
-Canonical reference for what lives where, what's public, and what ships from each repo.
+Canonical reference for what lives where, what ships from each repo, and
+how the Assay ecosystem fits together.
 
 ## Public Repos
 
 | Repo | Purpose | Ships | Release Owner |
 |------|---------|-------|---------------|
 | [Haserjian/assay](https://github.com/Haserjian/assay) | Core CLI, SDK, schemas, conformance corpus, docs | `assay-ai` on PyPI | Tim Bhaserjian |
+| [Haserjian/assay-protocol](https://github.com/Haserjian/assay-protocol) | Normative protocol, CRS companion, reference gateway | Spec + conformance docs | Tim Bhaserjian |
 | [Haserjian/assay-verify-action](https://github.com/Haserjian/assay-verify-action) | GitHub Action for CI verification gating | `Haserjian/assay-verify-action@v1` | Tim Bhaserjian |
 | [Haserjian/assay-ledger](https://github.com/Haserjian/assay-ledger) | Public transparency ledger (GitHub Pages) | Append-only ledger entries via PR | Tim Bhaserjian |
+| [Haserjian/assay-scorecard](https://github.com/Haserjian/assay-scorecard) | Ecosystem readiness scoring | Public scorecard site | Tim Bhaserjian |
+| [Haserjian/assay-agent-demo](https://github.com/Haserjian/assay-agent-demo) | Demo packs and walkthroughs | Demo proof packs | Tim Bhaserjian |
+| [Haserjian/agentmesh](https://github.com/Haserjian/agentmesh) | Provenance and coordination engine | Claims, episodes, lineage, witness tooling | Tim Bhaserjian |
 
 ## Private Repos
 
@@ -29,6 +34,17 @@ Everything a user needs to install, scan, instrument, run, verify, and gate:
 - `docs/` -- Quickstart, decision escrow, compliance guide, specs, pilot program
 - `examples/` -- Quickstart script, demo pack generator
 
+### Haserjian/assay-protocol
+
+The protocol/spec layer. This is where the gateway conformance rules and
+receipt contracts live:
+
+- `SPEC.md` -- normative Assay Protocol
+- `MCP_MINIMUM_PROFILE.md` -- minimum conformance profile
+- `CONSTITUTIONAL_RECEIPT_STANDARD_v0.1.md` -- portable receipt format
+- `reference/python_gateway/` -- reference gateway implementation
+- `conformance/` -- conformance framing and claims
+
 ### Haserjian/assay-verify-action
 
 Composite GitHub Action. References `assay-ai` from PyPI. Users add this to their workflow:
@@ -44,7 +60,12 @@ Composite GitHub Action. References `assay-ai` from PyPI. Users add this to thei
 Public append-only ledger. Accepts submissions via PR workflow. Entries include:
 - `pack_root_sha256` (the immutable pack identifier)
 - `witness_level` (unwitnessed, hash_verified, signature_verified)
-- Signer fingerprint and timestamp
+- signer fingerprint and timestamp
+
+### Haserjian/agentmesh
+
+Provenance and coordination system. It tracks claims, episodes, and lineage
+and can feed evidence into Assay.
 
 ## Open vs Closed Product Boundary
 

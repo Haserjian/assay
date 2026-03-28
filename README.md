@@ -55,6 +55,8 @@ producing something another team can verify.
 > Assay is not a logging framework. It produces signed evidence bundles
 > that a third party can verify offline.
 
+For the ecosystem map, see [docs/REPO_MAP.md](docs/REPO_MAP.md).
+
 <details>
 <summary>Install details (Windows, PATH issues, deterministic setup)</summary>
 
