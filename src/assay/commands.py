@@ -42,6 +42,7 @@ Commands:
   assay start demo    - See Assay in action (quickstart flow)
   assay start ci      - Set up CI evidence gating
   assay start mcp     - Set up MCP tool call auditing
+  assay compare       - Contract-based comparability evaluation (denial engine)
   assay compliance report - Map evidence pack to regulatory framework controls
   assay version       - Show version info
 """
@@ -6648,6 +6649,126 @@ def gate_save_baseline_cmd(
     console.print()
 
 
+@gate_app.command("compare")
+def gate_compare_cmd(
+    baseline: str = typer.Argument(..., help="Baseline evidence bundle or pack directory"),
+    candidate: str = typer.Argument(..., help="Candidate evidence bundle or pack directory"),
+    contract: str = typer.Option(..., "--contract", "-c", help="Path to comparability contract"),
+    save_report: Optional[str] = typer.Option(None, "--save-report", help="Write gate report JSON to file"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Enforce comparability verdict as a CI gate. Fail-closed.
+
+    Unlike `assay compare` (advisory/diagnostic), this command is an
+    enforcement boundary. UNDETERMINED is treated as failure because
+    incomplete evidence cannot be trusted in a gate context.
+
+    Exit codes:
+      0  SATISFIED — comparison valid, gate passes
+      1  DENIED / DOWNGRADED / UNDETERMINED — gate fails (fail-closed)
+      3  Bad input
+
+    Examples:
+
+        assay gate compare baseline.json candidate.json -c contracts/judge-comparability-v1.yaml
+
+        assay gate compare ./baseline_pack/ ./candidate_pack/ -c contract.yaml --json
+    """
+    from pathlib import Path as P
+
+    from assay.comparability.bundle import find_bundle, load_bundle
+    from assay.comparability.contract import ContractValidationError, load_contract
+    from assay.comparability.engine import evaluate
+    from assay.comparability.receipt import emit_comparability_receipt
+    from assay.comparability.types import Verdict
+
+    _cmd = "assay gate compare"
+
+    # Load contract
+    try:
+        ctr = load_contract(contract)
+    except ContractValidationError as e:
+        _gate_error(str(e), command=_cmd, output_json=output_json)
+
+    # Resolve and load bundles (accept files or pack directories)
+    def _resolve_bundle(path_str: str, label: str) -> "EvidenceBundle":
+        p = P(path_str)
+        if p.is_dir():
+            found = find_bundle(p)
+            if found is None:
+                _gate_error(
+                    f"{label}: no evidence bundle found in directory {p}. "
+                    f"Expected one of: evidence_bundle.json, evidence_bundle.yaml, "
+                    f"judge_evidence.json, judge_evidence.yaml",
+                    command=_cmd,
+                    output_json=output_json,
+                )
+            p = found
+        try:
+            return load_bundle(p)
+        except (FileNotFoundError, ValueError, IsADirectoryError) as e:
+            _gate_error(f"{label}: {e}", command=_cmd, output_json=output_json)
+
+    baseline_bundle = _resolve_bundle(baseline, "baseline")
+    candidate_bundle = _resolve_bundle(candidate, "candidate")
+
+    # Run denial engine
+    diff = evaluate(ctr, baseline_bundle, candidate_bundle)
+
+    # Emit receipt (all verdicts). Gate mode: fail closed on receipt failure.
+    try:
+        emit_comparability_receipt(diff, source="assay gate compare")
+    except Exception as e:
+        _gate_error(
+            f"Receipt emission failed: {e}. "
+            f"Gate cannot pass without governance receipt.",
+            command=_cmd,
+            output_json=output_json,
+        )
+
+    # Gate exit code: fail-closed. Only SATISFIED passes.
+    gate_passed = diff.verdict == Verdict.SATISFIED
+    exit_code = 0 if gate_passed else 1
+
+    # Optional report
+    if save_report:
+        report_payload = {
+            "command": _cmd,
+            "gate_result": "PASS" if gate_passed else "FAIL",
+            **diff.to_dict(),
+        }
+        _gate_write_report(report_payload, P(save_report), output_json=output_json)
+
+    if output_json:
+        payload = {
+            "command": _cmd,
+            "status": "ok",
+            "gate_result": "PASS" if gate_passed else "FAIL",
+            **diff.to_dict(),
+        }
+        _output_json(payload, exit_code=exit_code)
+        return
+
+    # Rich console output — reuse existing renderer
+    _render_constitutional_diff(diff, ctr)
+
+    # Gate banner
+    if gate_passed:
+        console.print(Panel(
+            "[bold green]GATE: PASS[/]",
+            border_style="green",
+        ))
+    else:
+        console.print(Panel(
+            f"[bold red]GATE: FAIL[/]\n\n"
+            f"  Verdict {diff.verdict.value} is not SATISFIED.\n"
+            f"  In gate mode, only SATISFIED passes.",
+            border_style="red",
+        ))
+
+    raise typer.Exit(exit_code)
+
+
 # ---------------------------------------------------------------------------
 # cards subcommands
 # ---------------------------------------------------------------------------
@@ -10588,6 +10709,256 @@ def packet_verify_cmd(
     # Exit 1 = structural problem (TAMPERED, DEGRADED, INVALID).
     # Admissibility is available in the JSON output for callers that need it (e.g. assay-gate.sh).
     raise typer.Exit(0 if result.integrity_verdict == "INTACT" else 1)
+
+
+# ---------------------------------------------------------------------------
+# assay compare — contract-based comparability evaluation
+# ---------------------------------------------------------------------------
+
+@assay_app.command("compare", rich_help_panel="Governance")
+def compare_cmd(
+    baseline: str = typer.Argument(..., help="Baseline evidence bundle file or pack directory"),
+    candidate: str = typer.Argument(..., help="Candidate evidence bundle file or pack directory"),
+    contract: str = typer.Option(..., "--contract", "-c", help="Path to comparability contract (YAML/JSON)"),
+    claim_summary: Optional[str] = typer.Option(None, "--claim", help="Claim under test (e.g. 'candidate scores 11% higher')"),
+    claim_metric: Optional[str] = typer.Option(None, "--metric", help="Metric name (e.g. 'mean_helpfulness_score')"),
+    claim_delta: Optional[float] = typer.Option(None, "--delta", help="Score delta"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Evaluate whether two evidence bundles may be validly compared.
+
+    Loads a comparability contract and two evidence bundles, runs the
+    denial engine, and produces a constitutional diff — the verdict,
+    mismatches, and consequence.
+
+    The system does not tell you what is true. It tells you what is
+    validly comparable and therefore what claims are allowed.
+
+    Exit codes:
+      0  SATISFIED — comparison valid, claims may proceed
+      1  DENIED or DOWNGRADED — comparison invalid or weakened
+      2  UNDETERMINED — evidence incomplete, cannot evaluate
+      3  Bad input
+
+    Examples:
+      assay compare baseline.json candidate.json --contract contracts/judge-comparability-v1.yaml
+      assay compare baseline.json candidate.json -c contracts/judge-comparability-v1.yaml --claim "11% improvement"
+      assay compare baseline.json candidate.json -c contract.yaml --json
+    """
+    from pathlib import Path as P
+
+    from assay.comparability.bundle import find_bundle, load_bundle
+    from assay.comparability.contract import ContractValidationError, load_contract
+    from assay.comparability.engine import evaluate
+    from assay.comparability.types import (
+        ClaimUnderTest,
+        InstrumentContinuity,
+        Severity,
+        Verdict,
+    )
+
+    # Load contract
+    try:
+        ctr = load_contract(contract)
+    except ContractValidationError as e:
+        if output_json:
+            _output_json({"command": "compare", "status": "error", "error": str(e)}, exit_code=3)
+        console.print(f"[red]Error:[/] {e}")
+        raise typer.Exit(3)
+
+    # Resolve and load bundles (accept files or pack directories)
+    def _resolve(path_str: str, label: str):
+        p = P(path_str)
+        if p.is_dir():
+            found = find_bundle(p)
+            if found is None:
+                msg = (
+                    f"No evidence bundle found in directory {p}. "
+                    f"Expected one of: evidence_bundle.json, evidence_bundle.yaml, "
+                    f"judge_evidence.json, judge_evidence.yaml"
+                )
+                if output_json:
+                    _output_json({"command": "compare", "status": "error", "error": f"{label}: {msg}"}, exit_code=3)
+                console.print(f"[red]Error:[/] {label}: {msg}")
+                raise typer.Exit(3)
+            p = found
+        try:
+            return load_bundle(p)
+        except (FileNotFoundError, ValueError, IsADirectoryError) as e:
+            msg = str(e)
+            if output_json:
+                _output_json({"command": "compare", "status": "error", "error": f"{label}: {msg}"}, exit_code=3)
+            console.print(f"[red]Error:[/] {label}: {msg}")
+            raise typer.Exit(3)
+
+    baseline_bundle = _resolve(baseline, "baseline")
+    candidate_bundle = _resolve(candidate, "candidate")
+
+    # Build claim if provided
+    claim = None
+    if claim_summary:
+        claim = ClaimUnderTest(
+            claim_type="improvement",
+            summary=claim_summary,
+            metric=claim_metric or "",
+            delta=claim_delta,
+        )
+
+    # Run denial engine
+    diff = evaluate(ctr, baseline_bundle, candidate_bundle, claim=claim)
+
+    # Emit comparability receipt (all verdicts, not only denials)
+    from assay.comparability.receipt import emit_comparability_receipt
+    try:
+        emit_comparability_receipt(diff, source="assay compare")
+    except Exception as e:
+        import warnings
+        warnings.warn(
+            f"assay compare: receipt emission failed: {e}",
+            RuntimeWarning,
+            stacklevel=1,
+        )
+
+    # JSON output
+    if output_json:
+        payload = {"command": "compare", "status": "ok", **diff.to_dict()}
+        _output_json(payload, exit_code=diff.exit_code)
+        return
+
+    # Rich console output
+    _render_constitutional_diff(diff, ctr)
+    raise typer.Exit(diff.exit_code)
+
+
+def _render_constitutional_diff(diff, contract) -> None:
+    """Render a constitutional diff to console with Rich formatting."""
+    from assay.comparability.types import (
+        InstrumentContinuity,
+        Severity,
+        Verdict,
+    )
+
+    console.print()
+
+    # Verdict banner
+    verdict_colors = {
+        Verdict.SATISFIED: "bold green",
+        Verdict.DOWNGRADED: "bold yellow",
+        Verdict.DENIED: "bold red",
+        Verdict.UNDETERMINED: "bold blue",
+    }
+    color = verdict_colors.get(diff.verdict, "bold")
+
+    console.print(Panel(
+        f"[{color}]COMPARABILITY VERDICT: {diff.verdict.value}[/]",
+        border_style=color.replace("bold ", ""),
+        expand=True,
+    ))
+
+    # Claim under test
+    if diff.claim:
+        console.print(f"\n  Claim under test:")
+        console.print(f'    "{diff.claim.summary}"')
+        if diff.claim.delta is not None:
+            console.print(f"    delta: {diff.claim.delta:+.2f} ({diff.claim.metric})")
+
+    # Entity labels
+    if diff.baseline_label or diff.candidate_label:
+        console.print(f"\n  Baseline: {diff.baseline_label or diff.baseline_ref}")
+        console.print(f"  Candidate: {diff.candidate_label or diff.candidate_ref}")
+
+    # Instrument continuity
+    if diff.instrument_continuity == InstrumentContinuity.BROKEN:
+        console.print(f"\n  [red]Instrument continuity: BROKEN[/]")
+        console.print(f"  The measurement instrument changed between runs.")
+    elif diff.instrument_continuity == InstrumentContinuity.UNKNOWN:
+        console.print(f"\n  [yellow]Instrument continuity: UNKNOWN[/]")
+        console.print(f"  Instrument identity fields are missing from evidence.")
+
+    # Mismatches
+    if diff.mismatches:
+        console.print()
+        invalidating = [m for m in diff.mismatches if m.severity == Severity.INVALIDATING]
+        degrading = [m for m in diff.mismatches if m.severity == Severity.DEGRADING]
+
+        if invalidating:
+            console.print("  [bold red]INVALIDATING mismatches:[/]")
+            console.print()
+            for m in invalidating:
+                console.print(f"    [red]X[/] {m.field}")
+                console.print(f"      baseline: {m.baseline_value}")
+                console.print(f"      candidate: {m.candidate_value}")
+                console.print(f"      rule: {m.rule}")
+                console.print(f"      [dim]{m.explanation}[/]")
+                console.print()
+
+        if degrading:
+            console.print("  [bold yellow]DEGRADING mismatches:[/]")
+            console.print()
+            for m in degrading:
+                console.print(f"    [yellow]~[/] {m.field}")
+                console.print(f"      baseline: {m.baseline_value}")
+                console.print(f"      candidate: {m.candidate_value}")
+                console.print(f"      [dim]{m.explanation}[/]")
+                console.print()
+
+    # Satisfied fields — denominator includes all contract parity fields
+    n_contract_fields = len(contract.parity_fields)
+    n_missing = n_contract_fields - len(diff.satisfied_fields) - len(diff.mismatches)
+    if diff.satisfied_fields:
+        console.print(
+            f"  Matched fields ({len(diff.satisfied_fields)}/{n_contract_fields}):"
+        )
+        line = "    " + "  ".join(f"[green]V[/] {f}" for f in diff.satisfied_fields)
+        console.print(line)
+    if n_missing > 0:
+        # Collect missing field names from both bundles' completeness
+        missing_names: list[str] = []
+        for comp in (diff.baseline_completeness, diff.candidate_completeness):
+            if comp:
+                for f in comp.missing_fields:
+                    if f not in missing_names:
+                        missing_names.append(f)
+        console.print(
+            f"  [yellow]Missing required ({len(missing_names)}):[/] "
+            + ", ".join(missing_names)
+        )
+
+    # Bundle completeness
+    for label, comp in [
+        ("Baseline", diff.baseline_completeness),
+        ("Candidate", diff.candidate_completeness),
+    ]:
+        if comp and comp.status == "INCOMPLETE":
+            console.print(f"\n  [yellow]{label} bundle: INCOMPLETE[/]")
+            console.print(f"    Missing: {', '.join(comp.missing_fields)}")
+
+    # Consequence
+    if diff.consequence:
+        console.print()
+        consequence_panel_lines = [
+            f"  Claim status: [bold]{diff.consequence.claim_status.value}[/]",
+        ]
+        if diff.consequence.blocked_actions:
+            consequence_panel_lines.append("")
+            consequence_panel_lines.append("  Blocked:")
+            for a in diff.consequence.blocked_actions:
+                consequence_panel_lines.append(f"    - {a}")
+        if diff.consequence.required_actions:
+            consequence_panel_lines.append("")
+            consequence_panel_lines.append("  Required:")
+            for a in diff.consequence.required_actions:
+                consequence_panel_lines.append(f"    -> {a}")
+        if diff.contract_id:
+            consequence_panel_lines.append(f"\n  Contract: {diff.contract_id} (v{diff.contract_version})")
+
+        console.print(Panel(
+            "\n".join(consequence_panel_lines),
+            title="CONSEQUENCE",
+            border_style="dim",
+        ))
+
+    console.print()
 
 
 def main():
