@@ -318,6 +318,11 @@ def _validate_subject(subject: Dict[str, Any]) -> List[str]:
     return errors
 
 
+def _source_commit_required(subject: Dict[str, Any]) -> bool:
+    """Return True when the packet class requires first-class source provenance."""
+    return subject.get("subject_type") == "artifact"
+
+
 def compile_packet(
     *,
     draft_dir: Path,
@@ -327,6 +332,7 @@ def compile_packet(
     signer_id: str = DEFAULT_SIGNER_ID,
     keystore: Optional[AssayKeyStore] = None,
     subject: Optional[Dict[str, Any]] = None,
+    source_commit: Optional[str] = None,
     policy_id: str = "default",
     freshness_policy: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
@@ -349,6 +355,13 @@ def compile_packet(
             "Subject binding is required. Pass subject={subject_type, subject_id, subject_digest}. "
             "The packet must be about something."
         )
+    if _source_commit_required(subject) and not source_commit:
+        raise ValueError(
+            "source_commit is required for artifact packets. "
+            "Provide the source commit provenance that produced the release artifact."
+        )
+    if source_commit is not None and not str(source_commit).strip():
+        raise ValueError("source_commit must be a non-empty string when provided")
     subject_errors = _validate_subject(subject)
     if subject_errors:
         raise ValueError(
@@ -460,7 +473,7 @@ def compile_packet(
         pack_references.append(ref)
 
     # 10. Compute packet root (first-principles: content identity)
-    # Root covers: subject + questionnaire + bindings + pack references
+    # Root covers: subject + questionnaire + bindings + pack references + optional provenance
     # Subject digest is included so the root changes if the subject changes.
     # Two compilations of the same inputs = same root, regardless of timing/signer.
     sorted_pack_roots = sorted(p["pack_root_sha256"] for p in pack_references)
@@ -470,6 +483,8 @@ def compile_packet(
         "bindings_sha256": _sha256_hex(bindings_bytes),
         "pack_references": sorted_pack_roots,
     }
+    if source_commit is not None:
+        root_input["source_commit"] = str(source_commit)
     packet_root_sha256 = _sha256_hex(jcs_canonicalize(root_input))
 
     # 11. Build file entries
@@ -537,6 +552,8 @@ def compile_packet(
         "signature_alg": "ed25519",
         "signature_scope": "JCS(packet_manifest_excluding_signature_and_packet_root_sha256)",
     }
+    if source_commit is not None:
+        unsigned_manifest["source_commit"] = str(source_commit)
 
     # 13. Sign
     canonical_unsigned = jcs_canonicalize(unsigned_manifest)
@@ -558,6 +575,7 @@ def compile_packet(
     return {
         "packet_id": signed_manifest["packet_id"],
         "packet_root_sha256": packet_root_sha256,
+        "source_commit": source_commit,
         "bindings_count": len(bindings),
         "coverage": coverage,
         "signed": True,
@@ -609,6 +627,7 @@ class PacketVerifyResult:
         completeness_verdict: str = "COMPLETE",
         packet_id: str = "",
         packet_root_sha256: str = "",
+        source_commit: str = "",
         errors: Optional[List[PacketVerifyError]] = None,
         warnings: Optional[List[str]] = None,
         pack_results: Optional[List[Dict[str, Any]]] = None,
@@ -620,6 +639,7 @@ class PacketVerifyResult:
         self.completeness_verdict = completeness_verdict
         self.packet_id = packet_id
         self.packet_root_sha256 = packet_root_sha256
+        self.source_commit = source_commit
         self.errors = errors or []
         self.warnings = warnings or []
         self.pack_results = pack_results or []
@@ -638,6 +658,7 @@ class PacketVerifyResult:
             "schema_version": "packet_verification.v2",
             "packet_id": self.packet_id,
             "packet_root_sha256": self.packet_root_sha256,
+            "source_commit": self.source_commit,
             "verified_at": _now_iso(),
             "verifier_id": f"assay@{_assay_version}",
             "verdict": self.verdict,
@@ -695,6 +716,7 @@ def verify_packet(
 
     packet_id = manifest.get("packet_id", "unknown")
     packet_root = manifest.get("packet_root_sha256", "")
+    source_commit = manifest.get("source_commit", "")
 
     # Basic schema check
     for field in ("packet_id", "schema_version", "hash_alg", "files",
@@ -702,11 +724,13 @@ def verify_packet(
                    "signer_pubkey_sha256", "packet_root_sha256"):
         if field not in manifest:
             errors.append(PacketVerifyError("E_PKT_SCHEMA", f"Missing field: {field}"))
+    if "source_commit" in manifest and (not isinstance(source_commit, str) or not source_commit.strip()):
+        errors.append(PacketVerifyError("E_PKT_SCHEMA", "Invalid field: source_commit"))
 
     if errors:
         return PacketVerifyResult(
             integrity_verdict="INVALID", packet_id=packet_id,
-            packet_root_sha256=packet_root, errors=errors,
+            packet_root_sha256=packet_root, source_commit=source_commit, errors=errors,
         )
 
     # 2. File hash verification
@@ -786,6 +810,11 @@ def verify_packet(
             errors.append(PacketVerifyError(
                 "E_PKT_SCHEMA", f"Invalid subject_digest format: must be 'sha256:<64 hex>'"
             ))
+        if _source_commit_required(subject_block) and not source_commit:
+            errors.append(PacketVerifyError(
+                "E_PKT_SCHEMA",
+                "Missing required source_commit for artifact packet provenance"
+            ))
 
     # 5b. Admissibility contract check
     admissibility = manifest.get("admissibility")
@@ -811,6 +840,8 @@ def verify_packet(
         "bindings_sha256": b_sha,
         "pack_references": sorted_pack_roots,
     }
+    if source_commit:
+        root_input["source_commit"] = source_commit
     expected_root = _sha256_hex(jcs_canonicalize(root_input))
     if expected_root != packet_root:
         errors.append(PacketVerifyError(
@@ -839,7 +870,7 @@ def verify_packet(
     if any(e.code in ("E_PKT_TAMPER", "E_PKT_SIG_INVALID", "E_PKT_ROOT_INVARIANT") for e in errors):
         return PacketVerifyResult(
             integrity_verdict="TAMPERED", packet_id=packet_id,
-            packet_root_sha256=packet_root, errors=errors, warnings=warnings,
+            packet_root_sha256=packet_root, source_commit=source_commit, errors=errors, warnings=warnings,
         )
 
     # 9. Pack reference validation (bundled packs)
@@ -993,6 +1024,7 @@ def verify_packet(
         completeness_verdict=completeness_verdict,
         packet_id=packet_id,
         packet_root_sha256=packet_root,
+        source_commit=source_commit,
         errors=errors,
         warnings=warnings,
         pack_results=pack_results,

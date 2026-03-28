@@ -306,7 +306,7 @@ The packet signature covers the packet manifest, which includes hashes of all ke
 2. **File hash verification** — SHA-256 of each kernel file matches manifest
 3. **Signature verification** — Ed25519 signature over `JCS(unsigned_manifest)` is valid
 4. **Detached signature parity** — `packet_signature.sig` matches manifest signature
-5. **Packet root invariant** — `packet_root_sha256` matches recomputed root over questionnaire hash + bindings hash + pack reference hashes (see §7)
+5. **Packet root invariant** — `packet_root_sha256` matches recomputed root over questionnaire hash + bindings hash + pack reference hashes, plus optional `source_commit` provenance when present (see §7)
 6. **Questionnaire hash** — `SHA256(JCS(questionnaire_import.json))` matches manifest
 7. **Bindings hash** — `SHA256(claim_bindings.jsonl bytes)` matches manifest
 8. **Coverage hash** — `SHA256(coverage_report.json bytes)` matches manifest
@@ -549,6 +549,7 @@ End-to-end: create one real compiled packet, hand it off, verify it on a separat
   ],
 
   "bundle_mode": "bundled",
+  "source_commit": "d1f001ccabc926d7f671c80399b5db1efca25034",
 
   "files": [
     {"path": "claim_bindings.jsonl", "sha256": "...", "bytes": 1234},
@@ -593,11 +594,12 @@ A compiled packet is different. There is no single attestation object — the pa
 packet_root_sha256 = SHA256(JCS({
   "questionnaire_sha256": <questionnaire hash>,
   "bindings_sha256": <bindings file hash>,
-  "pack_references": <sorted pack_root_sha256 values>
+  "pack_references": <sorted pack_root_sha256 values>,
+  "source_commit": <optional provenance commit>
 }))
 ```
 
-This roots the packet identity over the three things that make a compilation unique: which questions were asked, how they were bound, and which evidence was referenced. The coverage report is deterministically derived from these inputs and is therefore not an independent root input.
+This roots the packet identity over the things that make a compilation unique: which questions were asked, how they were bound, which evidence was referenced, and, for artifact packets, which source commit produced the release artifact. The coverage report is deterministically derived from these inputs and is therefore not an independent root input.
 
 **Why not just use the manifest hash?** The manifest contains mutable metadata (compiler_version, compiled_at, signer fields). The root should identify the *content* of the compilation, not the *act* of compiling it. Two compilations of the same bindings against the same questionnaire and packs should produce the same root, even if compiled at different times or by different signers.
 

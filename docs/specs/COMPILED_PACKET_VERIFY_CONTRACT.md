@@ -34,6 +34,7 @@ formatting, warnings, crash traces). Always redirect or capture them separately.
   "schema_version": "packet_verification.v2",
   "packet_id": "<str>",
   "packet_root_sha256": "<str | null>",
+  "source_commit": "<str>",
   "verified_at": "<ISO 8601 timestamp>",
   "verifier_id": "assay@<version>",
   "verdict": "<str>",
@@ -66,6 +67,12 @@ formatting, warnings, crash traces). Always redirect or capture them separately.
 - Type: `string | null`
 - The `packet_root_sha256` from the signed manifest. Null if the packet is `INVALID`
   (manifest unreadable). Used to identify this packet across systems.
+
+### `source_commit`
+- Type: `string`
+- Provenance field from `packet_manifest.json`.
+- Required for artifact packets that claim software-release provenance.
+- Empty string when the manifest omits the field on non-artifact packets.
 
 ### `verified_at`
 - Type: `string` (ISO 8601, UTC)
@@ -224,6 +231,7 @@ formatting, warnings, crash traces). Always redirect or capture them separately.
   "completeness_verdict": "PARTIAL",
   "admissible": true,
   "admissibility_reasons": [],
+  "source_commit": "d1f001ccabc926d7f671c80399b5db1efca25034",
   "subject": {
     "subject_type": "artifact",
     "subject_id": "repo:myapp@v1.2.0",

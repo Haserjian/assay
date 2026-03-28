@@ -27,6 +27,7 @@ TEST_SUBJECT = {
     "subject_id": "test:gate-shell@v1",
     "subject_digest": "sha256:" + "ab" * 32,
 }
+TEST_SOURCE_COMMIT = "d1f001ccabc926d7f671c80399b5db1efca25034"
 
 
 def _run_gate(packet_dir: Path) -> subprocess.CompletedProcess:
@@ -54,6 +55,7 @@ def _make_packet(tmp_path: Path, *, bundle: bool = True, subject: dict | None = 
         output_dir=output,
         bundle=bundle,
         subject=subject or TEST_SUBJECT,
+        source_commit=TEST_SOURCE_COMMIT,
     )
     return output
 

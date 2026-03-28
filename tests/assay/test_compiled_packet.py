@@ -29,6 +29,7 @@ TEST_SUBJECT = {
     "subject_id": "repo:assay@test",
     "subject_digest": "sha256:" + "deadbeef" * 8,
 }
+TEST_SOURCE_COMMIT = "d1f001ccabc926d7f671c80399b5db1efca25034"
 
 
 @pytest.fixture
@@ -36,7 +37,7 @@ def tmp_workdir(tmp_path):
     return tmp_path
 
 
-def _init_and_compile(tmp_workdir, *, subject=None, bundle=True):
+def _init_and_compile(tmp_workdir, *, subject=None, bundle=True, source_commit=None):
     """Helper: init draft + compile packet. Returns (output_dir, compile_result)."""
     draft = tmp_workdir / "draft"
     init_packet(
@@ -52,6 +53,7 @@ def _init_and_compile(tmp_workdir, *, subject=None, bundle=True):
         output_dir=output,
         bundle=bundle,
         subject=subject or TEST_SUBJECT,
+        source_commit=TEST_SOURCE_COMMIT if source_commit is None else source_commit,
     )
     return output, result
 
@@ -93,6 +95,7 @@ class TestDeriveTopLevelVerdict:
             integrity_verdict="INTACT",
             completeness_verdict="PARTIAL",
             packet_id="test",
+            source_commit="deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
             admissible=True,
             subject={"subject_type": "artifact", "subject_id": "x", "subject_digest": "abc"},
         )
@@ -101,6 +104,7 @@ class TestDeriveTopLevelVerdict:
         assert d["completeness_verdict"] == "PARTIAL"
         assert d["verdict"] == "PARTIAL"
         assert d["admissible"] is True
+        assert d["source_commit"] == "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
         assert d["subject"]["subject_type"] == "artifact"
 
 
@@ -145,6 +149,23 @@ class TestEndToEnd:
                 draft_dir=draft,
                 pack_dirs=[DEMO_PACK],
                 output_dir=tmp_workdir / "packet",
+            )
+
+    def test_compile_requires_source_commit_for_artifact(self, tmp_workdir):
+        """Artifact packets without source_commit fail closed at compile time."""
+        draft = tmp_workdir / "draft"
+        init_packet(
+            questionnaire_path=SAMPLE_CSV,
+            pack_dirs=[DEMO_PACK],
+            output_dir=draft,
+            from_csv=True,
+        )
+        with pytest.raises(ValueError, match="source_commit is required"):
+            compile_packet(
+                draft_dir=draft,
+                pack_dirs=[DEMO_PACK],
+                output_dir=tmp_workdir / "packet",
+                subject=TEST_SUBJECT,
             )
 
     def test_tamper_binding_yields_tampered(self, tmp_workdir):
@@ -205,6 +226,43 @@ class TestSubjectBinding:
         result = verify_packet(output)
         assert result.subject["subject_type"] == "artifact"
         assert result.subject["subject_id"] == "repo:assay@test"
+
+    def test_source_commit_in_manifest_and_verify_result(self, tmp_workdir):
+        """Source commit appears in manifest and verify output when provided."""
+        source_commit = "d1f001ccabc926d7f671c80399b5db1efca25034"
+        output, _ = _init_and_compile(tmp_workdir, source_commit=source_commit)
+        manifest = json.loads((output / "packet_manifest.json").read_bytes())
+        assert manifest["source_commit"] == source_commit
+        result = verify_packet(output)
+        assert result.source_commit == source_commit
+        assert result.to_dict()["source_commit"] == source_commit
+
+    def test_source_commit_in_root(self, tmp_workdir):
+        """Different source_commit → different packet_root_sha256."""
+        output_a, result_a = _init_and_compile(
+            tmp_workdir / "a",
+            source_commit="1111111111111111111111111111111111111111",
+        )
+        output_b, result_b = _init_and_compile(
+            tmp_workdir / "b",
+            source_commit="2222222222222222222222222222222222222222",
+        )
+        assert result_a["packet_root_sha256"] != result_b["packet_root_sha256"]
+
+    def test_missing_source_commit_yields_tampered(self, tmp_workdir):
+        """Removing source_commit from a signed artifact manifest → TAMPERED with provenance error."""
+        output, _ = _init_and_compile(
+            tmp_workdir,
+            source_commit="d1f001ccabc926d7f671c80399b5db1efca25034",
+        )
+        manifest_path = output / "packet_manifest.json"
+        manifest = json.loads(manifest_path.read_bytes())
+        manifest.pop("source_commit", None)
+        manifest_path.write_text(json.dumps(manifest, indent=2))
+
+        result = verify_packet(output)
+        assert result.integrity_verdict == "TAMPERED"
+        assert result.admissible is False
 
     def test_subject_digest_in_root(self, tmp_workdir):
         """Different subject_digest → different packet_root_sha256."""
@@ -277,6 +335,7 @@ class TestSubjectBinding:
                 pack_dirs=[DEMO_PACK],
                 output_dir=tmp_workdir / "packet",
                 subject={"subject_type": "artifact", "subject_id": "x", "subject_digest": "deadbeef" * 8},
+                source_commit=TEST_SOURCE_COMMIT,
             )
 
     def test_non_bundled_not_admissible(self, tmp_workdir):

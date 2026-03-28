@@ -10444,6 +10444,7 @@ def packet_compile_cmd(
     subject_id: str = typer.Option(..., "--subject-id", help="Stable human-readable subject identifier"),
     subject_digest: str = typer.Option(..., "--subject-digest", help="SHA-256 content digest: 'sha256:<64hex>' or bare 64 hex chars"),
     subject_uri: Optional[str] = typer.Option(None, "--subject-uri", help="Optional locator URI"),
+    source_commit: Optional[str] = typer.Option(None, "--source-commit", help="Source commit provenance bound into the manifest and packet root; required for artifact packets"),
     policy_id: str = typer.Option("default", "--policy-id", help="Policy identifier for admissibility"),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
@@ -10493,6 +10494,7 @@ def packet_compile_cmd(
             bundle=bundle,
             signer_id=signer,
             subject=subject,
+            source_commit=source_commit,
             policy_id=policy_id,
         )
     except Exception as e:
@@ -10508,6 +10510,8 @@ def packet_compile_cmd(
         console.print(f"[green]Packet compiled[/] → {result['output_dir']}")
         console.print(f"  Packet ID: {result['packet_id']}")
         console.print(f"  Root: {result['packet_root_sha256'][:16]}...")
+        if result.get("source_commit"):
+            console.print(f"  Source commit: {result['source_commit']}")
         console.print(f"  Bindings: {result['bindings_count']}")
         console.print(f"  Bundle: {result['bundle_mode']}")
         cov = result.get("coverage", {})
@@ -10550,6 +10554,8 @@ def packet_verify_cmd(
         if result.subject:
             s = result.subject
             console.print(f"Subject: {s.get('subject_type', '?')}:{s.get('subject_id', '?')} [{s.get('subject_digest', '?')[:16]}...]")
+        if getattr(result, "source_commit", ""):
+            console.print(f"Source commit: {result.source_commit}")
         console.print(f"Packet: {result.packet_id}")
         console.print(f"Root: {result.packet_root_sha256[:16]}..." if result.packet_root_sha256 else "Root: none")
 
