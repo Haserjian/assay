@@ -1,0 +1,37 @@
+{
+  "label": "gpt-4o-mini-2024-07-18 @ run_c",
+  "ref": "examples/llm_judge/organic/run_c",
+  "fields": {
+    "judge_model": "gpt-4o-mini",
+    "judge_model_version": "gpt-4o-mini-2024-07-18",
+    "judge_prompt_template": "Rate the following response on helpfulness from 1 to 5.\nConsider clarity, completeness, accuracy, and relevance.\nReply with ONLY a single integer (1-5).\n\nQuestion: {question}\nResponse: {response}\n",
+    "judge_system_prompt": "You are an expert evaluator. Score the response on helpfulness.\n",
+    "scoring_rubric": "1=unhelpful, 2=slightly helpful, 3=moderately helpful, 4=helpful, 5=very helpful\n",
+    "score_type": "likert",
+    "score_range": "1-5",
+    "judge_temperature": 0.0,
+    "judge_max_tokens": 512,
+    "judge_top_p": 1.0,
+    "judge_passes": 1,
+    "eval_dataset": "sha256:706fc2bd9507c5031e6bf2f989af83b69fcf0328001c42e0b08aa23dd9e1bdb9",
+    "eval_dataset_version": "v1-hardcoded",
+    "presentation_order": "fixed",
+    "input_format": "sha256:d25a48de0f433cb1ec852cde8f6b41e4c13dfa46058220e43f4a507dc6a6111b"
+  },
+  "requested_config": {
+    "judge_model": "gpt-4o-mini",
+    "judge_temperature": 0.0,
+    "judge_max_tokens": 512
+  },
+  "executed_config": {
+    "judge_model": "gpt-4o-mini-2024-07-18",
+    "judge_temperature": 0.0,
+    "judge_max_tokens": 512
+  },
+  "field_sources": {
+    "judge_model": "arg:--model (CLI)",
+    "judge_prompt_template": "inline:eval_runner.py:PROMPT_TEMPLATE",
+    "judge_temperature": "arg:--temperature (CLI)",
+    "eval_dataset": "inline:eval_runner.py:DATASET"
+  }
+}

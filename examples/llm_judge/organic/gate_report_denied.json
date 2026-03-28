@@ -1,0 +1,83 @@
+{
+  "command": "assay gate compare",
+  "gate_result": "FAIL",
+  "constitutional_diff": {
+    "version": "0.1.0",
+    "diff_id": "cd-7d77661871c6",
+    "created_at": "2026-03-28T15:05:53.512358+00:00",
+    "entities": {
+      "baseline": {
+        "ref": "examples/llm_judge/organic/run_a",
+        "label": "gpt-4o-mini-2024-07-18 @ run_a"
+      },
+      "candidate": {
+        "ref": "examples/llm_judge/organic/run_c",
+        "label": "gpt-4o-mini-2024-07-18 @ run_c"
+      }
+    },
+    "comparability": {
+      "verdict": "DENIED",
+      "instrument_continuity": "BROKEN",
+      "mismatches": [
+        {
+          "field": "judge_prompt_template",
+          "baseline_value": "Rate the following response on helpfulness from 1 to 5.\nConsider clarity, completeness, and accuracy.\nReply with ONLY a single integer (1-5).\n\nQuestion: {question}\nResponse: {response}\n",
+          "candidate_value": "Rate the following response on helpfulness from 1 to 5.\nConsider clarity, completeness, accuracy, and relevance.\nReply with ONLY a single integer (1-5).\n\nQuestion: {question}\nResponse: {response}\n",
+          "severity": "INVALIDATING",
+          "rule": "content_hash",
+          "group": "instrument_identity",
+          "explanation": "Prompt changes directly alter scoring criteria. Deltas reflect prompt change, not system change.\n"
+        },
+        {
+          "field": "input_format",
+          "baseline_value": "sha256:9d128bdb48d5330bbf82c56ef481a23e1d298925736e8263f77a6a950d6bb213",
+          "candidate_value": "sha256:d25a48de0f433cb1ec852cde8f6b41e4c13dfa46058220e43f4a507dc6a6111b",
+          "severity": "DEGRADING",
+          "rule": "content_hash",
+          "group": "eval_surface",
+          "explanation": "Formatting changes can affect judge interpretation of responses.\n"
+        }
+      ],
+      "satisfied_fields": [
+        "judge_model",
+        "judge_model_version",
+        "judge_system_prompt",
+        "scoring_rubric",
+        "score_type",
+        "score_range",
+        "judge_temperature",
+        "judge_max_tokens",
+        "judge_top_p",
+        "judge_passes",
+        "eval_dataset",
+        "eval_dataset_version",
+        "presentation_order"
+      ]
+    },
+    "lineage": {
+      "contract_id": "judge-comparability-v1",
+      "contract_version": "0.1.0",
+      "contract_hash": "sha256:779b735889310e84c86d3ab48b95dfe062efc00df2a80399dae1017242a27f91"
+    },
+    "consequence": {
+      "claim_status": "INADMISSIBLE",
+      "blocked_actions": [
+        "promotion",
+        "leaderboard_entry",
+        "benchmark_claim",
+        "budget_movement"
+      ],
+      "required_actions": [
+        "rerun_under_pinned_config"
+      ]
+    },
+    "baseline_completeness": {
+      "status": "COMPLETE",
+      "present_count": 15
+    },
+    "candidate_completeness": {
+      "status": "COMPLETE",
+      "present_count": 15
+    }
+  }
+}
