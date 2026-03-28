@@ -1,0 +1,17 @@
+{
+  "label": "candidate (INCOMPLETE — missing instrument identity fields)",
+  "ref": "results/candidate_incomplete/",
+  "fields": {
+    "judge_model": "gpt-4o",
+    "judge_temperature": 0.0,
+    "judge_max_tokens": 1024,
+    "judge_passes": 1,
+    "eval_dataset": "sha256:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+    "eval_dataset_version": "v3",
+    "score_type": "likert",
+    "score_range": "1-5"
+  },
+  "field_sources": {
+    "judge_model": "env:OPENAI_MODEL (only field operator remembered to declare)"
+  }
+}
