@@ -1,0 +1,30 @@
+{
+  "contract_diff": {
+    "old": {
+      "id": "judge-comparability-v1",
+      "version": "0.1.0",
+      "hash": "sha256:779b735889310e84c86d3ab48b95dfe062efc00df2a80399dae1017242a27f91"
+    },
+    "new": {
+      "id": "judge-comparability-v2-draft",
+      "version": "0.2.0-draft",
+      "hash": "sha256:76015011202c96e4d71e69ed6d6925a9435a888e93c0e87f0dffcf790a1c5fe9"
+    },
+    "clause_changes": [
+      {
+        "field": "judge_temperature",
+        "old_severity": "INVALIDATING",
+        "new_severity": "DEGRADING",
+        "old_match_rule": "exact",
+        "new_match_rule": "exact",
+        "change_type": "severity_relaxed"
+      }
+    ],
+    "summary": {
+      "total_pairs": 3,
+      "flips": 0,
+      "stable": 3
+    },
+    "flips": []
+  }
+}

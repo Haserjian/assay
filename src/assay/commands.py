@@ -6845,6 +6845,162 @@ def bundle_init_cmd(
 
 
 # ---------------------------------------------------------------------------
+# contract subcommands
+# ---------------------------------------------------------------------------
+
+contract_app = typer.Typer(
+    name="contract",
+    help="Comparability contract utilities (diff, inspect)",
+    no_args_is_help=True,
+)
+assay_app.add_typer(contract_app, name="contract", hidden=True, rich_help_panel="Advanced")
+
+
+@contract_app.command("diff")
+def contract_diff_cmd(
+    old: str = typer.Option(..., "--old", help="Path to old contract (YAML/JSON)"),
+    new: str = typer.Option(..., "--new", help="Path to new contract (YAML/JSON)"),
+    bundles: str = typer.Option(..., "--bundles", help="Directory containing evidence bundle pairs"),
+    save_report: Optional[str] = typer.Option(None, "--save-report", help="Write diff report JSON to file"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Diff two contract versions by replaying evidence bundles.
+
+    Loads two comparability contracts (old and new), finds evidence bundle
+    pairs in the bundles directory, replays each pair under both contracts,
+    and reports verdict flips with clause-level reasons.
+
+    A "flip" is when the same evidence pair produces a different verdict
+    under the new contract than the old one.
+
+    Exit codes:
+      0  No verdict flips (amendment is safe for this corpus)
+      1  Verdict flips detected (amendment changes outcomes)
+      3  Bad input
+
+    Examples:
+
+        assay contract diff \\
+          --old contracts/judge-comparability-v1.yaml \\
+          --new contracts/judge-comparability-v2-draft.yaml \\
+          --bundles examples/llm_judge/organic/
+
+        assay contract diff --old v1.yaml --new v2.yaml --bundles ./runs/ --json
+    """
+    from pathlib import Path as P
+
+    from assay.comparability.bundle import EvidenceBundle, find_bundle, load_bundle
+    from assay.comparability.contract import ContractValidationError, load_contract
+    from assay.comparability.contract_diff import replay
+
+    # Load contracts
+    try:
+        old_ctr = load_contract(old)
+    except (ContractValidationError, FileNotFoundError) as e:
+        console.print(f"[red]Old contract error:[/] {e}")
+        raise typer.Exit(3)
+
+    try:
+        new_ctr = load_contract(new)
+    except (ContractValidationError, FileNotFoundError) as e:
+        console.print(f"[red]New contract error:[/] {e}")
+        raise typer.Exit(3)
+
+    # Discover evidence bundles in the bundles directory
+    bundles_dir = P(bundles)
+    if not bundles_dir.is_dir():
+        console.print(f"[red]Bundles directory not found:[/] {bundles}")
+        raise typer.Exit(3)
+
+    # Find all subdirectories with evidence_bundle.json
+    bundle_dirs = sorted([
+        d for d in bundles_dir.iterdir()
+        if d.is_dir() and find_bundle(d) is not None
+    ])
+
+    if len(bundle_dirs) < 2:
+        console.print(f"[red]Need at least 2 bundle directories, found {len(bundle_dirs)}[/]")
+        raise typer.Exit(3)
+
+    # Load bundles
+    loaded_bundles = []
+    for bd in bundle_dirs:
+        bp = find_bundle(bd)
+        if bp:
+            loaded_bundles.append(load_bundle(bp))
+
+    # Create pairs: first bundle is baseline, compare against all others
+    baseline = loaded_bundles[0]
+    pairs = [(baseline, candidate) for candidate in loaded_bundles[1:]]
+
+    # Run replay
+    report = replay(old_ctr, new_ctr, pairs)
+
+    # Save report if requested
+    if save_report:
+        report_path = P(save_report)
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(
+            json.dumps(report.to_dict(), indent=2, default=str) + "\n",
+            encoding="utf-8",
+        )
+
+    if output_json:
+        _output_json(report.to_dict(), exit_code=0 if not report.flips else 1)
+        return
+
+    # Rich console output
+    console.print()
+    console.print(Panel(
+        f"[bold]Contract Diff Report[/]\n"
+        f"Old: {old_ctr.contract_id} v{old_ctr.version}\n"
+        f"New: {new_ctr.contract_id} v{new_ctr.version}",
+        border_style="blue",
+    ))
+
+    # Clause changes
+    if report.clause_changes:
+        console.print(f"\n[bold]Clause changes ({len(report.clause_changes)}):[/]")
+        for cc in report.clause_changes:
+            icon = {"severity_relaxed": "[yellow]\u2193[/]", "severity_tightened": "[red]\u2191[/]",
+                    "field_added": "[green]+[/]", "field_removed": "[red]-[/]",
+                    "rule_changed": "[cyan]~[/]"}.get(cc.change_type, "?")
+            console.print(f"  {icon} {cc.field}: {cc.old_severity.value} \u2192 {cc.new_severity.value} ({cc.change_type})")
+    else:
+        console.print("\n[dim]No clause changes.[/]")
+
+    # Summary
+    console.print(f"\n[bold]Replay summary:[/]")
+    console.print(f"  Bundle pairs replayed: {report.total_pairs}")
+    console.print(f"  Stable (no verdict change): {report.stable_count}")
+    console.print(f"  Flips: {len(report.flips)}")
+
+    # Flips
+    if report.flips:
+        console.print(f"\n[bold]Verdict flips ({len(report.flips)}):[/]")
+        for flip in report.flips:
+            console.print(f"\n  [bold]{flip.bundle_ref}[/]")
+            console.print(f"    {flip.old_verdict.value} \u2192 {flip.new_verdict.value}")
+            console.print(f"    Trigger: {flip.triggering_field}")
+            console.print(f"    Reason: {flip.reason}")
+        console.print()
+        console.print(Panel(
+            f"[bold yellow]{len(report.flips)} verdict flip(s) detected[/]\n"
+            f"The contract amendment changes outcomes for existing evidence.",
+            border_style="yellow",
+        ))
+    else:
+        console.print()
+        console.print(Panel(
+            "[bold green]No verdict flips[/]\n"
+            "The contract amendment is safe for this evidence corpus.",
+            border_style="green",
+        ))
+
+    raise typer.Exit(0 if not report.flips else 1)
+
+
+# ---------------------------------------------------------------------------
 # cards subcommands
 # ---------------------------------------------------------------------------
 
