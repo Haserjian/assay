@@ -1,28 +1,33 @@
 """Decision Receipt signature verification for Assay consumers.
 
-Standalone verification — does NOT import ccio. Uses the same canonical
-byte extraction algorithm as the CCIO signing module to verify Ed25519
-signatures on Decision Receipt v0.1.0 dicts.
+Standalone verification — does NOT import ccio. Uses JCS/RFC 8785
+canonicalization to verify Ed25519 signatures on Decision Receipt
+v0.1.0 dicts. This matches CCIO's signing path which uses JCS via
+proofkit_module.canonicalize_json().
 
-Canonical byte contract (from decision_receipt_canonicalization.md):
+Canonical byte contract:
 - Exclude: content_hash, signature, signer_pubkey_sha256
 - Strip None-valued fields
 - Dedupe + sort verdict_reason_codes
-- Sort evidence_refs by full canonical JSON
-- json.dumps(sort_keys=True, separators=(",",":"))
+- Sort evidence_refs by JCS canonical form
+- JCS/RFC 8785 canonicalization (NOT json.dumps)
 """
 from __future__ import annotations
 
 import base64
-import json
 from typing import Any, Dict, Optional
+
+from assay._receipts.jcs import canonicalize as jcs_canonicalize
 
 # Signing-excluded fields (must match CCIO's build.py contract)
 _SIGNING_EXCLUDED = frozenset({"content_hash", "signature", "signer_pubkey_sha256"})
 
 
 def _canonical_bytes(receipt: Dict[str, Any]) -> bytes:
-    """Extract canonical byte sequence for verification."""
+    """Extract canonical byte sequence for verification.
+
+    Uses JCS/RFC 8785, matching the CCIO signing path.
+    """
     hashable = {
         k: v for k, v in receipt.items()
         if k not in _SIGNING_EXCLUDED and v is not None
@@ -34,12 +39,10 @@ def _canonical_bytes(receipt: Dict[str, Any]) -> bytes:
     if "evidence_refs" in hashable and isinstance(hashable["evidence_refs"], list):
         hashable["evidence_refs"] = sorted(
             hashable["evidence_refs"],
-            key=lambda r: json.dumps(r, sort_keys=True, separators=(",", ":")),
+            key=lambda r: jcs_canonicalize(r).decode("utf-8"),
         )
 
-    return json.dumps(
-        hashable, sort_keys=True, separators=(",", ":"), default=str,
-    ).encode("utf-8")
+    return jcs_canonicalize(hashable)
 
 
 class VerificationKeyRequired(TypeError):

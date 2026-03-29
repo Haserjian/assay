@@ -1100,6 +1100,13 @@ class TestContractFailClosed:
         with pytest.raises(ContractValidationError, match="mapping"):
             load_contract(p)
 
+    def test_empty_parity_fields_rejected(self, tmp_path: Path):
+        """A contract with parity_fields: [] is a constitutional nullification."""
+        p = tmp_path / "empty_fields.yaml"
+        p.write_text("name: empty\nparity_fields: []\n")
+        with pytest.raises(ContractValidationError, match="empty parity_fields"):
+            load_contract(p)
+
 
 # ===================================================================
 # P2 regression: contract schema strictness

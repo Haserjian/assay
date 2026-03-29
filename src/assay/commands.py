@@ -3178,9 +3178,9 @@ def replay_judge_cmd(
     except Exception as e:
         msg = f"Internal error: {e}"
         if output_json:
-            _output_json({"command": "replay-judge", "status": "error", "error": msg}, exit_code=4)
+            _output_json({"command": "replay-judge", "status": "error", "error": msg}, exit_code=3)
         console.print(f"[red]Error:[/] {msg}")
-        raise typer.Exit(4)
+        raise typer.Exit(3)
 
     if output_json:
         _output_json({

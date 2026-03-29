@@ -73,12 +73,27 @@ class TrustClassification:
         return self.state == DecisionReceiptTrustState.VERIFIED
 
     @property
-    def is_structurally_sound(self) -> bool:
-        """VERIFIED and UNSIGNED receipts are structurally sound."""
+    def is_well_formed(self) -> bool:
+        """VERIFIED and UNSIGNED receipts are structurally well-formed.
+
+        This means the receipt has valid structure and fields. It does NOT
+        mean the receipt has cryptographic proof — use is_cryptographically_verified
+        for that distinction.
+        """
         return self.state in (
             DecisionReceiptTrustState.VERIFIED,
             DecisionReceiptTrustState.UNSIGNED,
         )
+
+    @property
+    def is_cryptographically_verified(self) -> bool:
+        """Only VERIFIED receipts have confirmed cryptographic proof."""
+        return self.state == DecisionReceiptTrustState.VERIFIED
+
+    @property
+    def is_structurally_sound(self) -> bool:
+        """Deprecated alias for is_well_formed. Use is_well_formed instead."""
+        return self.is_well_formed
 
 
 # Sentinel for "no receipt"

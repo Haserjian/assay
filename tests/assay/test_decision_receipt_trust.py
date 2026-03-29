@@ -121,7 +121,7 @@ class TestMissing:
     def test_missing_is_not_trustworthy(self):
         result = classify_trust(None)
         assert not result.is_trustworthy
-        assert not result.is_structurally_sound
+        assert not result.is_well_formed
 
 
 # ---------------------------------------------------------------------------
@@ -144,9 +144,10 @@ class TestUnsigned:
         assert result.state == DecisionReceiptTrustState.UNSIGNED
         assert "no content hash" in result.reason
 
-    def test_unsigned_is_structurally_sound(self):
+    def test_unsigned_is_well_formed_but_not_crypto_verified(self):
         result = classify_trust(_VALID_RECEIPT)
-        assert result.is_structurally_sound
+        assert result.is_well_formed
+        assert not result.is_cryptographically_verified
         assert not result.is_trustworthy
 
     def test_unsigned_with_validator_passing(self):
@@ -174,9 +175,10 @@ class TestInvalid:
         result = classify_trust(bad, validator=_failing_validator)
         assert result.state == DecisionReceiptTrustState.INVALID
 
-    def test_invalid_is_not_structurally_sound(self):
+    def test_invalid_is_not_well_formed(self):
         result = classify_trust(_VALID_RECEIPT, validator=_failing_validator)
-        assert not result.is_structurally_sound
+        assert not result.is_well_formed
+        assert not result.is_cryptographically_verified
         assert not result.is_trustworthy
 
     def test_signature_mismatch_is_invalid(self):
@@ -263,7 +265,7 @@ class TestVerified:
         result = classify_trust(receipt, verify_signature=_true_verifier)
         assert result.state == DecisionReceiptTrustState.VERIFIED
 
-    def test_verified_is_trustworthy(self):
+    def test_verified_is_trustworthy_and_crypto_verified(self):
         receipt = {
             **_VALID_RECEIPT,
             "signature": "valid_sig",
@@ -271,7 +273,8 @@ class TestVerified:
         }
         result = classify_trust(receipt, verify_signature=_true_verifier)
         assert result.is_trustworthy
-        assert result.is_structurally_sound
+        assert result.is_well_formed
+        assert result.is_cryptographically_verified
 
     def test_verified_with_validator_passing(self):
         receipt = {

@@ -63,7 +63,7 @@ class AssayKeyStore:
 
     def generate_key(self, signer_id: str = DEFAULT_SIGNER_ID) -> SigningKey:
         """Generate and persist a new Ed25519 signing key."""
-        self.keys_dir.mkdir(parents=True, exist_ok=True)
+        self.keys_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
         sk = SigningKey.generate()
         key_path = self._key_path(signer_id)
         pub_path = self._pub_path(signer_id)

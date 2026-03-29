@@ -1,6 +1,6 @@
 {
-  "_comment": "Golden vector for Decision Receipt canonicalization + signing. Asserted in both CCIO and Assay. Change only if canonicalization contract changes.",
-  "_pinned": "2026-03-21",
+  "_comment": "Golden vector for Decision Receipt canonicalization + signing. Uses JCS/RFC 8785. Regenerated 2026-03-29 after canonicalization unification.",
+  "_pinned": "2026-03-29",
   "receipt": {
     "receipt_id": "golden-vector-001",
     "receipt_type": "decision_v1",
@@ -13,7 +13,10 @@
     "decision_subject": "golden:vector",
     "verdict": "REFUSE",
     "verdict_reason": "Golden vector test refusal",
-    "verdict_reason_codes": ["clarity_check_failed", "domain:epistemic"],
+    "verdict_reason_codes": [
+      "clarity_check_failed",
+      "domain:epistemic"
+    ],
     "authority_id": "ccio:settlement:guardian_seat",
     "authority_class": "BINDING",
     "authority_scope": "constitutional_baseline",
@@ -24,7 +27,11 @@
     "source_organ": "ccio",
     "session_state_hash": null,
     "evidence_refs": [
-      {"ref_type": "receipt", "ref_id": "gate_eval:ece", "ref_role": "supporting"}
+      {
+        "ref_type": "receipt",
+        "ref_id": "gate_eval:ece",
+        "ref_role": "supporting"
+      }
     ],
     "evidence_sufficient": true,
     "evidence_gaps": [],

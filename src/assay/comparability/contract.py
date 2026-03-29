@@ -227,6 +227,14 @@ def load_contract(path: str | Path) -> ComparabilityContract:
                 f"Contract missing required field: {required!r}"
             )
 
+    # Empty parity_fields is a constitutional nullification: an empty policy
+    # should not mean universal passage. Reject at load time.
+    if not data["parity_fields"]:
+        raise ContractValidationError(
+            "Contract has empty parity_fields. A contract with no fields "
+            "cannot govern comparison — it would always produce SATISFIED."
+        )
+
     # Parse parity fields
     parity_fields: List[ParityField] = []
     known_rules = set(available_rules())

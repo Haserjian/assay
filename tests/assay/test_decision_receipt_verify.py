@@ -77,11 +77,13 @@ def _make_receipt() -> Dict[str, Any]:
 
 
 def _sign_receipt_standalone(receipt: Dict[str, Any], sk: "SigningKey") -> Dict[str, Any]:
-    """Sign a receipt using the same canonical algorithm as CCIO.
+    """Sign a receipt using JCS canonicalization, matching CCIO's signing path.
 
     This reimplements the signing inline so the test doesn't import CCIO.
+    Uses JCS/RFC 8785 — the same canonicalization as the production verifier.
     """
     import hashlib
+    from assay._receipts.jcs import canonicalize as jcs_canonicalize
 
     # Same canonical byte extraction as CCIO's sign.py and Assay's verify.py
     excluded = {"content_hash", "signature", "signer_pubkey_sha256"}
@@ -91,9 +93,9 @@ def _sign_receipt_standalone(receipt: Dict[str, Any], sk: "SigningKey") -> Dict[
     if "evidence_refs" in hashable and isinstance(hashable["evidence_refs"], list):
         hashable["evidence_refs"] = sorted(
             hashable["evidence_refs"],
-            key=lambda r: json.dumps(r, sort_keys=True, separators=(",", ":")),
+            key=lambda r: jcs_canonicalize(r).decode("utf-8"),
         )
-    canonical = json.dumps(hashable, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
+    canonical = jcs_canonicalize(hashable)
 
     # content_hash
     receipt["content_hash"] = hashlib.sha256(canonical).hexdigest()
@@ -254,3 +256,33 @@ class TestGoldenVector:
         trust = classify_trust(receipt, verify_signature=verifier)
         assert trust.state == DecisionReceiptTrustState.VERIFIED
         assert trust.is_trustworthy
+
+
+# ---------------------------------------------------------------------------
+# Canonicalization unification regression
+# ---------------------------------------------------------------------------
+
+@needs_nacl
+class TestCanonUnification:
+    """Prove signing and verification both use JCS/RFC 8785 consistently."""
+
+    def test_canonical_bytes_uses_jcs(self):
+        """_canonical_bytes output matches JCS canonicalization."""
+        from assay.decision_receipt_verify import _canonical_bytes
+        from assay._receipts.jcs import canonicalize as jcs_canonicalize
+
+        receipt = _make_receipt()
+        excluded = {"content_hash", "signature", "signer_pubkey_sha256"}
+        hashable = {k: v for k, v in receipt.items() if k not in excluded and v is not None}
+        if "verdict_reason_codes" in hashable:
+            hashable["verdict_reason_codes"] = sorted(set(hashable["verdict_reason_codes"]))
+
+        assert _canonical_bytes(receipt) == jcs_canonicalize(hashable)
+
+    def test_sign_verify_roundtrip(self):
+        """Sign with JCS helper, verify with production verifier."""
+        sk = SigningKey(b"\xaa" * 32)
+        receipt = _make_receipt()
+        signed = _sign_receipt_standalone(receipt, sk)
+        verifier = make_verifier_with_key(bytes(sk.verify_key))
+        assert verifier(signed) is True
