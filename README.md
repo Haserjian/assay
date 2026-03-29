@@ -314,8 +314,9 @@ assay gate check . --min-score 60 --fail-on-regression
 
 > **Command discovery:** `assay --help` shows the most-used entry points. Commands used in this guide — `gate`, `report`, `ci`, `diff`, `analyze`, `lock`, and `vendorq` — are available but not listed there by default. Run `assay <command> --help` for full options.
 
-`assay scan . --report` finds every LLM call site (OpenAI, Anthropic, Google
+`assay scan . --report` detects LLM call sites via static AST analysis (OpenAI, Anthropic, Google
 Gemini, LiteLLM, LangChain) and generates a self-contained HTML gap report.
+Dynamic dispatch, eval, subprocess, and raw HTTP calls are not covered — see [SCANNER_LIMITATIONS.md](docs/SCANNER_LIMITATIONS.md).
 `assay patch` inserts the two-line integration. `assay run` wraps your command,
 collects receipts, and produces a signed 5-file evidence pack. `assay verify-pack`
 checks integrity + claims and exits with one of the four codes above. Then run

@@ -190,6 +190,26 @@ class TestMatchRules:
         h2 = content_hash("other")
         assert apply_rule("content_hash", h, h2) is False
 
+    def test_content_hash_case_insensitive_hex(self):
+        """SHA-256 hex comparison must be case-insensitive."""
+        lower = "sha256:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+        upper = "sha256:ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789"
+        mixed = "sha256:AbCdEf0123456789abcdef0123456789ABCDEF0123456789abcdef0123456789"
+        assert apply_rule("content_hash", lower, upper) is True
+        assert apply_rule("content_hash", lower, mixed) is True
+
+    def test_content_hash_malformed_hash_rejected(self):
+        """Pre-computed hashes must be valid format (sha256: + 64 hex chars)."""
+        # Too short
+        short = "sha256:deadbeef"
+        assert apply_rule("content_hash", short, short) is False
+        # Not hex
+        bad_hex = "sha256:zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
+        assert apply_rule("content_hash", bad_hex, bad_hex) is False
+        # Correct format works
+        valid = "sha256:deadbeef00000000000000000000000000000000000000000000000000000000"
+        assert apply_rule("content_hash", valid, valid) is True
+
     def test_version_match(self):
         assert apply_rule("version_match", "1.2.3", "1.2.3") is True
         assert apply_rule("version_match", "1.2.3", "1.2.4") is False

@@ -353,3 +353,43 @@ Rationale: The comparability contract is a trust artifact. Ambiguous combination
 **Not a casual inline fix**: The lockfile is a root-of-trust artifact. Changes to how it is protected must go through the trust-tier design path, not be made as incidental code edits. This record is the design gate before any implementation.
 
 **Dependency**: Option 3 depends on the CI org trust gate key ceremony (tracked separately in the workflow file comment). Do not implement Option 3 before the ceremony is complete.
+
+---
+
+## OCD-13: ConstitutionalDiff Output is Unsigned
+
+**Blocker level**: MEDIUM — provenance gap, not a code bug.
+
+**Date raised**: 2026-03-29 (five-agent synthesis)
+
+**Current behavior**: `assay compare` writes a plain JSON file (`ConstitutionalDiff`). It has no signature, no binding to any signing key, and no chain to the proof pack. Anyone with file access can change the verdict field.
+
+**The problem**: The proof pack path is signed. The comparability path is not. If a reviewer receives a ConstitutionalDiff alongside a proof pack, they have no way to verify the diff was produced by the same operator, against the same data, using the same contract. This is either a security gap or a positioning gap — it cannot be neither.
+
+**Options**:
+
+1. **Sign the diff.** Use the existing Ed25519 infrastructure to sign the ConstitutionalDiff JSON when it is produced. The diff becomes a receipt-grade artifact. Adds ~20 lines to the compare command.
+2. **Document it as non-evidence.** Add a clear statement everywhere: "ConstitutionalDiff is a utility output, not a tamper-evident artifact. It is not signed and should not be presented as proof." No code change.
+3. **Bind without signing.** Embed the diff's content hash in the next emitted proof pack receipt. Creates a chain-of-custody record without requiring a standalone signature.
+
+**Recommended**: Option 1 if the diff is part of buyer-facing deliverables. Option 2 if it is only used internally. Do not leave it unnamed.
+
+**Not yet decided.**
+
+---
+
+## OCD-14: Contract Identity Not Bound to Evaluation Output
+
+**Blocker level**: LOW — provenance gap.
+
+**Date raised**: 2026-03-29 (five-agent synthesis)
+
+**Current behavior**: `ConstitutionalDiff` includes `contract_hash` (the hash of the contract's parity fields). This is computed by `ComparabilityContract.content_hash()` and embedded in the output. However, it is not cryptographically bound — a user could run with contract A, then present the output as if it were governed by contract B.
+
+**Existing mitigation**: The `contract_hash` field is present in the output, which enables a reviewer to recompute and compare. But there is no signed binding.
+
+**Recommended**: If OCD-13 is resolved by signing the diff (Option 1), the contract_hash is automatically covered by the signature. No additional mechanism needed. If OCD-13 uses Option 2, then contract binding requires a separate receipt linking pack → contract → diff.
+
+**Depends on**: OCD-13 decision.
+
+**Not yet decided.**

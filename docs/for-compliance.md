@@ -92,10 +92,10 @@ Assay proof packs may support evidence requirements in:
 
 - **SOC 2 (CC7.2)** -- monitoring and detection of anomalies in system operations
 - **ISO 42001** -- AI management system documentation and evidence requirements
-- **EU AI Act (Articles 12 & 19)** -- tamper-resistant logging for high-risk AI systems (obligations effective August 2, 2026)
+- **EU AI Act (Articles 12 & 19)** -- logging and documentation for high-risk AI systems (obligations effective August 2, 2026). **Important scope note**: Article 12 requires automatic logging over operational lifetime — continuous, not snapshot-based. Assay produces point-in-time checkpoint evidence (proof packs), not continuous operational logs. For Article 12/19 compliance, Assay evidence supplements an operational logging system; it does not replace one.
 - **NIST AI RMF** -- governance, accountability, and documentation practices
 
-Assay is one building block for these requirements.
+Assay is a **checkpoint governance evidence tool**. It produces tamper-detectable (not tamper-resistant) signed evidence at discrete evaluation points.
 It does not constitute full compliance on its own.
 See [compliance-citations.md](compliance-citations.md) for exact regulatory references.
 

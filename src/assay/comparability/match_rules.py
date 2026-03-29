@@ -11,9 +11,13 @@ Rules:
 """
 from __future__ import annotations
 
+import re
 from typing import Any, Callable, Dict, Optional
 
 from assay.comparability.canonicalize import content_hash
+
+# Valid pre-computed hash: "sha256:" followed by exactly 64 hex chars
+_HASH_PATTERN = re.compile(r"^sha256:[0-9a-fA-F]{64}$")
 
 
 # ---------------------------------------------------------------------------
@@ -36,13 +40,19 @@ def _content_hash_match(a: Any, b: Any, **kwargs: Any) -> bool:
 
     Both sides must use the same representation:
       - Both raw content  → canonicalize and hash both, then compare.
-      - Both pre-computed "sha256:<hex>" → compare digests directly.
+      - Both pre-computed "sha256:<hex>" → validate format, normalize
+        case, then compare digests.
       - Mixed (one raw, one pre-hash) → always returns False.
 
-    Mixed-mode rejection prevents an attacker from substituting a
-    pre-computed hash of baseline content into a candidate bundle,
-    which would falsely satisfy the parity check without presenting
-    the same underlying content.
+    Constraints:
+      - Mixed-mode rejection prevents hash-substitution spoofing.
+      - Pre-computed hashes must be valid format (sha256: + 64 hex chars).
+        Malformed declarations always return False.
+      - Comparison is case-insensitive on the hex portion.
+      - Hash-vs-hash comparison trusts the declared values. It cannot
+        verify the hash maps to actual content without the content.
+        This is a known limitation when both bundles preserve only
+        hashes from archived runs.
     """
     a_str = str(a)
     b_str = str(b)
@@ -52,11 +62,14 @@ def _content_hash_match(a: Any, b: Any, **kwargs: Any) -> bool:
 
     if a_is_hash != b_is_hash:
         # Mixed representation: one raw, one pre-hash.
-        # Reject — cannot safely compare across representation modes.
         return False
 
     if a_is_hash and b_is_hash:
-        return a_str == b_str
+        # Validate format: reject malformed hash declarations
+        if not _HASH_PATTERN.match(a_str) or not _HASH_PATTERN.match(b_str):
+            return False
+        # Case-insensitive comparison on hex portion
+        return a_str.lower() == b_str.lower()
 
     # Both raw: canonicalize and hash both sides
     return content_hash(a_str) == content_hash(b_str)
