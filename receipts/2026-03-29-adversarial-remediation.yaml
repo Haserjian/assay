@@ -210,7 +210,7 @@ commits:
   - repo: assay-toolkit
     hash: 0f3e3be
     message: "fix(scanner): detect Gemini calls and reject nonexistent scan targets"
-    note: "F0a/F0b — committed in prior sub-session, before this receipt's main window"
+    note: "F0a/F0b prerequisite fix completed in prior sub-session; cited for closure completeness but outside the main remediation window"
   - repo: assay-toolkit
     hash: a8ad64f
     message: "fix(security): P0 comparability spoof, P1b trust warning, P3 hardening"

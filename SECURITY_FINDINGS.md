@@ -51,6 +51,11 @@ of the current repo governance that were surfaced during the session.
 | G-2 | assay-ledger has no PR review requirement (`required_pull_request_reviews: null`). Direct push is structurally permitted for anyone with push access. | IMPORTANT | Open — same decision as G-1. |
 | G-3 | 3 of 5 public repos (assay, assay-proof-gallery, assay-verify-ts) have zero branch protection. | MEDIUM | Open — governance not yet systematized across ecosystem. |
 
+**Decision owner**: Tim (repo governance).
+**Decision needed**: Set `enforce_admins: true` on assay-ledger, or document
+an explicit bypass policy stating that direct-to-main is retroactive validation,
+not pre-merge gating. Resolve before next sensitive remediation session.
+
 ---
 
 ## Predicted findings — verified
