@@ -31,7 +31,7 @@ conditions under which each run was produced. These are called
 **Scaffold a template first (recommended):**
 
 ```bash
-assay bundle init -c contracts/judge-comparability-v1.yaml
+assay bundle init
 ```
 
 This creates `evidence_bundle.json` with all 15 fields stubbed to `null` and
@@ -98,9 +98,11 @@ or as pre-computed `sha256:<hex>` digests. Either works.
 
 ```bash
 assay compare baseline.json candidate.json \
-  -c contracts/judge-comparability-v1.yaml \
   --claim "candidate improved helpfulness by 8%"
 ```
+
+The stock `judge-comparability-v1` contract is bundled with the package — no
+`-c` flag needed. To use a custom contract: `-c path/to/your-contract.yaml`.
 
 ### Possible verdicts
 
@@ -123,14 +125,12 @@ The repo includes external-style example bundles you can run immediately:
 assay compare \
   examples/llm_judge/external/baseline.json \
   examples/llm_judge/external/candidate_drifted.json \
-  -c contracts/judge-comparability-v1.yaml \
   --claim "candidate improved helpfulness"
 
 # Matching config → SATISFIED
 assay compare \
   examples/llm_judge/external/baseline.json \
   examples/llm_judge/external/candidate_matching.json \
-  -c contracts/judge-comparability-v1.yaml \
   --claim "candidate improved helpfulness"
 ```
 

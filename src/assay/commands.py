@@ -6653,7 +6653,7 @@ def gate_save_baseline_cmd(
 def gate_compare_cmd(
     baseline: str = typer.Argument(..., help="Baseline evidence bundle or pack directory"),
     candidate: str = typer.Argument(..., help="Candidate evidence bundle or pack directory"),
-    contract: str = typer.Option(..., "--contract", "-c", help="Path to comparability contract"),
+    contract: Optional[str] = typer.Option(None, "--contract", "-c", help="Path to comparability contract. Defaults to bundled judge-comparability-v1."),
     save_report: Optional[str] = typer.Option(None, "--save-report", help="Write gate report JSON to file"),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
@@ -6684,9 +6684,12 @@ def gate_compare_cmd(
 
     _cmd = "assay gate compare"
 
-    # Load contract
+    # Load contract (resolve bundled default if not specified)
+    from assay.contracts import resolve_contract_path
+
+    contract_path = resolve_contract_path(contract)
     try:
-        ctr = load_contract(contract)
+        ctr = load_contract(contract_path)
     except ContractValidationError as e:
         _gate_error(str(e), command=_cmd, output_json=output_json)
 
@@ -6778,12 +6781,12 @@ bundle_app = typer.Typer(
     help="Evidence bundle utilities for comparability workflows",
     no_args_is_help=True,
 )
-assay_app.add_typer(bundle_app, name="bundle", hidden=True, rich_help_panel="Advanced")
+assay_app.add_typer(bundle_app, name="bundle", rich_help_panel="Governance")
 
 
 @bundle_app.command("init")
 def bundle_init_cmd(
-    contract: str = typer.Option(..., "--contract", "-c", help="Path to comparability contract (YAML/JSON)"),
+    contract: Optional[str] = typer.Option(None, "--contract", "-c", help="Path to comparability contract (YAML/JSON). Defaults to bundled judge-comparability-v1."),
     output: str = typer.Option("evidence_bundle.json", "--output", "-o", help="Output file path"),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON to stdout instead of file"),
 ):
@@ -6795,21 +6798,22 @@ def bundle_init_cmd(
 
     Examples:
 
-        assay bundle init -c contracts/judge-comparability-v1.yaml
-
+        assay bundle init
         assay bundle init -c contracts/judge-comparability-v1.yaml -o my_bundle.json
     """
     from pathlib import Path as P
 
     from assay.comparability.contract import ContractValidationError, load_contract
+    from assay.contracts import resolve_contract_path
 
+    contract_path = resolve_contract_path(contract)
     try:
-        ctr = load_contract(contract)
+        ctr = load_contract(contract_path)
     except ContractValidationError as e:
         console.print(f"[red]Contract error:[/] {e}")
         raise typer.Exit(3)
     except FileNotFoundError:
-        console.print(f"[red]Contract not found:[/] {contract}")
+        console.print(f"[red]Contract not found:[/] {contract_path}")
         raise typer.Exit(3)
 
     # Build scaffold with all parity fields stubbed
@@ -6841,7 +6845,8 @@ def bundle_init_cmd(
     console.print(f"[green]Wrote template bundle:[/] {out_path}")
     console.print(f"  {len(fields)} fields stubbed from contract [bold]{ctr.contract_id}[/]")
     console.print(f"  Fill in field values, then run:")
-    console.print(f"    [dim]assay compare baseline.json {out_path} -c {contract}[/]")
+    contract_hint = f" -c {contract}" if contract else ""
+    console.print(f"    [dim]assay compare baseline.json {out_path}{contract_hint}[/]")
 
 
 # ---------------------------------------------------------------------------
@@ -11363,7 +11368,7 @@ def packet_verify_cmd(
 def compare_cmd(
     baseline: str = typer.Argument(..., help="Baseline evidence bundle file or pack directory"),
     candidate: str = typer.Argument(..., help="Candidate evidence bundle file or pack directory"),
-    contract: str = typer.Option(..., "--contract", "-c", help="Path to comparability contract (YAML/JSON)"),
+    contract: Optional[str] = typer.Option(None, "--contract", "-c", help="Path to comparability contract (YAML/JSON). Defaults to bundled judge-comparability-v1."),
     claim_summary: Optional[str] = typer.Option(None, "--claim", help="Claim under test (e.g. 'candidate scores 11% higher')"),
     claim_metric: Optional[str] = typer.Option(None, "--metric", help="Metric name (e.g. 'mean_helpfulness_score')"),
     claim_delta: Optional[float] = typer.Option(None, "--delta", help="Score delta"),
@@ -11401,9 +11406,12 @@ def compare_cmd(
         Verdict,
     )
 
-    # Load contract
+    # Load contract (resolve bundled default if not specified)
+    from assay.contracts import resolve_contract_path
+
+    contract_path = resolve_contract_path(contract)
     try:
-        ctr = load_contract(contract)
+        ctr = load_contract(contract_path)
     except ContractValidationError as e:
         if output_json:
             _output_json({"command": "compare", "status": "error", "error": str(e)}, exit_code=3)

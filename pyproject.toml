@@ -62,7 +62,7 @@ where = ["src"]
 include = ["assay*"]
 
 [tool.setuptools.package-data]
-assay = ["schemas/*.json"]
+assay = ["schemas/*.json", "contracts/*.yaml"]
 
 [tool.mypy]
 python_version = "3.11"

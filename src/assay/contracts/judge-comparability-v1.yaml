@@ -1,0 +1,186 @@
+# Assay Comparability Contract: LLM-as-Judge v1
+#
+# This contract governs whether two LLM-as-judge evaluation runs
+# may be validly compared. It does not govern whether the judge
+# is well-calibrated, whether the rubric is good, or whether the
+# evaluated system is actually better.
+#
+# It governs structural comparability: are these two measurement
+# results from the same instrument under the same conditions?
+
+comparability_contract:
+  version: "0.1.0"
+  id: "judge-comparability-v1"
+  name: "LLM-as-Judge Comparability v1"
+  domain: "llm_as_judge"
+  author: "assay"
+  created_at: "2026-03-28"
+
+  scope:
+    description: >
+      Governs whether two LLM-as-judge evaluation runs produce
+      structurally comparable evidence. A DENIED verdict means the
+      score delta cannot be attributed to the evaluated system.
+    metric_family: "judge_scored"
+
+  parity_fields:
+
+    # --- Instrument Identity ---
+    # These fields define the measurement instrument itself.
+    # Changing any one means you are using a different instrument.
+
+    - field: judge_model
+      match_rule: exact
+      severity: INVALIDATING
+      group: instrument_identity
+      rationale: >
+        Different models have different scoring distributions.
+        Cross-model score deltas are meaningless.
+      requirement: REQUIRED
+
+    - field: judge_model_version
+      match_rule: exact
+      severity: INVALIDATING
+      group: instrument_identity
+      rationale: >
+        Model version updates can silently shift scoring behavior.
+        A version change is an instrument change.
+      requirement: REQUIRED
+
+    - field: judge_prompt_template
+      match_rule: content_hash
+      severity: INVALIDATING
+      group: instrument_identity
+      rationale: >
+        Prompt changes directly alter scoring criteria.
+        Deltas reflect prompt change, not system change.
+      requirement: REQUIRED
+
+    - field: judge_system_prompt
+      match_rule: content_hash
+      severity: INVALIDATING
+      group: instrument_identity
+      rationale: >
+        System prompt changes alter judge behavior globally.
+      requirement: REQUIRED
+
+    - field: scoring_rubric
+      match_rule: content_hash
+      severity: INVALIDATING
+      group: instrument_identity
+      rationale: >
+        Rubric defines what scores mean. Changed rubric = changed
+        measurement instrument.
+      requirement: REQUIRED
+
+    - field: score_type
+      match_rule: exact
+      severity: INVALIDATING
+      group: instrument_identity
+      rationale: >
+        Likert vs. binary vs. continuous produce incomparable evidence.
+      requirement: REQUIRED
+
+    - field: score_range
+      match_rule: exact
+      severity: INVALIDATING
+      group: instrument_identity
+      rationale: >
+        1-5 vs. 1-10 vs. 0-100 are different instruments.
+      requirement: REQUIRED
+
+    # --- Execution Parameters ---
+    # These control how the instrument runs.
+
+    - field: judge_temperature
+      match_rule: exact
+      severity: INVALIDATING
+      group: execution_params
+      rationale: >
+        Temperature affects score variance. Different temperatures
+        produce incomparable distributions.
+      requirement: REQUIRED
+
+    - field: judge_max_tokens
+      match_rule: exact
+      severity: DEGRADING
+      group: execution_params
+      rationale: >
+        Token limit can truncate judge reasoning, potentially
+        affecting scores.
+      requirement: REQUIRED
+
+    - field: judge_top_p
+      match_rule: exact
+      severity: DEGRADING
+      group: execution_params
+      rationale: >
+        Sampling parameter change affects output distribution.
+      requirement: REQUIRED
+
+    - field: judge_passes
+      match_rule: exact
+      severity: INVALIDATING
+      group: execution_params
+      rationale: >
+        Single-pass vs. consensus scoring produces structurally
+        different evidence.
+      requirement: REQUIRED
+
+    # --- Evaluation Surface ---
+    # These define what is being evaluated.
+
+    - field: eval_dataset
+      match_rule: content_hash
+      severity: INVALIDATING
+      group: eval_surface
+      rationale: >
+        Different inputs = different test. Score deltas are not
+        attributable.
+      requirement: REQUIRED
+
+    - field: eval_dataset_version
+      match_rule: exact
+      severity: INVALIDATING
+      group: eval_surface
+      rationale: >
+        Dataset version changes may alter difficulty, distribution,
+        or coverage.
+      requirement: REQUIRED
+
+    - field: presentation_order
+      match_rule: exact
+      severity: DEGRADING
+      group: eval_surface
+      rationale: >
+        Position bias in judge models is well-documented.
+      requirement: REQUIRED
+
+    - field: input_format
+      match_rule: content_hash
+      severity: DEGRADING
+      group: eval_surface
+      rationale: >
+        Formatting changes can affect judge interpretation of responses.
+      requirement: REQUIRED
+
+  outcomes:
+    SATISFIED: >
+      All parity fields match. Comparison is valid. Claims may proceed.
+    DOWNGRADED: >
+      One or more DEGRADING mismatches. Comparison is weakened.
+      Claims require explicit caveat.
+    DENIED: >
+      One or more INVALIDATING mismatches. Comparison is structurally
+      invalid. Claims are inadmissible.
+    UNDETERMINED: >
+      Required fields are missing from one or both evidence bundles.
+      Contract cannot be evaluated.
+
+  out_of_scope:
+    - "Statistical significance of score deltas"
+    - "Whether the judge model is well-calibrated"
+    - "Whether the rubric is good"
+    - "Whether the evaluated system is actually better"
+    - "Evidence quality beyond structural comparability"
+    - "Temporal claim decay"
