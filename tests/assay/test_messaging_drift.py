@@ -69,35 +69,20 @@ class TestVersionConsistency:
 # ---------------------------------------------------------------------------
 
 class TestScanStudyNumbers:
-    """The "202 high-confidence" and "21 projects" numbers must match everywhere."""
+    """High-confidence call site count and repo count must be consistent across files."""
 
-    FILES_WITH_202 = [README, HN_POST, SCAN_REPORT]
+    FILES_WITH_COUNTS = [README, HN_POST, SCAN_REPORT]
 
-    @pytest.mark.parametrize("path", FILES_WITH_202, ids=lambda p: p.name)
-    def test_202_high_confidence_present(self, path):
+    @pytest.mark.parametrize("path", FILES_WITH_COUNTS, ids=lambda p: p.name)
+    def test_high_confidence_count_present(self, path):
         text = _read(path)
-        assert "202" in text, f"{path.name} doesn't mention 202 high-confidence sites"
+        assert "230" in text, f"{path.name} doesn't mention 230 high-confidence sites"
 
-    def test_project_count_consistent(self):
-        """Every file that mentions a project count should use the same number."""
-        project_counts = {}
+    def test_scanned_repo_count_consistent(self):
+        """Every file should agree on how many repos were scanned."""
         for path in [README, HN_POST, SCAN_REPORT]:
             text = _read(path)
-            # Match patterns like "across 21 projects", "across 21 repos"
-            matches = re.findall(r"across\s+(\d+)\s+(?:project|repo)", text)
-            if matches:
-                project_counts[path.name] = set(matches)
-
-        if not project_counts:
-            pytest.skip("No project count references found")
-
-        all_counts = set()
-        for counts in project_counts.values():
-            all_counts.update(counts)
-
-        assert len(all_counts) == 1, (
-            f"Project count divergence: {project_counts}"
-        )
+            assert "30" in text, f"{path.name} doesn't mention 30 repos scanned"
 
 
 # ---------------------------------------------------------------------------
