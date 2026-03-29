@@ -8032,11 +8032,25 @@ def scan_cmd(
 
     from assay.scanner import Confidence, scan_directory
 
+    scan_path = P(path)
+    if not scan_path.exists():
+        msg = f"Directory not found: {path}"
+        if output_json:
+            _output_json({"tool": "assay-scan", "status": "error", "error": msg}, exit_code=3)
+        console.print(f"[red]Error:[/] {msg}")
+        raise typer.Exit(3)
+    if not scan_path.is_dir():
+        msg = f"Not a directory: {path}"
+        if output_json:
+            _output_json({"tool": "assay-scan", "status": "error", "error": msg}, exit_code=3)
+        console.print(f"[red]Error:[/] {msg}")
+        raise typer.Exit(3)
+
     include_pats = [p.strip() for p in include.split(",") if p.strip()] if include else None
     exclude_pats = [p.strip() for p in exclude.split(",") if p.strip()] if exclude else None
 
     try:
-        result = scan_directory(P(path), include=include_pats, exclude=exclude_pats)
+        result = scan_directory(scan_path, include=include_pats, exclude=exclude_pats)
     except Exception as e:
         if output_json:
             _output_json({"tool": "assay-scan", "status": "error", "error": str(e)}, exit_code=2)
@@ -8352,7 +8366,7 @@ def _render_doctor_report(report, strict: bool = False) -> None:
     raise typer.Exit(exit_code)
 
 
-@assay_app.command("explain", rich_help_panel="Operate", hidden=True)
+@assay_app.command("explain", rich_help_panel="Operate")
 def explain_cmd(
     pack_dir: str = typer.Argument(..., help="Path to proof pack directory"),
     output_format: str = typer.Option("text", "--format", "-f", help="Output format: text, md, json"),

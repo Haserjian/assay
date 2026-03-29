@@ -319,6 +319,7 @@ class _LLMCallVisitor(ast.NodeVisitor):
         self._imports: Set[str] = set()
         self._calls: Set[str] = set()
         self._deferred_medium: List[tuple[int, str, str]] = []  # (line, call, framework)
+        self._mock_names: Set[str] = set()  # names imported from mock modules
 
     def resolve_deferred(self) -> None:
         """Promote deferred guarded patterns based on collected import evidence."""
@@ -340,12 +341,16 @@ class _LLMCallVisitor(ast.NodeVisitor):
         module = node.module or ""
         for alias in node.names:
             full = f"{module}.{alias.name}" if module else alias.name
+            local_name = alias.asname or alias.name
             self._imports.add(full)
             self._imports.add(alias.name)
             if alias.name in _INSTRUMENTATION_IMPORTS or module in _INSTRUMENTATION_IMPORTS:
                 self.has_instrumentation = True
             if any(pat in full for pat in _INSTRUMENTATION_IMPORTS):
                 self.has_instrumentation = True
+            # Track names imported from mock modules
+            if "mock" in module.lower():
+                self._mock_names.add(local_name)
         if any(module == pfx or module.startswith(pfx + ".") for pfx in _FRAMEWORK_IMPORT_PREFIXES):
             self.has_framework_imports = True
         self.generic_visit(node)
@@ -355,9 +360,20 @@ class _LLMCallVisitor(ast.NodeVisitor):
         if call_str:
             # Check for instrumentation calls
             name_parts = call_str.split(".")
-            if name_parts[-1] in _INSTRUMENTATION_CALLS:
-                self.has_instrumentation = True
-                self._calls.add(call_str)
+            last = name_parts[-1]
+            if last in _INSTRUMENTATION_CALLS:
+                # Guard against false positives: "patch" is ambiguous —
+                # mock.patch(), unittest.mock.patch(), and bare patch()
+                # imported from mock modules are not instrumentation.
+                is_mock = (
+                    any(p in call_str.lower() for p in ("mock", "unittest"))
+                    or (last == "patch" and call_str in self._mock_names)
+                )
+                if last == "patch" and is_mock:
+                    pass  # false positive — skip
+                else:
+                    self.has_instrumentation = True
+                    self._calls.add(call_str)
 
             # Check high-confidence patterns
             for pattern, framework in _HIGH_PATTERNS:
