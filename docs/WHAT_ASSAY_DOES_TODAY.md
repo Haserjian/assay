@@ -48,6 +48,18 @@ Assay today is a public evidence layer for existing AI workflows. It finds suppo
 - Another team can verify the proof pack offline on their own machine.
 - Two packet types sit on top: compiled packets (general-purpose, canonical trust artifact) and reviewer packets (VendorQ-specific). See [docs/packets.md](packets.md).
 
+## Trust tier: current posture
+
+Proof packs produced today are **T0 (self-signed)**. The operator holds the private key; the same key that signs is the one you're trusting.
+
+What T0 means in practice:
+- Integrity is enforced: a pack that has been tampered with after signing will not verify.
+- Authenticity is not independently attested: the operator could, in principle, sign a fabricated run. There is no external witness that the run actually happened.
+
+The T1/T2 trust tiers (time-anchored via RFC 3161, independent witness via Rekor transparency log) are specified in [`docs/spec-trust-tier-anchor.md`](spec-trust-tier-anchor.md) and will be implemented via `assay anchor`. The CI org trust gate (`ci-org-trust-gate.yml`) is designed but requires a key ceremony to activate.
+
+Until T1 is operational, the honest claim for Assay packs is: **integrity verified, origin trusted by policy, not independently witnessed**. For buyers asking about trust tier: state T0, reference the T1 roadmap, and note that the cost of fabricating a consistent T0 audit trail is non-trivial even without external witnessing.
+
 ## What Assay is not
 
 - It is not already the full Loom / CCIO organism.

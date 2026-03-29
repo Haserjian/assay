@@ -1,7 +1,7 @@
 # Open Contract Decisions
 
-**Date**: 2026-03-25 (reconciled post-extraction 2026-03-25)
-**Status**: 6 of 10 items resolved. 0 HIGH remain. 1 MEDIUM remain (OCD-9). 3 LOW remain (OCD-5, OCD-6, OCD-7).
+**Date**: 2026-03-25 (reconciled post-extraction 2026-03-25; OCD-11/OCD-12 added 2026-03-29)
+**Status**: 6 of 12 items resolved. 0 HIGH remain. 2 MEDIUM remain (OCD-9, OCD-11). 4 LOW remain (OCD-5, OCD-6, OCD-7, OCD-12).
 
 These are questions that must be answered before the Proof Pack contract can be fully frozen for second implementations.
 
@@ -291,3 +291,65 @@ Any future change that intends field-driven dispatch must:
 **Clarification artifact**: `docs/contracts/OCD-9_DIRECT_VS_INDIRECT_VERIFIER_OBLIGATIONS.md`
 
 **Current status**: partially clarified. Direct obligations are now enumerated as explicit verifier checks; indirect obligations are identified as properties only guaranteed through verified enclosing artifacts or builder discipline. The remaining open question is whether JSONL canonicality should stay indirect or be promoted to a direct verifier obligation in a future profile.
+
+---
+
+## OCD-11: OPTIONAL + INVALIDATING Field Combination in Comparability Contracts
+
+**Blocker level**: MEDIUM — contract language is ambiguous; current behavior is silent and incorrect.
+
+**Date raised**: 2026-03-29 (adversarial audit sprint)
+
+**Current behavior** (`src/assay/comparability/engine.py:149-156`): Fields marked `requirement=OPTIONAL` (or `DERIVED`) skip all evaluation logic entirely, including severity checks. A field declared `OPTIONAL` with `severity=INVALIDATING` silently produces no verdict effect, even when both bundles provide the field with different values.
+
+**The problem**: `OPTIONAL + INVALIDATING` is semantically contradictory. "INVALIDATING" means "a mismatch here makes the comparison inadmissible." "OPTIONAL" means "skip checks when absent." These cannot coexist as a meaningful contract statement. A contract author who writes this combination is either expressing:
+
+1. "If the field is missing from either bundle, don't penalize. But if both declare it and they differ, that's an invalidating mismatch." (The "binding when present on both sides" interpretation)
+2. Or they made an error — they intended REQUIRED.
+
+The current code silently implements a third interpretation: "ignore this field entirely, always." This is the wrong answer in both cases.
+
+**Options**:
+
+1. **Reject at load time.** `OPTIONAL + INVALIDATING` is a validation error in `load_contract()`. The contract is invalid. Contract authors must choose: `REQUIRED + INVALIDATING` (always enforced) or `OPTIONAL + DEGRADING` or lower (only checked when present). This is the cleanest contract language — no silent behavior.
+2. **Define as "binding when present on both sides."** OPTIONAL fields skip when absent from either bundle. When present in both, apply severity normally. This is more expressive but adds a third evaluation path and makes contracts harder to reason about.
+
+**Doctrine decision**: **Option 1.** Reject at load time.
+
+Rationale: The comparability contract is a trust artifact. Ambiguous combinations in trust artifacts are bugs, not features. The contract language should be unambiguous: if a mismatch is invalidating, the field must be required. If it can be absent, the mismatch cannot be invalidating. Forcing contract authors to choose eliminates the silent-ignore failure mode without adding evaluation complexity.
+
+**Implementation**: Add validation in `contract.py` `load_contract()`: if any `ParityField` has `severity=INVALIDATING` and `requirement=OPTIONAL` (or `DERIVED`), raise `ContractValidationError` with a message naming the field and the contradictory combination.
+
+**Test to add**: `test_optional_invalidating_rejected_at_load()` in `tests/assay/test_comparability.py`.
+
+**Not yet implemented** — awaiting this doctrine record before code change.
+
+---
+
+## OCD-12: Unsigned Lockfile (Trust Root Without Cryptographic Protection)
+
+**Blocker level**: LOW (design track) — not a correctness bug, but a trust boundary gap.
+
+**Date raised**: 2026-03-29 (adversarial audit sprint)
+
+**Current behavior**: `assay.lock` contains the signer fingerprint allowlist and verification thresholds that govern what evidence is accepted. The lockfile itself has no cryptographic signature. Any actor with write access to the repository can modify the allowlist and commit the change without detection.
+
+**The problem**: The lockfile is the root of trust for `assay verify-pack --lock`. A root of trust that is itself unprotected is a contradiction. The gap: a compromised or coerced actor can add their own key fingerprint to the allowlist, commit it to the repo, and all packs signed with that key will pass verification. There is no out-of-band evidence that the lockfile was modified.
+
+**Mitigating factors**:
+- Git commit history records lockfile changes (but git history is rewritable without signed commits).
+- CODEOWNERS + branch protection rules can require human review of lockfile changes (process control, not cryptographic).
+- The lockfile's own content is hashed when loaded; a verifier can detect mid-session tampering but not pre-session substitution.
+
+**Options**:
+
+1. **Process control only.** Add CODEOWNERS rule requiring a designated reviewer's approval on any PR touching `assay.lock`. No code change. Cheapest. Relies on platform (GitHub PR review) rather than cryptography.
+2. **Receipt chain embedding (intermediate).** When a pack is verified against a lockfile, embed the lockfile's SHA-256 hash in the `verify_report.json`. Future verification of the same pack can confirm the lockfile hash hasn't drifted since the pack was verified. Creates a chain-of-custody record without requiring a signing key for the lockfile itself. Does not protect against a fresh substitution before any pack exists.
+3. **CI-held key signing.** During `assay lock update`, require the lockfile to be signed by a CI-held key (separate from operator keys). The signature is stored alongside the lockfile. `verify-pack --lock` checks the lockfile signature before trusting the allowlist. Requires key ceremony for the CI-held key and secret provisioning (`ci-org-trust-gate.yml` infrastructure).
+4. **Out-of-band commitment.** After each lockfile update, publish the lockfile hash to an append-only log (e.g., Rekor). Verifiers can confirm the lockfile matches its transparency log entry.
+
+**Recommended path**: Option 1 immediately (zero cost, reasonable process control). Option 3 when the `ci-org-trust-gate.yml` key ceremony is complete (the infrastructure already exists — it just requires provisioning). Option 2 as a useful intermediate artifact regardless.
+
+**Not a casual inline fix**: The lockfile is a root-of-trust artifact. Changes to how it is protected must go through the trust-tier design path, not be made as incidental code edits. This record is the design gate before any implementation.
+
+**Dependency**: Option 3 depends on the CI org trust gate key ceremony (tracked separately in the workflow file comment). Do not implement Option 3 before the ceremony is complete.
