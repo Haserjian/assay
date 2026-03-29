@@ -6,13 +6,19 @@ Accountable execution for AI systems.
 Assay creates signed evidence for AI workflows that a reviewer can verify offline.
 It proves what can be responsibly claimed about the artifact, not the truth of every upstream component.
 
-> **Primary public story today:** Assay is an evidence compiler for AI
-> execution: `scan -> patch -> run -> receipts -> signed proof pack ->
-> verify offline -> optional reviewer artifacts`.
->
-> **Advanced public capability:** episode/checkpoint APIs such as
-> `open_episode`, `seal_checkpoint`, and `verify_checkpoint` are real,
-> but they are bridge primitives, not the first-contact product story.
+## What are you trying to do?
+
+| Question | Start here |
+|----------|-----------|
+| Did two eval runs use the same judge? | [`assay compare` → eval comparability quickstart](docs/outbound/TRY_YOUR_DATA.md) |
+| Instrument an AI workflow for evidence going forward | `scan → patch → run → verify` below |
+| Receiving a proof pack to audit or verify | [Browser verifier](https://haserjian.github.io/assay-proof-gallery/verify.html) + [for-compliance.md](docs/for-compliance.md) |
+| Security/legal asked "prove what your AI did" | [Pilot program](docs/PILOT_PROGRAM.md) |
+
+> **Note:** Assay instruments AI workflows to produce evidence **going forward**.
+> Existing runs without Assay instrumentation do not have Assay-backed evidence.
+
+---
 
 ### Run → Prove → Promote
 

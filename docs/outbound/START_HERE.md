@@ -67,10 +67,24 @@ If the diagnostic finds drift risk or missing comparability controls,
 the pilot installs the evidence gate that prevents the same failure
 from recurring.
 
-**Evidence Gate Pilot ($10-25K):** We wire Assay into your eval pipeline,
-author your comparability contract, set up CI gating, and hand off the
-whole system. 1-2 weeks. You own everything we build.
-[Full pilot details](../PILOT_PROGRAM.md)
+**Eval Comparability Pilot ($10-25K):** We author a comparability contract
+for your eval regime, wire `assay compare` and `assay gate compare` into
+your pipeline, and hand off the system. 1-2 weeks. You own everything we build.
+
+*This pilot is specifically about eval comparability and CI gating —
+not general evidence instrumentation. If you need evidence for production
+AI workflows (not just evals), see the [full pilot program](../PILOT_PROGRAM.md).*
+
+---
+
+## Important: what this covers
+
+Assay checks whether two **future or already-captured** eval run configurations
+match. It does **not** retroactively produce evidence for runs that never
+declared their configuration. If your eval runs have never tracked judge model
+version, prompt template, and rubric in structured form, the diagnostic will
+surface exactly what was missing — that is still useful information, but it
+means the historical comparisons cannot be verified.
 
 ---
 

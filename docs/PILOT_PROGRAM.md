@@ -9,6 +9,14 @@ You own everything we build. No ongoing dependency.
 - Companies preparing for SOC 2, HIPAA, EU AI Act, or ISO 42001 audits
 - Engineering orgs that got "prove what your AI did" from security/legal and don't have an answer
 
+> **This pilot is about production AI workflows, not eval comparability.**
+> If your question is "did two LLM-as-judge eval runs use the same judge config?",
+> see [TRY_YOUR_DATA.md](outbound/TRY_YOUR_DATA.md) instead.
+>
+> **Coverage is prospective.** Assay instruments AI calls going forward.
+> It does not retroactively create evidence for runs that happened before
+> instrumentation was in place. The pilot baseline starts from day 1 of installation.
+
 ## What You Get
 
 ### Week 1: Instrument + Gate
