@@ -57,7 +57,8 @@ def _typed_ref(ref_id: str, *, ref_role: str = "supporting") -> dict:
 
 
 def _checkpoint_examples_root() -> str:
-    return "/Users/timmybhaserjian/assay/docs/examples/checkpoints"
+    import pathlib
+    return str(pathlib.Path(__file__).resolve().parents[2] / "docs" / "examples" / "checkpoints")
 
 
 def _load_example(name: str) -> dict:

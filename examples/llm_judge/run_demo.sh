@@ -8,9 +8,21 @@
 #
 # Usage:
 #   cd assay/
-#   bash examples/llm_judge/run_demo.sh
+#   bash examples/llm_judge/run_demo.sh                  # interactive (pauses)
+#   bash examples/llm_judge/run_demo.sh --non-interactive # scripted/CI use
 
 set -euo pipefail
+
+INTERACTIVE=true
+if [[ "${1:-}" == "--non-interactive" ]] || [[ ! -t 0 ]]; then
+    INTERACTIVE=false
+fi
+
+pause_for_enter() {
+    if $INTERACTIVE; then
+        read -r
+    fi
+}
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 CONTRACT="$REPO_DIR/contracts/judge-comparability-v1.yaml"
@@ -35,8 +47,8 @@ echo "    delta:     +0.42 (+11.1%)"
 echo ""
 echo "  Looks like a win. Team is about to ship a blog post."
 echo ""
-echo "  Press Enter to run the denial engine..."
-read -r
+if $INTERACTIVE; then echo "  Press Enter to run the denial engine..."; fi
+pause_for_enter
 
 # --- Act 2: The denial ---
 echo ""
@@ -59,8 +71,8 @@ echo ""
 echo "  The blog post cannot ship. The 11.1% number is structurally invalid."
 echo "  The team must rerun with pinned judge config."
 echo ""
-echo "  Press Enter to see the fix..."
-read -r
+if $INTERACTIVE; then echo "  Press Enter to see the fix..."; fi
+pause_for_enter
 
 # --- Act 3: The fix ---
 echo ""
