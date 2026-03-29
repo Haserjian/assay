@@ -59,9 +59,13 @@ dataset) and at what severity. You can write contracts for your domain.
 
 ## Want us to install it?
 
-**Comparability Diagnostic (free):** We run `assay compare` on your
-last two eval runs and show you whether the comparison was structurally valid.
+**Comparability Diagnostic (free):** We inspect two recent eval runs
+and determine whether the claimed comparison is structurally valid.
 Takes 30 minutes. You learn whether your benchmark claims survive scrutiny.
+
+If the diagnostic finds drift risk or missing comparability controls,
+the pilot installs the evidence gate that prevents the same failure
+from recurring.
 
 **Evidence Gate Pilot ($10-25K):** We wire Assay into your eval pipeline,
 author your comparability contract, set up CI gating, and hand off the

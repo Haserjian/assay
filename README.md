@@ -285,8 +285,9 @@ assay patch .
 # everything after -- is your normal run command
 assay run -c receipt_completeness -- python my_app.py
 
-# 4. Verify
+# 4. Verify (CLI or browser — no install needed for browser)
 assay verify-pack ./proof_pack_*/
+# Or verify in your browser: https://haserjian.github.io/assay-proof-gallery/verify.html
 
 # 5. Generate report artifacts for security/compliance review
 assay report . -o evidence_report.html --sarif
