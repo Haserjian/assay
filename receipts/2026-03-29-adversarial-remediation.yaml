@@ -35,19 +35,30 @@ claims:
     authority_boundary: "other comparability edge cases not exhaustively tested"
     promotion_rule: null
 
-  - text: "P1b signer-not-pinned warning emitted in terminal, JSON, and browser"
+  - text: "P1b signer-not-pinned warning emitted in terminal and JSON output"
     type: completion
     status: confirmed
     basis: test_output
     supporting_artifacts:
       - "src/assay/commands.py — warning appended when result.passed and not lock"
-      - "docs/verify.html — warning added to browser UI"
     verification_artifacts:
       - "pytest test_exit_code_contract.py: test_unlocked_pass_emits_warning_in_terminal PASSED"
       - "pytest test_exit_code_contract.py: test_unlocked_pass_emits_warning_in_json PASSED"
       - "pytest test_exit_code_contract.py: test_locked_pass_does_not_emit_warning PASSED"
-    scope: "verify-pack CLI output and gallery browser verifier"
+    scope: "verify-pack CLI terminal and JSON output"
     authority_boundary: "wording clarity for non-technical operators not tested"
+    promotion_rule: null
+
+  - text: "P1b signer-not-pinned warning added to browser verifier UI code"
+    type: existence
+    status: confirmed
+    basis: observed
+    supporting_artifacts:
+      - "docs/verify.html lines 1303-1306 — warning code added to verifyProofPack result"
+    verification_artifacts:
+      - "code inspection confirms warning string present in verify.html"
+    scope: "gallery browser verifier source code"
+    authority_boundary: "not runtime-tested in a browser; code presence confirmed, rendering not confirmed"
     promotion_rule: null
 
   - text: "P2a TypeScript per-receipt required field validation matches Python"
@@ -104,16 +115,16 @@ claims:
     authority_boundary: "will drift again without CI freshness gate (Haserjian/assay#49)"
     promotion_rule: null
 
-  - text: "F4 ledger README explains shadow-mode claim_check=FAIL"
-    type: completion
+  - text: "F4 ledger README contains shadow-mode claim_check=FAIL explanation"
+    type: existence
     status: confirmed
-    basis: file_diff
+    basis: observed
     supporting_artifacts:
-      - "assay-ledger/README.md — one paragraph added after schema table"
+      - "assay-ledger/README.md line 102 — paragraph added after schema table"
     verification_artifacts:
-      - "diff confirms paragraph present and accurate against ledger.jsonl entries"
+      - "direct inspection confirms paragraph present at README.md line 102"
     scope: "assay-ledger README"
-    authority_boundary: "does not change the entries themselves"
+    authority_boundary: "wording accuracy not externally reviewed; does not change the ledger entries themselves"
     promotion_rule: null
 
   - text: "F5 legacy sidecar warnings removed from gallery scenarios 01, 02, 04"
@@ -196,6 +207,10 @@ files_touched:
   - docs/DESIGN_SIGNED_CHECKPOINT.md
 
 commits:
+  - repo: assay-toolkit
+    hash: 0f3e3be
+    message: "fix(scanner): detect Gemini calls and reject nonexistent scan targets"
+    note: "F0a/F0b — committed in prior sub-session, before this receipt's main window"
   - repo: assay-toolkit
     hash: a8ad64f
     message: "fix(security): P0 comparability spoof, P1b trust warning, P3 hardening"

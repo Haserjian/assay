@@ -26,7 +26,7 @@ Closure tiers per `docs/security/REMEDIATION_DOCTRINE.md`.
 | P2a | TypeScript verifier missing per-receipt required field validation | HARDENED | Added `REQUIRED_RECEIPT_FIELDS` check to `verify-core.ts` | `test_missing_type_field`, `test_missing_timestamp_field` |
 | P2b | Gallery browser bundle is stale (missing base64 try/catch, sig/pubkey length checks) | HARDENED | Rebuilt from current `assay-verify-ts` source. **Residual**: will recur without CI freshness gate. | Bundle rebuilt and copied |
 | P3a | Future timestamps in receipts not rejected by default | HARDENED | Added `max_future_hours=24.0` default in `verify_pack_manifest()` | `test_future_timestamp_rejected_by_default`, `test_near_future_timestamp_accepted`, `test_future_guard_disabled_with_zero` |
-| P3b | Optional field engine bug (UNDETERMINED instead of SATISFIED for missing OPTIONAL fields) | HARDENED | Filter `missing_fields` by `REQUIRED` only | Latent — no current exposure (v1 contract marks all 15 fields REQUIRED) |
+| P3b | Optional field engine bug (UNDETERMINED instead of SATISFIED for missing OPTIONAL fields) | DOCUMENTED | Filter `missing_fields` by `REQUIRED` only | Latent — no current exposure (v1 contract marks all 15 fields REQUIRED). No regression test. |
 | P3c | `bool True == int 1` type confusion in `_exact` and `_within_threshold` match rules | HARDENED | Added `type(a) is not type(b)` guard in both functions | Covered by existing `test_exact_bool`, `test_exact_numeric`, `test_within_threshold_no_threshold_falls_back_exact` |
 
 ---
@@ -37,6 +37,19 @@ Closure tiers per `docs/security/REMEDIATION_DOCTRINE.md`.
 |----|---------|----------|-------------|-----------|
 | P1a | Ledger has no external anchor — all 4 chain attacks succeed | HIGH | DESIGN-TRACK | Implement genesis-to-tip chaining + signed checkpoint (see `assay-ledger/docs/DESIGN_SIGNED_CHECKPOINT.md`, tracked at Haserjian/assay-ledger#9) |
 | P2c | Scanner cannot detect 4 evasion patterns (getattr, eval, subprocess, raw HTTP) | MEDIUM | DOCUMENTED | See `docs/SCANNER_LIMITATIONS.md`. Runtime instrumentation is future work. |
+
+---
+
+## Governance / control-plane findings
+
+These are not code-remediation failures. They are structural properties
+of the current repo governance that were surfaced during the session.
+
+| ID | Finding | Severity | Status |
+|----|---------|----------|--------|
+| G-1 | assay-ledger `enforce_admins: false` allows admin direct-push bypass of required `validate` check. Two bypasses in this session (commits `4f8819d`, `7cea9d9`). The validate workflow runs post-push as retroactive confirmation, not a pre-merge gate. | IMPORTANT | Open — needs either `enforce_admins: true` or an explicit documented bypass policy. |
+| G-2 | assay-ledger has no PR review requirement (`required_pull_request_reviews: null`). Direct push is structurally permitted for anyone with push access. | IMPORTANT | Open — same decision as G-1. |
+| G-3 | 3 of 5 public repos (assay, assay-proof-gallery, assay-verify-ts) have zero branch protection. | MEDIUM | Open — governance not yet systematized across ecosystem. |
 
 ---
 
@@ -54,8 +67,8 @@ Closure tiers per `docs/security/REMEDIATION_DOCTRINE.md`.
 
 | ID | Issue | Severity | Closure tier | Next step |
 |----|-------|----------|-------------|-----------|
-| QA-1 | Falsy-value receipt field check: both Python (`not receipt.get(f)`) and TypeScript (`!receipt[f]`) treat `""` and `0` as "missing" when they are "present but invalid." Verifiers agree, but the shared behavior conflates missing with present-but-invalid. | LOW (correctness debt) | DOCUMENTED | Fix both to distinguish missing from present-but-falsy. Low urgency until schemas evolve or error messages become evidence. |
-| QA-2 | No CI gate verifies gallery bundle (`assay-proof-gallery/docs/assay-verify.js`) matches current `assay-verify-ts` build output. P2b class guaranteed to recur. | MEDIUM | DOCUMENTED | Add CI step: build bundle from TS source, diff against checked-in gallery bundle, fail if diverged. |
+| QA-1 | Falsy-value receipt field check: both Python (`not receipt.get(f)`) and TypeScript (`!receipt[f]`) treat `""` and `0` as "missing" when they are "present but invalid." Verifiers agree, but the shared behavior conflates missing with present-but-invalid. | LOW (correctness debt) | DOCUMENTED | Fix both to distinguish missing from present-but-falsy. Tracked at Haserjian/assay#50. |
+| QA-2 | No CI gate verifies gallery bundle (`assay-proof-gallery/docs/assay-verify.js`) matches current `assay-verify-ts` build output. P2b class guaranteed to recur. | MEDIUM | DOCUMENTED | Add CI step: build bundle from TS source, diff against checked-in gallery bundle, fail if diverged. Tracked at Haserjian/assay#49. |
 
 ---
 
