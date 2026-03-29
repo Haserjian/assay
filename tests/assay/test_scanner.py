@@ -874,3 +874,48 @@ class TestAssayignore:
         paths = {f.path for f in result.findings}
         assert any("src" in p for p in paths)
         assert not any("clones" in p for p in paths), f"clones excluded, got {paths}"
+
+
+class TestPathValidation:
+    """scan_directory must error on bad paths, not silently return empty."""
+
+    def test_nonexistent_path_raises(self, tmp_path):
+        """Nonexistent path raises FileNotFoundError, not silent empty result."""
+        bad = tmp_path / "does_not_exist"
+        with pytest.raises(FileNotFoundError, match="scan target does not exist"):
+            scan_directory(bad)
+
+    def test_file_path_raises(self, tmp_path):
+        """Passing a file instead of a directory raises NotADirectoryError."""
+        f = tmp_path / "app.py"
+        f.write_text("print('hello')\n")
+        with pytest.raises(NotADirectoryError, match="scan target is not a directory"):
+            scan_directory(f)
+
+
+class TestGoogleGeminiDetection:
+    """generate_content must be detected at HIGH confidence (regression guard)."""
+
+    def test_generate_content_detected(self, tmp_path):
+        code = textwrap.dedent("""\
+            import google.generativeai as genai
+            model = genai.GenerativeModel('gemini-pro')
+            response = model.generate_content("Hello")
+        """)
+        (tmp_path / "app.py").write_text(code)
+        result = scan_directory(tmp_path)
+        findings = [f for f in result.findings if "generate_content" in f.call]
+        assert findings, "generate_content call not detected"
+        assert findings[0].confidence == Confidence.HIGH
+
+    def test_generate_content_async_detected(self, tmp_path):
+        code = textwrap.dedent("""\
+            import google.generativeai as genai
+            model = genai.GenerativeModel('gemini-pro')
+            response = model.generate_content_async("Hello")
+        """)
+        (tmp_path / "app.py").write_text(code)
+        result = scan_directory(tmp_path)
+        findings = [f for f in result.findings if "generate_content_async" in f.call]
+        assert findings, "generate_content_async call not detected"
+        assert findings[0].confidence == Confidence.HIGH

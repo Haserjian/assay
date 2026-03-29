@@ -251,8 +251,8 @@ _HIGH_PATTERNS = [
     # Azure OpenAI
     ("chat_completions.create", "openai"),
     # Google Gemini
-    ("generate_content(", "google"),
-    ("generate_content_async(", "google"),
+    ("generate_content", "google"),
+    ("generate_content_async", "google"),
 ]
 
 # Medium confidence: framework calls (always match)
@@ -512,6 +512,10 @@ def scan_directory(
         ScanResult with all findings.
     """
     root = Path(root).resolve()
+    if not root.exists():
+        raise FileNotFoundError(f"scan target does not exist: {root}")
+    if not root.is_dir():
+        raise NotADirectoryError(f"scan target is not a directory: {root}")
     result = ScanResult()
 
     # Load .assayignore patterns
