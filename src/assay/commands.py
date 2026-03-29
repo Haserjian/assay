@@ -7344,6 +7344,392 @@ def ci_doctor_cmd(
     _render_doctor_report(report, strict)
 
 
+# ---------------------------------------------------------------------------
+# trust subcommands
+# ---------------------------------------------------------------------------
+
+trust_app = typer.Typer(
+    name="trust",
+    help="Bootstrap and manage trust policy for CI verification",
+    no_args_is_help=True,
+)
+assay_app.add_typer(trust_app, name="trust", rich_help_panel="Operate")
+
+
+# Action SHA for immutable pinning (assay-verify-action HEAD as of 2026-03-28)
+_ACTION_SHA = "40af9bd1a9587d11f65e16639e6d1a6231ef4808"
+
+_PROFILE_CONFIGS = {
+    "minimal": {
+        "description": "permissive",
+        "enforce_trust": False,
+        "unrecognized_decision": "accept",
+        "unrecognized_reason": "Signer not yet registered — add fingerprint to trust/signers.yaml",
+        "revoked_decision": "warn",
+        "revoked_reason": "Signer has been revoked",
+        "acceptance_header": (
+            "# Minimal profile: permissive posture.\n"
+            "# All signers accepted. Trust evaluation runs and reports\n"
+            "# in the PR comment, but nothing is blocked.\n"
+            "# Upgrade to --profile reviewer or --profile strict when ready."
+        ),
+        "signers_header": (
+            "# This file defines who is allowed to sign proof packs.\n"
+            "#\n"
+            "# To register your signer:\n"
+            "#   1. Run: assay key list\n"
+            "#   2. Find the SHA-256 fingerprint of your active key\n"
+            "#   3. Uncomment the example entry below and replace the placeholder\n"
+            "#   4. Commit and push — your next PR will show trust status"
+        ),
+        "posture_summary": (
+            "Trust posture: permissive\n"
+            "  - All signers: accepted (trust summary shown, nothing blocked)\n"
+            "  - Revoked signers: warned"
+        ),
+    },
+    "reviewer": {
+        "description": "advisory",
+        "enforce_trust": False,
+        "unrecognized_decision": "warn",
+        "unrecognized_reason": "Unknown signer — register fingerprint in trust/signers.yaml",
+        "revoked_decision": "reject",
+        "revoked_reason": "Signer has been revoked",
+        "acceptance_header": (
+            "# Reviewer profile: advisory posture.\n"
+            "# Trust evaluation runs and warns on unregistered signers.\n"
+            "# Pipeline does not fail — warnings appear in PR comments.\n"
+            "#\n"
+            "# Reviewer packet examples:\n"
+            "#   https://github.com/Haserjian/assay-proof-gallery (scenarios 05, 06)"
+        ),
+        "signers_header": (
+            "# This file defines who is allowed to sign proof packs.\n"
+            "# The reviewer profile expects you to register your CI signer\n"
+            "# before reviewer packets will show clean trust status.\n"
+            "#\n"
+            "# To register your signer:\n"
+            "#   1. Run: assay key list\n"
+            "#   2. Find the SHA-256 fingerprint of your active key\n"
+            "#   3. Uncomment the example entry below and replace the placeholder\n"
+            "#   4. Commit and push\n"
+            "#\n"
+            "# For reviewer packet examples, see:\n"
+            "#   Scenario 05 (buyer-facing):     https://github.com/Haserjian/assay-proof-gallery/tree/main/gallery/05-reviewer-packet-gaps\n"
+            "#   Scenario 06 (NAIC AISET):       https://github.com/Haserjian/assay-proof-gallery/tree/main/gallery/06-naic-aiset-mapping"
+        ),
+        "posture_summary": (
+            "Trust posture: advisory\n"
+            "  - Authorized signers: accepted\n"
+            "  - Unknown signers: warned (visible in PR, pipeline passes)\n"
+            "  - Revoked signers: rejected"
+        ),
+    },
+    "strict": {
+        "description": "enforced",
+        "enforce_trust": True,
+        "unrecognized_decision": "reject",
+        "unrecognized_reason": "Unknown signer — register fingerprint in trust/signers.yaml before pushing",
+        "revoked_decision": "reject",
+        "revoked_reason": "Signer has been revoked",
+        "acceptance_header": (
+            "# Strict profile: enforced posture.\n"
+            "# Unregistered signers are REJECTED. The CI pipeline will fail\n"
+            "# if a proof pack is signed by an unknown key.\n"
+            "#\n"
+            "# Make sure at least one signer is registered in signers.yaml\n"
+            "# before pushing proof packs."
+        ),
+        "signers_header": (
+            "# IMPORTANT: The strict profile enforces trust. Proof packs signed\n"
+            "# by unregistered signers will FAIL the CI pipeline.\n"
+            "#\n"
+            "# You MUST register at least one signer before the first PR,\n"
+            "# or the pipeline will reject all proof packs.\n"
+            "#\n"
+            "# To register your signer:\n"
+            "#   1. Run: assay key list\n"
+            "#   2. Find the SHA-256 fingerprint of your active key\n"
+            "#   3. Uncomment the example entry below and replace the placeholder\n"
+            "#   4. Commit trust/signers.yaml BEFORE pushing proof packs"
+        ),
+        "posture_summary": (
+            "Trust posture: enforced\n"
+            "  - Authorized signers: accepted\n"
+            "  - Unknown signers: REJECTED (pipeline fails)\n"
+            "  - Revoked signers: rejected\n"
+            "\n"
+            "  Register at least one signer BEFORE pushing proof packs,\n"
+            "  or the pipeline will reject all packs."
+        ),
+    },
+}
+
+
+def _build_signers_yaml(profile: str, cfg: dict) -> str:
+    return (
+        f"# Assay Trust Policy — Signer Registry\n"
+        f"# Generated by: assay trust bootstrap --profile {profile}\n"
+        f"#\n"
+        f"{cfg['signers_header']}\n"
+        f"\n"
+        f"version: 1\n"
+        f"\n"
+        f"signer_classes:\n"
+        f"  ci-org:\n"
+        f'    description: "Organization CI signer"\n'
+        f"    allowed_targets: [ci_gate, publication]\n"
+        f"  local-dev:\n"
+        f'    description: "Developer local key (not sufficient for CI gate)"\n'
+        f"    allowed_targets: [local_verify]\n"
+        f"    not_sufficient_for: [ci_gate, publication]\n"
+        f"\n"
+        f"signers: []\n"
+        f"# To add a signer, replace the empty list above with:\n"
+        f"# signers:\n"
+        f'#   - signer_id: "my-ci-signer"\n'
+        f'#     signer_class: "ci-org"\n'
+        f'#     fingerprint: "replace-with-output-of-assay-key-list"\n'
+        f'#     lifecycle: "active"\n'
+        f"#     grants:\n"
+        f'#       - artifact_class: "proof_pack"\n'
+        f'#         purpose: "*"\n'
+    )
+
+
+def _build_acceptance_yaml(profile: str, cfg: dict) -> str:
+    return (
+        f"# Assay Trust Policy — Acceptance Rules\n"
+        f"# Generated by: assay trust bootstrap --profile {profile}\n"
+        f"#\n"
+        f"# Rules are evaluated top-to-bottom, first match wins.\n"
+        f"#\n"
+        f"{cfg['acceptance_header']}\n"
+        f"\n"
+        f"rules:\n"
+        f"  # Accept authorized signers\n"
+        f'  - artifact_class: "proof_pack"\n'
+        f'    verification_level: "signature_verified"\n'
+        f'    authorization_status: "authorized"\n'
+        f'    target: "ci_gate"\n'
+        f'    decision: "accept"\n'
+        f'    reason: "Signed by authorized CI signer"\n'
+        f"\n"
+        f"  # Recognized but not-yet-authorized signers\n"
+        f'  - artifact_class: "proof_pack"\n'
+        f'    verification_level: "signature_verified"\n'
+        f'    authorization_status: "recognized"\n'
+        f'    target: "ci_gate"\n'
+        f'    decision: "warn"\n'
+        f'    reason: "Signer recognized but not authorized for ci_gate — check grants in signers.yaml"\n'
+        f"\n"
+        f"  # Unrecognized signers\n"
+        f'  - artifact_class: "*"\n'
+        f'    verification_level: "*"\n'
+        f'    authorization_status: "unrecognized"\n'
+        f'    target: "ci_gate"\n'
+        f'    decision: "{cfg["unrecognized_decision"]}"\n'
+        f'    reason: "{cfg["unrecognized_reason"]}"\n'
+        f"\n"
+        f"  # Revoked signers\n"
+        f'  - artifact_class: "*"\n'
+        f'    verification_level: "*"\n'
+        f'    authorization_status: "revoked"\n'
+        f'    target: "*"\n'
+        f'    decision: "{cfg["revoked_decision"]}"\n'
+        f'    reason: "{cfg["revoked_reason"]}"\n'
+    )
+
+
+def _build_trust_readme(profile: str) -> str:
+    return (
+        "# Trust Policy\n"
+        "\n"
+        "This directory contains the signer registry and acceptance rules\n"
+        "for Assay proof pack verification in CI.\n"
+        "\n"
+        "## Quick start\n"
+        "\n"
+        "1. Find your signer fingerprint:\n"
+        "   ```\n"
+        "   assay key list\n"
+        "   ```\n"
+        "\n"
+        "2. Add the fingerprint to `signers.yaml` under `signers:`\n"
+        "   (replace the commented placeholder)\n"
+        "\n"
+        "3. Commit and push. Trust evaluation appears in the next PR comment.\n"
+        "\n"
+        "## Files\n"
+        "\n"
+        "| File | Purpose |\n"
+        "|------|---------|\n"
+        "| `signers.yaml` | Who is allowed to sign proof packs |\n"
+        "| `acceptance.yaml` | What decisions apply per signer status and target |\n"
+        "\n"
+        "## Verification levels\n"
+        "\n"
+        "| Level | Meaning |\n"
+        "|-------|---------|\n"
+        "| `signature_verified` | Ed25519 signature valid, signer fingerprint extracted |\n"
+        "| `hash_verified` | File hashes match manifest, no signature check |\n"
+        "| `unverified` | No verification performed |\n"
+        "\n"
+        "## Reviewer packet examples\n"
+        "\n"
+        "- [Scenario 05: reviewer-packet-gaps](https://github.com/Haserjian/assay-proof-gallery/tree/main/gallery/05-reviewer-packet-gaps) — buyer-facing\n"
+        "- [Scenario 06: naic-aiset-mapping](https://github.com/Haserjian/assay-proof-gallery/tree/main/gallery/06-naic-aiset-mapping) — compliance/regulatory\n"
+        "\n"
+        "## Upgrading trust posture\n"
+        "\n"
+        "| From | To | Change |\n"
+        "|------|----|--------|\n"
+        f"| minimal | reviewer | Edit `acceptance.yaml`: change `unrecognized` decision from `accept` to `warn` |\n"
+        f"| reviewer | strict | Edit workflow: add `enforce-trust: true`. Edit `acceptance.yaml`: change `unrecognized` from `warn` to `reject` |\n"
+    )
+
+
+def _build_workflow_yaml(profile: str, cfg: dict) -> str:
+    from assay import __version__
+
+    enforce_line = ""
+    if cfg["enforce_trust"]:
+        enforce_line = "\n          enforce-trust: true"
+
+    # CI annotation type maps to profile posture
+    annotation_map = {
+        "minimal": "notice",
+        "reviewer": "warning",
+        "strict": "error",
+    }
+    ann_type = annotation_map[profile]
+    ann_msg = {
+        "minimal": "Trust bootstrap active (permissive). Register your signer in trust/signers.yaml for authorization.",
+        "reviewer": "Trust bootstrap active (advisory). Unregistered signers will produce warnings. Register in trust/signers.yaml.",
+        "strict": "Trust bootstrap active (enforced). Unregistered signers will FAIL. Ensure trust/signers.yaml has your signer.",
+    }
+
+    return f"""# Assay Verify — generated by: assay trust bootstrap --profile {profile}
+#
+# Trust posture: {cfg['description']}
+# Action pinned to immutable commit SHA for supply-chain safety.
+
+name: Assay Verify
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  assay-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Trust posture annotation
+        run: echo "::{ann_type}::{ann_msg[profile]}"
+
+      - name: Verify Proof Packs
+        uses: Haserjian/assay-verify-action@{_ACTION_SHA}
+        with:
+          pack-path: "proof_pack_*/"
+          require-pack: true
+          require-claim-pass: true
+          comment-on-pr: true
+          trust-target: ci_gate
+          trust-policy-dir: trust/{enforce_line}
+          assay-version: "{__version__}"
+"""
+
+
+@trust_app.command("bootstrap")
+def trust_bootstrap_cmd(
+    profile: str = typer.Option("minimal", "--profile", "-p", help="Trust profile: minimal, reviewer, strict"),
+    output_dir: str = typer.Option(".", "--output-dir", "-o", help="Root directory for emitted files"),
+    force: bool = typer.Option(False, "--force", help="Overwrite existing trust/ directory"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be written without writing"),
+):
+    """Bootstrap trust policy files and CI workflow for proof pack verification."""
+    from pathlib import Path
+
+    profile = profile.strip().lower()
+    if profile not in _PROFILE_CONFIGS:
+        console.print(f"[red]Error:[/] Unknown profile '{profile}'. Choose: minimal, reviewer, strict")
+        raise typer.Exit(1)
+
+    cfg = _PROFILE_CONFIGS[profile]
+    root = Path(output_dir).resolve()
+    trust_dir = root / "trust"
+    workflow_path = root / ".github" / "workflows" / "assay-verify.yml"
+
+    files = {
+        trust_dir / "signers.yaml": _build_signers_yaml(profile, cfg),
+        trust_dir / "acceptance.yaml": _build_acceptance_yaml(profile, cfg),
+        trust_dir / "README.md": _build_trust_readme(profile),
+        workflow_path: _build_workflow_yaml(profile, cfg),
+    }
+
+    # Check for existing files — refuse to overwrite any target without --force
+    if not force and not dry_run:
+        existing = [p for p in files if p.exists()]
+        if existing:
+            rel_paths = [str(p.relative_to(root)) if p.is_relative_to(root) else str(p) for p in existing]
+            console.print(f"[red]Error:[/] Existing files would be overwritten:")
+            for rp in rel_paths:
+                console.print(f"  {rp}")
+            console.print("Use --force to overwrite.")
+            raise typer.Exit(1)
+
+    if dry_run:
+        console.print(f"\n[bold]Assay Trust Bootstrap[/] ({profile} profile) — dry run\n")
+        for path, content in files.items():
+            rel = path.relative_to(root) if path.is_relative_to(root) else path
+            console.print(f"  Would write: [bold]{rel}[/]")
+        console.print()
+        return
+
+    # Write files
+    for path, content in files.items():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+
+    # Print summary
+    console.print()
+    console.print(Panel.fit(
+        f"[bold green]Assay Trust Bootstrap[/] ({profile} profile)\n\n"
+        f"Writing files:\n"
+        f"  trust/signers.yaml              signer registry (placeholder — register your key)\n"
+        f"  trust/acceptance.yaml           acceptance rules ({cfg['description']} mode)\n"
+        f"  trust/README.md                 setup guide + gallery links\n"
+        f"  .github/workflows/assay-verify.yml   CI workflow with trust evaluation\n\n"
+        f"{cfg['posture_summary']}",
+        title="assay trust bootstrap",
+    ))
+    console.print()
+    console.print("Next steps:")
+    console.print("  1. Run: [bold]assay key list[/]")
+    console.print("  2. Copy your fingerprint into [bold]trust/signers.yaml[/] (replace the placeholder)")
+    console.print("  3. Commit and push")
+    console.print("  4. Open a PR with a proof pack — trust evaluation appears in the PR comment")
+    if profile == "reviewer":
+        console.print()
+        console.print("Reviewer packet examples:")
+        console.print("  https://github.com/Haserjian/assay-proof-gallery")
+        console.print("  Scenario 05: reviewer-packet-gaps (buyer-facing)")
+        console.print("  Scenario 06: naic-aiset-mapping (compliance/regulatory)")
+    if profile == "strict":
+        console.print()
+        console.print("[yellow]Warning:[/] Strict profile enforces trust.")
+        console.print("  Register at least one signer BEFORE pushing proof packs.")
+    console.print()
+
+
 @assay_app.command("onboard", rich_help_panel="Operate", hidden=True)
 def onboard_cmd(
     path: str = typer.Argument(".", help="Project directory to onboard"),
