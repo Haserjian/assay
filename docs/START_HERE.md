@@ -99,6 +99,12 @@ git push
 
 Open a PR and you'll see all three checks in your GitHub status checks.
 
+## What changes after this is running
+
+- **PRs that weaken evidence coverage are blocked.** The gate tells you exactly which call sites regressed and why.
+- **Every merge produces a signed proof pack.** Stored in your artifact store, verifiable offline by anyone with the public key.
+- **Drift is caught mechanically.** If someone swaps the judge model, changes the temperature, or removes instrumentation, the gate fires before the PR merges — not after the audit.
+
 ## What's next
 
 - `assay explain ./proof_pack_*/` -- plain-English summary of any evidence pack

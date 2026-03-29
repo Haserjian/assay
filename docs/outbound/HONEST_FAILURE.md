@@ -56,6 +56,21 @@ the system denied an invalid claim, and here is the signed evidence.
 Honest failure is not a bug. It is the proof that the governance
 layer is working.
 
+## What changes after you install this
+
+**Week 1:** Every governed operation produces a signed evidence pack.
+When something violates the contract, you get a named denial with
+the exact field that drifted — not a vague red light.
+
+**Week 2:** Your team stops relitigating whether the process was
+followed. The contract answers that question mechanically. Violations
+get DENIED with a receipt. Clean runs get SATISFIED. No judgment calls.
+
+**Week 4:** When someone asks "how do you know your governance works?",
+you show them the denials you caught and fixed — and the signed
+artifacts that prove the fix held. That is stronger evidence than
+a dashboard that always says green.
+
 ## Where you see it
 
 - `assay verify-pack` returns exit 1 when evidence is authentic but claims fail

@@ -8,12 +8,12 @@ It proves what can be responsibly claimed about the artifact, not the truth of e
 
 ## What are you trying to do?
 
-| Question | Start here |
-|----------|-----------|
-| Did two eval runs use the same judge? | [`assay compare` → eval comparability quickstart](docs/outbound/TRY_YOUR_DATA.md) |
-| Instrument an AI workflow for evidence going forward | `scan → patch → run → verify` below |
-| Receiving a proof pack to audit or verify | [Browser verifier](https://haserjian.github.io/assay-proof-gallery/verify.html) + [for-compliance.md](docs/for-compliance.md) |
-| Security/legal asked "prove what your AI did" | [Pilot program](docs/PILOT_PROGRAM.md) |
+| Your question | Start here |
+|---------------|-----------|
+| **Where are we calling LLMs?** Find uninstrumented AI call sites. | `pip install assay-ai && assay scan . --report` |
+| **Did two eval runs use the same judge?** Check comparability before claiming a delta. | [`assay compare` quickstart](docs/outbound/TRY_YOUR_DATA.md) |
+| **Need auditable evidence for AI behavior in production?** Signed proof packs, CI enforcement, offline verification. | [Start here](docs/START_HERE.md) (self-serve) or [pilot program](docs/PILOT_PROGRAM.md) (guided) |
+| **Verify a proof pack someone sent you.** | [Browser verifier](https://haserjian.github.io/assay-proof-gallery/verify.html) — no install, no account |
 
 > **Note:** Assay instruments AI workflows to produce evidence **going forward**.
 > Existing runs without Assay instrumentation do not have Assay-backed evidence.

@@ -141,4 +141,4 @@ shape and you'd like to discuss integration, open an issue or reach out.
 - **Write your own contract:** The v1 contract is a starting point. You can define your own parity fields, match rules, and severity levels for your domain
 - **Inspect evidence packets:** See [gallery scenarios 05 and 06](https://github.com/Haserjian/assay-proof-gallery) for reviewer-facing evidence
 - **Verify in browser:** Use the [zero-install verifier](https://haserjian.github.io/assay-proof-gallery/verify.html) on any proof pack
-- **Want us to do it?** We'll run the diagnostic on your eval data and install the full evidence gate. [Pilot details](../PILOT_PROGRAM.md)
+- **Want this rigor across production AI workflows too?** `assay compare` is the self-serve eval comparability tool. The [pilot program](../PILOT_PROGRAM.md) applies the same evidence discipline to production AI call sites — scan, patch, gate, verify.
