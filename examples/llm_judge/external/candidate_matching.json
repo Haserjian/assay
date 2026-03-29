@@ -1,0 +1,20 @@
+{
+  "label": "helpfulness eval — candidate (March 22, pinned config)",
+  "fields": {
+    "judge_model": "gpt-4o",
+    "judge_model_version": "gpt-4o-2024-08-06",
+    "judge_prompt_template": "Given the user question and the assistant response, rate helpfulness on a scale of 1-5.\n\nUser question: {question}\nAssistant response: {response}\n\nScore (1-5):",
+    "judge_system_prompt": "You are an expert evaluator assessing AI assistant responses.",
+    "scoring_rubric": "1=not helpful, 2=slightly helpful, 3=somewhat helpful, 4=helpful, 5=very helpful",
+    "score_type": "likert",
+    "score_range": "1-5",
+    "judge_temperature": 0.0,
+    "judge_max_tokens": 256,
+    "judge_top_p": 1.0,
+    "judge_passes": 1,
+    "eval_dataset": "internal-helpfulness-v2",
+    "eval_dataset_version": "2024-03-01",
+    "presentation_order": "fixed",
+    "input_format": "question-response-pair"
+  }
+}
