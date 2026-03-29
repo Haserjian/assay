@@ -28,6 +28,7 @@ from assay.integrity import (
     E_PACK_OMISSION_DETECTED,
     E_PACK_SIG_INVALID,
     E_PACK_STALE,
+    E_TIMESTAMP_INVALID,
     verify_pack_manifest,
 )
 from assay.keystore import AssayKeyStore
@@ -223,6 +224,60 @@ class TestA5StaleEvidenceReplay:
         result = _verify(pack_dir, ks, max_age_hours=24)
         assert not result.passed
         assert any(e.code == E_PACK_STALE for e in result.errors)
+
+
+# ---------------------------------------------------------------------------
+# A5b: Future-dated evidence -- complicit signer embeds future timestamps
+# ---------------------------------------------------------------------------
+
+class TestA5bFutureTimestampRejection:
+    """Complicit signer embeds receipts dated far in the future.
+
+    Without a future-timestamp bound, an attacker can pre-date evidence
+    to appear more recent than it is, or create receipts with timestamps
+    that haven't occurred yet. The default max_future_hours=24 should
+    catch anything >24h ahead.
+    """
+
+    def test_future_timestamp_rejected_by_default(self, tmp_path, ks):
+        """Pack with attestation 48h in the future should fail."""
+        future_time = (datetime.now(timezone.utc) + timedelta(hours=48)).isoformat()
+        receipts = [
+            _receipt(seq=i, receipt_id=f"r_future_{i}", timestamp=future_time)
+            for i in range(3)
+        ]
+        pack_dir = _build_pack(tmp_path, ks, receipts)
+
+        # Default max_future_hours=24, pack is 48h in the future
+        result = _verify(pack_dir, ks)
+        assert not result.passed
+        assert any(e.code == E_TIMESTAMP_INVALID for e in result.errors)
+
+    def test_near_future_timestamp_accepted(self, tmp_path, ks):
+        """Pack with attestation 1h in the future should pass (within 24h tolerance)."""
+        near_future = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+        receipts = [
+            _receipt(seq=i, receipt_id=f"r_nearfut_{i}", timestamp=near_future)
+            for i in range(3)
+        ]
+        pack_dir = _build_pack(tmp_path, ks, receipts)
+
+        result = _verify(pack_dir, ks)
+        assert result.passed, f"Near-future pack should pass: {[e.message for e in result.errors]}"
+
+    def test_future_guard_disabled_with_zero(self, tmp_path, ks):
+        """max_future_hours=0 disables the guard."""
+        future_time = (datetime.now(timezone.utc) + timedelta(hours=48)).isoformat()
+        receipts = [
+            _receipt(seq=i, receipt_id=f"r_nofut_{i}", timestamp=future_time)
+            for i in range(3)
+        ]
+        pack_dir = _build_pack(tmp_path, ks, receipts)
+
+        result = _verify(pack_dir, ks, max_future_hours=0)
+        # With guard disabled, the future timestamp alone shouldn't cause failure
+        future_errors = [e for e in result.errors if "future" in e.message.lower()]
+        assert len(future_errors) == 0
 
 
 # ---------------------------------------------------------------------------

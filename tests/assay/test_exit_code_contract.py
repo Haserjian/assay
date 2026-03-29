@@ -476,3 +476,68 @@ class TestFreshnessGateCLI:
         payload = json.loads(result.output)
         assert payload["status"] == "error"
         assert "--max-age-hours must be > 0" in payload["error"]
+
+
+# ---------------------------------------------------------------------------
+# P1b: Signer-not-pinned warning when --lock is absent
+# ---------------------------------------------------------------------------
+
+class TestSignerNotPinnedWarning:
+    """When verification passes without --lock, warn that signer identity
+    is not pinned. This prevents operators from treating 'VERIFIED' as
+    meaning 'trusted signer' when it only means 'valid signature math'."""
+
+    def test_unlocked_pass_emits_warning_in_terminal(self, tmp_path):
+        pack_dir, _ks = _build_pack(tmp_path)
+        result = runner.invoke(assay_app, ["verify-pack", str(pack_dir)])
+        assert result.exit_code == 0, result.output
+        # Terminal output may wrap long lines; normalize whitespace for matching
+        flat_output = " ".join(result.output.split())
+        assert "signer identity not pinned" in flat_output
+
+    def test_unlocked_pass_emits_warning_in_json(self, tmp_path):
+        pack_dir, _ks = _build_pack(tmp_path)
+        result = runner.invoke(assay_app, ["verify-pack", str(pack_dir), "--json"])
+        assert result.exit_code == 0, result.output
+        payload = json.loads(result.output)
+        warnings = payload.get("warnings", [])
+        assert any("signer identity not pinned" in w for w in warnings), \
+            f"Expected signer-not-pinned warning in {warnings}"
+
+    def test_locked_pass_does_not_emit_warning(self, tmp_path):
+        """When --lock is used and passes, no signer-not-pinned warning."""
+        pack_dir, ks = _build_pack(tmp_path)
+        manifest = json.loads((pack_dir / "pack_manifest.json").read_text())
+
+        # Build a lockfile that matches this pack's claim_set_hash and signer
+        lock_data = {
+            "lock_version": "1.0",
+            "assay_version_min": "0.0.1",
+            "assay_version_max": "99.0.0",
+            "pack_format_version": manifest.get("pack_format_version", "0.1.0"),
+            "receipt_schema_version": "3.0",
+            "run_cards": [],
+            "run_cards_composite_hash": manifest.get("claim_set_hash", ""),
+            "claim_set_hash": manifest.get("claim_set_hash", ""),
+            "exit_contract": {
+                "0": "integrity_pass AND claims_pass",
+                "1": "integrity_pass AND claims_fail",
+                "2": "integrity_fail",
+            },
+            "signer_policy": {
+                "mode": "allowlist",
+                "allowed_fingerprints": [manifest["signer_pubkey_sha256"]],
+            },
+        }
+        lock_path = tmp_path / "assay.lock"
+        lock_path.write_text(json.dumps(lock_data, indent=2))
+
+        result = runner.invoke(
+            assay_app,
+            ["verify-pack", str(pack_dir), "--lock", str(lock_path), "--json"],
+        )
+        assert result.exit_code == 0, result.output
+        payload = json.loads(result.output)
+        warnings = payload.get("warnings", [])
+        assert not any("signer identity not pinned" in w for w in warnings), \
+            f"Should NOT have signer-not-pinned warning when locked: {warnings}"

@@ -161,9 +161,34 @@ class TestMatchRules:
         h = content_hash("hello world\n")
         assert apply_rule("content_hash", h, h) is True
 
-    def test_content_hash_precomputed_vs_raw(self):
+    def test_content_hash_mixed_mode_rejected(self):
+        """Mixed raw/hash representation must NEVER satisfy — prevents spoofing."""
         h = content_hash("hello world")
-        assert apply_rule("content_hash", h, "hello world") is True
+        # Attacker supplies pre-hash of baseline content; candidate is raw
+        assert apply_rule("content_hash", h, "hello world") is False
+        # Reverse direction: raw baseline, pre-hash candidate
+        assert apply_rule("content_hash", "hello world", h) is False
+
+    def test_content_hash_attacker_prehash_spoof(self):
+        """Attacker pre-computes hash of baseline prompt and injects it."""
+        baseline_prompt = "You are a careful, strict judge..."
+        attacker_value = content_hash(baseline_prompt)
+        # This is the exact attack: candidate presents the hash, not the content
+        assert apply_rule("content_hash", baseline_prompt, attacker_value) is False
+        assert apply_rule("content_hash", attacker_value, baseline_prompt) is False
+
+    def test_content_hash_same_representation_still_works(self):
+        """Both raw or both hash still compare correctly."""
+        # raw vs raw: identical
+        assert apply_rule("content_hash", "same content", "same content") is True
+        # raw vs raw: different
+        assert apply_rule("content_hash", "content A", "content B") is False
+        # hash vs hash: identical
+        h = content_hash("test")
+        assert apply_rule("content_hash", h, h) is True
+        # hash vs hash: different
+        h2 = content_hash("other")
+        assert apply_rule("content_hash", h, h2) is False
 
     def test_version_match(self):
         assert apply_rule("version_match", "1.2.3", "1.2.3") is True

@@ -2745,6 +2745,16 @@ def verify_pack_cmd(
     elif witness_failed:
         overall_status = "witness_failed"
 
+    # --- Signer identity warning (P1b: trust-boundary clarity) ---
+    # Verification can confirm cryptographic validity without establishing
+    # signer identity. When --lock is not used, the signer's public key is
+    # not pinned — a substitute key would also verify. Surface this clearly.
+    if result.passed and not lock:
+        result.warnings.append(
+            "Signature valid for supplied key material; signer identity not pinned. "
+            "Use --lock for trust-anchored verification."
+        )
+
     # --- Trust evaluation (advisory only — does not affect exit codes) ---
     trust_eval = None
     trust_load_errors: list[str] = []
@@ -3409,7 +3419,7 @@ def witness_cmd(
     pack_dir: str = typer.Argument(..., help="Path to Proof Pack directory"),
     witness_type: str = typer.Option(
         "rfc3161", "--type", "-t",
-        help="Witness provider type: rfc3161 (default) or rekor.",
+        help="Witness provider type: rfc3161 (default) or rekor (not yet implemented).",
     ),
     tsa_url: str = typer.Option(
         "https://freetsa.org/tsr", "--tsa-url",

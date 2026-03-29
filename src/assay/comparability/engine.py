@@ -23,6 +23,7 @@ from assay.comparability.bundle import EvidenceBundle
 from assay.comparability.contract import ComparabilityContract, ParityField
 from assay.comparability.match_rules import apply_rule
 from assay.comparability.types import (
+    FieldRequirement,
     BundleCompleteness,
     ClaimStatus,
     ClaimUnderTest,
@@ -146,9 +147,12 @@ def evaluate(
         candidate_missing = not candidate.has(pf.field)
 
         if baseline_missing or candidate_missing:
-            missing_fields.append(pf.field)
-            if pf.group == ParityFieldGroup.INSTRUMENT_IDENTITY:
-                missing_instrument_fields.append(pf.field)
+            # OPTIONAL fields that are absent should not drive UNDETERMINED.
+            # Only REQUIRED fields count as "missing" for verdict purposes.
+            if pf.requirement == FieldRequirement.REQUIRED:
+                missing_fields.append(pf.field)
+                if pf.group == ParityFieldGroup.INSTRUMENT_IDENTITY:
+                    missing_instrument_fields.append(pf.field)
             continue
 
         # Apply match rule

@@ -21,16 +21,28 @@ from assay.comparability.canonicalize import content_hash
 # ---------------------------------------------------------------------------
 
 def _exact(a: Any, b: Any, **kwargs: Any) -> bool:
-    """Values must be identical."""
+    """Values must be identical (value AND type).
+
+    Python's ``True == 1`` is True, but for parity comparison
+    a boolean and an integer are semantically different field values.
+    """
+    if type(a) is not type(b):
+        return False
     return a == b
 
 
 def _content_hash_match(a: Any, b: Any, **kwargs: Any) -> bool:
     """SHA-256 of canonicalized content must match.
 
-    Accepts raw content strings or pre-computed "sha256:<hex>" hashes.
-    If both values look like hashes (start with "sha256:"), compare directly.
-    Otherwise, canonicalize and hash both.
+    Both sides must use the same representation:
+      - Both raw content  → canonicalize and hash both, then compare.
+      - Both pre-computed "sha256:<hex>" → compare digests directly.
+      - Mixed (one raw, one pre-hash) → always returns False.
+
+    Mixed-mode rejection prevents an attacker from substituting a
+    pre-computed hash of baseline content into a candidate bundle,
+    which would falsely satisfy the parity check without presenting
+    the same underlying content.
     """
     a_str = str(a)
     b_str = str(b)
@@ -38,14 +50,16 @@ def _content_hash_match(a: Any, b: Any, **kwargs: Any) -> bool:
     a_is_hash = a_str.startswith("sha256:")
     b_is_hash = b_str.startswith("sha256:")
 
+    if a_is_hash != b_is_hash:
+        # Mixed representation: one raw, one pre-hash.
+        # Reject — cannot safely compare across representation modes.
+        return False
+
     if a_is_hash and b_is_hash:
         return a_str == b_str
 
-    # Compute hashes for non-hash values
-    a_hash = a_str if a_is_hash else content_hash(a_str)
-    b_hash = b_str if b_is_hash else content_hash(b_str)
-
-    return a_hash == b_hash
+    # Both raw: canonicalize and hash both sides
+    return content_hash(a_str) == content_hash(b_str)
 
 
 def _version_match(a: Any, b: Any, **kwargs: Any) -> bool:
@@ -62,11 +76,12 @@ def _within_threshold(a: Any, b: Any, **kwargs: Any) -> bool:
     """Numeric value must be within declared tolerance.
 
     Requires 'threshold' in kwargs. Computes absolute difference.
+    Fallback (no threshold) uses type-aware exact match.
     """
     threshold = kwargs.get("threshold")
     if threshold is None:
-        # No threshold declared — fall back to exact match
-        return a == b
+        # No threshold declared — fall back to exact match (with type guard)
+        return type(a) is type(b) and a == b
     try:
         return abs(float(a) - float(b)) <= float(threshold)
     except (TypeError, ValueError):

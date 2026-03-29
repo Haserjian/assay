@@ -218,6 +218,7 @@ def verify_pack_manifest(
     keystore: Any,
     *,
     max_age_hours: Optional[float] = None,
+    max_future_hours: float = 24.0,
     now: Optional[datetime] = None,
     require_ci_binding: bool = False,
     expected_commit_sha: Optional[str] = None,
@@ -593,6 +594,29 @@ def verify_pack_manifest(
                     message=(
                         f"Pack is stale: age {age_hours:.2f}h exceeds "
                         f"max_age_hours {max_age_hours:.2f}h"
+                    ),
+                    field="timestamp_end",
+                ))
+
+    # 5b. Future-timestamp guard (default: 24h tolerance)
+    # A complicit signer can embed arbitrarily future-dated receipts.
+    # Reject packs whose attestation timestamp is unreasonably far in the future.
+    if max_future_hours > 0:
+        att_ts_future = attestation.get("timestamp_end") or attestation.get("timestamp_start")
+        parsed_future = _parse_timestamp(str(att_ts_future)) if att_ts_future else None
+        if parsed_future is not None:
+            if parsed_future.tzinfo is None:
+                parsed_future = parsed_future.replace(tzinfo=timezone.utc)
+            future_now = now or datetime.now(timezone.utc)
+            if future_now.tzinfo is None:
+                future_now = future_now.replace(tzinfo=timezone.utc)
+            future_delta_hours = (parsed_future - future_now).total_seconds() / 3600.0
+            if future_delta_hours > max_future_hours:
+                errors.append(VerifyError(
+                    code=E_TIMESTAMP_INVALID,
+                    message=(
+                        f"Pack timestamp is {future_delta_hours:.2f}h in the future "
+                        f"(max_future_hours={max_future_hours:.2f}h)"
                     ),
                     field="timestamp_end",
                 ))

@@ -385,9 +385,10 @@ class TestVerifierBudget:
 
         source_path = Path(mod.__file__)
         line_count = len(source_path.read_text().splitlines())
-        assert line_count <= 670, (
-            f"integrity.py is {line_count} LOC (limit: 670). "
-            f"Stage tracing is budgeted; other growth should push helpers outward."
+        assert line_count <= 690, (
+            f"integrity.py is {line_count} LOC (limit: 690). "
+            f"Stage tracing + future-timestamp guard (P3a) are budgeted; "
+            f"other growth should push helpers outward."
         )
 
 
