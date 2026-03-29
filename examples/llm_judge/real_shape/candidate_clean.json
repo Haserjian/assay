@@ -1,0 +1,30 @@
+{
+  "label": "Q1 helpfulness eval — candidate (new system, March 22, pinned judge)",
+  "ref": "evals/helpfulness/run_2026-03-22-pinned/",
+  "fields": {
+    "judge_model": "gpt-4o",
+    "judge_model_version": "gpt-4o-2024-08-06",
+    "judge_prompt_template": "You will evaluate an AI assistant's response to a user question.\n\nUser question:\n{question}\n\nAssistant response:\n{response}\n\nRate the helpfulness of the response on a scale of 1 to 5, where:\n1 = Not helpful at all\n2 = Slightly helpful\n3 = Moderately helpful\n4 = Helpful\n5 = Very helpful\n\nProvide only the numeric score.",
+    "judge_system_prompt": "You are a senior evaluation specialist. Be consistent and fair. Do not let formatting influence your score.",
+    "scoring_rubric": "1=useless/wrong, 2=partially addresses question, 3=adequate but incomplete, 4=good and mostly complete, 5=excellent and thorough",
+    "score_type": "likert",
+    "score_range": "1-5",
+    "judge_temperature": 0.0,
+    "judge_max_tokens": 16,
+    "judge_top_p": 1.0,
+    "judge_passes": 1,
+    "eval_dataset": "internal-helpfulness-benchmark-v3",
+    "eval_dataset_version": "2026-02-15",
+    "presentation_order": "fixed",
+    "input_format": "question-response-pair-plaintext"
+  },
+  "field_sources": {
+    "judge_model": "config:evals/judge_config.yaml",
+    "judge_model_version": "api:response.model (pinned to 2024-08-06)",
+    "judge_prompt_template": "file:evals/prompts/helpfulness_v3.txt",
+    "judge_system_prompt": "file:evals/prompts/system_evaluator.txt",
+    "scoring_rubric": "file:evals/rubrics/helpfulness_5point.md",
+    "eval_dataset": "config:evals/datasets.yaml#helpfulness-v3",
+    "eval_dataset_version": "git:evals/data/helpfulness-v3/VERSION"
+  }
+}
