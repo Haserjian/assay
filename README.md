@@ -62,6 +62,14 @@ producing something another team can verify.
 > Assay is not a logging framework. It produces signed evidence bundles
 > that a third party can verify offline.
 
+> **Self-scan note:** Running `assay score .` on this repo returns a low
+> score. That is expected — Assay instruments AI workflows, not itself.
+> This repo is the instrument, not the subject. Run `assay scan` on
+> your code to see what it finds.
+
+**Adversarial testing:** 16 deterministic tampering attacks, all caught,
+zero false passes. [Full report](docs/TRUST_UNDER_ATTACK.md).
+
 For the ecosystem map, see [docs/REPO_MAP.md](docs/REPO_MAP.md).
 
 <details>
