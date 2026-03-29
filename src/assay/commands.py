@@ -8854,12 +8854,25 @@ def quickstart_cmd(
         _print(f"  Then re-run: [bold]{scan_cmd}[/]")
         results["next_steps"] = [f"Install SDK: python3 -m pip install 'assay-ai[openai]'", f"Re-scan: {scan_cmd}"]
     else:
-        next_steps.insert(0, f"View gap report:      {scan_cmd}")
-        _print("[bold]Next steps:[/]")
+        # Separate demo (synthetic) steps from real-project steps
+        demo_step_prefixes = ("Verify good pack", "Verify tampered pack")
+        demo_steps = [s for s in next_steps if s.lstrip().startswith(demo_step_prefixes)]
+        real_steps_raw = [s for s in next_steps if not s.lstrip().startswith(demo_step_prefixes)]
+        real_steps_raw.insert(0, f"View gap report:      {scan_cmd}")
+
+        if demo_steps:
+            _print("[bold]Demo packs (synthetic — for learning the verifier):[/]")
+            _print()
+            for i, step in enumerate(demo_steps, 1):
+                _print(f"  {i}. {step}")
+            _print()
+
+        _print("[bold]Your project (real instrumentation):[/]")
         _print()
-        for i, step in enumerate(next_steps, 1):
+        for i, step in enumerate(real_steps_raw, 1):
             _print(f"  {i}. {step}")
-        results["next_steps"] = next_steps
+
+        results["next_steps"] = demo_steps + real_steps_raw
     _print()
 
     if output_json:

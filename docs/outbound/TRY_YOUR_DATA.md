@@ -7,6 +7,13 @@ whether two runs are structurally comparable before claiming a delta.
 already tracks judge config in structured form. Longer if you need
 to extract the 15 parity fields manually from your setup.
 
+**Using Braintrust, LangSmith, or a similar eval platform?** Most fields
+map directly from your experiment metadata. The two that commonly need manual
+lookup: `judge_model_version` (use the pinned version from your provider API,
+not the alias — e.g. `gpt-4o-2024-08-06`, not `gpt-4o`) and
+`eval_dataset_version` (use whatever version string your dataset system exposes).
+Framework adapters don't exist yet — you'll declare the fields manually.
+
 ---
 
 ## Prerequisites
@@ -21,8 +28,17 @@ conditions under which each run was produced. These are called
 
 ## Evidence bundle format
 
-Each bundle is a JSON file with a `fields` object containing the
-declared conditions of your evaluation run:
+**Scaffold a template first (recommended):**
+
+```bash
+assay bundle init -c contracts/judge-comparability-v1.yaml
+```
+
+This creates `evidence_bundle.json` with all 15 fields stubbed to `null` and
+`TODO` placeholders. Fill in the values from your eval config. Faster than
+writing it by hand.
+
+**Or write it manually:** Each bundle is a JSON file with a `fields` object:
 
 ```json
 {

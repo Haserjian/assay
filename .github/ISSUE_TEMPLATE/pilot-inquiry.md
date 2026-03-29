@@ -17,7 +17,8 @@ assignees: Haserjian
 
 
 **Approximate number of LLM call sites:**
-<!-- If you've run `assay scan .`, paste the summary output here -- it helps us scope faster. -->
+<!-- If you've run `assay scan .`, paste the summary output here -- it helps us scope faster.
+     If you don't have CLI access yet, write "TBD — will run during scoping call." -->
 
 
 **Current compliance requirements:**
@@ -48,3 +49,8 @@ assignees: Haserjian
 
 **Anything else?**
 
+
+---
+
+**What happens next:** You'll get a response within 2 business days.
+If you prefer email, reach out directly at the contact in [PILOT_PROGRAM.md](../../docs/PILOT_PROGRAM.md).
