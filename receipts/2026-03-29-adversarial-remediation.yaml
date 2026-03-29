@@ -1,0 +1,238 @@
+mode: checkpoint
+verdict: partial
+
+scope_boundary: >
+  Adversarial simulation remediation across assay-toolkit, assay-verify-ts,
+  assay-proof-gallery, and assay-ledger. Two rounds: (1) security code fixes
+  from initial red-team report, (2) trust-surface fixes from novel sim suite.
+
+authority_boundary: >
+  PyPI live state not confirmed. Gallery browser demo not tested in browser.
+  CI workflow logs not inspected beyond PR #2 checks. loom/ccio out of scope.
+  F6 (verifier_version stamps), F3 (agent-demo version), F7 (protocol RC),
+  F8 (JCS SD-1 surfacing) remain deferred.
+
+not_checked:
+  - PyPI live package state
+  - Gallery in-browser rendering
+  - F6 verifier_version stamps in gallery manifests (still 1.15.1/1.16.0)
+  - F3 assay-agent-demo hardcoded version label
+  - F7 assay-protocol RC disclosure at entry points
+  - F8 JCS SD-1 deviation cross-repo surfacing
+  - assay-ledger branch protection validate check (bypassed twice, governance debt)
+
+claims:
+  - text: "P0 content hash mixed-mode spoof is closed"
+    type: completion
+    status: confirmed
+    basis: test_output
+    supporting_artifacts:
+      - "src/assay/comparability/match_rules.py — mixed representation returns False"
+    verification_artifacts:
+      - "pytest test_comparability.py: test_content_hash_mixed_mode_rejected PASSED"
+      - "pytest test_comparability.py: test_content_hash_attacker_prehash_spoof PASSED"
+    scope: "comparability engine _content_hash_match function"
+    authority_boundary: "other comparability edge cases not exhaustively tested"
+    promotion_rule: null
+
+  - text: "P1b signer-not-pinned warning emitted in terminal, JSON, and browser"
+    type: completion
+    status: confirmed
+    basis: test_output
+    supporting_artifacts:
+      - "src/assay/commands.py — warning appended when result.passed and not lock"
+      - "docs/verify.html — warning added to browser UI"
+    verification_artifacts:
+      - "pytest test_exit_code_contract.py: test_unlocked_pass_emits_warning_in_terminal PASSED"
+      - "pytest test_exit_code_contract.py: test_unlocked_pass_emits_warning_in_json PASSED"
+      - "pytest test_exit_code_contract.py: test_locked_pass_does_not_emit_warning PASSED"
+    scope: "verify-pack CLI output and gallery browser verifier"
+    authority_boundary: "wording clarity for non-technical operators not tested"
+    promotion_rule: null
+
+  - text: "P2a TypeScript per-receipt required field validation matches Python"
+    type: verification
+    status: confirmed
+    basis: test_output
+    supporting_artifacts:
+      - "src/verify-core.ts — REQUIRED_RECEIPT_FIELDS check added"
+    verification_artifacts:
+      - "node --test: 91/91 pass including test_missing_type_field, test_missing_timestamp_field"
+      - "GitHub PR #2 CI: Node 20 pass, Node 22 pass"
+    scope: "receipt_id, type, timestamp fields"
+    authority_boundary: "falsy-value semantics (QA-1) shared between both verifiers, not fixed"
+    promotion_rule: null
+
+  - text: "P3a future-timestamp guard rejects packs >24h in the future"
+    type: completion
+    status: confirmed
+    basis: test_output
+    supporting_artifacts:
+      - "src/assay/integrity.py — max_future_hours=24.0 default"
+    verification_artifacts:
+      - "pytest test_adversarial_attacks.py: test_future_timestamp_rejected_by_default PASSED"
+      - "pytest test_adversarial_attacks.py: test_near_future_timestamp_accepted PASSED"
+      - "pytest test_adversarial_attacks.py: test_future_guard_disabled_with_zero PASSED"
+    scope: "verify_pack_manifest attestation timestamp"
+    authority_boundary: "24h threshold is a policy choice, not a security constant"
+    promotion_rule: null
+
+  - text: "P3c type guard applied to both _exact and _within_threshold"
+    type: completion
+    status: confirmed
+    basis: test_output
+    supporting_artifacts:
+      - "src/assay/comparability/match_rules.py — type(a) is not type(b) guard in both functions"
+    verification_artifacts:
+      - "pytest test_comparability.py: test_exact_bool PASSED"
+      - "pytest test_comparability.py: test_within_threshold_no_threshold_falls_back_exact PASSED"
+    scope: "exact and within_threshold match rules"
+    authority_boundary: "version_match rule not affected (string comparison)"
+    promotion_rule: null
+
+  - text: "F1 gallery verifier provenance hash matches committed bundle"
+    type: verification
+    status: confirmed
+    basis: command_output
+    supporting_artifacts:
+      - "scripts/sync-verifier.sh executed in assay-proof-gallery"
+    verification_artifacts:
+      - "shasum -a 256 docs/assay-verify.js = fad468ae..."
+      - "VERIFIER_PROVENANCE.json bundle_sha256 = fad468ae... (match)"
+      - "source_commit = 8bdee97 (current assay-verify-ts HEAD)"
+    scope: "gallery browser verifier provenance chain"
+    authority_boundary: "will drift again without CI freshness gate (Haserjian/assay#49)"
+    promotion_rule: null
+
+  - text: "F4 ledger README explains shadow-mode claim_check=FAIL"
+    type: completion
+    status: confirmed
+    basis: file_diff
+    supporting_artifacts:
+      - "assay-ledger/README.md — one paragraph added after schema table"
+    verification_artifacts:
+      - "diff confirms paragraph present and accurate against ledger.jsonl entries"
+    scope: "assay-ledger README"
+    authority_boundary: "does not change the entries themselves"
+    promotion_rule: null
+
+  - text: "F5 legacy sidecar warnings removed from gallery scenarios 01, 02, 04"
+    type: verification
+    status: confirmed
+    basis: command_output
+    supporting_artifacts:
+      - "PACK_SUMMARY.md deleted from 3 gallery proof_pack directories"
+    verification_artifacts:
+      - "assay verify-pack gallery/01-fintech-pass/proof_pack/ — PASS, 1 warning (lock only)"
+      - "assay verify-pack gallery/02-insurance-honest-fail/proof_pack/ — PASS, 1 warning (lock only)"
+      - "assay verify-pack gallery/04-mcp-notary-proxy/proof_pack/ — PASS, 1 warning (lock only)"
+    scope: "gallery scenarios with PACK_SUMMARY.md sidecars"
+    authority_boundary: "verifier_version stamps still stale (F6 deferred)"
+    promotion_rule: null
+
+  - text: "P1a ledger signed checkpoint design tracked but not implemented"
+    type: scope
+    status: predicted
+    basis: inference
+    supporting_artifacts:
+      - "assay-ledger/docs/DESIGN_SIGNED_CHECKPOINT.md committed"
+      - "Haserjian/assay-ledger#9 issue open"
+    verification_artifacts: []
+    scope: "design only"
+    authority_boundary: "ledger remains rewritable by anyone with write access"
+    promotion_rule: "Implement genesis-to-tip chaining + signed checkpoint per design note"
+
+  - text: "Full test suite green after all changes"
+    type: verification
+    status: confirmed
+    basis: test_output
+    supporting_artifacts:
+      - "43 file edits across 4 repos"
+    verification_artifacts:
+      - "pytest tests/ — 2975 passed, 12 skipped, 0 failures"
+      - "node --test — 91/91 pass"
+    scope: "assay-toolkit Python suite + assay-verify-ts Node suite"
+    authority_boundary: "gallery browser demo not tested in browser"
+    promotion_rule: null
+
+commands_run:
+  - "python3 -m pytest tests/ -q (assay-toolkit, multiple runs, final: 2975 passed)"
+  - "npx tsc && node --test dist/verify.test.js (assay-verify-ts, 91/91 pass)"
+  - "assay verify-pack against gallery scenarios 01, 02, 04 (post-fix verification)"
+  - "shasum -a 256 docs/assay-verify.js (provenance hash verification)"
+  - "scripts/sync-verifier.sh (gallery provenance repair)"
+  - "gh pr create, gh pr checks, gh pr merge (assay-verify-ts PR #2)"
+  - "git push origin main x4 repos"
+
+files_touched:
+  # assay-toolkit (code)
+  - src/assay/comparability/match_rules.py
+  - src/assay/comparability/engine.py
+  - src/assay/integrity.py
+  - src/assay/commands.py
+  - tests/assay/test_comparability.py
+  - tests/assay/test_exit_code_contract.py
+  - tests/assay/test_integrity_mutants.py
+  - tests/assay/test_adversarial_attacks.py
+  # assay-toolkit (docs)
+  - SECURITY_FINDINGS.md
+  - README.md
+  - docs/SCANNER_LIMITATIONS.md
+  - docs/security/REMEDIATION_DOCTRINE.md
+  - docs/security/RELEASE_SECURITY_CHECKLIST.md
+  # assay-verify-ts
+  - src/verify-core.ts
+  - src/verify.test.ts
+  - browser/assay-verify.js
+  # assay-proof-gallery
+  - docs/VERIFIER_PROVENANCE.json
+  - docs/assay-verify.js
+  - docs/verify.html
+  - gallery/01-fintech-pass/proof_pack/PACK_SUMMARY.md (deleted)
+  - gallery/02-insurance-honest-fail/proof_pack/PACK_SUMMARY.md (deleted)
+  - gallery/04-mcp-notary-proxy/proof_pack/PACK_SUMMARY.md (deleted)
+  # assay-ledger
+  - README.md
+  - docs/DESIGN_SIGNED_CHECKPOINT.md
+
+commits:
+  - repo: assay-toolkit
+    hash: a8ad64f
+    message: "fix(security): P0 comparability spoof, P1b trust warning, P3 hardening"
+  - repo: assay-toolkit
+    hash: 1eb543a
+    message: "docs(security): remediation doctrine, closure tiers, and findings report"
+  - repo: assay-toolkit
+    hash: f60d1ae
+    message: "docs(readme): surface hidden command discovery path"
+  - repo: assay-verify-ts
+    hash: 8bdee97
+    message: "fix(verify): per-receipt required field validation + bundle rebuild"
+    merged_via: "PR #2, CI green (Node 20 + 22)"
+  - repo: assay-proof-gallery
+    hash: 86b7240
+    message: "fix(verify): rebuild gallery bundle + add signer-not-pinned warning"
+  - repo: assay-proof-gallery
+    hash: bc3e00c
+    message: "fix(trust): sync verifier provenance + remove legacy sidecar artifacts"
+  - repo: assay-ledger
+    hash: 4f8819d
+    message: "docs: signed checkpoint design note (P1a)"
+  - repo: assay-ledger
+    hash: 7cea9d9
+    message: "docs: explain shadow-mode claim_check=FAIL semantics for external readers"
+
+issues_opened:
+  - "Haserjian/assay#49 — CI gallery bundle freshness gate"
+  - "Haserjian/assay#50 — falsy-value receipt field correctness debt"
+  - "Haserjian/assay-ledger#9 — signed ledger checkpoints (P1a)"
+  - "Haserjian/assay-ledger#10 — .gitignore for *.bak artifacts"
+
+governance_notes:
+  - "assay-ledger branch protection 'validate' check bypassed on both pushes (docs-only). Known governance debt."
+  - "Closure tiers installed in docs/security/REMEDIATION_DOCTRINE.md. First artifact to use them: SECURITY_FINDINGS.md."
+
+next_minimal_step: >
+  Decide whether to rebuild gallery packs fully (closes F6 version stamps)
+  or move to F3/F7/F8. The four highest-trust findings are closed.
+  Ledger signed checkpoint (P1a) remains the load-bearing open item.
