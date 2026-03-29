@@ -76,7 +76,7 @@ class TestScanStudyNumbers:
     @pytest.mark.parametrize("path", FILES_WITH_COUNTS, ids=lambda p: p.name)
     def test_high_confidence_count_present(self, path):
         text = _read(path)
-        assert "230" in text, f"{path.name} doesn't mention 230 high-confidence sites"
+        assert "231" in text, f"{path.name} doesn't mention 231 high-confidence sites"
 
     def test_scanned_repo_count_consistent(self):
         """Every file should agree on how many repos were scanned."""

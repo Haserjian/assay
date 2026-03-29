@@ -1,6 +1,6 @@
 {
   "tool": "assay-scan",
-  "status": "fail",
+  "status": "ok",
   "summary": {
     "sites_total": 24,
     "instrumented": 0,
@@ -16,7 +16,8 @@
       "call": "get_ChatOpenAI",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "langchain"
     },
     {
       "path": "libs/chatchat-server/chatchat/server/agent/tools_factory/text2promql.py",
@@ -24,7 +25,8 @@
       "call": "prometheus_chain.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/chatchat-server/chatchat/server/agent/tools_factory/text2sql.py",
@@ -32,7 +34,8 @@
       "call": "get_ChatOpenAI",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "langchain"
     },
     {
       "path": "libs/chatchat-server/chatchat/server/agent/tools_factory/text2sql.py",
@@ -40,7 +43,8 @@
       "call": "read_only_chain.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/chatchat-server/chatchat/server/agent/tools_factory/text2sql.py",
@@ -48,7 +52,8 @@
       "call": "db_chain.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/chatchat-server/chatchat/server/agent/tools_factory/text2sql.py",
@@ -56,7 +61,8 @@
       "call": "db_chain.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/chatchat-server/chatchat/server/chat/chat.py",
@@ -64,7 +70,8 @@
       "call": "get_ChatOpenAI",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "langchain"
     },
     {
       "path": "libs/chatchat-server/chatchat/server/chat/chat.py",
@@ -72,7 +79,8 @@
       "call": "full_chain.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/chatchat-server/chatchat/server/chat/file_chat.py",
@@ -80,7 +88,8 @@
       "call": "get_ChatOpenAI",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "langchain"
     },
     {
       "path": "libs/chatchat-server/chatchat/server/chat/kb_chat.py",
@@ -88,7 +97,8 @@
       "call": "get_ChatOpenAI",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "langchain"
     },
     {
       "path": "libs/chatchat-server/chatchat/server/chat/kb_chat.py",
@@ -96,7 +106,8 @@
       "call": "chain.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/chatchat-server/chatchat/server/knowledge_base/kb_summary_api.py",
@@ -104,7 +115,8 @@
       "call": "get_ChatOpenAI",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "langchain"
     },
     {
       "path": "libs/chatchat-server/chatchat/server/knowledge_base/kb_summary_api.py",
@@ -112,7 +124,8 @@
       "call": "get_ChatOpenAI",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "langchain"
     },
     {
       "path": "libs/chatchat-server/chatchat/server/knowledge_base/kb_summary_api.py",
@@ -120,7 +133,8 @@
       "call": "get_ChatOpenAI",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "langchain"
     },
     {
       "path": "libs/chatchat-server/chatchat/server/knowledge_base/kb_summary_api.py",
@@ -128,7 +142,8 @@
       "call": "get_ChatOpenAI",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "langchain"
     },
     {
       "path": "libs/chatchat-server/chatchat/server/knowledge_base/kb_summary_api.py",
@@ -136,7 +151,8 @@
       "call": "get_ChatOpenAI",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "langchain"
     },
     {
       "path": "libs/chatchat-server/chatchat/server/knowledge_base/kb_summary_api.py",
@@ -144,7 +160,8 @@
       "call": "get_ChatOpenAI",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "langchain"
     },
     {
       "path": "libs/chatchat-server/chatchat/server/utils.py",
@@ -152,7 +169,8 @@
       "call": "ChatOpenAI",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.langchain import patch; patch()"
+      "fix": "from assay.integrations.langchain import AssayCallbackHandler  # pass callbacks=[AssayCallbackHandler()]",
+      "framework": "langchain"
     },
     {
       "path": "libs/chatchat-server/chatchat/webui_pages/dialogue/dialogue.py",
@@ -160,7 +178,8 @@
       "call": "client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "libs/chatchat-server/chatchat/webui_pages/dialogue/dialogue.py",
@@ -168,7 +187,8 @@
       "call": "client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "libs/chatchat-server/chatchat/webui_pages/kb_chat.py",
@@ -176,7 +196,8 @@
       "call": "client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "libs/chatchat-server/langchain_chatchat/agents/platform_tools/base.py",
@@ -184,7 +205,8 @@
       "call": "self.agent_executor.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/chatchat-server/langchain_chatchat/chat_models/base.py",
@@ -192,7 +214,8 @@
       "call": "self.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/chatchat-server/langchain_chatchat/chat_models/base.py",
@@ -200,8 +223,31 @@
       "call": "self.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     }
   ],
-  "next_command": "# Add to your entrypoint:\nfrom assay.integrations.openai import patch; patch()\n# Then: assay run -- python your_app.py"
+  "next_command": "1) Auto-instrument your entrypoint based on scan findings:\n   assay patch .\n\n2) Generate a proof pack:\n   assay run -c receipt_completeness -- python your_app.py\n\n3) Verify and lock your baseline:\n   assay verify-pack ./proof_pack_*/\n   assay lock init",
+  "next_steps": [
+    {
+      "title": "Auto-instrument your entrypoint based on scan findings",
+      "commands": [
+        "assay patch ."
+      ]
+    },
+    {
+      "title": "Generate a proof pack",
+      "commands": [
+        "assay run -c receipt_completeness -- python your_app.py"
+      ]
+    },
+    {
+      "title": "Verify and lock your baseline",
+      "commands": [
+        "assay verify-pack ./proof_pack_*/",
+        "assay lock init"
+      ]
+    }
+  ],
+  "scan_status": "fail"
 }

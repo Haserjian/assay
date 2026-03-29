@@ -1,31 +1,73 @@
 {
   "tool": "assay-scan",
-  "status": "fail",
+  "status": "ok",
   "summary": {
-    "sites_total": 2,
+    "sites_total": 4,
     "instrumented": 0,
-    "uninstrumented": 2,
-    "high": 1,
+    "uninstrumented": 4,
+    "high": 3,
     "medium": 1,
     "low": 0
   },
   "findings": [
     {
       "path": "src/agents/extensions/models/litellm_model.py",
-      "line": 497,
+      "line": 525,
       "call": "litellm.acompletion",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "litellm"
     },
     {
       "path": "src/agents/models/openai_chatcompletions.py",
-      "line": 337,
+      "line": 391,
       "call": "chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
+    },
+    {
+      "path": "src/agents/models/openai_responses.py",
+      "line": 643,
+      "call": "client.responses.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
+    },
+    {
+      "path": "src/agents/models/openai_responses.py",
+      "line": 651,
+      "call": "client.responses.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     }
   ],
-  "next_command": "# Add to your entrypoint:\nfrom assay.integrations.openai import patch; patch()\n# Then: assay run -- python your_app.py"
+  "next_command": "1) Auto-instrument your entrypoint based on scan findings:\n   assay patch .\n\n2) Generate a proof pack:\n   assay run -c receipt_completeness -- python your_app.py\n\n3) Verify and lock your baseline:\n   assay verify-pack ./proof_pack_*/\n   assay lock init",
+  "next_steps": [
+    {
+      "title": "Auto-instrument your entrypoint based on scan findings",
+      "commands": [
+        "assay patch ."
+      ]
+    },
+    {
+      "title": "Generate a proof pack",
+      "commands": [
+        "assay run -c receipt_completeness -- python your_app.py"
+      ]
+    },
+    {
+      "title": "Verify and lock your baseline",
+      "commands": [
+        "assay verify-pack ./proof_pack_*/",
+        "assay lock init"
+      ]
+    }
+  ],
+  "scan_status": "fail"
 }

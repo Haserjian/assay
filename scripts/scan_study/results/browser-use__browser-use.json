@@ -1,12 +1,12 @@
 {
   "tool": "assay-scan",
-  "status": "fail",
+  "status": "ok",
   "summary": {
     "sites_total": 31,
     "instrumented": 0,
     "uninstrumented": 31,
-    "high": 20,
-    "medium": 11,
+    "high": 22,
+    "medium": 9,
     "low": 0
   },
   "findings": [
@@ -16,7 +16,8 @@
       "call": "ChatOpenAI",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.langchain import patch; patch()"
+      "fix": "from assay.integrations.langchain import AssayCallbackHandler  # pass callbacks=[AssayCallbackHandler()]",
+      "framework": "langchain"
     },
     {
       "path": "browser_use/actor/playground/mixed_automation.py",
@@ -24,7 +25,8 @@
       "call": "ChatOpenAI",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.langchain import patch; patch()"
+      "fix": "from assay.integrations.langchain import AssayCallbackHandler  # pass callbacks=[AssayCallbackHandler()]",
+      "framework": "langchain"
     },
     {
       "path": "browser_use/cli.py",
@@ -32,7 +34,8 @@
       "call": "ChatOpenAI",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.langchain import patch; patch()"
+      "fix": "from assay.integrations.langchain import AssayCallbackHandler  # pass callbacks=[AssayCallbackHandler()]",
+      "framework": "langchain"
     },
     {
       "path": "browser_use/cli.py",
@@ -40,7 +43,8 @@
       "call": "ChatAnthropic",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.langchain import patch; patch()"
+      "fix": "from assay.integrations.langchain import AssayCallbackHandler  # pass callbacks=[AssayCallbackHandler()]",
+      "framework": "langchain"
     },
     {
       "path": "browser_use/cli.py",
@@ -48,7 +52,8 @@
       "call": "ChatOpenAI",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.langchain import patch; patch()"
+      "fix": "from assay.integrations.langchain import AssayCallbackHandler  # pass callbacks=[AssayCallbackHandler()]",
+      "framework": "langchain"
     },
     {
       "path": "browser_use/cli.py",
@@ -56,7 +61,8 @@
       "call": "ChatAnthropic",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.langchain import patch; patch()"
+      "fix": "from assay.integrations.langchain import AssayCallbackHandler  # pass callbacks=[AssayCallbackHandler()]",
+      "framework": "langchain"
     },
     {
       "path": "browser_use/llm/anthropic/chat.py",
@@ -64,7 +70,8 @@
       "call": "messages.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.anthropic import patch; patch()"
+      "fix": "from assay.integrations.anthropic import patch; patch()",
+      "framework": "anthropic"
     },
     {
       "path": "browser_use/llm/anthropic/chat.py",
@@ -72,7 +79,8 @@
       "call": "messages.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.anthropic import patch; patch()"
+      "fix": "from assay.integrations.anthropic import patch; patch()",
+      "framework": "anthropic"
     },
     {
       "path": "browser_use/llm/aws/chat_anthropic.py",
@@ -80,7 +88,8 @@
       "call": "messages.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.anthropic import patch; patch()"
+      "fix": "from assay.integrations.anthropic import patch; patch()",
+      "framework": "anthropic"
     },
     {
       "path": "browser_use/llm/aws/chat_anthropic.py",
@@ -88,7 +97,26 @@
       "call": "messages.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.anthropic import patch; patch()"
+      "fix": "from assay.integrations.anthropic import patch; patch()",
+      "framework": "anthropic"
+    },
+    {
+      "path": "browser_use/llm/azure/chat.py",
+      "line": 189,
+      "call": "responses.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
+    },
+    {
+      "path": "browser_use/llm/azure/chat.py",
+      "line": 229,
+      "call": "responses.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "browser_use/llm/cerebras/chat.py",
@@ -96,7 +124,8 @@
       "call": "client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "browser_use/llm/cerebras/chat.py",
@@ -104,7 +133,8 @@
       "call": "client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "browser_use/llm/deepseek/chat.py",
@@ -112,7 +142,8 @@
       "call": "client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "browser_use/llm/deepseek/chat.py",
@@ -120,7 +151,8 @@
       "call": "client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "browser_use/llm/deepseek/chat.py",
@@ -128,7 +160,8 @@
       "call": "client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "browser_use/llm/groq/chat.py",
@@ -136,7 +169,8 @@
       "call": "chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "browser_use/llm/groq/chat.py",
@@ -144,7 +178,8 @@
       "call": "chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "browser_use/llm/groq/chat.py",
@@ -152,7 +187,8 @@
       "call": "chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "browser_use/llm/models.py",
@@ -160,31 +196,35 @@
       "call": "ChatOpenAI",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.langchain import patch; patch()"
+      "fix": "from assay.integrations.langchain import AssayCallbackHandler  # pass callbacks=[AssayCallbackHandler()]",
+      "framework": "langchain"
     },
     {
       "path": "browser_use/llm/openai/chat.py",
-      "line": 200,
+      "line": 196,
       "call": "chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "browser_use/llm/openai/chat.py",
-      "line": 250,
+      "line": 246,
       "call": "chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "browser_use/llm/openai/chat.py",
-      "line": 257,
+      "line": 253,
       "call": "chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "browser_use/llm/openrouter/chat.py",
@@ -192,7 +232,8 @@
       "call": "chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "browser_use/llm/openrouter/chat.py",
@@ -200,39 +241,35 @@
       "call": "chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "browser_use/llm/vercel/chat.py",
-      "line": 395,
+      "line": 542,
       "call": "chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "browser_use/llm/vercel/chat.py",
-      "line": 446,
+      "line": 589,
       "call": "chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "browser_use/llm/vercel/chat.py",
-      "line": 498,
+      "line": 637,
       "call": "chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
-    },
-    {
-      "path": "browser_use/mcp/server.py",
-      "line": 561,
-      "call": "ChatOpenAI",
-      "confidence": "medium",
-      "instrumented": false,
-      "fix": "from assay.integrations.langchain import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "browser_use/mcp/server.py",
@@ -240,24 +277,40 @@
       "call": "ChatOpenAI",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.langchain import patch; patch()"
+      "fix": "from assay.integrations.langchain import AssayCallbackHandler  # pass callbacks=[AssayCallbackHandler()]",
+      "framework": "langchain"
     },
     {
-      "path": "browser_use/skill_cli/commands/agent.py",
-      "line": 89,
+      "path": "browser_use/mcp/server.py",
+      "line": 671,
       "call": "ChatOpenAI",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.langchain import patch; patch()"
-    },
-    {
-      "path": "browser_use/skill_cli/commands/agent.py",
-      "line": 98,
-      "call": "ChatAnthropic",
-      "confidence": "medium",
-      "instrumented": false,
-      "fix": "from assay.integrations.langchain import patch; patch()"
+      "fix": "from assay.integrations.langchain import AssayCallbackHandler  # pass callbacks=[AssayCallbackHandler()]",
+      "framework": "langchain"
     }
   ],
-  "next_command": "# Add to your entrypoint:\nfrom assay.integrations.openai import patch; patch()\n# Then: assay run -- python your_app.py"
+  "next_command": "1) Auto-instrument your entrypoint based on scan findings:\n   assay patch .\n\n2) Generate a proof pack:\n   assay run -c receipt_completeness -- python your_app.py\n\n3) Verify and lock your baseline:\n   assay verify-pack ./proof_pack_*/\n   assay lock init",
+  "next_steps": [
+    {
+      "title": "Auto-instrument your entrypoint based on scan findings",
+      "commands": [
+        "assay patch ."
+      ]
+    },
+    {
+      "title": "Generate a proof pack",
+      "commands": [
+        "assay run -c receipt_completeness -- python your_app.py"
+      ]
+    },
+    {
+      "title": "Verify and lock your baseline",
+      "commands": [
+        "assay verify-pack ./proof_pack_*/",
+        "assay lock init"
+      ]
+    }
+  ],
+  "scan_status": "fail"
 }

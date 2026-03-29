@@ -1,6 +1,6 @@
 {
   "tool": "assay-scan",
-  "status": "warn",
+  "status": "ok",
   "summary": {
     "sites_total": 10,
     "instrumented": 0,
@@ -91,5 +91,28 @@
       "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
     }
   ],
-  "next_command": "# Add receipt emission:\nfrom assay import emit_receipt\n# Then: assay run -- python your_app.py"
+  "next_command": "1) Add receipt emission near your LLM wrapper:\n   from assay import emit_receipt\n   emit_receipt('model_call', {'provider': '...', 'model_id': '...'})\n\n2) Generate a proof pack:\n   assay run -c receipt_completeness -- python your_app.py\n\n3) Verify and lock your baseline:\n   assay verify-pack ./proof_pack_*/\n   assay lock write --cards receipt_completeness -o assay.lock",
+  "next_steps": [
+    {
+      "title": "Add receipt emission near your LLM wrapper",
+      "commands": [
+        "from assay import emit_receipt",
+        "emit_receipt('model_call', {'provider': '...', 'model_id': '...'})"
+      ]
+    },
+    {
+      "title": "Generate a proof pack",
+      "commands": [
+        "assay run -c receipt_completeness -- python your_app.py"
+      ]
+    },
+    {
+      "title": "Verify and lock your baseline",
+      "commands": [
+        "assay verify-pack ./proof_pack_*/",
+        "assay lock write --cards receipt_completeness -o assay.lock"
+      ]
+    }
+  ],
+  "scan_status": "warn"
 }

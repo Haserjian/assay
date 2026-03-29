@@ -1,47 +1,82 @@
 {
   "tool": "assay-scan",
-  "status": "fail",
+  "status": "ok",
   "summary": {
-    "sites_total": 4,
+    "sites_total": 5,
     "instrumented": 0,
-    "uninstrumented": 4,
-    "high": 4,
+    "uninstrumented": 5,
+    "high": 5,
     "medium": 0,
     "low": 0
   },
   "findings": [
     {
       "path": "pydantic_ai_slim/pydantic_ai/models/anthropic.py",
-      "line": 431,
+      "line": 477,
       "call": "self.client.beta.messages.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.anthropic import patch; patch()"
+      "fix": "from assay.integrations.anthropic import patch; patch()",
+      "framework": "anthropic"
     },
     {
       "path": "pydantic_ai_slim/pydantic_ai/models/groq.py",
-      "line": 290,
+      "line": 314,
       "call": "self.client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "pydantic_ai_slim/pydantic_ai/models/huggingface.py",
-      "line": 239,
+      "line": 243,
       "call": "self.client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "pydantic_ai_slim/pydantic_ai/models/openai.py",
-      "line": 706,
+      "line": 740,
       "call": "self.client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
+    },
+    {
+      "path": "pydantic_ai_slim/pydantic_ai/models/openai.py",
+      "line": 1750,
+      "call": "self.client.responses.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     }
   ],
-  "next_command": "# Add to your entrypoint:\nfrom assay.integrations.openai import patch; patch()\n# Then: assay run -- python your_app.py"
+  "next_command": "1) Auto-instrument your entrypoint based on scan findings:\n   assay patch .\n\n2) Generate a proof pack:\n   assay run -c receipt_completeness -- python your_app.py\n\n3) Verify and lock your baseline:\n   assay verify-pack ./proof_pack_*/\n   assay lock init",
+  "next_steps": [
+    {
+      "title": "Auto-instrument your entrypoint based on scan findings",
+      "commands": [
+        "assay patch ."
+      ]
+    },
+    {
+      "title": "Generate a proof pack",
+      "commands": [
+        "assay run -c receipt_completeness -- python your_app.py"
+      ]
+    },
+    {
+      "title": "Verify and lock your baseline",
+      "commands": [
+        "assay verify-pack ./proof_pack_*/",
+        "assay lock init"
+      ]
+    }
+  ],
+  "scan_status": "fail"
 }

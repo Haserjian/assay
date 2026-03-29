@@ -1,6 +1,6 @@
 {
   "tool": "assay-scan",
-  "status": "warn",
+  "status": "ok",
   "summary": {
     "sites_total": 56,
     "instrumented": 0,
@@ -16,7 +16,8 @@
       "call": "ChatOpenAI",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.langchain import patch; patch()"
+      "fix": "from assay.integrations.langchain import AssayCallbackHandler  # pass callbacks=[AssayCallbackHandler()]",
+      "framework": "langchain"
     },
     {
       "path": "libs/cli/examples/graph_prerelease_reqs/agent.py",
@@ -24,7 +25,8 @@
       "call": "model.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/cli/examples/graph_prerelease_reqs_fail/agent.py",
@@ -32,7 +34,8 @@
       "call": "ChatOpenAI",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.langchain import patch; patch()"
+      "fix": "from assay.integrations.langchain import AssayCallbackHandler  # pass callbacks=[AssayCallbackHandler()]",
+      "framework": "langchain"
     },
     {
       "path": "libs/cli/examples/graph_prerelease_reqs_fail/agent.py",
@@ -40,7 +43,8 @@
       "call": "model.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/cli/examples/graphs/agent.py",
@@ -48,7 +52,8 @@
       "call": "ChatAnthropic",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.langchain import patch; patch()"
+      "fix": "from assay.integrations.langchain import AssayCallbackHandler  # pass callbacks=[AssayCallbackHandler()]",
+      "framework": "langchain"
     },
     {
       "path": "libs/cli/examples/graphs/agent.py",
@@ -56,7 +61,8 @@
       "call": "ChatOpenAI",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.langchain import patch; patch()"
+      "fix": "from assay.integrations.langchain import AssayCallbackHandler  # pass callbacks=[AssayCallbackHandler()]",
+      "framework": "langchain"
     },
     {
       "path": "libs/cli/examples/graphs/agent.py",
@@ -64,7 +70,8 @@
       "call": "model.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/cli/examples/graphs/storm.py",
@@ -72,7 +79,8 @@
       "call": "ChatOpenAI",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.langchain import patch; patch()"
+      "fix": "from assay.integrations.langchain import AssayCallbackHandler  # pass callbacks=[AssayCallbackHandler()]",
+      "framework": "langchain"
     },
     {
       "path": "libs/cli/examples/graphs/storm.py",
@@ -80,7 +88,8 @@
       "call": "ChatOpenAI",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.langchain import patch; patch()"
+      "fix": "from assay.integrations.langchain import AssayCallbackHandler  # pass callbacks=[AssayCallbackHandler()]",
+      "framework": "langchain"
     },
     {
       "path": "libs/cli/examples/graphs/storm.py",
@@ -88,7 +97,8 @@
       "call": "ChatOpenAI",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.langchain import patch; patch()"
+      "fix": "from assay.integrations.langchain import AssayCallbackHandler  # pass callbacks=[AssayCallbackHandler()]",
+      "framework": "langchain"
     },
     {
       "path": "libs/cli/examples/graphs/storm.py",
@@ -96,7 +106,8 @@
       "call": "expand_chain.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/cli/examples/graphs/storm.py",
@@ -104,7 +115,8 @@
       "call": "gen_perspectives_chain.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/cli/examples/graphs/storm.py",
@@ -112,7 +124,8 @@
       "call": "gn_chain.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/cli/examples/graphs/storm.py",
@@ -120,7 +133,8 @@
       "call": "ChatOpenAI",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.langchain import patch; patch()"
+      "fix": "from assay.integrations.langchain import AssayCallbackHandler  # pass callbacks=[AssayCallbackHandler()]",
+      "framework": "langchain"
     },
     {
       "path": "libs/cli/examples/graphs/storm.py",
@@ -128,7 +142,8 @@
       "call": "tavily_search.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/cli/examples/graphs/storm.py",
@@ -136,7 +151,8 @@
       "call": "gen_queries_chain.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/cli/examples/graphs/storm.py",
@@ -144,7 +160,8 @@
       "call": "gen_answer_chain.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/cli/examples/graphs/storm.py",
@@ -152,7 +169,8 @@
       "call": "retriever.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/cli/examples/graphs/storm.py",
@@ -160,7 +178,8 @@
       "call": "generate_outline_direct.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/cli/examples/graphs/storm.py",
@@ -168,7 +187,8 @@
       "call": "survey_subjects.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/cli/examples/graphs/storm.py",
@@ -176,7 +196,8 @@
       "call": "refine_outline_chain.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/cli/examples/graphs/storm.py",
@@ -184,7 +205,8 @@
       "call": "writer.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/cli/examples/graphs_reqs_a/graphs_submod/agent.py",
@@ -192,7 +214,8 @@
       "call": "ChatAnthropic",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.langchain import patch; patch()"
+      "fix": "from assay.integrations.langchain import AssayCallbackHandler  # pass callbacks=[AssayCallbackHandler()]",
+      "framework": "langchain"
     },
     {
       "path": "libs/cli/examples/graphs_reqs_a/graphs_submod/agent.py",
@@ -200,7 +223,8 @@
       "call": "ChatOpenAI",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.langchain import patch; patch()"
+      "fix": "from assay.integrations.langchain import AssayCallbackHandler  # pass callbacks=[AssayCallbackHandler()]",
+      "framework": "langchain"
     },
     {
       "path": "libs/cli/examples/graphs_reqs_a/graphs_submod/agent.py",
@@ -208,7 +232,8 @@
       "call": "model.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/cli/examples/graphs_reqs_b/graphs_submod/agent.py",
@@ -216,7 +241,8 @@
       "call": "ChatAnthropic",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.langchain import patch; patch()"
+      "fix": "from assay.integrations.langchain import AssayCallbackHandler  # pass callbacks=[AssayCallbackHandler()]",
+      "framework": "langchain"
     },
     {
       "path": "libs/cli/examples/graphs_reqs_b/graphs_submod/agent.py",
@@ -224,7 +250,8 @@
       "call": "ChatOpenAI",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.langchain import patch; patch()"
+      "fix": "from assay.integrations.langchain import AssayCallbackHandler  # pass callbacks=[AssayCallbackHandler()]",
+      "framework": "langchain"
     },
     {
       "path": "libs/cli/examples/graphs_reqs_b/graphs_submod/agent.py",
@@ -232,7 +259,8 @@
       "call": "model.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/cli/tests/unit_tests/agent.py",
@@ -240,7 +268,8 @@
       "call": "model.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langgraph/langgraph/_internal/_runnable.py",
@@ -248,7 +277,8 @@
       "call": "ret.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langgraph/langgraph/_internal/_runnable.py",
@@ -256,7 +286,8 @@
       "call": "self.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langgraph/langgraph/_internal/_runnable.py",
@@ -264,7 +295,8 @@
       "call": "ret.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langgraph/langgraph/_internal/_runnable.py",
@@ -272,7 +304,8 @@
       "call": "step.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langgraph/langgraph/_internal/_runnable.py",
@@ -280,7 +313,8 @@
       "call": "step.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langgraph/langgraph/_internal/_runnable.py",
@@ -288,7 +322,8 @@
       "call": "step.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langgraph/langgraph/_internal/_runnable.py",
@@ -296,7 +331,8 @@
       "call": "step.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langgraph/langgraph/graph/_branch.py",
@@ -304,7 +340,8 @@
       "call": "self.path.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langgraph/langgraph/graph/_branch.py",
@@ -312,7 +349,8 @@
       "call": "self.path.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langgraph/langgraph/pregel/_draw.py",
@@ -320,7 +358,8 @@
       "call": "w.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langgraph/langgraph/pregel/_read.py",
@@ -328,7 +367,8 @@
       "call": "self.bound.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langgraph/langgraph/pregel/_read.py",
@@ -336,55 +376,62 @@
       "call": "self.bound.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langgraph/langgraph/pregel/_retry.py",
-      "line": 42,
+      "line": 96,
       "call": "task.proc.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langgraph/langgraph/pregel/_retry.py",
-      "line": 50,
+      "line": 104,
       "call": "w.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langgraph/langgraph/pregel/_retry.py",
-      "line": 138,
+      "line": 211,
       "call": "task.proc.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langgraph/langgraph/pregel/_retry.py",
-      "line": 146,
+      "line": 219,
       "call": "w.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langgraph/langgraph/pregel/main.py",
-      "line": 1801,
+      "line": 1832,
       "call": "run.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langgraph/langgraph/pregel/main.py",
-      "line": 2239,
+      "line": 2272,
       "call": "run.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langgraph/tests/example_app/example_graph.py",
@@ -392,7 +439,8 @@
       "call": "model.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/prebuilt/langgraph/prebuilt/chat_agent_executor.py",
@@ -400,7 +448,8 @@
       "call": "dynamic_model.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/prebuilt/langgraph/prebuilt/chat_agent_executor.py",
@@ -408,7 +457,8 @@
       "call": "static_model.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/prebuilt/langgraph/prebuilt/chat_agent_executor.py",
@@ -416,7 +466,8 @@
       "call": "dynamic_model.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/prebuilt/langgraph/prebuilt/chat_agent_executor.py",
@@ -424,7 +475,8 @@
       "call": "static_model.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/prebuilt/langgraph/prebuilt/chat_agent_executor.py",
@@ -432,7 +484,8 @@
       "call": "model_with_structured_output.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/prebuilt/langgraph/prebuilt/chat_agent_executor.py",
@@ -440,7 +493,8 @@
       "call": "model_with_structured_output.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/prebuilt/langgraph/prebuilt/tool_node.py",
@@ -448,7 +502,8 @@
       "call": "tool.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/prebuilt/langgraph/prebuilt/tool_node.py",
@@ -456,8 +511,31 @@
       "call": "tool.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     }
   ],
-  "next_command": "# Add to your entrypoint:\nfrom assay.integrations.openai import patch; patch()\n# Then: assay run -- python your_app.py"
+  "next_command": "1) Add instrumentation in your entrypoint:\n   from assay.integrations.langchain import AssayCallbackHandler  # pass callbacks=[AssayCallbackHandler()]\n\n2) Generate a proof pack:\n   assay run -c receipt_completeness -- python your_app.py\n\n3) Verify and lock your baseline:\n   assay verify-pack ./proof_pack_*/\n   assay lock init",
+  "next_steps": [
+    {
+      "title": "Add instrumentation in your entrypoint",
+      "commands": [
+        "from assay.integrations.langchain import AssayCallbackHandler  # pass callbacks=[AssayCallbackHandler()]"
+      ]
+    },
+    {
+      "title": "Generate a proof pack",
+      "commands": [
+        "assay run -c receipt_completeness -- python your_app.py"
+      ]
+    },
+    {
+      "title": "Verify and lock your baseline",
+      "commands": [
+        "assay verify-pack ./proof_pack_*/",
+        "assay lock init"
+      ]
+    }
+  ],
+  "scan_status": "warn"
 }

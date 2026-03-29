@@ -43,8 +43,9 @@ Builds a proof pack, signs it, tampers one byte, catches the break. No API key. 
 
 ### Why this exists
 
-We scanned **30 AI projects** with **202 LLM call sites**.
-Zero had tamper-evident evidence trails.
+We scanned **30 AI projects** and found **231** high-confidence LLM call sites.
+None had Assay-compatible tamper-evident instrumentation.
+(Many have logging — this measures cryptographic evidence specifically.)
 [Full results](scripts/scan_study/results/report.md).
 
 ---

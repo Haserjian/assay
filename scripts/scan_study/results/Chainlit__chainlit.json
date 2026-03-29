@@ -1,6 +1,6 @@
 {
   "tool": "assay-scan",
-  "status": "pass",
+  "status": "ok",
   "summary": {
     "sites_total": 0,
     "instrumented": 0,
@@ -10,5 +10,7 @@
     "low": 0
   },
   "findings": [],
-  "next_command": null
+  "next_command": null,
+  "next_steps": [],
+  "scan_status": "pass"
 }

@@ -1,13 +1,13 @@
 {
   "tool": "assay-scan",
-  "status": "fail",
+  "status": "ok",
   "summary": {
-    "sites_total": 65,
+    "sites_total": 69,
     "instrumented": 0,
-    "uninstrumented": 65,
-    "high": 22,
+    "uninstrumented": 69,
+    "high": 23,
     "medium": 25,
-    "low": 18
+    "low": 21
   },
   "findings": [
     {
@@ -16,7 +16,8 @@
       "call": "self.client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "embedchain/embedchain/evaluation/metrics/context_relevancy.py",
@@ -24,7 +25,8 @@
       "call": "self.client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "embedchain/embedchain/evaluation/metrics/groundedness.py",
@@ -32,7 +34,8 @@
       "call": "self.client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "embedchain/embedchain/evaluation/metrics/groundedness.py",
@@ -40,7 +43,8 @@
       "call": "self.client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "embedchain/embedchain/llm/anthropic.py",
@@ -48,7 +52,8 @@
       "call": "ChatAnthropic",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.langchain import patch; patch()"
+      "fix": "from assay.integrations.langchain import AssayCallbackHandler  # pass callbacks=[AssayCallbackHandler()]",
+      "framework": "langchain"
     },
     {
       "path": "embedchain/embedchain/llm/anthropic.py",
@@ -56,7 +61,8 @@
       "call": "chat.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "embedchain/embedchain/llm/aws_bedrock.py",
@@ -64,7 +70,8 @@
       "call": "llm.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "embedchain/embedchain/llm/azure_openai.py",
@@ -72,7 +79,8 @@
       "call": "AzureChatOpenAI",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "langchain"
     },
     {
       "path": "embedchain/embedchain/llm/azure_openai.py",
@@ -80,7 +88,8 @@
       "call": "chat.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "embedchain/embedchain/llm/groq.py",
@@ -88,7 +97,8 @@
       "call": "chat.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "embedchain/embedchain/llm/huggingface.py",
@@ -96,7 +106,8 @@
       "call": "llm.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "embedchain/embedchain/llm/huggingface.py",
@@ -104,7 +115,8 @@
       "call": "llm.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "embedchain/embedchain/llm/huggingface.py",
@@ -112,7 +124,8 @@
       "call": "llm.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "embedchain/embedchain/llm/llama2.py",
@@ -120,7 +133,8 @@
       "call": "llm.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "embedchain/embedchain/llm/mistralai.py",
@@ -128,7 +142,8 @@
       "call": "client.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "embedchain/embedchain/llm/nvidia.py",
@@ -136,7 +151,8 @@
       "call": "llm.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "embedchain/embedchain/llm/nvidia.py",
@@ -144,7 +160,8 @@
       "call": "llm.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "embedchain/embedchain/llm/ollama.py",
@@ -152,7 +169,8 @@
       "call": "llm.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "embedchain/embedchain/llm/openai.py",
@@ -160,7 +178,8 @@
       "call": "ChatOpenAI",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.langchain import patch; patch()"
+      "fix": "from assay.integrations.langchain import AssayCallbackHandler  # pass callbacks=[AssayCallbackHandler()]",
+      "framework": "langchain"
     },
     {
       "path": "embedchain/embedchain/llm/openai.py",
@@ -168,7 +187,8 @@
       "call": "ChatOpenAI",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.langchain import patch; patch()"
+      "fix": "from assay.integrations.langchain import AssayCallbackHandler  # pass callbacks=[AssayCallbackHandler()]",
+      "framework": "langchain"
     },
     {
       "path": "embedchain/embedchain/llm/openai.py",
@@ -176,7 +196,8 @@
       "call": "chat.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "embedchain/embedchain/llm/openai.py",
@@ -184,7 +205,8 @@
       "call": "chat.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "embedchain/embedchain/llm/vertex_ai.py",
@@ -192,7 +214,8 @@
       "call": "llm.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "embedchain/embedchain/llm/vllm.py",
@@ -200,7 +223,8 @@
       "call": "llm.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "embedchain/embedchain/loaders/image.py",
@@ -208,7 +232,8 @@
       "call": "self.client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "embedchain/embedchain/store/assistants.py",
@@ -216,7 +241,8 @@
       "call": "self._client.beta.threads.messages.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.anthropic import patch; patch()"
+      "fix": "from assay.integrations.anthropic import patch; patch()",
+      "framework": "anthropic"
     },
     {
       "path": "evaluation/metrics/llm_judge.py",
@@ -224,7 +250,8 @@
       "call": "client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "evaluation/src/langmem.py",
@@ -232,7 +259,8 @@
       "call": "client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "evaluation/src/langmem.py",
@@ -240,7 +268,8 @@
       "call": "self.agent.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "evaluation/src/langmem.py",
@@ -248,7 +277,8 @@
       "call": "self.agent.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "evaluation/src/memzero/search.py",
@@ -256,7 +286,8 @@
       "call": "self.openai_client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "evaluation/src/openai/predict.py",
@@ -264,7 +295,8 @@
       "call": "self.openai_client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "evaluation/src/rag.py",
@@ -272,7 +304,8 @@
       "call": "self.client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "evaluation/src/rag.py",
@@ -288,7 +321,8 @@
       "call": "self.openai_client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "mem0/graphs/neptune/base.py",
@@ -308,7 +342,7 @@
     },
     {
       "path": "mem0/graphs/neptune/base.py",
-      "line": 174,
+      "line": 170,
       "call": "self.llm.generate_response",
       "confidence": "low",
       "instrumented": false,
@@ -316,27 +350,30 @@
     },
     {
       "path": "mem0/llms/anthropic.py",
-      "line": 86,
+      "line": 111,
       "call": "self.client.messages.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.anthropic import patch; patch()"
+      "fix": "from assay.integrations.anthropic import patch; patch()",
+      "framework": "anthropic"
     },
     {
       "path": "mem0/llms/azure_openai.py",
-      "line": 140,
+      "line": 141,
       "call": "self.client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "mem0/llms/azure_openai_structured.py",
-      "line": 90,
+      "line": 88,
       "call": "self.client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "mem0/llms/deepseek.py",
@@ -344,7 +381,8 @@
       "call": "self.client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "mem0/llms/groq.py",
@@ -352,7 +390,8 @@
       "call": "self.client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "mem0/llms/langchain.py",
@@ -360,7 +399,8 @@
       "call": "langchain_model.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.langchain import patch; patch()"
+      "fix": "from assay.integrations.langchain import AssayCallbackHandler  # pass callbacks=[AssayCallbackHandler()]",
+      "framework": "langchain"
     },
     {
       "path": "mem0/llms/litellm.py",
@@ -368,7 +408,8 @@
       "call": "litellm.completion",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "litellm"
     },
     {
       "path": "mem0/llms/lmstudio.py",
@@ -376,15 +417,26 @@
       "call": "self.client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
-      "path": "mem0/llms/openai.py",
-      "line": 138,
+      "path": "mem0/llms/minimax.py",
+      "line": 113,
       "call": "self.client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
+    },
+    {
+      "path": "mem0/llms/openai.py",
+      "line": 139,
+      "call": "self.client.chat.completions.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "mem0/llms/together.py",
@@ -392,7 +444,8 @@
       "call": "self.client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "mem0/llms/vllm.py",
@@ -400,7 +453,8 @@
       "call": "self.client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "mem0/llms/xai.py",
@@ -408,11 +462,28 @@
       "call": "self.client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
-      "path": "mem0/memory/graph_memory.py",
-      "line": 201,
+      "path": "mem0/memory/apache_age_memory.py",
+      "line": 340,
+      "call": "self.llm.generate_response",
+      "confidence": "low",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "mem0/memory/apache_age_memory.py",
+      "line": 396,
+      "call": "self.llm.generate_response",
+      "confidence": "low",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "mem0/memory/apache_age_memory.py",
+      "line": 477,
       "call": "self.llm.generate_response",
       "confidence": "low",
       "instrumented": false,
@@ -420,7 +491,7 @@
     },
     {
       "path": "mem0/memory/graph_memory.py",
-      "line": 258,
+      "line": 224,
       "call": "self.llm.generate_response",
       "confidence": "low",
       "instrumented": false,
@@ -428,7 +499,15 @@
     },
     {
       "path": "mem0/memory/graph_memory.py",
-      "line": 341,
+      "line": 281,
+      "call": "self.llm.generate_response",
+      "confidence": "low",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+    },
+    {
+      "path": "mem0/memory/graph_memory.py",
+      "line": 366,
       "call": "self.llm.generate_response",
       "confidence": "low",
       "instrumented": false,
@@ -436,7 +515,7 @@
     },
     {
       "path": "mem0/memory/kuzu_memory.py",
-      "line": 227,
+      "line": 249,
       "call": "self.llm.generate_response",
       "confidence": "low",
       "instrumented": false,
@@ -444,7 +523,7 @@
     },
     {
       "path": "mem0/memory/kuzu_memory.py",
-      "line": 284,
+      "line": 306,
       "call": "self.llm.generate_response",
       "confidence": "low",
       "instrumented": false,
@@ -452,7 +531,7 @@
     },
     {
       "path": "mem0/memory/kuzu_memory.py",
-      "line": 368,
+      "line": 390,
       "call": "self.llm.generate_response",
       "confidence": "low",
       "instrumented": false,
@@ -460,7 +539,7 @@
     },
     {
       "path": "mem0/memory/main.py",
-      "line": 434,
+      "line": 510,
       "call": "self.llm.generate_response",
       "confidence": "low",
       "instrumented": false,
@@ -468,7 +547,7 @@
     },
     {
       "path": "mem0/memory/main.py",
-      "line": 502,
+      "line": 579,
       "call": "self.llm.generate_response",
       "confidence": "low",
       "instrumented": false,
@@ -476,7 +555,7 @@
     },
     {
       "path": "mem0/memory/main.py",
-      "line": 1124,
+      "line": 1245,
       "call": "self.llm.generate_response",
       "confidence": "low",
       "instrumented": false,
@@ -484,7 +563,7 @@
     },
     {
       "path": "mem0/memory/memgraph_memory.py",
-      "line": 204,
+      "line": 226,
       "call": "self.llm.generate_response",
       "confidence": "low",
       "instrumented": false,
@@ -492,7 +571,7 @@
     },
     {
       "path": "mem0/memory/memgraph_memory.py",
-      "line": 260,
+      "line": 283,
       "call": "self.llm.generate_response",
       "confidence": "low",
       "instrumented": false,
@@ -500,7 +579,7 @@
     },
     {
       "path": "mem0/memory/memgraph_memory.py",
-      "line": 347,
+      "line": 370,
       "call": "self.llm.generate_response",
       "confidence": "low",
       "instrumented": false,
@@ -508,7 +587,7 @@
     },
     {
       "path": "mem0/memory/utils.py",
-      "line": 107,
+      "line": 166,
       "call": "llm.generate_response",
       "confidence": "low",
       "instrumented": false,
@@ -520,16 +599,39 @@
       "call": "litellm.completion",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "litellm"
     },
     {
       "path": "mem0/reranker/llm_reranker.py",
-      "line": 115,
+      "line": 126,
       "call": "self.llm.generate_response",
       "confidence": "low",
       "instrumented": false,
       "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
     }
   ],
-  "next_command": "# Add to your entrypoint:\nfrom assay.integrations.openai import patch; patch()\n# Then: assay run -- python your_app.py"
+  "next_command": "1) Auto-instrument your entrypoint based on scan findings:\n   assay patch .\n\n2) Generate a proof pack:\n   assay run -c receipt_completeness -- python your_app.py\n\n3) Verify and lock your baseline:\n   assay verify-pack ./proof_pack_*/\n   assay lock init",
+  "next_steps": [
+    {
+      "title": "Auto-instrument your entrypoint based on scan findings",
+      "commands": [
+        "assay patch ."
+      ]
+    },
+    {
+      "title": "Generate a proof pack",
+      "commands": [
+        "assay run -c receipt_completeness -- python your_app.py"
+      ]
+    },
+    {
+      "title": "Verify and lock your baseline",
+      "commands": [
+        "assay verify-pack ./proof_pack_*/",
+        "assay lock init"
+      ]
+    }
+  ],
+  "scan_status": "fail"
 }

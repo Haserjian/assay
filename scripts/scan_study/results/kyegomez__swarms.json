@@ -1,6 +1,6 @@
 {
   "tool": "assay-scan",
-  "status": "fail",
+  "status": "ok",
   "summary": {
     "sites_total": 6,
     "instrumented": 0,
@@ -16,11 +16,12 @@
       "call": "self.client.beta.threads.messages.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.anthropic import patch; patch()"
+      "fix": "from assay.integrations.anthropic import patch; patch()",
+      "framework": "anthropic"
     },
     {
       "path": "swarms/structs/agent.py",
-      "line": 1740,
+      "line": 1746,
       "call": "self.call_llm",
       "confidence": "low",
       "instrumented": false,
@@ -28,7 +29,7 @@
     },
     {
       "path": "swarms/structs/agent.py",
-      "line": 1749,
+      "line": 1755,
       "call": "self.call_llm",
       "confidence": "low",
       "instrumented": false,
@@ -36,7 +37,7 @@
     },
     {
       "path": "swarms/structs/agent.py",
-      "line": 2366,
+      "line": 2381,
       "call": "self.call_llm",
       "confidence": "low",
       "instrumented": false,
@@ -44,7 +45,7 @@
     },
     {
       "path": "swarms/structs/agent.py",
-      "line": 2603,
+      "line": 2618,
       "call": "self.call_llm",
       "confidence": "low",
       "instrumented": false,
@@ -52,12 +53,34 @@
     },
     {
       "path": "swarms/structs/agent.py",
-      "line": 2996,
+      "line": 3005,
       "call": "self.call_llm",
       "confidence": "low",
       "instrumented": false,
       "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
     }
   ],
-  "next_command": "# Add to your entrypoint:\nfrom assay.integrations.anthropic import patch; patch()\n# Then: assay run -- python your_app.py"
+  "next_command": "1) Add instrumentation in your entrypoint:\n   from assay.integrations.anthropic import patch; patch()\n\n2) Generate a proof pack:\n   assay run -c receipt_completeness -- python your_app.py\n\n3) Verify and lock your baseline:\n   assay verify-pack ./proof_pack_*/\n   assay lock init",
+  "next_steps": [
+    {
+      "title": "Add instrumentation in your entrypoint",
+      "commands": [
+        "from assay.integrations.anthropic import patch; patch()"
+      ]
+    },
+    {
+      "title": "Generate a proof pack",
+      "commands": [
+        "assay run -c receipt_completeness -- python your_app.py"
+      ]
+    },
+    {
+      "title": "Verify and lock your baseline",
+      "commands": [
+        "assay verify-pack ./proof_pack_*/",
+        "assay lock init"
+      ]
+    }
+  ],
+  "scan_status": "fail"
 }

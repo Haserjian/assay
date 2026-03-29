@@ -14,7 +14,7 @@ That generates a self-contained HTML gap report you can open in a browser -- no 
 
 I scanned 30 popular open-source AI projects for tamper-evident evidence emission at LLM call sites -- signed receipts that prove what went in and came out of each call, verifiable without access to the project's infrastructure.
 
-Results: 202 high-confidence direct SDK call sites (`client.chat.completions.create`, `anthropic.messages.create`) across 21 repos. 903 total findings including framework heuristics. 0 repos with tamper-evident evidence emission at any call site.
+Results: 231 high-confidence direct SDK call sites (`client.chat.completions.create`, `anthropic.messages.create`) across 28 repos. 937 total findings including framework heuristics. 0 with Assay-compatible tamper-evident instrumentation at any call site.
 
 **Why this matters:** Most of these projects have extensive logging -- callbacks, OpenTelemetry, LangSmith. That's observability: "we can see what happened." What none of them have is verifiability: "we can cryptographically prove what happened, and you can independently check it." When a regulator or auditor asks "prove your AI system did what you said it did," logs under your control aren't sufficient. Signed receipts bundled into a portable proof pack are.
 

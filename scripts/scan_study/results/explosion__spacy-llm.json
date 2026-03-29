@@ -1,6 +1,6 @@
 {
   "tool": "assay-scan",
-  "status": "warn",
+  "status": "ok",
   "summary": {
     "sites_total": 1,
     "instrumented": 0,
@@ -12,12 +12,35 @@
   "findings": [
     {
       "path": "spacy_llm/models/langchain/model.py",
-      "line": 103,
+      "line": 101,
       "call": "model.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     }
   ],
-  "next_command": "# Add to your entrypoint:\nfrom assay.integrations.langchain import patch; patch()\n# Then: assay run -- python your_app.py"
+  "next_command": "1) Add instrumentation in your entrypoint:\n   from assay.integrations.langchain import AssayCallbackHandler  # pass callbacks=[AssayCallbackHandler()]\n\n2) Generate a proof pack:\n   assay run -c receipt_completeness -- python your_app.py\n\n3) Verify and lock your baseline:\n   assay verify-pack ./proof_pack_*/\n   assay lock init",
+  "next_steps": [
+    {
+      "title": "Add instrumentation in your entrypoint",
+      "commands": [
+        "from assay.integrations.langchain import AssayCallbackHandler  # pass callbacks=[AssayCallbackHandler()]"
+      ]
+    },
+    {
+      "title": "Generate a proof pack",
+      "commands": [
+        "assay run -c receipt_completeness -- python your_app.py"
+      ]
+    },
+    {
+      "title": "Verify and lock your baseline",
+      "commands": [
+        "assay verify-pack ./proof_pack_*/",
+        "assay lock init"
+      ]
+    }
+  ],
+  "scan_status": "warn"
 }

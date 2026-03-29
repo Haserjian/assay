@@ -1,6 +1,6 @@
 {
   "tool": "assay-scan",
-  "status": "warn",
+  "status": "ok",
   "summary": {
     "sites_total": 3,
     "instrumented": 0,
@@ -16,7 +16,8 @@
       "call": "litellm.completion",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "litellm"
     },
     {
       "path": "aider/coders/base_coder.py",
@@ -24,16 +25,40 @@
       "call": "litellm.completion_cost",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "litellm"
     },
     {
       "path": "aider/models.py",
-      "line": 1001,
+      "line": 1021,
       "call": "litellm.completion",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "litellm"
     }
   ],
-  "next_command": "# Add receipt emission:\nfrom assay import emit_receipt\n# Then: assay run -- python your_app.py"
+  "next_command": "1) Add instrumentation in your entrypoint:\n   from assay.integrations.litellm import patch; patch()\n\n2) Generate a proof pack:\n   assay run -c receipt_completeness -- python your_app.py\n\n3) Verify and lock your baseline:\n   assay verify-pack ./proof_pack_*/\n   assay lock init",
+  "next_steps": [
+    {
+      "title": "Add instrumentation in your entrypoint",
+      "commands": [
+        "from assay.integrations.litellm import patch; patch()"
+      ]
+    },
+    {
+      "title": "Generate a proof pack",
+      "commands": [
+        "assay run -c receipt_completeness -- python your_app.py"
+      ]
+    },
+    {
+      "title": "Verify and lock your baseline",
+      "commands": [
+        "assay verify-pack ./proof_pack_*/",
+        "assay lock init"
+      ]
+    }
+  ],
+  "scan_status": "warn"
 }

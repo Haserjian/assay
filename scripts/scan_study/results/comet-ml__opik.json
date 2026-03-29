@@ -1,13 +1,13 @@
 {
   "tool": "assay-scan",
-  "status": "fail",
+  "status": "ok",
   "summary": {
-    "sites_total": 67,
+    "sites_total": 64,
     "instrumented": 0,
-    "uninstrumented": 67,
-    "high": 13,
+    "uninstrumented": 64,
+    "high": 14,
     "medium": 23,
-    "low": 31
+    "low": 27
   },
   "findings": [
     {
@@ -16,34 +16,38 @@
       "call": "client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
-      "path": "apps/opik-frontend/src/components/pages-shared/onboarding/FrameworkIntegrations/integration-scripts/Anthropic.py",
+      "path": "apps/opik-frontend/src/integrations/integration-scripts/Anthropic.py",
       "line": 13,
       "call": "anthropic_client.messages.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.anthropic import patch; patch()"
+      "fix": "from assay.integrations.anthropic import patch; patch()",
+      "framework": "anthropic"
     },
     {
-      "path": "apps/opik-frontend/src/components/pages-shared/onboarding/FrameworkIntegrations/integration-scripts/DeepSeek.py",
+      "path": "apps/opik-frontend/src/integrations/integration-scripts/DeepSeek.py",
       "line": 17,
       "call": "client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
-      "path": "apps/opik-frontend/src/components/pages-shared/onboarding/FrameworkIntegrations/integration-scripts/FunctionDecorators.py",
+      "path": "apps/opik-frontend/src/integrations/integration-scripts/FunctionDecorators.py",
       "line": 25,
       "call": "client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
-      "path": "apps/opik-frontend/src/components/pages-shared/onboarding/FrameworkIntegrations/integration-scripts/FunctionDecorators.py",
+      "path": "apps/opik-frontend/src/integrations/integration-scripts/FunctionDecorators.py",
       "line": 32,
       "call": "generate_response",
       "confidence": "low",
@@ -51,160 +55,130 @@
       "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
     },
     {
-      "path": "apps/opik-frontend/src/components/pages-shared/onboarding/FrameworkIntegrations/integration-scripts/Groq.py",
+      "path": "apps/opik-frontend/src/integrations/integration-scripts/Groq.py",
       "line": 12,
       "call": "litellm.completion",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "litellm"
     },
     {
-      "path": "apps/opik-frontend/src/components/pages-shared/onboarding/FrameworkIntegrations/integration-scripts/LangChain.py",
+      "path": "apps/opik-frontend/src/integrations/integration-scripts/LangChain.py",
       "line": 22,
       "call": "llm_chain.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
-      "path": "apps/opik-frontend/src/components/pages-shared/onboarding/FrameworkIntegrations/integration-scripts/LangGraph.py",
+      "path": "apps/opik-frontend/src/integrations/integration-scripts/LangGraph.py",
       "line": 61,
       "call": "app.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
-      "path": "apps/opik-frontend/src/components/pages-shared/onboarding/FrameworkIntegrations/integration-scripts/LiteLLM.py",
+      "path": "apps/opik-frontend/src/integrations/integration-scripts/LiteLLM.py",
       "line": 8,
       "call": "litellm.completion",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "litellm"
     },
     {
-      "path": "apps/opik-frontend/src/components/pages-shared/onboarding/FrameworkIntegrations/integration-scripts/OpenAI.py",
+      "path": "apps/opik-frontend/src/integrations/integration-scripts/OpenAI.py",
       "line": 13,
       "call": "openai_client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
-      "path": "apps/opik-frontend/src/components/pages-shared/onboarding/FrameworkIntegrations/integration-scripts/OpenRouter.py",
+      "path": "apps/opik-frontend/src/integrations/integration-scripts/OpenRouter.py",
       "line": 23,
       "call": "client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
-      "path": "apps/opik-frontend/src/components/pages-shared/onboarding/FrameworkIntegrations/integration-scripts/Predibase.py",
+      "path": "apps/opik-frontend/src/integrations/integration-scripts/Predibase.py",
       "line": 21,
       "call": "model.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
-      "path": "apps/opik-frontend/src/components/pages-shared/onboarding/FrameworkIntegrations/integration-scripts/Ragas.py",
+      "path": "apps/opik-frontend/src/integrations/integration-scripts/Ragas.py",
       "line": 11,
       "call": "ChatOpenAI",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.langchain import patch; patch()"
+      "fix": "from assay.integrations.langchain import AssayCallbackHandler  # pass callbacks=[AssayCallbackHandler()]",
+      "framework": "langchain"
     },
     {
-      "path": "apps/opik-frontend/src/components/pages-shared/onboarding/FrameworkIntegrations/integration-scripts/WatsonX.py",
+      "path": "apps/opik-frontend/src/integrations/integration-scripts/WatsonX.py",
       "line": 24,
       "call": "litellm.completion",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "litellm"
     },
     {
-      "path": "apps/opik-frontend/src/components/pages-shared/onboarding/FrameworkIntegrations/integration-scripts/WatsonX.py",
+      "path": "apps/opik-frontend/src/integrations/integration-scripts/WatsonX.py",
       "line": 35,
       "call": "litellm.completion",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "litellm"
     },
     {
-      "path": "sdks/opik_optimizer/benchmarks/agents/hotpot_multihop_agent.py",
-      "line": 246,
+      "path": "sdks/opik_optimizer/benchmarks/packages/hotpot/agent.py",
+      "line": 210,
       "call": "call_model",
       "confidence": "low",
       "instrumented": false,
       "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
     },
     {
-      "path": "sdks/opik_optimizer/benchmarks/agents/hotpot_multihop_agent.py",
-      "line": 268,
+      "path": "sdks/opik_optimizer/benchmarks/packages/hotpot/agent.py",
+      "line": 230,
       "call": "call_model",
       "confidence": "low",
       "instrumented": false,
       "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
     },
     {
-      "path": "sdks/opik_optimizer/benchmarks/agents/hotpot_multihop_agent.py",
-      "line": 290,
+      "path": "sdks/opik_optimizer/benchmarks/packages/hotpot/agent.py",
+      "line": 249,
       "call": "call_model",
       "confidence": "low",
       "instrumented": false,
       "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
     },
     {
-      "path": "sdks/opik_optimizer/benchmarks/agents/hotpot_multihop_agent.py",
-      "line": 313,
+      "path": "sdks/opik_optimizer/benchmarks/packages/hotpot/agent.py",
+      "line": 270,
       "call": "call_model",
       "confidence": "low",
       "instrumented": false,
       "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
     },
     {
-      "path": "sdks/opik_optimizer/benchmarks/agents/hotpot_multihop_agent.py",
-      "line": 333,
-      "call": "call_model",
-      "confidence": "low",
-      "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
-    },
-    {
-      "path": "sdks/opik_optimizer/scripts/benchmarks/hotpot_multihop_benchmark.py",
-      "line": 215,
-      "call": "call_model",
-      "confidence": "low",
-      "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
-    },
-    {
-      "path": "sdks/opik_optimizer/scripts/benchmarks/hotpot_multihop_benchmark.py",
-      "line": 231,
-      "call": "call_model",
-      "confidence": "low",
-      "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
-    },
-    {
-      "path": "sdks/opik_optimizer/scripts/benchmarks/hotpot_multihop_benchmark.py",
-      "line": 248,
-      "call": "call_model",
-      "confidence": "low",
-      "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
-    },
-    {
-      "path": "sdks/opik_optimizer/scripts/benchmarks/hotpot_multihop_benchmark.py",
-      "line": 264,
-      "call": "call_model",
-      "confidence": "low",
-      "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
-    },
-    {
-      "path": "sdks/opik_optimizer/scripts/benchmarks/hotpot_multihop_benchmark.py",
-      "line": 279,
+      "path": "sdks/opik_optimizer/benchmarks/packages/hotpot/agent.py",
+      "line": 288,
       "call": "call_model",
       "confidence": "low",
       "instrumented": false,
@@ -216,7 +190,8 @@
       "call": "ChatOpenAI",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.langchain import patch; patch()"
+      "fix": "from assay.integrations.langchain import AssayCallbackHandler  # pass callbacks=[AssayCallbackHandler()]",
+      "framework": "langchain"
     },
     {
       "path": "sdks/opik_optimizer/scripts/llm_frameworks/langgraph/langgraph_agent.py",
@@ -224,7 +199,8 @@
       "call": "litellm.completion",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "litellm"
     },
     {
       "path": "sdks/opik_optimizer/scripts/llm_frameworks/langgraph/langgraph_agent.py",
@@ -232,51 +208,57 @@
       "call": "graph.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "sdks/opik_optimizer/src/opik_optimizer/agents/litellm_agent.py",
-      "line": 430,
+      "line": 523,
       "call": "self.invoke_agent",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "sdks/opik_optimizer/src/opik_optimizer/agents/optimizable_agent.py",
-      "line": 321,
+      "line": 342,
       "call": "self.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "sdks/opik_optimizer/src/opik_optimizer/agents/optimizable_agent.py",
-      "line": 350,
+      "line": 371,
       "call": "self.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "sdks/opik_optimizer/src/opik_optimizer/agents/optimizable_agent.py",
-      "line": 406,
+      "line": 427,
       "call": "self.invoke_prompt",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "sdks/opik_optimizer/src/opik_optimizer/agents/optimizable_agent.py",
-      "line": 435,
+      "line": 456,
       "call": "self.invoke_agent",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "sdks/opik_optimizer/src/opik_optimizer/algorithms/evolutionary_optimizer/ops/crossover_ops.py",
-      "line": 186,
+      "line": 215,
       "call": "_llm_calls.call_model",
       "confidence": "low",
       "instrumented": false,
@@ -284,7 +266,7 @@
     },
     {
       "path": "sdks/opik_optimizer/src/opik_optimizer/algorithms/evolutionary_optimizer/ops/mutation_ops.py",
-      "line": 120,
+      "line": 121,
       "call": "_llm_calls.call_model",
       "confidence": "low",
       "instrumented": false,
@@ -292,7 +274,7 @@
     },
     {
       "path": "sdks/opik_optimizer/src/opik_optimizer/algorithms/evolutionary_optimizer/ops/mutation_ops.py",
-      "line": 153,
+      "line": 154,
       "call": "_llm_calls.call_model",
       "confidence": "low",
       "instrumented": false,
@@ -300,7 +282,7 @@
     },
     {
       "path": "sdks/opik_optimizer/src/opik_optimizer/algorithms/evolutionary_optimizer/ops/mutation_ops.py",
-      "line": 383,
+      "line": 389,
       "call": "_llm_calls.call_model",
       "confidence": "low",
       "instrumented": false,
@@ -308,7 +290,7 @@
     },
     {
       "path": "sdks/opik_optimizer/src/opik_optimizer/algorithms/evolutionary_optimizer/ops/mutation_ops.py",
-      "line": 458,
+      "line": 468,
       "call": "_llm_calls.call_model",
       "confidence": "low",
       "instrumented": false,
@@ -316,7 +298,7 @@
     },
     {
       "path": "sdks/opik_optimizer/src/opik_optimizer/algorithms/evolutionary_optimizer/ops/population_ops.py",
-      "line": 353,
+      "line": 408,
       "call": "_llm_calls.call_model",
       "confidence": "low",
       "instrumented": false,
@@ -332,7 +314,7 @@
     },
     {
       "path": "sdks/opik_optimizer/src/opik_optimizer/algorithms/few_shot_bayesian_optimizer/few_shot_bayesian_optimizer.py",
-      "line": 358,
+      "line": 368,
       "call": "_llm_calls.call_model",
       "confidence": "low",
       "instrumented": false,
@@ -340,7 +322,7 @@
     },
     {
       "path": "sdks/opik_optimizer/src/opik_optimizer/algorithms/hierarchical_reflective_optimizer/hierarchical_reflective_optimizer.py",
-      "line": 255,
+      "line": 270,
       "call": "_llm_calls.call_model",
       "confidence": "low",
       "instrumented": false,
@@ -404,25 +386,36 @@
     },
     {
       "path": "sdks/opik_optimizer/src/opik_optimizer/base_optimizer.py",
-      "line": 1831,
+      "line": 1917,
       "call": "agent.invoke_agent_candidates",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "sdks/opik_optimizer/src/opik_optimizer/base_optimizer.py",
-      "line": 1837,
+      "line": 1923,
       "call": "agent.invoke_agent",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "sdks/opik_optimizer/src/opik_optimizer/base_optimizer.py",
-      "line": 1879,
+      "line": 1965,
       "call": "agent.invoke_agent",
       "confidence": "medium",
+      "instrumented": false,
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
+    },
+    {
+      "path": "sdks/opik_optimizer/src/opik_optimizer/utils/toolcalling/ops/toolcalling.py",
+      "line": 322,
+      "call": "_llm_calls.call_model",
+      "confidence": "low",
       "instrumented": false,
       "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
     },
@@ -432,7 +425,8 @@
       "call": "client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "sdks/python/examples/dynamic_tracing_example.py",
@@ -456,7 +450,8 @@
       "call": "openai_client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "sdks/python/examples/langchain_integration_example.py",
@@ -464,7 +459,8 @@
       "call": "chain.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "sdks/python/examples/openai_integration_example.py",
@@ -472,7 +468,8 @@
       "call": "client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "sdks/python/examples/openai_integration_example.py",
@@ -480,7 +477,8 @@
       "call": "client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "sdks/python/examples/openai_integration_example.py",
@@ -488,7 +486,17 @@
       "call": "client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
+    },
+    {
+      "path": "sdks/python/src/opik/evaluation/models/anthropic/anthropic_chat_model.py",
+      "line": 152,
+      "call": "self._async_client.messages.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.anthropic import patch; patch()",
+      "framework": "anthropic"
     },
     {
       "path": "sdks/python/src/opik/evaluation/models/langchain/langchain_chat_model.py",
@@ -496,7 +504,8 @@
       "call": "self._engine.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "sdks/python/src/opik/evaluation/models/langchain/langchain_chat_model.py",
@@ -504,7 +513,8 @@
       "call": "self._engine.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "sdks/python/src/opik/forwarding_server/app.py",
@@ -512,7 +522,8 @@
       "call": "client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "sdks/python/src/opik/forwarding_server/app.py",
@@ -520,15 +531,17 @@
       "call": "client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "sdks/python/src/opik/integrations/litellm/litellm_completion_decorator.py",
-      "line": 129,
+      "line": 131,
       "call": "litellm.completion_cost",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "litellm"
     },
     {
       "path": "sdks/python/src/opik/simulation/simulator.py",
@@ -547,5 +560,27 @@
       "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
     }
   ],
-  "next_command": "# Add to your entrypoint:\nfrom assay.integrations.openai import patch; patch()\n# Then: assay run -- python your_app.py"
+  "next_command": "1) Auto-instrument your entrypoint based on scan findings:\n   assay patch .\n\n2) Generate a proof pack:\n   assay run -c receipt_completeness -- python your_app.py\n\n3) Verify and lock your baseline:\n   assay verify-pack ./proof_pack_*/\n   assay lock init",
+  "next_steps": [
+    {
+      "title": "Auto-instrument your entrypoint based on scan findings",
+      "commands": [
+        "assay patch ."
+      ]
+    },
+    {
+      "title": "Generate a proof pack",
+      "commands": [
+        "assay run -c receipt_completeness -- python your_app.py"
+      ]
+    },
+    {
+      "title": "Verify and lock your baseline",
+      "commands": [
+        "assay verify-pack ./proof_pack_*/",
+        "assay lock init"
+      ]
+    }
+  ],
+  "scan_status": "fail"
 }

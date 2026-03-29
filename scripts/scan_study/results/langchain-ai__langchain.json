@@ -1,30 +1,32 @@
 {
   "tool": "assay-scan",
-  "status": "fail",
+  "status": "ok",
   "summary": {
-    "sites_total": 211,
+    "sites_total": 215,
     "instrumented": 0,
-    "uninstrumented": 211,
-    "high": 12,
+    "uninstrumented": 215,
+    "high": 16,
     "medium": 195,
     "low": 4
   },
   "findings": [
     {
       "path": "libs/core/langchain_core/language_models/chat_models.py",
-      "line": 492,
+      "line": 544,
       "call": "self.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/language_models/chat_models.py",
-      "line": 618,
+      "line": 670,
       "call": "self.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/language_models/fake.py",
@@ -32,7 +34,8 @@
       "call": "self.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/language_models/fake.py",
@@ -40,7 +43,8 @@
       "call": "self.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/language_models/fake_chat_models.py",
@@ -48,7 +52,8 @@
       "call": "self.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/language_models/fake_chat_models.py",
@@ -56,7 +61,8 @@
       "call": "self.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/language_models/fake_chat_models.py",
@@ -64,7 +70,8 @@
       "call": "self.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/language_models/fake_chat_models.py",
@@ -72,23 +79,26 @@
       "call": "self.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/language_models/llms.py",
-      "line": 518,
+      "line": 520,
       "call": "self.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/language_models/llms.py",
-      "line": 587,
+      "line": 589,
       "call": "self.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/runnables/base.py",
@@ -96,7 +106,8 @@
       "call": "self.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/runnables/base.py",
@@ -104,7 +115,8 @@
       "call": "self.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/runnables/base.py",
@@ -112,7 +124,8 @@
       "call": "self.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/runnables/base.py",
@@ -120,7 +133,8 @@
       "call": "self.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/runnables/base.py",
@@ -128,7 +142,8 @@
       "call": "self.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/runnables/base.py",
@@ -136,7 +151,8 @@
       "call": "self.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/runnables/base.py",
@@ -144,7 +160,8 @@
       "call": "self.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/runnables/base.py",
@@ -152,7 +169,8 @@
       "call": "self.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/runnables/base.py",
@@ -160,7 +178,8 @@
       "call": "self.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/runnables/base.py",
@@ -168,47 +187,53 @@
       "call": "self.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/runnables/base.py",
-      "line": 3916,
+      "line": 3920,
       "call": "step.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/runnables/base.py",
-      "line": 4882,
+      "line": 4886,
       "call": "output.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/runnables/base.py",
-      "line": 4982,
+      "line": 4986,
       "call": "output.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/runnables/base.py",
-      "line": 5691,
+      "line": 5695,
       "call": "self.bound.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/runnables/base.py",
-      "line": 5704,
+      "line": 5708,
       "call": "self.bound.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/runnables/branch.py",
@@ -216,7 +241,8 @@
       "call": "condition.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/runnables/branch.py",
@@ -224,7 +250,8 @@
       "call": "runnable.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/runnables/branch.py",
@@ -232,7 +259,8 @@
       "call": "self.default.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/runnables/branch.py",
@@ -240,7 +268,8 @@
       "call": "condition.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/runnables/branch.py",
@@ -248,7 +277,8 @@
       "call": "runnable.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/runnables/branch.py",
@@ -256,7 +286,8 @@
       "call": "self.default.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/runnables/branch.py",
@@ -264,7 +295,8 @@
       "call": "condition.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/runnables/branch.py",
@@ -272,7 +304,8 @@
       "call": "condition.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/runnables/configurable.py",
@@ -280,7 +313,8 @@
       "call": "runnable.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/runnables/configurable.py",
@@ -288,7 +322,8 @@
       "call": "runnable.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/runnables/configurable.py",
@@ -296,7 +331,8 @@
       "call": "bound.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/runnables/configurable.py",
@@ -304,7 +340,8 @@
       "call": "bound.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/runnables/configurable.py",
@@ -312,7 +349,8 @@
       "call": "bound.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/runnables/configurable.py",
@@ -320,7 +358,8 @@
       "call": "bound.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/runnables/passthrough.py",
@@ -328,7 +367,8 @@
       "call": "self.mapper.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/runnables/passthrough.py",
@@ -336,7 +376,8 @@
       "call": "self.mapper.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/runnables/router.py",
@@ -344,7 +385,8 @@
       "call": "runnable.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/runnables/router.py",
@@ -352,7 +394,8 @@
       "call": "runnable.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/runnables/router.py",
@@ -360,7 +403,8 @@
       "call": "runnable.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/runnables/router.py",
@@ -368,7 +412,8 @@
       "call": "runnable.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/runnables/router.py",
@@ -376,7 +421,8 @@
       "call": "runnable.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/runnables/router.py",
@@ -384,7 +430,8 @@
       "call": "runnable.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/tools/convert.py",
@@ -392,7 +439,8 @@
       "call": "runnable.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/tools/convert.py",
@@ -400,7 +448,8 @@
       "call": "runnable.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/tools/convert.py",
@@ -408,7 +457,8 @@
       "call": "runnable.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/tools/convert.py",
@@ -416,7 +466,8 @@
       "call": "runnable.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/tools/retriever.py",
@@ -424,7 +475,8 @@
       "call": "retriever.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/core/langchain_core/tools/retriever.py",
@@ -432,7 +484,8 @@
       "call": "retriever.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/agents/agent.py",
@@ -440,7 +493,8 @@
       "call": "self.runnable.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/agents/agent.py",
@@ -448,7 +502,8 @@
       "call": "self.runnable.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/agents/agent.py",
@@ -456,7 +511,8 @@
       "call": "self.runnable.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/agents/agent.py",
@@ -464,7 +520,8 @@
       "call": "self.runnable.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/agents/openai_assistant/base.py",
@@ -472,7 +529,8 @@
       "call": "self.client.beta.threads.messages.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.anthropic import patch; patch()"
+      "fix": "from assay.integrations.anthropic import patch; patch()",
+      "framework": "anthropic"
     },
     {
       "path": "libs/langchain/langchain_classic/agents/openai_assistant/base.py",
@@ -480,7 +538,8 @@
       "call": "self.async_client.beta.threads.messages.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.anthropic import patch; patch()"
+      "fix": "from assay.integrations.anthropic import patch; patch()",
+      "framework": "anthropic"
     },
     {
       "path": "libs/langchain/langchain_classic/agents/openai_functions_agent/base.py",
@@ -488,7 +547,8 @@
       "call": "self.llm.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/agents/openai_functions_agent/base.py",
@@ -496,7 +556,8 @@
       "call": "self.llm.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/agents/openai_functions_agent/base.py",
@@ -504,7 +565,8 @@
       "call": "self.llm.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/agents/openai_functions_multi_agent/base.py",
@@ -512,7 +574,8 @@
       "call": "self.llm.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/agents/openai_functions_multi_agent/base.py",
@@ -520,7 +583,8 @@
       "call": "self.llm.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/chains/base.py",
@@ -528,7 +592,8 @@
       "call": "self.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/chains/base.py",
@@ -536,7 +601,8 @@
       "call": "self.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/chains/conversational_retrieval/base.py",
@@ -544,7 +610,8 @@
       "call": "self.retriever.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/chains/conversational_retrieval/base.py",
@@ -552,7 +619,8 @@
       "call": "self.retriever.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/chains/elasticsearch_database/base.py",
@@ -560,7 +628,8 @@
       "call": "self.query_chain.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/chains/elasticsearch_database/base.py",
@@ -568,7 +637,8 @@
       "call": "self.answer_chain.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/chains/example_generator.py",
@@ -576,7 +646,8 @@
       "call": "chain.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/chains/flare/base.py",
@@ -584,7 +655,8 @@
       "call": "self.retriever.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/chains/flare/base.py",
@@ -592,7 +664,8 @@
       "call": "self.response_chain.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/chains/flare/base.py",
@@ -600,7 +673,8 @@
       "call": "self.response_chain.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/chains/flare/base.py",
@@ -608,7 +682,8 @@
       "call": "ChatOpenAI",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.langchain import patch; patch()"
+      "fix": "from assay.integrations.langchain import AssayCallbackHandler  # pass callbacks=[AssayCallbackHandler()]",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/chains/hyde/base.py",
@@ -616,7 +691,8 @@
       "call": "self.llm_chain.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/chains/hyde/base.py",
@@ -624,7 +700,8 @@
       "call": "self.llm_chain.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/chains/natbot/base.py",
@@ -632,7 +709,8 @@
       "call": "self.llm_chain.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/chains/qa_with_sources/retrieval.py",
@@ -640,7 +718,8 @@
       "call": "self.retriever.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/chains/qa_with_sources/retrieval.py",
@@ -648,7 +727,8 @@
       "call": "self.retriever.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/chains/retrieval_qa/base.py",
@@ -656,7 +736,8 @@
       "call": "self.retriever.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/chains/retrieval_qa/base.py",
@@ -664,7 +745,8 @@
       "call": "self.retriever.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/chat_models/base.py",
@@ -672,7 +754,8 @@
       "call": "ChatOpenAI",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.langchain import patch; patch()"
+      "fix": "from assay.integrations.langchain import AssayCallbackHandler  # pass callbacks=[AssayCallbackHandler()]",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/chat_models/base.py",
@@ -680,7 +763,8 @@
       "call": "ChatAnthropic",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.langchain import patch; patch()"
+      "fix": "from assay.integrations.langchain import AssayCallbackHandler  # pass callbacks=[AssayCallbackHandler()]",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/chat_models/base.py",
@@ -688,7 +772,8 @@
       "call": "AzureChatOpenAI",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/chat_models/base.py",
@@ -696,7 +781,8 @@
       "call": "ChatAnthropicVertex",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.langchain import patch; patch()"
+      "fix": "from assay.integrations.langchain import AssayCallbackHandler  # pass callbacks=[AssayCallbackHandler()]",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/evaluation/loading.py",
@@ -704,7 +790,8 @@
       "call": "ChatOpenAI",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.langchain import patch; patch()"
+      "fix": "from assay.integrations.langchain import AssayCallbackHandler  # pass callbacks=[AssayCallbackHandler()]",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/indexes/vectorstore.py",
@@ -712,7 +799,8 @@
       "call": "chain.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/indexes/vectorstore.py",
@@ -720,7 +808,8 @@
       "call": "chain.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/indexes/vectorstore.py",
@@ -728,7 +817,8 @@
       "call": "chain.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/indexes/vectorstore.py",
@@ -736,7 +826,8 @@
       "call": "chain.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/memory/vectorstore.py",
@@ -744,7 +835,8 @@
       "call": "self.retriever.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/memory/vectorstore.py",
@@ -752,7 +844,8 @@
       "call": "self.retriever.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/output_parsers/fix.py",
@@ -760,7 +853,8 @@
       "call": "self.retry_chain.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/output_parsers/fix.py",
@@ -768,7 +862,8 @@
       "call": "self.retry_chain.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/output_parsers/fix.py",
@@ -776,7 +871,8 @@
       "call": "self.retry_chain.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/output_parsers/fix.py",
@@ -784,7 +880,8 @@
       "call": "self.retry_chain.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/output_parsers/retry.py",
@@ -792,7 +889,8 @@
       "call": "self.retry_chain.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/output_parsers/retry.py",
@@ -800,7 +898,8 @@
       "call": "self.retry_chain.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/output_parsers/retry.py",
@@ -808,7 +907,8 @@
       "call": "self.retry_chain.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/output_parsers/retry.py",
@@ -816,7 +916,8 @@
       "call": "self.retry_chain.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/retrievers/contextual_compression.py",
@@ -824,7 +925,8 @@
       "call": "self.base_retriever.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/retrievers/contextual_compression.py",
@@ -832,7 +934,8 @@
       "call": "self.base_retriever.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/retrievers/document_compressors/chain_extract.py",
@@ -840,7 +943,8 @@
       "call": "self.llm_chain.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/retrievers/document_compressors/listwise_rerank.py",
@@ -848,23 +952,26 @@
       "call": "self.reranker.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/retrievers/ensemble.py",
-      "line": 224,
+      "line": 240,
       "call": "retriever.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/retrievers/ensemble.py",
-      "line": 267,
+      "line": 283,
       "call": "retriever.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/retrievers/merger_retriever.py",
@@ -872,7 +979,8 @@
       "call": "retriever.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/retrievers/merger_retriever.py",
@@ -880,7 +988,8 @@
       "call": "retriever.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/retrievers/multi_query.py",
@@ -888,7 +997,8 @@
       "call": "self.llm_chain.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/retrievers/multi_query.py",
@@ -896,7 +1006,8 @@
       "call": "self.retriever.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/retrievers/multi_query.py",
@@ -904,7 +1015,8 @@
       "call": "self.llm_chain.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/retrievers/multi_query.py",
@@ -912,7 +1024,8 @@
       "call": "self.retriever.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/retrievers/re_phraser.py",
@@ -920,7 +1033,8 @@
       "call": "self.llm_chain.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/retrievers/re_phraser.py",
@@ -928,7 +1042,8 @@
       "call": "self.retriever.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/retrievers/self_query/base.py",
@@ -936,7 +1051,8 @@
       "call": "self.query_constructor.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/retrievers/self_query/base.py",
@@ -944,7 +1060,8 @@
       "call": "self.query_constructor.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/smith/evaluation/runner_utils.py",
@@ -952,7 +1069,8 @@
       "call": "llm.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/smith/evaluation/runner_utils.py",
@@ -960,7 +1078,8 @@
       "call": "llm.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/smith/evaluation/runner_utils.py",
@@ -968,7 +1087,8 @@
       "call": "llm.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/smith/evaluation/runner_utils.py",
@@ -976,7 +1096,8 @@
       "call": "chain.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/smith/evaluation/runner_utils.py",
@@ -984,7 +1105,8 @@
       "call": "chain.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/smith/evaluation/runner_utils.py",
@@ -992,7 +1114,8 @@
       "call": "llm.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/smith/evaluation/runner_utils.py",
@@ -1000,7 +1123,8 @@
       "call": "llm.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/smith/evaluation/runner_utils.py",
@@ -1008,7 +1132,8 @@
       "call": "llm.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/smith/evaluation/runner_utils.py",
@@ -1016,7 +1141,8 @@
       "call": "chain.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain/langchain_classic/smith/evaluation/runner_utils.py",
@@ -1024,39 +1150,44 @@
       "call": "chain.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain_v1/langchain/agents/factory.py",
-      "line": 1233,
+      "line": 1273,
       "call": "model_.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain_v1/langchain/agents/factory.py",
-      "line": 1281,
+      "line": 1321,
       "call": "model_.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain_v1/langchain/agents/middleware/summarization.py",
-      "line": 602,
+      "line": 606,
       "call": "self.model.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain_v1/langchain/agents/middleware/summarization.py",
-      "line": 628,
+      "line": 632,
       "call": "self.model.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain_v1/langchain/agents/middleware/tool_emulator.py",
@@ -1064,7 +1195,8 @@
       "call": "self.model.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain_v1/langchain/agents/middleware/tool_emulator.py",
@@ -1072,7 +1204,8 @@
       "call": "self.model.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain_v1/langchain/agents/middleware/tool_selection.py",
@@ -1080,7 +1213,8 @@
       "call": "structured_model.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/langchain_v1/langchain/agents/middleware/tool_selection.py",
@@ -1088,39 +1222,44 @@
       "call": "structured_model.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/partners/anthropic/langchain_anthropic/chat_models.py",
-      "line": 1256,
+      "line": 1182,
       "call": "self._client.beta.messages.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.anthropic import patch; patch()"
+      "fix": "from assay.integrations.anthropic import patch; patch()",
+      "framework": "anthropic"
     },
     {
       "path": "libs/partners/anthropic/langchain_anthropic/chat_models.py",
-      "line": 1257,
+      "line": 1183,
       "call": "self._client.messages.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.anthropic import patch; patch()"
+      "fix": "from assay.integrations.anthropic import patch; patch()",
+      "framework": "anthropic"
     },
     {
       "path": "libs/partners/anthropic/langchain_anthropic/chat_models.py",
-      "line": 1261,
+      "line": 1187,
       "call": "self._async_client.beta.messages.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.anthropic import patch; patch()"
+      "fix": "from assay.integrations.anthropic import patch; patch()",
+      "framework": "anthropic"
     },
     {
       "path": "libs/partners/anthropic/langchain_anthropic/chat_models.py",
-      "line": 1262,
+      "line": 1188,
       "call": "self._async_client.messages.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.anthropic import patch; patch()"
+      "fix": "from assay.integrations.anthropic import patch; patch()",
+      "framework": "anthropic"
     },
     {
       "path": "libs/partners/anthropic/langchain_anthropic/llms.py",
@@ -1128,7 +1267,8 @@
       "call": "self.client.messages.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.anthropic import patch; patch()"
+      "fix": "from assay.integrations.anthropic import patch; patch()",
+      "framework": "anthropic"
     },
     {
       "path": "libs/partners/anthropic/langchain_anthropic/llms.py",
@@ -1136,11 +1276,12 @@
       "call": "self.async_client.messages.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.anthropic import patch; patch()"
+      "fix": "from assay.integrations.anthropic import patch; patch()",
+      "framework": "anthropic"
     },
     {
       "path": "libs/partners/huggingface/langchain_huggingface/chat_models/huggingface.py",
-      "line": 750,
+      "line": 748,
       "call": "self.llm.client.chat_completion",
       "confidence": "low",
       "instrumented": false,
@@ -1148,7 +1289,7 @@
     },
     {
       "path": "libs/partners/huggingface/langchain_huggingface/chat_models/huggingface.py",
-      "line": 790,
+      "line": 788,
       "call": "self.llm.async_client.chat_completion",
       "confidence": "low",
       "instrumented": false,
@@ -1156,7 +1297,7 @@
     },
     {
       "path": "libs/partners/huggingface/langchain_huggingface/chat_models/huggingface.py",
-      "line": 841,
+      "line": 839,
       "call": "self.llm.client.chat_completion",
       "confidence": "low",
       "instrumented": false,
@@ -1164,43 +1305,83 @@
     },
     {
       "path": "libs/partners/huggingface/langchain_huggingface/chat_models/huggingface.py",
-      "line": 908,
+      "line": 906,
       "call": "self.llm.async_client.chat_completion",
       "confidence": "low",
       "instrumented": false,
       "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
     },
     {
+      "path": "libs/partners/openai/langchain_openai/chat_models/base.py",
+      "line": 1243,
+      "call": "self.root_client.with_raw_response.responses.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
+    },
+    {
+      "path": "libs/partners/openai/langchain_openai/chat_models/base.py",
+      "line": 1248,
+      "call": "self.root_client.responses.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
+    },
+    {
+      "path": "libs/partners/openai/langchain_openai/chat_models/base.py",
+      "line": 1301,
+      "call": "self.root_async_client.with_raw_response.responses.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
+    },
+    {
+      "path": "libs/partners/openai/langchain_openai/chat_models/base.py",
+      "line": 1308,
+      "call": "self.root_async_client.responses.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
+    },
+    {
       "path": "libs/partners/perplexity/langchain_perplexity/chat_models.py",
-      "line": 428,
+      "line": 424,
       "call": "self.client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "libs/partners/perplexity/langchain_perplexity/chat_models.py",
-      "line": 517,
+      "line": 513,
       "call": "self.async_client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "libs/partners/perplexity/langchain_perplexity/chat_models.py",
-      "line": 604,
+      "line": 600,
       "call": "self.client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "libs/partners/perplexity/langchain_perplexity/chat_models.py",
-      "line": 661,
+      "line": 657,
       "call": "self.async_client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
@@ -1208,7 +1389,8 @@
       "call": "model.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
@@ -1216,7 +1398,8 @@
       "call": "model.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
@@ -1224,7 +1407,8 @@
       "call": "model.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
@@ -1232,7 +1416,8 @@
       "call": "model.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
@@ -1240,7 +1425,8 @@
       "call": "model.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
@@ -1248,7 +1434,8 @@
       "call": "model.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
@@ -1256,7 +1443,8 @@
       "call": "model.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
@@ -1264,7 +1452,8 @@
       "call": "self.invoke_with_audio_input",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
@@ -1272,7 +1461,8 @@
       "call": "self.invoke_with_audio_output",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
@@ -1280,7 +1470,8 @@
       "call": "self.invoke_with_reasoning_output",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
@@ -1288,7 +1479,8 @@
       "call": "self.invoke_with_cache_read_input",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
@@ -1296,7 +1488,8 @@
       "call": "self.invoke_with_cache_creation_input",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
@@ -1304,7 +1497,8 @@
       "call": "self.invoke_with_audio_input",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
@@ -1312,7 +1506,8 @@
       "call": "self.invoke_with_audio_output",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
@@ -1320,7 +1515,8 @@
       "call": "self.invoke_with_reasoning_output",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
@@ -1328,7 +1524,8 @@
       "call": "self.invoke_with_cache_read_input",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
@@ -1336,7 +1533,8 @@
       "call": "self.invoke_with_cache_creation_input",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
@@ -1344,7 +1542,8 @@
       "call": "model.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
@@ -1352,7 +1551,8 @@
       "call": "custom_model.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
@@ -1360,7 +1560,8 @@
       "call": "model_with_tools.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
@@ -1368,7 +1569,8 @@
       "call": "model_with_tools.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
@@ -1376,7 +1578,8 @@
       "call": "model_with_tools.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
@@ -1384,7 +1587,8 @@
       "call": "model_with_tools.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
@@ -1392,7 +1596,8 @@
       "call": "model_with_tools.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
@@ -1400,7 +1605,8 @@
       "call": "model_with_tools.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
@@ -1408,7 +1614,8 @@
       "call": "model_with_tools.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
@@ -1416,7 +1623,8 @@
       "call": "model_with_tools.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
@@ -1424,7 +1632,8 @@
       "call": "model_with_tools.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
@@ -1432,7 +1641,8 @@
       "call": "chat.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
@@ -1440,7 +1650,8 @@
       "call": "chat.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
@@ -1448,7 +1659,8 @@
       "call": "chat.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
@@ -1456,7 +1668,8 @@
       "call": "chat.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
@@ -1464,7 +1677,8 @@
       "call": "chat.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
@@ -1472,7 +1686,8 @@
       "call": "chat.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
@@ -1480,7 +1695,8 @@
       "call": "chat.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
@@ -1488,7 +1704,8 @@
       "call": "chat.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
@@ -1496,7 +1713,8 @@
       "call": "chat.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
@@ -1504,119 +1722,134 @@
       "call": "chat.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
-      "line": 2601,
+      "line": 2603,
       "call": "model.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
-      "line": 2619,
+      "line": 2621,
       "call": "model.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
-      "line": 2699,
+      "line": 2701,
       "call": "model.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
-      "line": 2714,
+      "line": 2716,
       "call": "model.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
-      "line": 2796,
+      "line": 2800,
       "call": "model.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
-      "line": 2809,
+      "line": 2813,
       "call": "model.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
-      "line": 2825,
+      "line": 2829,
       "call": "model.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
-      "line": 3205,
+      "line": 3215,
       "call": "model.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
-      "line": 3226,
+      "line": 3236,
       "call": "model.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
-      "line": 3284,
+      "line": 3294,
       "call": "llm_with_tools.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
-      "line": 3291,
+      "line": 3301,
       "call": "get_weather.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
-      "line": 3293,
+      "line": 3303,
       "call": "llm_with_tools.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
-      "line": 3403,
+      "line": 3413,
       "call": "llm_with_tool.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/chat_models.py",
-      "line": 3437,
+      "line": 3447,
       "call": "llm_with_tool.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/retrievers.py",
@@ -1624,7 +1857,8 @@
       "call": "retriever_3.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/retrievers.py",
@@ -1632,7 +1866,8 @@
       "call": "retriever_1.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/retrievers.py",
@@ -1640,7 +1875,8 @@
       "call": "retriever.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/retrievers.py",
@@ -1648,7 +1884,8 @@
       "call": "retriever.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/retrievers.py",
@@ -1656,7 +1893,8 @@
       "call": "retriever.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/retrievers.py",
@@ -1664,7 +1902,8 @@
       "call": "retriever.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/tools.py",
@@ -1672,7 +1911,8 @@
       "call": "tool.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/tools.py",
@@ -1680,7 +1920,8 @@
       "call": "tool.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/tools.py",
@@ -1688,7 +1929,8 @@
       "call": "tool.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     },
     {
       "path": "libs/standard-tests/langchain_tests/integration_tests/tools.py",
@@ -1696,8 +1938,31 @@
       "call": "tool.ainvoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     }
   ],
-  "next_command": "# Add to your entrypoint:\nfrom assay.integrations.openai import patch; patch()\n# Then: assay run -- python your_app.py"
+  "next_command": "1) Auto-instrument your entrypoint based on scan findings:\n   assay patch .\n\n2) Generate a proof pack:\n   assay run -c receipt_completeness -- python your_app.py\n\n3) Verify and lock your baseline:\n   assay verify-pack ./proof_pack_*/\n   assay lock init",
+  "next_steps": [
+    {
+      "title": "Auto-instrument your entrypoint based on scan findings",
+      "commands": [
+        "assay patch ."
+      ]
+    },
+    {
+      "title": "Generate a proof pack",
+      "commands": [
+        "assay run -c receipt_completeness -- python your_app.py"
+      ]
+    },
+    {
+      "title": "Verify and lock your baseline",
+      "commands": [
+        "assay verify-pack ./proof_pack_*/",
+        "assay lock init"
+      ]
+    }
+  ],
+  "scan_status": "fail"
 }

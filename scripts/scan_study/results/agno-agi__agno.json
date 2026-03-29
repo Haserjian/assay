@@ -1,150 +1,167 @@
 {
   "tool": "assay-scan",
-  "status": "fail",
+  "status": "ok",
   "summary": {
-    "sites_total": 29,
+    "sites_total": 33,
     "instrumented": 0,
-    "uninstrumented": 29,
-    "high": 27,
+    "uninstrumented": 33,
+    "high": 31,
     "medium": 2,
     "low": 0
   },
   "findings": [
     {
       "path": "cookbook/09_evals/performance/comparison/langgraph_instantiation.py",
-      "line": 26,
+      "line": 37,
       "call": "ChatOpenAI",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay.integrations.langchain import patch; patch()"
-    },
-    {
-      "path": "libs/agno/agno/models/anthropic/claude.py",
-      "line": 604,
-      "call": "beta.messages.create",
-      "confidence": "high",
-      "instrumented": false,
-      "fix": "from assay.integrations.anthropic import patch; patch()"
+      "fix": "from assay.integrations.langchain import AssayCallbackHandler  # pass callbacks=[AssayCallbackHandler()]",
+      "framework": "langchain"
     },
     {
       "path": "libs/agno/agno/models/anthropic/claude.py",
       "line": 611,
-      "call": "messages.create",
-      "confidence": "high",
-      "instrumented": false,
-      "fix": "from assay.integrations.anthropic import patch; patch()"
-    },
-    {
-      "path": "libs/agno/agno/models/anthropic/claude.py",
-      "line": 730,
       "call": "beta.messages.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.anthropic import patch; patch()"
+      "fix": "from assay.integrations.anthropic import patch; patch()",
+      "framework": "anthropic"
     },
     {
       "path": "libs/agno/agno/models/anthropic/claude.py",
-      "line": 737,
+      "line": 618,
       "call": "messages.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.anthropic import patch; patch()"
+      "fix": "from assay.integrations.anthropic import patch; patch()",
+      "framework": "anthropic"
+    },
+    {
+      "path": "libs/agno/agno/models/anthropic/claude.py",
+      "line": 735,
+      "call": "beta.messages.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.anthropic import patch; patch()",
+      "framework": "anthropic"
+    },
+    {
+      "path": "libs/agno/agno/models/anthropic/claude.py",
+      "line": 742,
+      "call": "messages.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.anthropic import patch; patch()",
+      "framework": "anthropic"
     },
     {
       "path": "libs/agno/agno/models/cerebras/cerebras.py",
-      "line": 262,
+      "line": 263,
       "call": "chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "libs/agno/agno/models/cerebras/cerebras.py",
-      "line": 296,
+      "line": 298,
       "call": "chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "libs/agno/agno/models/cerebras/cerebras.py",
-      "line": 331,
+      "line": 334,
       "call": "chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "libs/agno/agno/models/cerebras/cerebras.py",
-      "line": 365,
+      "line": 369,
       "call": "chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "libs/agno/agno/models/groq/groq.py",
-      "line": 301,
+      "line": 302,
       "call": "chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "libs/agno/agno/models/groq/groq.py",
-      "line": 342,
+      "line": 344,
       "call": "chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "libs/agno/agno/models/groq/groq.py",
-      "line": 384,
+      "line": 387,
       "call": "chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "libs/agno/agno/models/groq/groq.py",
-      "line": 426,
+      "line": 429,
       "call": "chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "libs/agno/agno/models/huggingface/huggingface.py",
-      "line": 256,
+      "line": 253,
       "call": "chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "libs/agno/agno/models/huggingface/huggingface.py",
-      "line": 290,
+      "line": 284,
       "call": "chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "libs/agno/agno/models/huggingface/huggingface.py",
-      "line": 325,
+      "line": 316,
       "call": "chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "libs/agno/agno/models/huggingface/huggingface.py",
-      "line": 363,
+      "line": 351,
       "call": "chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "libs/agno/agno/models/meta/llama.py",
@@ -152,55 +169,62 @@
       "call": "chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "libs/agno/agno/models/meta/llama.py",
-      "line": 259,
+      "line": 256,
       "call": "chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "libs/agno/agno/models/meta/llama.py",
-      "line": 292,
+      "line": 286,
       "call": "chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "libs/agno/agno/models/meta/llama.py",
-      "line": 328,
+      "line": 319,
       "call": "chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "libs/agno/agno/models/openai/chat.py",
-      "line": 414,
+      "line": 423,
       "call": "chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "libs/agno/agno/models/openai/chat.py",
-      "line": 498,
+      "line": 504,
       "call": "chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "libs/agno/agno/models/openai/chat.py",
-      "line": 580,
+      "line": 583,
       "call": "chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "libs/agno/agno/models/openai/chat.py",
@@ -208,7 +232,44 @@
       "call": "chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
+    },
+    {
+      "path": "libs/agno/agno/models/openai/responses.py",
+      "line": 698,
+      "call": "responses.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
+    },
+    {
+      "path": "libs/agno/agno/models/openai/responses.py",
+      "line": 768,
+      "call": "responses.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
+    },
+    {
+      "path": "libs/agno/agno/models/openai/responses.py",
+      "line": 839,
+      "call": "responses.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
+    },
+    {
+      "path": "libs/agno/agno/models/openai/responses.py",
+      "line": 913,
+      "call": "responses.create",
+      "confidence": "high",
+      "instrumented": false,
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "libs/agno/agno/tools/models/morph.py",
@@ -216,7 +277,8 @@
       "call": "client.chat.completions.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.openai import patch; patch()"
+      "fix": "from assay.integrations.openai import patch; patch()",
+      "framework": "openai"
     },
     {
       "path": "libs/agno/agno/tools/twilio.py",
@@ -224,7 +286,8 @@
       "call": "self.client.messages.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.anthropic import patch; patch()"
+      "fix": "from assay.integrations.anthropic import patch; patch()",
+      "framework": "anthropic"
     },
     {
       "path": "libs/agno/agno/tools/webex.py",
@@ -232,7 +295,8 @@
       "call": "self.client.messages.create",
       "confidence": "high",
       "instrumented": false,
-      "fix": "from assay.integrations.anthropic import patch; patch()"
+      "fix": "from assay.integrations.anthropic import patch; patch()",
+      "framework": "anthropic"
     },
     {
       "path": "libs/agno/agno/vectordb/langchaindb/langchaindb.py",
@@ -240,8 +304,31 @@
       "call": "self.knowledge_retriever.invoke",
       "confidence": "medium",
       "instrumented": false,
-      "fix": "from assay import emit_receipt  # add emit_receipt() after this call"
+      "fix": "from assay import emit_receipt  # add emit_receipt() after this call",
+      "framework": "langchain"
     }
   ],
-  "next_command": "# Add to your entrypoint:\nfrom assay.integrations.openai import patch; patch()\n# Then: assay run -- python your_app.py"
+  "next_command": "1) Auto-instrument your entrypoint based on scan findings:\n   assay patch .\n\n2) Generate a proof pack:\n   assay run -c receipt_completeness -- python your_app.py\n\n3) Verify and lock your baseline:\n   assay verify-pack ./proof_pack_*/\n   assay lock init",
+  "next_steps": [
+    {
+      "title": "Auto-instrument your entrypoint based on scan findings",
+      "commands": [
+        "assay patch ."
+      ]
+    },
+    {
+      "title": "Generate a proof pack",
+      "commands": [
+        "assay run -c receipt_completeness -- python your_app.py"
+      ]
+    },
+    {
+      "title": "Verify and lock your baseline",
+      "commands": [
+        "assay verify-pack ./proof_pack_*/",
+        "assay lock init"
+      ]
+    }
+  ],
+  "scan_status": "fail"
 }

@@ -14,9 +14,9 @@ Ran it on 30 popular repos: LangChain, LlamaIndex, CrewAI, Browser-Use, Aider, p
 
 | Metric | Value |
 |--------|-------|
-| High-confidence SDK call sites | 202 |
-| Total (incl. framework heuristics) | 903 |
-| Repos with tamper-evident evidence | 0 |
+| High-confidence SDK call sites | 231 |
+| Total (incl. framework heuristics) | 937 |
+| Repos with Assay-compatible instrumentation | 0 |
 
 **What this is not:** a claim that these projects have no logging. Many have extensive observability (callbacks, OpenTelemetry, LangSmith). This specifically measures cryptographically signed, independently verifiable evidence -- the difference between "we can see what happened" and "we can prove what happened."
 

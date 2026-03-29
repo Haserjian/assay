@@ -9,7 +9,7 @@
 
 I scanned 30 popular AI repos for **tamper-evident evidence emission** (signed receipts that prove what went into and came out of each LLM call, verifiable without your infra).
 
-Found **202** high-confidence direct SDK call sites, **903** total including framework heuristics, **0** with tamper-evident evidence.
+Found **231** high-confidence direct SDK call sites, **937** total including framework heuristics, **0** with Assay-compatible tamper-evident instrumentation.
 
 This doesn't measure logging/monitoring -- just cryptographic evidence. Many of these projects have great observability. The gap is between "we can see" and "we can prove."
 
