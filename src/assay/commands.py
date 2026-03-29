@@ -7558,7 +7558,14 @@ def _build_trust_readme(profile: str) -> str:
         "2. Add the fingerprint to `signers.yaml` under `signers:`\n"
         "   (replace the commented placeholder)\n"
         "\n"
-        "3. Commit and push. Trust evaluation appears in the next PR comment.\n"
+        "3. Generate a proof pack: `assay run -- <your command>`\n"
+        "\n"
+        "4. Commit `trust/`, the proof pack, and push.\n"
+        "   Trust evaluation appears in the next PR comment.\n"
+        "\n"
+        "**Note:** The generated workflow sets `require-pack: true`.\n"
+        "If your repo does not produce proof packs on every PR,\n"
+        "set `require-pack: false` in `.github/workflows/assay-verify.yml`.\n"
         "\n"
         "## Files\n"
         "\n"
@@ -7715,8 +7722,15 @@ def trust_bootstrap_cmd(
     console.print("Next steps:")
     console.print("  1. Run: [bold]assay key list[/]")
     console.print("  2. Copy your fingerprint into [bold]trust/signers.yaml[/] (replace the placeholder)")
-    console.print("  3. Commit and push")
-    console.print("  4. Open a PR with a proof pack — trust evaluation appears in the PR comment")
+    console.print("  3. Generate a proof pack: [bold]assay run -- <your command>[/]")
+    console.print("  4. Commit trust/, proof pack, and push")
+    console.print("  5. Open a PR — trust evaluation appears in the PR comment")
+    console.print()
+    console.print(
+        "[dim]Note: The workflow requires at least one proof pack (require-pack: true).\n"
+        "If your repo doesn't produce packs on every PR, set require-pack: false\n"
+        "in .github/workflows/assay-verify.yml.[/dim]"
+    )
     if profile == "reviewer":
         console.print()
         console.print("Reviewer packet examples:")
