@@ -435,7 +435,7 @@
     <h2>What buyers typically receive today</h2>
 
     <p>
-      A scan of 30 open-source AI projects covering 202 LLM call sites found zero tamper-evident evidence trails.<sup><a href="#ref-1">1</a></sup> These were open-source projects, not enterprise products — but the underlying pattern (logs on the operator's server, no portable proof artifacts) is common across the industry. Here is what buyers typically receive versus what independent verification would require:
+      A scan of 30 open-source AI projects found 231 high-confidence LLM call sites. None had Assay-compatible tamper-evident instrumentation.<sup><a href="#ref-1">1</a></sup> These were open-source projects, not enterprise products — but the underlying pattern (logs on the operator's server, no portable proof artifacts) is common across the industry. Here is what buyers typically receive versus what independent verification would require:
     </p>
 
     <table class="evidence-table">
@@ -699,7 +699,7 @@
     <div class="citations">
       <h2>References</h2>
       <ol>
-        <li id="ref-1">Assay scan study: 30 AI projects, 202 LLM call sites, 0 tamper-evident evidence trails. <a href="https://github.com/Haserjian/assay/blob/main/scripts/scan_study/results/report.md">Methodology and results</a> (February 2026).</li>
+        <li id="ref-1">Assay scan study: 30 AI projects, 231 high-confidence LLM call sites, 0 with Assay-compatible tamper-evident instrumentation. <a href="https://github.com/Haserjian/assay/blob/main/scripts/scan_study/results/report.md">Methodology and results</a> (March 2026).</li>
         <li id="ref-2">Regulation (EU) 2024/1689 (EU AI Act), Article 12 — Record-keeping: requires high-risk AI systems to have logging capabilities that enable traceability, monitoring, and post-market surveillance. Article 14 requires human oversight with access to operational data.</li>
         <li id="ref-3">National Institute of Standards and Technology. <em>AI Risk Management Framework (AI RMF 1.0)</em>, January 2023. NIST AI 100-1. See MAP 2.3 (provenance), MEASURE 2.5–2.6 (third-party evaluation), GOVERN 1.2 (documentation).</li>
         <li id="ref-4">ISO/IEC 42001:2023 — <em>Information technology — Artificial intelligence — Management system</em>. Specifies requirements for establishing, implementing, maintaining, and continually improving an AI management system, including documented evidence of conformity.</li>
