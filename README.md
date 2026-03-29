@@ -312,6 +312,8 @@ assay gate save-baseline
 assay gate check . --min-score 60 --fail-on-regression
 ```
 
+> **Command discovery:** `assay --help` shows the most-used entry points. Commands used in this guide — `gate`, `report`, `ci`, `diff`, `analyze`, `lock`, and `vendorq` — are available but not listed there by default. Run `assay <command> --help` for full options.
+
 `assay scan . --report` finds every LLM call site (OpenAI, Anthropic, Google
 Gemini, LiteLLM, LangChain) and generates a self-contained HTML gap report.
 `assay patch` inserts the two-line integration. `assay run` wraps your command,
