@@ -1,10 +1,7 @@
 # Assay
 
-Assay catches invalid AI evaluation claims before they ship.
-
-When an LLM-as-judge evaluation shows +11% improvement but the judge model
-and prompt both changed between runs, the score delta is structurally invalid.
-Assay finds that in seconds and tells you exactly what drifted.
+Assay denies invalid AI claims caused by drift, then turns
+surviving runs into auditable evidence.
 
 ---
 
@@ -57,6 +54,19 @@ dataset) and at what severity. You can write contracts for your domain.
 2. **Try your own data** — bring two eval runs, get a verdict ([quickstart](TRY_YOUR_DATA.md))
 3. **Inspect the evidence** — browse proof packs and reviewer packets in the [gallery](https://github.com/Haserjian/assay-proof-gallery)
 4. **Verify without installing** — use the [browser verifier](https://haserjian.github.io/assay-proof-gallery/verify.html) on any proof pack
+
+---
+
+## Want us to install it?
+
+**Comparability Diagnostic (free):** We run `assay compare` on your
+last two eval runs and show you whether the comparison was structurally valid.
+Takes 30 minutes. You learn whether your benchmark claims survive scrutiny.
+
+**Evidence Gate Pilot ($10-25K):** We wire Assay into your eval pipeline,
+author your comparability contract, set up CI gating, and hand off the
+whole system. 1-2 weeks. You own everything we build.
+[Full pilot details](../PILOT_PROGRAM.md)
 
 ---
 
