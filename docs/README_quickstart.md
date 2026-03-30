@@ -332,7 +332,7 @@ trust faster than bugs.
 | `assay demo-challenge` | CTF-style good + tampered pack pair |
 | `assay demo-pack` | Generate demo packs (no config needed) |
 | `assay onboard` | Guided setup: doctor -> scan -> first run plan |
-| `assay scan` | Find uninstrumented LLM call sites (`--report` for HTML) |
+| `assay scan` | Find uninstrumented LLM call sites via static analysis (`--report` for HTML; dynamic dispatch not covered) |
 | `assay patch` | Auto-insert SDK integration patches into your entrypoint |
 | `assay run` | Wrap command, collect receipts, build signed pack |
 | `assay verify-pack` | Verify a Proof Pack (integrity + claims) |

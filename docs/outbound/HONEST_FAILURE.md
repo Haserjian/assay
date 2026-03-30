@@ -56,6 +56,16 @@ the system denied an invalid claim, and here is the signed evidence.
 Honest failure is not a bug. It is the proof that the governance
 layer is working.
 
+## "How do I know the evidence wasn't fabricated?"
+
+This is the right question to ask. The honest answer is attack cost, not impossibility.
+
+Fabricating a valid Assay proof pack requires: running an instrumented process that produces matching content hashes for real model inputs and outputs, token counts consistent with the actual API response, timestamps in a plausible sequence — and holding the private signing key. An adversary who controls all of that is not quietly editing a log entry. They are re-executing the entire governed run to produce a fake one that will verify. The cost of fabricating a complete, internally consistent proof pack is comparable to the cost of doing the real run honestly. That is not a casual attack.
+
+What T0 (current tier) does not provide: independent witnessing. The operator holds the private signing key — the same organization that ran the eval signs the evidence. That is the trust assumption, stated plainly. T1 (RFC 3161 time-anchor) and T2 (Rekor transparency log) raise the fabrication cost further and add independent witnesses — both tiers are specified and the upgrade path is defined. See [WHAT_ASSAY_DOES_TODAY.md](../WHAT_ASSAY_DOES_TODAY.md) for current trust posture.
+
+The working answer for a compliance buyer: current packs are self-signed, not independently witnessed. Fabricating a consistent trail costs as much as running the eval honestly. Here is what an adversary would need to control. Here is what T1 adds. Here is when T1 ships.
+
 ## What changes after you install this
 
 **Week 1:** Every governed operation produces a signed evidence pack.
