@@ -91,7 +91,12 @@ def _version_match(a: Any, b: Any, **kwargs: Any) -> bool:
     Simple string equality on normalized version strings.
     Does not do semver range matching — that would be too permissive
     for comparability governance.
+
+    None is not a version string. Two absent fields do not constitute
+    a version match — same principle as _exact.
     """
+    if a is None or b is None:
+        return False
     return str(a).strip() == str(b).strip()
 
 
@@ -100,7 +105,12 @@ def _within_threshold(a: Any, b: Any, **kwargs: Any) -> bool:
 
     Requires 'threshold' in kwargs. Computes absolute difference.
     Fallback (no threshold) uses type-aware exact match.
+
+    None is not a numeric value. Two absent fields do not constitute
+    a match regardless of threshold — same principle as _exact.
     """
+    if a is None or b is None:
+        return False
     threshold = kwargs.get("threshold")
     if threshold is None:
         # No threshold declared — fall back to exact match (with type guard)
