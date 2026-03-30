@@ -857,22 +857,62 @@ class TestSerialization:
 
         assert cd["artifact_class"] == "diagnostic_diff"
         assert cd["evidence_status"] == "not_signed_not_authoritative"
+        assert cd["verifier_action"] == "refer_to_signed_receipt"
         assert cd["authority_source_type"] == "comparability_verdict_receipt"
         assert cd["authority_container"] == "proof_pack"
 
-    def test_diff_has_no_signature_field(self):
-        """ConstitutionalDiff must never carry a signature.
+    def test_diff_field_allowlist(self):
+        """ConstitutionalDiff top-level keys must not grow authority-bearing fields.
 
-        If a 'signature' field appears in the diff output, the artifact
-        has been accidentally promoted to evidence status.
+        If a new field is added, this test forces a conscious decision.
+        Authority-bearing names (signature, attestation, verified_by, etc.)
+        cannot appear without breaking this test.
         """
         contract = _make_contract()
         diff = evaluate(contract, _make_bundle(), _make_bundle())
         cd = diff.to_dict()["constitutional_diff"]
 
-        assert "signature" not in cd
-        assert "signed_by" not in cd
-        assert "signer_id" not in cd
+        ALLOWED_KEYS = {
+            # Demotion / authority demarcation
+            "artifact_class", "evidence_status", "verifier_action",
+            "authority_source_type", "authority_container",
+            # Identity
+            "version", "diff_id", "created_at",
+            # Content
+            "entities", "comparability", "lineage",
+            # Optional context
+            "claim", "consequence",
+            "baseline_completeness", "candidate_completeness",
+        }
+
+        actual_keys = set(cd.keys())
+        unexpected = actual_keys - ALLOWED_KEYS
+        assert not unexpected, (
+            f"Unexpected keys in constitutional_diff: {unexpected}. "
+            f"If intentional, add to ALLOWED_KEYS. If authority-bearing "
+            f"(signature, attestation, verified_by, etc.), this violates OCD-13."
+        )
+
+    def test_diff_has_no_authority_bearing_fields(self):
+        """ConstitutionalDiff must never carry signature or attestation fields.
+
+        Broader than the allowlist: explicitly rejects a set of names that
+        would imply evidence status regardless of where they appear.
+        """
+        contract = _make_contract()
+        diff = evaluate(contract, _make_bundle(), _make_bundle())
+        cd = diff.to_dict()["constitutional_diff"]
+
+        FORBIDDEN = {
+            "signature", "signed_by", "signer_id", "signer_pubkey",
+            "signer_pubkey_sha256", "attestation", "verified_by",
+            "receipt", "receipt_id", "authority_signature",
+        }
+        found = FORBIDDEN & set(cd.keys())
+        assert not found, (
+            f"Authority-bearing fields found in diagnostic diff: {found}. "
+            f"This violates OCD-13: the diff is not evidence."
+        )
 
     def test_diff_carries_contract_hash(self):
         """Contract hash must be present for informational linkage."""
