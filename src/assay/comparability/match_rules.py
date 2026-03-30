@@ -29,7 +29,14 @@ def _exact(a: Any, b: Any, **kwargs: Any) -> bool:
 
     Python's ``True == 1`` is True, but for parity comparison
     a boolean and an integer are semantically different field values.
+
+    None is not a value — absence of a value. Two missing fields do not
+    constitute a match. The engine's missing-field path handles declared
+    absence; this guard catches the case where a field key exists but its
+    value is None.
     """
+    if a is None or b is None:
+        return False
     if type(a) is not type(b):
         return False
     return a == b

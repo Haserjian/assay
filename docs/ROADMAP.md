@@ -86,7 +86,7 @@ Receipting proxy between MCP clients and servers. Zero server changes.
 
 **Goal**: Get strangers from curiosity to first proof pack in 10 minutes.
 
-All deliverables complete. 2,987+ tests passing (as of 2026-03-29). v1.19.0 on PyPI.
+All deliverables complete. 2,990 tests passing, 12 skipped (as of 2026-03-29). v1.19.0 on PyPI.
 
 ### Phase 1: Temporal Intelligence (Mar 2026) — In Progress
 
