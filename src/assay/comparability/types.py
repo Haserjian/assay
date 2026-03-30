@@ -228,6 +228,9 @@ class ConstitutionalDiff:
         d: Dict[str, Any] = {
             "constitutional_diff": {
                 "version": "0.1.0",
+                "artifact_class": "diagnostic_diff",
+                "evidence_status": "not_signed_not_authoritative",
+                "authority_source": "signed comparability_verdict receipt in proof pack",
                 "diff_id": self.diff_id,
                 "created_at": self.created_at,
                 "entities": {

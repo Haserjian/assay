@@ -1,7 +1,7 @@
 # Open Contract Decisions
 
-**Date**: 2026-03-25 (reconciled post-extraction 2026-03-25; OCD-11/OCD-12 added 2026-03-29)
-**Status**: 6 of 12 items resolved. 0 HIGH remain. 2 MEDIUM remain (OCD-9, OCD-11). 4 LOW remain (OCD-5, OCD-6, OCD-7, OCD-12).
+**Date**: 2026-03-25 (reconciled post-extraction 2026-03-25; OCD-11–14 added 2026-03-29; OCD-13/14 resolved 2026-03-29)
+**Status**: 8 of 14 items resolved. 0 HIGH remain. 2 MEDIUM remain (OCD-9, OCD-11). 4 LOW remain (OCD-5, OCD-6, OCD-7, OCD-12).
 
 These are questions that must be answered before the Proof Pack contract can be fully frozen for second implementations.
 
@@ -372,9 +372,15 @@ Rationale: The comparability contract is a trust artifact. Ambiguous combination
 2. **Document it as non-evidence.** Add a clear statement everywhere: "ConstitutionalDiff is a utility output, not a tamper-evident artifact. It is not signed and should not be presented as proof." No code change.
 3. **Bind without signing.** Embed the diff's content hash in the next emitted proof pack receipt. Creates a chain-of-custody record without requiring a standalone signature.
 
-**Recommended**: Option 1 if the diff is part of buyer-facing deliverables. Option 2 if it is only used internally. Do not leave it unnamed.
+**Decision**: Option 2. ConstitutionalDiff is a diagnostic view over evidence, not a new evidence object. The signed `comparability_verdict` receipt in the proof pack is the authoritative trust surface. The diff is a human-readable expansion of the receipt.
 
-**Not yet decided.**
+**Safeguards implemented**: `artifact_class`, `evidence_status`, and `authority_source` fields added to the diff output at the structural level (types.py `to_dict()`). These make the non-authoritative status machine-readable, not just doc-level.
+
+**Rationale**: Signing the diff would create a second portable signed artifact representing the same information as the receipt. That creates reconciliation risk (version drift, rendering bugs, "which governs?") without adding cryptographic assurance that the receipt doesn't already provide. One trust surface is architecturally cleaner than two.
+
+**Residual risk**: Unsigned diffs may circulate detached from packs and be mistaken for authoritative evidence in social/procurement contexts. Mitigated by structural demotion fields. Buyer-facing flows should default to pack-first distribution.
+
+**Resolved**: 2026-03-29.
 
 ---
 
@@ -392,4 +398,8 @@ Rationale: The comparability contract is a trust artifact. Ambiguous combination
 
 **Depends on**: OCD-13 decision.
 
-**Not yet decided.**
+**Resolution**: OCD-13 chose Option 2 (diff is not evidence). The `contract_hash` field is already present in both the diff output and the signed `comparability_verdict` receipt. Under Option 2, contract binding is cryptographically enforced in the receipt (covered by the pack signature) and informational in the diff. A reviewer can verify contract identity by checking the signed receipt's `contract_hash` against the contract file.
+
+OCD-14 is resolved by pointing to the receipt as the binding authority, not the diff.
+
+**Resolved**: 2026-03-29.
