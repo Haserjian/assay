@@ -277,6 +277,19 @@ def load_contract(path: str | Path) -> ComparabilityContract:
             rule_params=pf_data.get("rule_params", {}),
         ))
 
+    # A contract where every field is OPTIONAL is constitutionally meaningless:
+    # if both bundles are missing all fields, the engine evaluates nothing and
+    # returns SATISFIED with zero checks performed.
+    has_non_optional = any(
+        pf.requirement != FieldRequirement.OPTIONAL for pf in parity_fields
+    )
+    if not has_non_optional:
+        raise ContractValidationError(
+            "Contract has no REQUIRED fields. A contract where every field "
+            "is OPTIONAL cannot govern comparison — it would produce SATISFIED "
+            "when both bundles are empty."
+        )
+
     # Reject contradictory severity/requirement combinations (OCD-11).
     # OPTIONAL + INVALIDATING is ambiguous: if a mismatch is invalidating,
     # the field must be required. Forcing contract authors to choose

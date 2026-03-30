@@ -190,6 +190,12 @@ class TestMatchRules:
         h2 = content_hash("other")
         assert apply_rule("content_hash", h, h2) is False
 
+    def test_content_hash_none_inputs_return_false(self):
+        """None values must not match via string coercion."""
+        assert apply_rule("content_hash", None, None) is False
+        assert apply_rule("content_hash", None, "hello") is False
+        assert apply_rule("content_hash", "hello", None) is False
+
     def test_content_hash_case_insensitive_hex(self):
         """SHA-256 hex comparison must be case-insensitive."""
         lower = "sha256:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
@@ -1268,6 +1274,36 @@ class TestContractStrictness:
         with pytest.raises(ContractValidationError, match="duplicate"):
             load_contract(p)
 
+    def test_all_optional_rejected_at_load(self, tmp_path: Path):
+        """A contract with only OPTIONAL fields is constitutionally meaningless."""
+        p = tmp_path / "all_optional.json"
+        p.write_text(json.dumps({
+            "name": "All optional",
+            "parity_fields": [
+                {"field": "a", "match_rule": "exact", "severity": "DEGRADING",
+                 "group": "execution_params", "requirement": "OPTIONAL"},
+                {"field": "b", "match_rule": "exact", "severity": "INFORMATIONAL",
+                 "group": "execution_params", "requirement": "OPTIONAL"},
+            ],
+        }))
+        with pytest.raises(ContractValidationError, match="no REQUIRED"):
+            load_contract(p)
+
+    def test_mixed_optional_required_allowed(self, tmp_path: Path):
+        """A contract with at least one REQUIRED field is valid."""
+        p = tmp_path / "mixed.json"
+        p.write_text(json.dumps({
+            "name": "Mixed",
+            "parity_fields": [
+                {"field": "a", "match_rule": "exact", "severity": "INVALIDATING",
+                 "requirement": "REQUIRED"},
+                {"field": "b", "match_rule": "exact", "severity": "DEGRADING",
+                 "group": "execution_params", "requirement": "OPTIONAL"},
+            ],
+        }))
+        contract = load_contract(p)
+        assert len(contract.parity_fields) == 2
+
     def test_optional_invalidating_rejected_at_load(self, tmp_path: Path):
         """OPTIONAL + INVALIDATING is contradictory and must be rejected.
 
@@ -1277,12 +1313,12 @@ class TestContractStrictness:
         p = tmp_path / "bad_combo.json"
         p.write_text(json.dumps({
             "name": "Bad combo",
-            "parity_fields": [{
-                "field": "judge_model",
-                "match_rule": "exact",
-                "severity": "INVALIDATING",
-                "requirement": "OPTIONAL",
-            }],
+            "parity_fields": [
+                {"field": "anchor", "match_rule": "exact", "severity": "INVALIDATING",
+                 "requirement": "REQUIRED"},
+                {"field": "judge_model", "match_rule": "exact",
+                 "severity": "INVALIDATING", "requirement": "OPTIONAL"},
+            ],
         }))
         with pytest.raises(ContractValidationError, match="INVALIDATING.*REQUIRED"):
             load_contract(p)
@@ -1292,16 +1328,16 @@ class TestContractStrictness:
         p = tmp_path / "ok_combo.json"
         p.write_text(json.dumps({
             "name": "OK combo",
-            "parity_fields": [{
-                "field": "judge_model",
-                "match_rule": "exact",
-                "severity": "DEGRADING",
-                "group": "execution_params",
-                "requirement": "OPTIONAL",
-            }],
+            "parity_fields": [
+                {"field": "anchor", "match_rule": "exact", "severity": "INVALIDATING",
+                 "requirement": "REQUIRED"},
+                {"field": "judge_model", "match_rule": "exact",
+                 "severity": "DEGRADING", "group": "execution_params",
+                 "requirement": "OPTIONAL"},
+            ],
         }))
         contract = load_contract(p)
-        assert len(contract.parity_fields) == 1
+        assert len(contract.parity_fields) == 2
 
     def test_required_invalidating_is_allowed(self, tmp_path: Path):
         """REQUIRED + INVALIDATING is the canonical valid combination."""

@@ -163,7 +163,7 @@ Use `assay onboard .` when you want the full guided flow (doctor + scan + CI set
 assay scan . --report
 ```
 
-Finds every LLM call site and generates a self-contained HTML gap report.
+Detects LLM call sites via static AST analysis and generates a self-contained HTML gap report. Dynamic dispatch, eval, subprocess, and raw HTTP calls are not covered — see [SCANNER_LIMITATIONS.md](SCANNER_LIMITATIONS.md).
 Confidence levels:
 - **high** -- direct SDK calls (`chat.completions.create`, `messages.create`)
 - **medium** -- framework wrappers (LangChain `.invoke()`, LiteLLM)
