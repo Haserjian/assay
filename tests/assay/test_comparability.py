@@ -844,6 +844,45 @@ class TestSerialization:
         assert cc["name"] == "Test Judge Contract"
         assert len(cc["parity_fields"]) == 6
 
+    def test_diff_structural_demotion_fields(self):
+        """ConstitutionalDiff must carry non-authoritative labeling.
+
+        This is a constitutional invariant: the diff is a diagnostic view,
+        not evidence. These fields must never be removed or promoted.
+        See OCD-13 decision record.
+        """
+        contract = _make_contract()
+        diff = evaluate(contract, _make_bundle(), _make_bundle())
+        cd = diff.to_dict()["constitutional_diff"]
+
+        assert cd["artifact_class"] == "diagnostic_diff"
+        assert cd["evidence_status"] == "not_signed_not_authoritative"
+        assert cd["authority_source_type"] == "comparability_verdict_receipt"
+        assert cd["authority_container"] == "proof_pack"
+
+    def test_diff_has_no_signature_field(self):
+        """ConstitutionalDiff must never carry a signature.
+
+        If a 'signature' field appears in the diff output, the artifact
+        has been accidentally promoted to evidence status.
+        """
+        contract = _make_contract()
+        diff = evaluate(contract, _make_bundle(), _make_bundle())
+        cd = diff.to_dict()["constitutional_diff"]
+
+        assert "signature" not in cd
+        assert "signed_by" not in cd
+        assert "signer_id" not in cd
+
+    def test_diff_carries_contract_hash(self):
+        """Contract hash must be present for informational linkage."""
+        contract = _make_contract()
+        diff = evaluate(contract, _make_bundle(), _make_bundle())
+        cd = diff.to_dict()["constitutional_diff"]
+
+        assert "contract_hash" in cd["lineage"]
+        assert cd["lineage"]["contract_hash"].startswith("sha256:")
+
 
 # ===================================================================
 # Conformance matrix: dirty cases from spec

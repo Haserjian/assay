@@ -230,7 +230,8 @@ class ConstitutionalDiff:
                 "version": "0.1.0",
                 "artifact_class": "diagnostic_diff",
                 "evidence_status": "not_signed_not_authoritative",
-                "authority_source": "signed comparability_verdict receipt in proof pack",
+                "authority_source_type": "comparability_verdict_receipt",
+                "authority_container": "proof_pack",
                 "diff_id": self.diff_id,
                 "created_at": self.created_at,
                 "entities": {
