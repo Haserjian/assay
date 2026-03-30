@@ -44,7 +44,7 @@ assay scan .
 assay score .
 ```
 
-`scan` finds every LLM call site (OpenAI, Anthropic, Gemini, LiteLLM, LangChain). `score` gives you an Evidence Readiness Score (0--100, A--F). This is your starting point.
+`scan` detects LLM call sites via static AST analysis (OpenAI, Anthropic, Gemini, LiteLLM, LangChain). Dynamic dispatch, eval, subprocess, and raw HTTP calls are not covered — see [SCANNER_LIMITATIONS.md](../docs/SCANNER_LIMITATIONS.md). `score` gives you an Evidence Readiness Score (0--100, A--F). This is your starting point.
 
 Think of the flow as:
 

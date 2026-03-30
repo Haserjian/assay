@@ -217,9 +217,9 @@ FRAMEWORKS: Dict[str, List[ControlSpec]] = {
         ),
         ControlSpec(
             "EU-12.2", "eu-ai-act",
-            "Tamper-resistant logging",
+            "Tamper-detectable logging",
             "check_integrity_pass",
-            "EU AI Act Article 12: tamper-resistant log integrity",
+            "EU AI Act Article 12: tamper-detectable checkpoint evidence",
             "required",
         ),
         ControlSpec(

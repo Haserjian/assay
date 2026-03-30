@@ -1,0 +1,31 @@
+{
+  "_meta": {
+    "repo": "Haserjian/assay-ledger",
+    "branch": "main",
+    "captured_at": "2026-03-29T~23:00Z",
+    "captured_by": "gh api repos/Haserjian/assay-ledger/branches/main/protection",
+    "note": "Reconstructed from session terminal output. API was available at capture time."
+  },
+  "enforce_admins": {
+    "enabled": false
+  },
+  "required_pull_request_reviews": {
+    "required_approving_review_count": 0,
+    "require_code_owner_reviews": false
+  },
+  "required_status_checks": {
+    "strict": true,
+    "checks": [
+      {
+        "context": "validate"
+      }
+    ]
+  },
+  "restrictions": null,
+  "allow_force_pushes": {
+    "enabled": false
+  },
+  "allow_deletions": {
+    "enabled": false
+  }
+}

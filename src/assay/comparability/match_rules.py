@@ -54,6 +54,9 @@ def _content_hash_match(a: Any, b: Any, **kwargs: Any) -> bool:
         This is a known limitation when both bundles preserve only
         hashes from archived runs.
     """
+    if a is None or b is None:
+        return False
+
     a_str = str(a)
     b_str = str(b)
 
