@@ -6,6 +6,27 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.20.0] - 2026-03-30
+
+### Added
+
+- **`assay try-mcp`** — zero-setup MCP tool-call auditing demo. One command,
+  no API key. Starts a synthetic MCP server, proxies 3 tool calls through
+  `mcp-proxy`, builds a signed proof pack, and verifies it in place. Output
+  is copied to `./assay_mcp_demo/proof_pack/` for inspection. Supports
+  `--json` for machine-readable output. Visible in `assay --help` under
+  **Start Here**.
+
+### Changed
+
+- **`mcp-proxy` now visible in `assay --help`** — previously `hidden=True`
+  under Advanced. Now in its own **MCP** panel. No behavior change.
+- **README top-of-fold rewritten** — above-the-fold now leads with the wedge
+  (`assay try-mcp`, browser verifier link, exit code semantics, pack
+  structure). All advanced sections (VendorQ, Passports, ADC, operating
+  modes, evidence compiler, command reference) collapsed into `<details>`
+  blocks. Content preserved; hierarchy enforced.
+
 ## [1.19.0] - 2026-03-25
 
 ### Deprecated
