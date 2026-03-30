@@ -1,28 +1,25 @@
 # Assay
 
-**Build evidence for what your AI did.**
+**Signed evidence for tool-using AI.**
 
-Accountable execution for AI systems.
-Assay creates signed evidence for AI workflows that a reviewer can verify offline.
-It proves what can be responsibly claimed about the artifact, not the truth of every upstream component.
+Assay turns AI runs into signed evidence packets another team can verify offline — no server, no trust required.
 
-## What are you trying to do?
+Agents talk via MCP. Agents prove via Assay.
 
-| Your question | Start here |
-|---------------|-----------|
-| **Where are we calling LLMs?** Find uninstrumented AI call sites. | `pip install assay-ai && assay scan . --report` |
-| **Did two eval runs use the same judge?** Check comparability before claiming a delta. | [`assay compare` quickstart](docs/outbound/TRY_YOUR_DATA.md) |
-| **Need auditable evidence for AI behavior in production?** Signed proof packs, CI enforcement, offline verification. | [Start here](docs/START_HERE.md) (self-serve) or [pilot program](docs/PILOT_PROGRAM.md) (guided) |
-| **Verify a proof pack someone sent you.** | [Browser verifier](https://haserjian.github.io/assay-proof-gallery/verify.html) — no install, no account |
+```bash
+pip install assay-ai
+assay try-mcp
+```
 
-> **Note:** Assay instruments AI workflows to produce evidence **going forward**.
-> Existing runs without Assay instrumentation do not have Assay-backed evidence.
+Three MCP tool calls. Receipted. Signed. Verified. 30 seconds. No API key.
+
+**[Verify a packet in your browser](https://haserjian.github.io/assay-proof-gallery/verify.html)** — no install, no account. Drag in a proof pack, see the result.
+
+**[See the before/after specimen](https://github.com/Haserjian/assay-proof-gallery/tree/main/gallery/07-contested-decision)** — when a decision is disputed, the difference between reconstruction and verification.
 
 ---
 
-### Run → Prove → Promote
-
-Execution can succeed while proof fails. When evidence is missing, the system refuses to overclaim.
+### Exit codes
 
 | Exit | State | Meaning |
 |------|-------|---------|
@@ -32,45 +29,60 @@ Execution can succeed while proof fails. When evidence is missing, the system re
 
 A signed failure is stronger evidence than a vague pass.
 
-### Try it
+### What a proof pack contains
 
-```bash
-pip install assay-ai
-assay try
+```
+proof_pack/
+  receipt_pack.jsonl      # One receipt per tool call, model invocation, or policy check
+  pack_manifest.json      # SHA-256 hashes of every file + Ed25519 signature
+  pack_signature.sig      # Raw signature bytes
+  verify_report.json      # Machine-readable verification result
+  verify_transcript.md    # Human-readable transcript
 ```
 
-Builds a proof pack, signs it, tampers one byte, catches the break. No API key. No account. 15 seconds.
+Change one byte in any file. Verification fails.
 
-### Why this exists
+### Try more
+
+```bash
+assay try                  # General proof pack demo (15 seconds)
+assay demo-challenge       # Good pack + tampered pack side by side
+assay start                # Guided setup for your project
+```
+
+### Add to your project
+
+```bash
+assay scan . --report      # Find uninstrumented LLM call sites
+assay patch .              # Auto-insert SDK integration
+assay run -- python my.py  # Run + build signed proof pack
+assay verify-pack ./proof_pack_*/   # Verify offline
+```
+
+> **Boundary:** Assay proves the evidence artifact has not been altered
+> after signing. It does not prove every upstream input was authentic.
+> [Trust tiers](docs/FULL_PICTURE.md#trust-tiers).
+
+---
+
+<details>
+<summary><b>Why this exists</b></summary>
 
 We scanned **30 AI projects** and found **231** high-confidence LLM call sites.
 None had Assay-compatible tamper-evident instrumentation.
 (Many have logging — this measures cryptographic evidence specifically.)
 [Full results](scripts/scan_study/results/report.md).
 
----
-
-**Next:** read [What Assay Does Today](docs/WHAT_ASSAY_DOES_TODAY.md),
-try the [specimen walkthrough](examples/specimen/README.md), use
-`assay start` to instrument your code, or follow the
-[reviewer packet flow](docs/reviewer-packets.md) when your job is
-producing something another team can verify.
-
-> **Boundary:** Assay proves the evidence artifact has not been quietly
-> changed after the fact. It does not, by itself, prove every upstream
-> component was honest. See [trust tiers](docs/FULL_PICTURE.md#trust-tiers).
-> Assay is not a logging framework. It produces signed evidence bundles
-> that a third party can verify offline.
-
-> **Self-scan note:** Running `assay score .` on this repo returns a low
-> score. That is expected — Assay instruments AI workflows, not itself.
-> This repo is the instrument, not the subject. Run `assay scan` on
-> your code to see what it finds.
-
 **Adversarial testing:** 16 deterministic tampering attacks, all caught,
 zero false passes. [Full report](docs/TRUST_UNDER_ATTACK.md).
 
+> **Self-scan note:** Running `assay score .` on this repo returns a low
+> score. That is expected — Assay instruments AI workflows, not itself.
+> This repo is the instrument, not the subject.
+
 For the ecosystem map, see [docs/REPO_MAP.md](docs/REPO_MAP.md).
+
+</details>
 
 <details>
 <summary>Install details (Windows, PATH issues, deterministic setup)</summary>
@@ -105,6 +117,9 @@ assay --install-completion
 Restart your shell after installing. Tab completion works for all commands and options.
 
 </details>
+
+<details>
+<summary><b>See it — then understand it</b> (demo-challenge, demo-incident, honest failure)</summary>
 
 ## See It -- Then Understand It
 
@@ -215,6 +230,11 @@ app execution
   -> assay verify-pack checks the artifact offline
 ```
 
+</details>
+
+<details>
+<summary><b>Three operating modes</b> (wrapper, runtime SDK, settlement)</summary>
+
 ## Three Operating Modes
 
 Assay is an evidence substrate, not just a CLI wrapper. It operates in three modes depending on your runtime shape.
@@ -285,6 +305,11 @@ Consequences require verified evidence posture before the world changes. `verify
 **The law:** Receipt boundaries follow semantic events. Proof boundaries follow review boundaries. Settlement boundaries follow consequence boundaries.
 
 ---
+
+</details>
+
+<details>
+<summary><b>Full project setup</b> (scan, patch, run, verify, CI gate)</summary>
 
 ## Add to Your Project
 
@@ -390,6 +415,11 @@ assay analyze --history --since 7
 Shows cost, latency percentiles, error rates, and per-model breakdowns
 from your local trace history.
 
+</details>
+
+<details>
+<summary><b>VendorQ</b> (verifiable vendor questionnaires)</summary>
+
 ## VendorQ: Verifiable Vendor Questionnaires
 
 Enterprise customers ask AI governance questions in security questionnaires.
@@ -426,6 +456,11 @@ three real proof packs demonstrating pass, honest fail, and tamper detection.
 All three are independently verifiable without any account or API key.
 
 **Adversarial testing**: [16 attack scenarios, 16 catches, 0 false passes](docs/TRUST_UNDER_ATTACK.md).
+
+</details>
+
+<details>
+<summary><b>Reviewer packets</b> (cross-boundary evidence handoff)</summary>
 
 ## Reviewer-Ready Evidence Packets
 
@@ -464,6 +499,11 @@ forward, and challenge.
 
 **Verify online**: [Browser verifier](https://haserjian.github.io/assay-proof-gallery/verify.html) —
 drop in a proof pack or reviewer packet and check it client-side.
+
+</details>
+
+<details>
+<summary><b>Passports</b> (portable signed evidence credentials)</summary>
 
 ## Passports: Portable Signed Evidence
 
@@ -537,6 +577,11 @@ trust diff. All artifacts are regenerable via
 - Generalized trust analysis across messy real-world inputs
 - Enterprise diff workflows (primitive exists, product does not)
 
+</details>
+
+<details>
+<summary><b>AI Decision Credentials (ADC)</b></summary>
+
 ## AI Decision Credentials (ADC)
 
 ADC is a structured schema for packaging AI decision evidence into
@@ -554,6 +599,11 @@ assay verify-pack ./proof_pack_*/ --check-expiry
 
 The conformance corpus includes 10 canonical packs (including `stale_01`
 for expired credentials and `superseded_01` for replaced decisions).
+
+</details>
+
+<details>
+<summary><b>What becomes harder to fake</b></summary>
 
 ## What Becomes Harder to Fake
 
@@ -588,6 +638,11 @@ reduced via multi-detector scanning and CI gating.
 
 Assay doesn't make fraud impossible -- it makes fraud expensive, fragile,
 and much easier to catch.
+
+</details>
+
+<details>
+<summary><b>Evidence compiler model + full command reference</b></summary>
 
 ## The Evidence Compiler
 
@@ -711,6 +766,8 @@ Full command reference:
 | `assay demo-incident` | Two-act scenario: passing run vs failing run |
 | `assay demo-challenge` | CTF-style good + tampered pack pair |
 | `assay demo-pack` | Generate demo packs (no config needed) |
+
+</details>
 
 ## Documentation
 
