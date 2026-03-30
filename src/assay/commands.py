@@ -10210,7 +10210,7 @@ def mcp_policy_validate_cmd(
     console.print()
 
 
-@assay_app.command("mcp-proxy", context_settings={"allow_extra_args": True, "allow_interspersed_args": False}, hidden=True, rich_help_panel="Advanced")
+@assay_app.command("mcp-proxy", context_settings={"allow_extra_args": True, "allow_interspersed_args": False}, rich_help_panel="MCP")
 def mcp_proxy_cmd(
     ctx: typer.Context,
     audit_dir: str = typer.Option(".assay/mcp", "--audit-dir", help="Directory for receipts and packs"),
