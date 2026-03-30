@@ -1,7 +1,7 @@
 # Open Contract Decisions
 
 **Date**: 2026-03-25 (reconciled post-extraction 2026-03-25; OCD-11–14 added 2026-03-29; OCD-13/14 resolved 2026-03-29)
-**Status**: 8 of 14 items resolved. 0 HIGH remain. 2 MEDIUM remain (OCD-9, OCD-11). 4 LOW remain (OCD-5, OCD-6, OCD-7, OCD-12).
+**Status**: 9 of 14 items resolved. 0 HIGH remain. 1 MEDIUM remain (OCD-9). 4 LOW remain (OCD-5, OCD-6, OCD-7, OCD-12).
 
 These are questions that must be answered before the Proof Pack contract can be fully frozen for second implementations.
 
@@ -322,7 +322,7 @@ Rationale: The comparability contract is a trust artifact. Ambiguous combination
 
 **Test to add**: `test_optional_invalidating_rejected_at_load()` in `tests/assay/test_comparability.py`.
 
-**Not yet implemented** — awaiting this doctrine record before code change.
+**Implemented**: 2026-03-29. Load-time validation added in `contract.py`. Three tests: rejection of OPTIONAL+INVALIDATING, acceptance of OPTIONAL+DEGRADING, acceptance of REQUIRED+INVALIDATING. **Resolved.**
 
 ---
 

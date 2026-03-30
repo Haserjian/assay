@@ -277,6 +277,20 @@ def load_contract(path: str | Path) -> ComparabilityContract:
             rule_params=pf_data.get("rule_params", {}),
         ))
 
+    # Reject contradictory severity/requirement combinations (OCD-11).
+    # OPTIONAL + INVALIDATING is ambiguous: if a mismatch is invalidating,
+    # the field must be required. Forcing contract authors to choose
+    # eliminates the silent-ignore failure mode.
+    for pf in parity_fields:
+        if (pf.requirement != FieldRequirement.REQUIRED
+                and pf.severity == Severity.INVALIDATING):
+            raise ContractValidationError(
+                f"parity_fields: field {pf.field!r} has severity=INVALIDATING "
+                f"with requirement={pf.requirement.value}. INVALIDATING fields "
+                f"must be REQUIRED — an optional field cannot invalidate a "
+                f"comparison. Change severity or requirement."
+            )
+
     # Build contract
     scope = data.get("scope", {})
     if isinstance(scope, str):

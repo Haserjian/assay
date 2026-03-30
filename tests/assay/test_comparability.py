@@ -1268,6 +1268,56 @@ class TestContractStrictness:
         with pytest.raises(ContractValidationError, match="duplicate"):
             load_contract(p)
 
+    def test_optional_invalidating_rejected_at_load(self, tmp_path: Path):
+        """OPTIONAL + INVALIDATING is contradictory and must be rejected.
+
+        OCD-11: if a mismatch is invalidating, the field must be required.
+        An optional field cannot invalidate a comparison.
+        """
+        p = tmp_path / "bad_combo.json"
+        p.write_text(json.dumps({
+            "name": "Bad combo",
+            "parity_fields": [{
+                "field": "judge_model",
+                "match_rule": "exact",
+                "severity": "INVALIDATING",
+                "requirement": "OPTIONAL",
+            }],
+        }))
+        with pytest.raises(ContractValidationError, match="INVALIDATING.*REQUIRED"):
+            load_contract(p)
+
+    def test_optional_degrading_is_allowed(self, tmp_path: Path):
+        """OPTIONAL + DEGRADING is a valid combination (non-contradictory)."""
+        p = tmp_path / "ok_combo.json"
+        p.write_text(json.dumps({
+            "name": "OK combo",
+            "parity_fields": [{
+                "field": "judge_model",
+                "match_rule": "exact",
+                "severity": "DEGRADING",
+                "group": "execution_params",
+                "requirement": "OPTIONAL",
+            }],
+        }))
+        contract = load_contract(p)
+        assert len(contract.parity_fields) == 1
+
+    def test_required_invalidating_is_allowed(self, tmp_path: Path):
+        """REQUIRED + INVALIDATING is the canonical valid combination."""
+        p = tmp_path / "req_inv.json"
+        p.write_text(json.dumps({
+            "name": "Standard",
+            "parity_fields": [{
+                "field": "judge_model",
+                "match_rule": "exact",
+                "severity": "INVALIDATING",
+                "requirement": "REQUIRED",
+            }],
+        }))
+        contract = load_contract(p)
+        assert len(contract.parity_fields) == 1
+
 
 # ===================================================================
 # CLI-level regression: malformed contract exits cleanly
