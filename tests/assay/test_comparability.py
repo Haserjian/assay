@@ -144,6 +144,12 @@ class TestMatchRules:
         assert apply_rule("exact", True, True) is True
         assert apply_rule("exact", True, False) is False
 
+    def test_exact_none_inputs_return_false(self):
+        """None must not match None — absent fields are not equal fields."""
+        assert apply_rule("exact", None, None) is False
+        assert apply_rule("exact", None, "gpt-4o") is False
+        assert apply_rule("exact", "gpt-4o", None) is False
+
     def test_content_hash_identical_content(self):
         assert apply_rule("content_hash", "hello world\n", "hello world\n") is True
 
@@ -223,6 +229,12 @@ class TestMatchRules:
     def test_version_match_strips_whitespace(self):
         assert apply_rule("version_match", " 1.2.3 ", "1.2.3") is True
 
+    def test_version_match_none_inputs_return_false(self):
+        """None must not match None via str(None) coercion."""
+        assert apply_rule("version_match", None, None) is False
+        assert apply_rule("version_match", None, "1.2.3") is False
+        assert apply_rule("version_match", "1.2.3", None) is False
+
     def test_within_threshold_pass(self):
         assert apply_rule("within_threshold", 0.0, 0.05, threshold=0.1) is True
 
@@ -232,6 +244,15 @@ class TestMatchRules:
     def test_within_threshold_no_threshold_falls_back_exact(self):
         assert apply_rule("within_threshold", 0.0, 0.0) is True
         assert apply_rule("within_threshold", 0.0, 0.1) is False
+
+    def test_within_threshold_none_inputs_return_false(self):
+        """None must not match None in either the fallback or threshold path."""
+        assert apply_rule("within_threshold", None, None) is False
+        assert apply_rule("within_threshold", None, 0.0) is False
+        assert apply_rule("within_threshold", 0.0, None) is False
+        # None with explicit threshold must also return False, not error
+        assert apply_rule("within_threshold", None, None, threshold=0) is False
+        assert apply_rule("within_threshold", None, 0.0, threshold=0.1) is False
 
     def test_unknown_rule_raises(self):
         with pytest.raises(KeyError, match="Unknown match rule"):

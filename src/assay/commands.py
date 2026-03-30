@@ -1740,6 +1740,249 @@ def try_cmd(
     console.print("  [dim]Need a reviewer-ready artifact instead? See assay vendorq --help[/]")
 
 
+@assay_app.command("try-mcp", rich_help_panel=_TRY_PANEL)
+def try_mcp_cmd(
+    output_dir: str = typer.Option("./assay_mcp_demo", "-o", "--output", help="Output directory for the proof pack"),
+    output_json: bool = typer.Option(False, "--json", help="Structured output"),
+):
+    """See MCP tool-call auditing in 30 seconds.
+
+    Starts a synthetic MCP tool server, wraps it with the Assay proxy,
+    sends 3 tool calls, and produces a signed proof pack you can verify.
+    One command. No API key. No setup.
+
+    Examples:
+      assay try-mcp
+      assay verify-pack ./assay_mcp_demo/proof_pack/
+    """
+    import shutil
+    import signal
+    import subprocess
+    import sys
+    import tempfile
+    import textwrap
+    import threading
+    import time
+    from pathlib import Path
+
+    out_path = Path(output_dir)
+
+    # --- Inline demo server script ---
+    demo_server_src = textwrap.dedent('''\
+        import json, sys
+        TOOLS = [
+            {"name": "get_weather", "description": "Get current weather",
+             "inputSchema": {"type": "object", "properties": {"city": {"type": "string"}}, "required": ["city"]}},
+            {"name": "check_inventory", "description": "Check product stock",
+             "inputSchema": {"type": "object", "properties": {"product_id": {"type": "string"}}, "required": ["product_id"]}},
+            {"name": "calculate_risk", "description": "Calculate risk score",
+             "inputSchema": {"type": "object", "properties": {"amount": {"type": "number"}, "category": {"type": "string"}}, "required": ["amount"]}},
+        ]
+        RESULTS = {
+            "get_weather": lambda a: f"72F, Partly Cloudy in {a.get('city', '?')}",
+            "check_inventory": lambda a: json.dumps({"product_id": a.get("product_id", "?"), "in_stock": 142, "warehouse": "US-WEST-2"}),
+            "calculate_risk": lambda a: json.dumps({"score": 0.23, "level": "low", "amount": a.get("amount", 0)}),
+        }
+        def handle(msg):
+            method, rid, params = msg.get("method"), msg.get("id"), msg.get("params", {})
+            if method == "initialize":
+                return {"jsonrpc": "2.0", "id": rid, "result": {"protocolVersion": "2024-11-05", "capabilities": {"tools": {}}, "serverInfo": {"name": "assay-try-mcp-demo", "version": "0.1.0"}}}
+            if method == "notifications/initialized": return None
+            if method == "tools/list":
+                return {"jsonrpc": "2.0", "id": rid, "result": {"tools": TOOLS}}
+            if method == "tools/call":
+                fn = RESULTS.get(params.get("name", ""))
+                if fn: return {"jsonrpc": "2.0", "id": rid, "result": {"content": [{"type": "text", "text": fn(params.get("arguments", {}))}], "isError": False}}
+                return {"jsonrpc": "2.0", "id": rid, "error": {"code": -32601, "message": f"Unknown tool: {params.get('name')}"}}
+            if rid: return {"jsonrpc": "2.0", "id": rid, "error": {"code": -32601, "message": f"Method not found: {method}"}}
+        for line in sys.stdin:
+            line = line.strip()
+            if not line: continue
+            try: msg = json.loads(line)
+            except: continue
+            r = handle(msg)
+            if r: sys.stdout.write(json.dumps(r) + "\\n"); sys.stdout.flush()
+    ''')
+
+    # JSON-RPC requests: initialize, then 3 tool calls
+    requests = [
+        {"jsonrpc": "2.0", "method": "initialize", "id": 1,
+         "params": {"protocolVersion": "2024-11-05", "capabilities": {},
+                    "clientInfo": {"name": "assay-try-mcp", "version": "1.0"}}},
+        {"jsonrpc": "2.0", "method": "notifications/initialized"},
+        {"jsonrpc": "2.0", "method": "tools/list", "id": 2, "params": {}},
+        {"jsonrpc": "2.0", "method": "tools/call", "id": 3,
+         "params": {"name": "get_weather", "arguments": {"city": "Seattle"}}},
+        {"jsonrpc": "2.0", "method": "tools/call", "id": 4,
+         "params": {"name": "check_inventory", "arguments": {"product_id": "SKU-7291"}}},
+        {"jsonrpc": "2.0", "method": "tools/call", "id": 5,
+         "params": {"name": "calculate_risk", "arguments": {"amount": 15000, "category": "international_transfer"}}},
+    ]
+
+    tool_calls = [r for r in requests if r.get("method") == "tools/call"]
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        td = Path(tmpdir)
+        server_script = td / "demo_server.py"
+        server_script.write_text(demo_server_src)
+        audit_dir = td / "mcp_audit"
+
+        if not output_json:
+            console.print()
+            console.print("[bold]assay try-mcp[/] — MCP tool-call auditing in 30 seconds")
+            console.print()
+            console.print("  [dim]Starting synthetic MCP tool server...[/]")
+
+        # Start proxy wrapping the demo server
+        proc = subprocess.Popen(
+            [sys.executable, "-m", "assay", "mcp-proxy",
+             "--audit-dir", str(audit_dir),
+             "--store-args", "--store-results",
+             "--server-id", "try-mcp-demo",
+             "--", sys.executable, str(server_script)],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            cwd=str(td),
+        )
+
+        # Drain stdout/stderr to prevent pipe deadlock
+        stdout_buf, stderr_buf = [], []
+
+        def drain(pipe, buf):
+            for line in pipe:
+                buf.append(line)
+
+        t_out = threading.Thread(target=drain, args=(proc.stdout, stdout_buf), daemon=True)
+        t_err = threading.Thread(target=drain, args=(proc.stderr, stderr_buf), daemon=True)
+        t_out.start()
+        t_err.start()
+
+        # Send requests with small delays
+        for i, req in enumerate(requests):
+            proc.stdin.write((json.dumps(req) + "\n").encode())
+            proc.stdin.flush()
+            if req.get("method") == "tools/call" and not output_json:
+                call_idx = sum(1 for r in requests[:i + 1] if r.get("method") == "tools/call")
+                name = req["params"]["name"]
+                args_str = json.dumps(req["params"]["arguments"])
+                console.print(f"  [bold]{call_idx}.[/] {name}({args_str}) [green]→ receipted[/]")
+            time.sleep(0.3)
+
+        # Close stdin to signal session end
+        proc.stdin.close()
+
+        # Wait for proxy shutdown + pack build
+        try:
+            proc.wait(timeout=30)
+        except subprocess.TimeoutExpired:
+            proc.send_signal(signal.SIGINT)
+            try:
+                proc.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
+
+        t_out.join(timeout=5)
+        t_err.join(timeout=5)
+
+        # Find the built pack
+        packs_dir = audit_dir / "packs"
+        built_pack = None
+        if packs_dir.exists():
+            pack_dirs = sorted(packs_dir.iterdir())
+            if pack_dirs:
+                built_pack = pack_dirs[-1]
+
+        if not built_pack or not built_pack.is_dir():
+            if output_json:
+                _output_json({"command": "try-mcp", "status": "error", "error": "no_pack_produced"}, exit_code=1)
+            else:
+                console.print("\n  [red]Error:[/] No proof pack produced. Proxy may have failed.")
+                stderr_text = b"".join(stderr_buf).decode(errors="replace").strip()
+                if stderr_text:
+                    for line in stderr_text.splitlines()[-3:]:
+                        console.print(f"    [dim]{line.strip()}[/]")
+            raise typer.Exit(1)
+
+        # Copy pack to output directory
+        pack_dest = out_path / "proof_pack"
+        if pack_dest.exists():
+            shutil.rmtree(pack_dest)
+        out_path.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(built_pack, pack_dest)
+
+    # Verify the pack
+    from assay.integrity import verify_pack_manifest
+    from assay.keystore import AssayKeyStore
+
+    manifest_path = pack_dest / "pack_manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    att = manifest.get("attestation", {})
+    pack_id = att.get("pack_id", "unknown")
+    receipt_count = att.get("n_receipts", att.get("receipt_count", 0))
+
+    # Verify (use default keystore which has the assay-local key)
+    verify_result = subprocess.run(
+        [sys.executable, "-m", "assay", "verify-pack", str(pack_dest), "--json"],
+        capture_output=True, text=True,
+    )
+    verify_passed = verify_result.returncode == 0
+
+    if output_json:
+        verify_data = {}
+        if verify_result.stdout.strip().startswith("{"):
+            verify_data = json.loads(verify_result.stdout)
+        _output_json({
+            "command": "try-mcp",
+            "status": "ok" if verify_passed else "error",
+            "pack_id": pack_id,
+            "receipts": receipt_count,
+            "tool_calls": len(tool_calls),
+            "verification": "PASS" if verify_passed else "FAIL",
+            "pack_dir": str(pack_dest),
+            "verify_exit_code": verify_result.returncode,
+        })
+        return
+
+    console.print()
+
+    if verify_passed:
+        console.print(Panel(
+            f"[bold]Pack ID:[/]    {pack_id}\n"
+            f"[bold]Integrity:[/]  [bold green]PASS[/]\n"
+            f"[bold]Receipts:[/]   {receipt_count}\n"
+            f"[bold]Tool calls:[/] {len(tool_calls)} (get_weather, check_inventory, calculate_risk)\n"
+            f"[bold]Output:[/]     {pack_dest}",
+            title="[bold green]MCP Proof Pack Built & Verified[/]",
+            border_style="green",
+        ))
+    else:
+        console.print(Panel(
+            f"Pack built but verification returned exit {verify_result.returncode}.\n"
+            f"Pack at: {pack_dest}",
+            title="[bold red]Verification Issue[/]",
+            border_style="red",
+        ))
+
+    console.print()
+    console.print("[bold]What happened:[/]")
+    console.print("  Assay proxied 3 MCP tool calls through a synthetic server.")
+    console.print("  Each call was receipted. The session was signed into a proof pack.")
+    console.print("  The pack is offline-verifiable — no server, no trust required.")
+    console.print()
+    console.print("[bold]Verify it yourself:[/]")
+    console.print(f"  [green]$ assay verify-pack {pack_dest}[/]")
+    console.print()
+    console.print("[bold]Next:[/]")
+    console.print("  Wrap your own MCP server:")
+    console.print("    [green]$ assay mcp-proxy -- python my_server.py[/]")
+    console.print()
+    console.print("  Add a policy file:")
+    console.print("    [green]$ assay mcp policy init[/]")
+    console.print("    [green]$ assay mcp-proxy --policy assay.mcp-policy.yaml -- python my_server.py[/]")
+
+
 # --- End of early Start Here registration ---
 
 
@@ -9967,7 +10210,7 @@ def mcp_policy_validate_cmd(
     console.print()
 
 
-@assay_app.command("mcp-proxy", context_settings={"allow_extra_args": True, "allow_interspersed_args": False}, hidden=True, rich_help_panel="Advanced")
+@assay_app.command("mcp-proxy", context_settings={"allow_extra_args": True, "allow_interspersed_args": False}, rich_help_panel="MCP")
 def mcp_proxy_cmd(
     ctx: typer.Context,
     audit_dir: str = typer.Option(".assay/mcp", "--audit-dir", help="Directory for receipts and packs"),
