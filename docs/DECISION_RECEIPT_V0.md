@@ -515,7 +515,7 @@ These combinations are structurally invalid and must be rejected at construction
 | `verdict=CONFLICT` + `conflict_refs` empty AND `dissent=null` | Conflict without either authoritative contradiction refs or dissent record is unauditable |
 | `verdict=ROLLBACK` + `supersedes=null` | Cannot roll back nothing |
 | `authority_class=ADVISORY` + `verdict=ROLLBACK` | Advisory authority cannot reverse prior decisions |
-| `confidence=high` + `evidence_sufficient=false` | High confidence with insufficient evidence is epistemic fraud |
+| `confidence=high` + `evidence_sufficient=false` | Confidence claim unsupported by evidence (`unsupported_high_confidence`) |
 | `provenance_complete=true` + `known_provenance_gaps` non-empty | Self-contradictory provenance claim |
 | `signature` non-null + `signer_pubkey_sha256=null` | Signature without verifiable key is theater |
 

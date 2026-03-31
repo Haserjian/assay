@@ -416,7 +416,7 @@ def validate_invariants(receipt: Dict[str, Any]) -> ValidationResult:
     # Forbidden states
     F = LAYER_FORBIDDEN
     if confidence == "high" and ev_suff is False:
-        result.add("forbidden", "confidence=high with evidence_sufficient=false is epistemic fraud",
+        result.add("forbidden", "confidence=high with evidence_sufficient=false: unsupported_high_confidence",
                     field="confidence", layer=F)
 
     if verdict == "APPROVE" and disposition == "block":

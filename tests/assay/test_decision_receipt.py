@@ -335,7 +335,7 @@ class TestForbiddenStates:
         r["evidence_sufficient"] = False
         result = validate_invariants(r)
         assert not result.valid
-        assert any("epistemic fraud" in e.message for e in result.errors)
+        assert any("unsupported_high_confidence" in e.message for e in result.errors)
 
     def test_approve_block_incoherent(self):
         r = _load("approve")
