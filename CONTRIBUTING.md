@@ -35,6 +35,12 @@ pytest tests/assay/ -q
 - Tests for non-trivial logic
 - `ruff` for formatting
 
+## Scope of this repo
+
+This repo contains the public product surface: library code, docs, examples, tests, and architecture.
+
+Revenue operations, outbound messaging, pricing, pilot terms, and internal strategy docs are maintained in a separate private repo and are not part of this codebase. If a contribution seems like it belongs in that category, it will be redirected.
+
 ## Questions?
 
 Open a [Discussion](https://github.com/Haserjian/assay/discussions).
