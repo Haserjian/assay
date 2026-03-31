@@ -61,3 +61,8 @@ artifacts/
 
 # Internal commercial docs (not public)
 docs/commercial/
+docs/STRATEGY_STACK_HIERARCHY.md
+
+# Internal ops docs — tracked placeholder only
+docs/ops/*
+!docs/ops/README.md
