@@ -79,6 +79,10 @@ No access to the original server, database, or API keys required.
 - That every action was captured (only contracted call sites are checked)
 - That timestamps correspond to real-world time (local clock is used)
 - That the signing key was not compromised
+- That the signer was an authorized signer for this evidence — at T0, any
+  holder of a valid Ed25519 keypair could produce a signed pack; stronger
+  signer-trust guarantees require a higher trust tier with externally
+  controlled keys and/or external anchors
 
 For stronger guarantees, Assay supports:
 

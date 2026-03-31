@@ -2,7 +2,7 @@
 
 **Signed evidence for tool-using AI.**
 
-Assay turns AI runs into signed evidence packets another team can verify offline — no vendor server required.
+Assay is an evidence compiler for AI execution. It turns AI runs into signed proof packs another team can verify offline — no vendor server required. Its job is narrow: make post-run tampering visible, preserve honest failures, and let verification happen without trusting the operator.
 
 Agents talk via MCP. Agents prove via Assay.
 
@@ -29,6 +29,12 @@ Three MCP tool calls. Receipted. Signed. Verified. 30 seconds. No API key.
 
 A signed failure is stronger evidence than a vague pass.
 
+### Why it matters
+
+- **Tamper detection** — every byte of evidence is fingerprinted and signed; post-run edits are visible
+- **Honest failure retention** — a failed run stays failed; evidence cannot be quietly upgraded to a pass
+- **Offline verification** — another team verifies without calling your server or trusting your logs
+
 ### What a proof pack contains
 
 ```
@@ -50,7 +56,7 @@ assay demo-challenge       # Good pack + tampered pack side by side
 assay start                # Guided setup for your project
 ```
 
-### Add to your project
+### Golden path
 
 ```bash
 assay scan . --report      # Find uninstrumented LLM call sites
@@ -84,41 +90,16 @@ zero false passes. [Full report](docs/TRUST_UNDER_ATTACK.md).
 > score. That is expected — Assay instruments AI workflows, not itself.
 > This repo is the instrument, not the subject.
 
+**Why now:** EU AI Act Article 12 requires automatic logging for high-risk
+AI systems; Article 19 requires providers to retain automatically generated
+logs for at least 6 months. High-risk obligations apply from 2 Aug 2026
+(Annex III) and 2 Aug 2027 (regulated products). SOC 2 CC7.2 requires
+monitoring of system components and analysis of anomalies as security events.
+"We have logs on our server" is not independently verifiable evidence.
+Assay produces evidence that is.
+See [compliance citations](docs/compliance-citations.md) for exact references.
+
 For the ecosystem map, see [docs/REPO_MAP.md](docs/REPO_MAP.md).
-
-</details>
-
-<details>
-<summary>Install details (Windows, PATH issues, deterministic setup)</summary>
-
-```powershell
-# Windows
-py -m pip install assay-ai
-```
-
-Assay requires Python 3.9+.
-
-If `pip` is not on your PATH, use `python3 -m pip` on macOS/Linux or
-`py -m pip` on Windows.
-
-Validation status:
-
-- CI smoke-tests the first CLI path on Linux, macOS, and Windows using
-  `assay version` and `assay try`.
-- The deeper SDK compatibility suite currently runs on Ubuntu.
-
-If `assay` is not recognized after install, open a new terminal first. On
-Windows, the usual fix is adding Python's `Scripts` directory to PATH.
-
-For deterministic environment setup, see [docs/START_HERE.md](docs/START_HERE.md).
-
-**Shell completions (bash/zsh/fish/PowerShell):**
-
-```bash
-assay --install-completion
-```
-
-Restart your shell after installing. Tab completion works for all commands and options.
 
 </details>
 
@@ -237,16 +218,50 @@ app execution
 </details>
 
 <details>
+<summary><b>What becomes harder to fake</b></summary>
+
+## What Becomes Harder to Fake
+
+Assay is not a truth oracle. It is an evidence-hardening layer.
+
+| If someone tries to... | Without Assay | With Assay |
+|------------------------|---------------|------------|
+| Edit evidence after a run | Hard to notice | Verification fails |
+| Drop or weaken locked checks | Easy to hide | Lock mismatch exposes it |
+| Omit covered call sites | Easy to hand-wave | Completeness checks catch it |
+| Hand buyer internal logs, ask for trust | Buyer must trust the operator | Buyer verifies offline |
+| Fabricate a complete run from scratch | Possible | Still possible at base tier; stronger deployment raises the cost |
+
+**Why there is no quiet edit.** Every file in a proof pack is fingerprinted.
+The fingerprints are recorded in a manifest. The manifest is digitally signed.
+Change a file -- the fingerprint won't match. Fix the manifest to cover it --
+the signature breaks. Re-sign the manifest -- the signer identity changes.
+Every path to tampering leaves a visible trace.
+
+**Assay proves the evidence artifact has not been quietly changed after the
+fact. It does not, by itself, prove every upstream component was honest.**
+
+**Deployment ladder -- start at Base, strengthen as your trust requirements grow:**
+
+- **Base** -- self-signed artifact, offline-verifiable, tamper-evident
+- **Hardened** -- CI-held signing key + branch protection (separates signer from developer)
+- **Anchored** -- [transparency ledger](https://github.com/Haserjian/assay-ledger) + external timestamping (RFC 3161)
+
+Completeness is enforced relative to call sites enumerated by the scanner
+and/or declared by policy. Undetected call sites are a known residual risk,
+reduced via multi-detector scanning and CI gating.
+
+Assay doesn't make fraud impossible -- it makes fraud expensive, fragile,
+and much easier to catch.
+
+</details>
+
+<details>
 <summary><b>Three operating modes</b> (wrapper, runtime SDK, settlement)</summary>
 
 ## Three Operating Modes
 
-Assay is an evidence substrate, not just a CLI wrapper. It operates in three modes depending on your runtime shape.
-
-**Boundary note:** Mode 1 is the primary public story in this charter.
-Modes 2 and 3 are real advanced capability and bridge primitives. They
-should not replace the first-contact explanation of `scan -> patch ->
-run -> proof pack -> verify`.
+Assay operates in three modes depending on your runtime shape.
 
 ### Mode 1: Wrapper
 
@@ -257,11 +272,11 @@ assay run -c receipt_completeness -- python my_app.py
 assay verify-pack ./proof_pack_*/
 ```
 
-One process, one proof pack, one verification. This is the fastest path to a verifiable artifact.
+One process, one proof pack, one verification.
 
 ### Mode 2: Runtime
 
-For services, agents, and long-lived processes. Episode-native Python SDK.
+For services, agents, and long-lived processes. Emit receipts during execution, seal checkpoints at review boundaries.
 
 ```python
 import assay
@@ -269,53 +284,33 @@ import assay
 with assay.open_episode(policy_version="v2.1") as episode:
     episode.emit("model.invoked", {"model": "gpt-4", "tokens": 800})
     episode.emit("tool.invoked", {"tool": "knowledge_base"})
-    episode.emit("guardian.approved", {"action": "send_reply"})
-
     checkpoint = episode.seal_checkpoint(reason="before_send_reply")
     verdict = assay.verify_checkpoint(checkpoint)
-
-    if verdict.ok:
-        send_reply()
-        episode.emit("action.settled", {"action": "send_reply"})
-    elif verdict.honest_fail:
-        escalate()
-        episode.emit("action.denied", {"reason": "honest_fail"})
+    # verdict.ok / verdict.honest_fail / verdict.tampered
 ```
 
-Emit receipts continuously during execution. Seal checkpoints at review boundaries. The episode is the primary unit, not the Unix process.
+The episode is the primary unit, not the Unix process. See [SDK docs](docs/START_HERE.md) for verdict handling.
 
 ### Mode 3: Settlement
 
-For high-consequence actions (payments, approvals, publishing, deletions).
+For high-consequence actions. Evidence posture must verify before the world changes.
 
 ```python
 checkpoint = episode.seal_checkpoint(reason="before_payout")
 verdict = assay.verify_checkpoint(checkpoint)
-
-if not verdict.ok:
-    # Do not proceed. Evidence posture is insufficient.
-    if verdict.honest_fail:
-        escalate(verdict.errors)  # authentic evidence of a gap
-    else:
-        alert(verdict.errors)     # tampered or missing evidence
-    episode.emit("action.denied", {"reason": verdict.errors})
-else:
+if verdict.ok:
     execute_payout()
-    episode.emit("action.settled", {"action": "payout"})
+# If not ok: honest_fail → escalate; tampered → alert. Do not proceed.
 ```
 
-Consequences require verified evidence posture before the world changes. `verify_checkpoint()` is the settlement gate.
-
-**The law:** Receipt boundaries follow semantic events. Proof boundaries follow review boundaries. Settlement boundaries follow consequence boundaries.
-
----
+`verify_checkpoint()` is the gate. See [Decision Escrow](docs/decision-escrow.md) for the protocol model.
 
 </details>
 
 <details>
 <summary><b>Full project setup</b> (scan, patch, run, verify, CI gate)</summary>
 
-## Add to Your Project
+## Full Project Setup
 
 ```bash
 # 1. Find uninstrumented LLM calls
@@ -341,30 +336,15 @@ assay gate save-baseline
 assay gate check . --min-score 60 --fail-on-regression
 ```
 
-> **Command discovery:** `assay --help` shows the most-used entry points. Commands used in this guide — `gate`, `report`, `ci`, `diff`, `analyze`, `lock`, and `vendorq` — are available but not listed there by default. Run `assay <command> --help` for full options.
+> **Command discovery:** `assay --help` shows common entry points; `gate`, `report`, `ci`, `diff`, `analyze`, `lock`, and `vendorq` are available but unlisted by default. Run `assay <command> --help` for full options.
 
-`assay scan . --report` detects LLM call sites via static AST analysis (OpenAI, Anthropic, Google
-Gemini, LiteLLM, LangChain) and generates a self-contained HTML gap report.
-Dynamic dispatch, eval, subprocess, and raw HTTP calls are not covered — see [SCANNER_LIMITATIONS.md](docs/SCANNER_LIMITATIONS.md).
-`assay patch` inserts the two-line integration. `assay run` wraps your command,
-collects receipts, and produces a signed 5-file evidence pack. `assay verify-pack`
-checks integrity + claims and exits with one of the four codes above. Then run
-`assay explain` on any pack for a plain-English summary.
+Scanner covers OpenAI, Anthropic, Gemini, LiteLLM, LangChain via AST — dynamic dispatch and raw HTTP are not. See [SCANNER_LIMITATIONS.md](docs/SCANNER_LIMITATIONS.md).
 
 **Local models**: Any OpenAI-compatible server (Ollama, LM Studio, vLLM,
 llama.cpp) works automatically -- Assay patches the OpenAI SDK at the class
 level, so `OpenAI(base_url="http://localhost:11434/v1")` emits receipts like
 any other provider. LiteLLM users get the same coverage via the LiteLLM
 integration (`ollama/llama3`, etc.).
-
-> **Why now**: EU AI Act Article 12 requires automatic logging for high-risk
-> AI systems; Article 19 requires providers to retain automatically generated
-> logs for at least 6 months. High-risk obligations apply from 2 Aug 2026
-> (Annex III) and 2 Aug 2027 (regulated products). SOC 2 CC7.2 requires
-> monitoring of system components and analysis of anomalies as security events.
-> "We have logs on our server" is not independently verifiable evidence.
-> Assay produces evidence that is.
-> See [compliance citations](docs/compliance-citations.md) for exact references.
 
 ## CI Gate
 
@@ -379,50 +359,94 @@ This generates a 3-job GitHub Actions workflow:
 - `assay-verify` (proof pack generation + cryptographic verification)
 - `assay-report` (HTML evidence report artifact + SARIF upload)
 
-Manual path (advanced):
-
-```bash
-assay gate save-baseline
-assay gate check . --min-score 60 --fail-on-regression --save-report assay_gate_report.json --verbose --json
-assay run -c receipt_completeness -- python my_app.py
-assay verify-pack ./proof_pack_*/ --lock assay.lock --require-claim-pass
-assay report . -o evidence_report.html --sarif
-```
-
-The lockfile catches config drift. Verify-pack catches tampering. Gate
-enforces score regressions. Report produces the shareable artifact + SARIF.
-`assay diff` remains useful for deep forensics and budget/drift analysis. See
-[Decision Escrow](docs/decision-escrow.md) for the protocol model.
-
-```bash
-# Lock your verification contract
-assay lock write --cards receipt_completeness -o assay.lock
-```
-
-### Daily use after CI is green
-
-**Regression forensics**:
-
-```bash
-assay diff ./proof_pack_*/ --against-previous --why
-```
-
-`--against-previous` auto-discovers the baseline pack.
-`--why` traces receipt chains to explain what regressed and which call sites caused it.
-
-**Cost/latency drift (from receipts)**:
-
-```bash
-assay analyze --history --since 7
-```
-
-Shows cost, latency percentiles, error rates, and per-model breakdowns
-from your local trace history.
+For the manual path (lockfile, gate flags, daily diff/analyze), see [Start Here](docs/START_HERE.md).
 
 </details>
 
 <details>
-<summary><b>VendorQ</b> (verifiable vendor questionnaires)</summary>
+<summary><b>Evidence compiler model</b></summary>
+
+## The Evidence Compiler
+
+Assay is an **evidence compiler** for AI execution. If you've used a build
+system, you already know the mental model:
+
+| Concept | Build System | Assay |
+|---------|-------------|-------|
+| Source | `.c` / `.ts` files | Receipts (one per LLM call) |
+| Artifact | Binary / bundle | Evidence pack (5 files, 1 signature) |
+| Tests | Unit / integration tests | Verification (integrity + claims) |
+| Lock | `package-lock.json` | `assay.lock` |
+| Gate | CI deploy check | CI evidence gate |
+
+</details>
+
+<details>
+<summary><b>Full command reference</b></summary>
+
+## Commands
+
+The core path is 6 commands:
+
+```
+assay try                 # 60-second demo (sign, tamper, catch)
+assay scan / assay patch  # instrument
+assay run                 # produce evidence
+assay verify-pack         # verify evidence
+assay diff                # catch regressions
+assay score               # evidence readiness (0-100, A-F)
+```
+
+**Getting started**
+
+| Command | Purpose |
+|---------|---------|
+| `assay try` | 60-second demo: sign, tamper, catch |
+| `assay status` | One-screen operational dashboard |
+| `assay start demo\|ci\|mcp` | Guided entrypoints for trying, CI setup, or MCP auditing |
+| `assay onboard` | Guided setup: doctor -> scan -> first run plan |
+| `assay doctor` | Preflight check: is Assay ready here? |
+
+**Instrument + produce evidence**
+
+| Command | Purpose |
+|---------|---------|
+| `assay scan` | Find uninstrumented LLM call sites (`--report` for HTML) |
+| `assay patch` | Auto-insert SDK integration patches into your entrypoint |
+| `assay run` | Wrap command, collect receipts, build signed evidence pack |
+
+**Verify + analyze**
+
+| Command | Purpose |
+|---------|---------|
+| `assay verify-pack` | Verify integrity + claims (the 4 exit codes) |
+| `assay explain` | Plain-English summary of an evidence pack |
+| `assay analyze` | Cost, latency, error breakdown from pack or `--history` |
+| `assay diff` | Compare packs: claims, cost, latency (`--against-previous`, `--why`) |
+| `assay score` | Evidence Readiness Score (0-100, A-F) with anti-gaming caps |
+
+**CI**
+
+| Command | Purpose |
+|---------|---------|
+| `assay ci init github` | Generate a GitHub Actions workflow |
+| `assay flow try\|adopt\|ci\|mcp\|audit` | Guided workflow executor (`--apply` to execute) |
+
+**MCP + policy**
+
+| Command | Purpose |
+|---------|---------|
+| `assay mcp-proxy` | Transparent MCP proxy: intercept tool calls, emit receipts |
+| `assay mcp policy init` | Generate a starter MCP policy YAML file |
+| `assay mcp policy validate` | Validate a policy file against the schema |
+| `assay policy impact` | Analyze policy impact on existing evidence |
+
+Full reference (key management, lockfile, pack management, incident forensics): [docs/README_quickstart.md](docs/README_quickstart.md)
+
+</details>
+
+<details>
+<summary><b>Advanced: VendorQ</b> (verifiable vendor questionnaires)</summary>
 
 ## VendorQ: Verifiable Vendor Questionnaires
 
@@ -464,7 +488,7 @@ All three are independently verifiable without any account or API key.
 </details>
 
 <details>
-<summary><b>Reviewer packets</b> (cross-boundary evidence handoff)</summary>
+<summary><b>Advanced: Reviewer packets</b> (cross-boundary evidence handoff)</summary>
 
 ## Reviewer-Ready Evidence Packets
 
@@ -507,7 +531,7 @@ drop in a proof pack or reviewer packet and check it client-side.
 </details>
 
 <details>
-<summary><b>Passports</b> (portable signed evidence credentials)</summary>
+<summary><b>Advanced: Passports</b> (portable signed evidence credentials)</summary>
 
 ## Passports: Portable Signed Evidence
 
@@ -584,7 +608,7 @@ trust diff. All artifacts are regenerable via
 </details>
 
 <details>
-<summary><b>AI Decision Credentials (ADC)</b></summary>
+<summary><b>Advanced: AI Decision Credentials (ADC)</b></summary>
 
 ## AI Decision Credentials (ADC)
 
@@ -607,171 +631,47 @@ for expired credentials and `superseded_01` for replaced decisions).
 </details>
 
 <details>
-<summary><b>What becomes harder to fake</b></summary>
+<summary>Install details (Windows, PATH issues, deterministic setup)</summary>
 
-## What Becomes Harder to Fake
+```powershell
+# Windows
+py -m pip install assay-ai
+```
 
-Assay is not a truth oracle. It is an evidence-hardening layer.
+Assay requires Python 3.9+.
 
-| If someone tries to... | Without Assay | With Assay |
-|------------------------|---------------|------------|
-| Edit evidence after a run | Hard to notice | Verification fails |
-| Drop or weaken locked checks | Easy to hide | Lock mismatch exposes it |
-| Omit covered call sites | Easy to hand-wave | Completeness checks catch it |
-| Hand buyer internal logs, ask for trust | Buyer must trust the operator | Buyer verifies offline |
-| Fabricate a complete run from scratch | Possible | Still possible at base tier; stronger deployment raises the cost |
+If `pip` is not on your PATH, use `python3 -m pip` on macOS/Linux or
+`py -m pip` on Windows.
 
-**Why there is no quiet edit.** Every file in a proof pack is fingerprinted.
-The fingerprints are recorded in a manifest. The manifest is digitally signed.
-Change a file -- the fingerprint won't match. Fix the manifest to cover it --
-the signature breaks. Re-sign the manifest -- the signer identity changes.
-Every path to tampering leaves a visible trace.
+Validation status:
 
-**Assay proves the evidence artifact has not been quietly changed after the
-fact. It does not, by itself, prove every upstream component was honest.**
+- CI smoke-tests the first CLI path on Linux, macOS, and Windows using
+  `assay version` and `assay try`.
+- The deeper SDK compatibility suite currently runs on Ubuntu.
 
-**Deployment ladder -- start at Base, strengthen as your trust requirements grow:**
+If `assay` is not recognized after install, open a new terminal first. On
+Windows, the usual fix is adding Python's `Scripts` directory to PATH.
 
-- **Base** -- self-signed artifact, offline-verifiable, tamper-evident
-- **Hardened** -- CI-held signing key + branch protection (separates signer from developer)
-- **Anchored** -- [transparency ledger](https://github.com/Haserjian/assay-ledger) + external timestamping (RFC 3161)
+For deterministic environment setup, see [docs/START_HERE.md](docs/START_HERE.md).
 
-Completeness is enforced relative to call sites enumerated by the scanner
-and/or declared by policy. Undetected call sites are a known residual risk,
-reduced via multi-detector scanning and CI gating.
+**Shell completions (bash/zsh/fish/PowerShell):**
 
-Assay doesn't make fraud impossible -- it makes fraud expensive, fragile,
-and much easier to catch.
+```bash
+assay --install-completion
+```
+
+Restart your shell after installing. Tab completion works for all commands and options.
 
 </details>
 
-<details>
-<summary><b>Evidence compiler model + full command reference</b></summary>
+---
 
-## The Evidence Compiler
+## Who this is for
 
-Assay is an **evidence compiler** for AI execution. If you've used a build
-system, you already know the mental model:
-
-| Concept | Build System | Assay |
-|---------|-------------|-------|
-| Source | `.c` / `.ts` files | Receipts (one per LLM call) |
-| Artifact | Binary / bundle | Evidence pack (5 files, 1 signature) |
-| Tests | Unit / integration tests | Verification (integrity + claims) |
-| Lock | `package-lock.json` | `assay.lock` |
-| Gate | CI deploy check | CI evidence gate |
-
-## Commands
-
-The core path is 6 commands:
-
-```
-assay try                 # 60-second demo (sign, tamper, catch)
-assay scan / assay patch  # instrument
-assay run                 # produce evidence
-assay verify-pack         # verify evidence
-assay diff                # catch regressions
-assay score               # evidence readiness (0-100, A-F)
-```
-
-Full command reference:
-
-**Getting started**
-
-| Command | Purpose |
-|---------|---------|
-| `assay try` | 60-second demo: sign, tamper, catch |
-| `assay status` | One-screen operational dashboard |
-| `assay start demo\|ci\|mcp` | Guided entrypoints for trying, CI setup, or MCP auditing |
-| `assay onboard` | Guided setup: doctor -> scan -> first run plan |
-| `assay doctor` | Preflight check: is Assay ready here? |
-| `assay version` | Print installed version |
-
-**Instrument + produce evidence**
-
-| Command | Purpose |
-|---------|---------|
-| `assay scan` | Find uninstrumented LLM call sites (`--report` for HTML) |
-| `assay patch` | Auto-insert SDK integration patches into your entrypoint |
-| `assay run` | Wrap command, collect receipts, build signed evidence pack |
-
-**Verify + analyze**
-
-| Command | Purpose |
-|---------|---------|
-| `assay verify-pack` | Verify integrity + claims (the 4 exit codes) |
-| `assay verify-signer` | Extract and verify signer identity from a pack manifest |
-| `assay explain` | Plain-English summary of an evidence pack |
-| `assay analyze` | Cost, latency, error breakdown from pack or `--history` |
-| `assay diff` | Compare packs: claims, cost, latency (`--against-previous`, `--why`, `--gate-*`) |
-| `assay score` | Evidence Readiness Score (0-100, A-F) with anti-gaming caps |
-
-**Workflows + CI**
-
-| Command | Purpose |
-|---------|---------|
-| `assay flow try\|adopt\|ci\|mcp\|audit` | Guided workflow executor (dry-run by default, `--apply` to execute) |
-| `assay ci init github` | Generate a GitHub Actions workflow |
-| `assay ci doctor` | CI-profile preflight checks |
-| `assay audit bundle` | Create portable audit bundle (tar.gz with verify instructions) |
-| `assay compliance report` | Generate compliance evidence report |
-
-**Pack + baseline management**
-
-| Command | Purpose |
-|---------|---------|
-| `assay packs list` | List local proof packs |
-| `assay packs show` | Show pack details |
-| `assay packs pin-baseline` | Pin a pack as the diff baseline |
-| `assay baseline set\|get` | Set or get the baseline pack for diff |
-
-**Key management**
-
-| Command | Purpose |
-|---------|---------|
-| `assay key generate` | Generate a new Ed25519 signing key |
-| `assay key list` | List local signing keys and active signer |
-| `assay key info` | Show key details (fingerprint, creation date) |
-| `assay key set-active` | Set active signing key for future runs |
-| `assay key rotate` | Generate a new key and switch active signer |
-| `assay key export\|import` | Export or import keys for CI or team sharing |
-| `assay key revoke` | Revoke a signing key |
-
-**Lockfile + cards**
-
-| Command | Purpose |
-|---------|---------|
-| `assay lock write` | Freeze verification contract to lockfile |
-| `assay lock check` | Validate lockfile against current card definitions |
-| `assay lock init` | Initialize a new lockfile interactively |
-| `assay cards list` | List built-in run cards and their claims |
-| `assay cards show` | Show card details, claims, and parameters |
-
-**MCP + policy**
-
-| Command | Purpose |
-|---------|---------|
-| `assay mcp-proxy` | Transparent MCP proxy: intercept tool calls, emit receipts |
-| `assay mcp policy init` | Generate a starter MCP policy YAML file |
-| `assay mcp policy validate` | Validate a policy file against the schema |
-| `assay policy impact` | Analyze policy impact on existing evidence |
-
-**Incident forensics**
-
-| Command | Purpose |
-|---------|---------|
-| `assay incident timeline` | Build incident timeline from receipts |
-| `assay incident replay` | Replay an incident from receipt chain |
-
-**Demos**
-
-| Command | Purpose |
-|---------|---------|
-| `assay demo-incident` | Two-act scenario: passing run vs failing run |
-| `assay demo-challenge` | CTF-style good + tampered pack pair |
-| `assay demo-pack` | Generate demo packs (no config needed) |
-
-</details>
+- **Developers** — scan existing code, instrument LLM calls, get a signed artifact per run
+- **Security and CI teams** — gate on evidence quality, fail builds without tamper-evident proof packs
+- **MCP and agent operators** — `assay try-mcp`, transparent MCP proxy, per-tool-call receipts
+- **Auditors, compliance teams, and reviewers** — offline verification, reviewer packets, HTML evidence reports
 
 ## Documentation
 

@@ -142,8 +142,8 @@ Developers already understand this mental model.
 | T2 | Independent witness ([assay-ledger](https://github.com/Haserjian/assay-ledger), Sigstore/Rekor) | Transparency log lookup | Ledger shipped, Sigstore planned |
 | T3 | Runtime attestation (hardware-backed) | Hardware enclave attestation | Future |
 
-T0 proves internal consistency. Each tier adds an independent constraint
-that makes fabrication progressively harder.
+T0 proves structural integrity, not signer authority. Each tier adds an
+independent constraint that makes fabrication progressively harder.
 
 ### Signer identity and key distribution
 
@@ -191,6 +191,23 @@ is what makes it trustworthy.
 Current key commands: `assay key list`, `assay key rotate`, `assay key set-active`.
 
 For the full specification, see [spec-key-distribution.md](spec-key-distribution.md).
+
+### Per-receipt signing — explicit deferral
+
+Individual receipts inside `receipt_pack.jsonl` are not separately signed.
+Pack integrity is enforced at file level: the manifest contains a SHA-256
+hash of the entire `receipt_pack.jsonl` file, and the manifest itself is
+Ed25519-signed. Any post-seal modification to any receipt breaks the manifest
+hash and fails verification.
+
+Per-receipt signing (individual Ed25519 signature on each JSONL entry) is
+deferred to T1+. At T0, the signing key is held by the same operator who
+runs the system — adding per-receipt signatures at that tier does not change
+the fundamental trust model, since a complicit operator could sign fabricated
+receipts just as easily. Per-receipt signing becomes meaningful when the
+signing key is held externally (T1: CI-held key; T2: external witness),
+because then individual receipts carry an authority claim the operator cannot
+self-issue.
 
 ## Completeness contract
 
