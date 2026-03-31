@@ -2,7 +2,7 @@
 
 **Signed evidence for tool-using AI.**
 
-Assay turns AI runs into signed evidence packets another team can verify offline — no server, no trust required.
+Assay turns AI runs into signed evidence packets another team can verify offline — no vendor server required.
 
 Agents talk via MCP. Agents prove via Assay.
 
@@ -60,8 +60,12 @@ assay verify-pack ./proof_pack_*/   # Verify offline
 ```
 
 > **Boundary:** Assay proves the evidence artifact has not been altered
-> after signing. It does not prove every upstream input was authentic.
-> [Trust tiers](docs/FULL_PICTURE.md#trust-tiers).
+> after signing. It does not prove the signer was an authorized signer for
+> this evidence — at T0, structural cryptographic validity is confirmed, not
+> signer authority. Stronger signer-trust guarantees require a higher trust
+> tier with externally controlled keys and/or external anchors.
+> It does not prove every upstream input was authentic.
+> [Trust tiers](docs/FULL_PICTURE.md#trust-tiers) · [What Assay does today](docs/WHAT_ASSAY_DOES_TODAY.md).
 
 ---
 
@@ -157,7 +161,7 @@ $ assay verify-pack challenge_pack/tampered/
   Exit code: 2
 ```
 
-One byte changed. Verification fails. No server access needed. No trust required. Just math.
+One byte changed. Verification fails. No server access needed. Verification is pure math — no accounts, no infrastructure.
 
 Now try the policy violation demo:
 
@@ -278,7 +282,7 @@ with assay.open_episode(policy_version="v2.1") as episode:
         episode.emit("action.denied", {"reason": "honest_fail"})
 ```
 
-Emit receipts continuously during execution. Seal checkpoints at review boundaries. The episode is the constitutional unit, not the Unix process.
+Emit receipts continuously during execution. Seal checkpoints at review boundaries. The episode is the primary unit, not the Unix process.
 
 ### Mode 3: Settlement
 
