@@ -1,0 +1,115 @@
+mode: checkpoint
+verdict: complete
+
+scope_boundary: >
+  Full session 2026-03-30: strategy convergence, specimen build,
+  try-mcp command, README top-of-fold rewrite. Work spans assay-toolkit,
+  assay-proof-gallery, and ~/docs/strategy/.
+
+authority_boundary: >
+  Does not speak to: merge to main for assay-toolkit (on branch),
+  rendered GitHub visual QA (structure verified, render not audited),
+  buyer conversations, other repo README changes, PyPI release.
+
+not_checked:
+  - Rendered GitHub viewport behavior (pushed but not visually audited)
+  - assay-proof-gallery CI (branch-protection bypassed on push)
+  - Platform robustness of try-mcp (tested on macOS only)
+  - Noun consistency in <details> sections (top-of-fold is clean)
+
+claims:
+  - text: "assay try-mcp produces a signed proof pack with 3 MCP receipts"
+    type: verification
+    status: confirmed
+    basis: command_output
+    verification_artifacts:
+      - "assay try-mcp exits 0, pack_id assigned, n_receipts=3"
+      - "assay verify-pack on output exits 0 (VERIFICATION PASSED)"
+      - "assay try-mcp --json returns status=ok, verification=PASS"
+    promotion_rule: null
+
+  - text: "try-mcp visible in assay --help under Start Here"
+    type: existence
+    status: confirmed
+    basis: command_output
+    verification_artifacts:
+      - "assay --help shows try-mcp in Start Here panel"
+    promotion_rule: null
+
+  - text: "Scenario 07 proof_pack exits 0, tampered_pack exits 2"
+    type: verification
+    status: confirmed
+    basis: command_output
+    verification_artifacts:
+      - "verify.sh passes both checks"
+      - "check_gallery.py: all 7 scenarios pass"
+    promotion_rule: null
+
+  - text: "Scenario 07 pushed to assay-proof-gallery main"
+    type: completion
+    status: confirmed
+    basis: command_output
+    verification_artifacts:
+      - "git push origin main succeeded"
+    promotion_rule: null
+
+  - text: "README top-of-fold leads with try-mcp, verifier, specimen"
+    type: completion
+    status: confirmed
+    basis: observed
+    verification_artifacts:
+      - "First 66 lines contain: hero, one-liner, install+try-mcp, verifier link, specimen link, exit codes, pack contents, setup commands"
+      - "11 <details> open = 11 close (balanced)"
+    promotion_rule: null
+
+  - text: "assay-toolkit README branch pushed to GitHub"
+    type: completion
+    status: confirmed
+    basis: command_output
+    verification_artifacts:
+      - "git push -u origin feat/try-mcp-and-readme-rewrite succeeded"
+    promotion_rule: null
+
+  - text: "2993 tests pass, 0 failures after all changes"
+    type: verification
+    status: confirmed
+    basis: test_output
+    verification_artifacts:
+      - "python3 -m pytest tests/ -x -q: 2993 passed, 12 skipped"
+    promotion_rule: null
+
+  - text: "Strategy docs landed at ~/docs/strategy/"
+    type: completion
+    status: confirmed
+    basis: observed
+    verification_artifacts:
+      - "4 files created: index, audit, deltas, contradictions"
+    promotion_rule: null
+
+commands_run:
+  - "assay try-mcp -o /tmp/assay_mcp_test (x3, including bug fixes)"
+  - "assay try-mcp --json"
+  - "assay verify-pack /tmp/assay_mcp_test/proof_pack"
+  - "assay --help"
+  - "python3 -m pytest tests/ -x -q (x2, both 2993 passed)"
+  - "python3 scripts/build_gallery.py --scenario 07-contested-decision (x2)"
+  - "bash gallery/07-contested-decision/verify.sh (x3)"
+  - "python3 scripts/check_gallery.py --verbose (x2)"
+  - "git push (assay-proof-gallery main + assay-toolkit branch)"
+
+files_touched:
+  - "~/assay-toolkit/src/assay/commands.py (try-mcp command added)"
+  - "~/assay-toolkit/README.md (top-of-fold rewrite)"
+  - "~/assay-proof-gallery/gallery/07-contested-decision/ (new, 15 files)"
+  - "~/assay-proof-gallery/scripts/build_gallery.py (scenario 07 added)"
+  - "~/assay-proof-gallery/scenarios.json (07 entry added)"
+  - "~/docs/strategy/STRATEGY_SYSTEM_INDEX_2026_03_30.md (new)"
+  - "~/docs/strategy/ASSAY_PORTFOLIO_POSITIONING_AUDIT_2026_03_30.md (new)"
+  - "~/docs/strategy/PORTFOLIO_DELTAS_AND_NEXT_ACTIONS_2026_03_30.md (new)"
+  - "~/docs/strategy/OPEN_NOUNS_AND_BOUNDARY_CONFLICTS_2026_03_30.md (new)"
+
+next_minimal_step: >
+  Visual QA of rendered GitHub README on the branch page. If clean,
+  merge feat/try-mcp-and-readme-rewrite to main. Then: GitHub repo
+  description updates (C3-C6 in deltas doc), unhide mcp-proxy (R1),
+  three audience variants of scenario 07.

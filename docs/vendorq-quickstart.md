@@ -1,7 +1,10 @@
-# VendorQ Quickstart
+# Vendor Questionnaire Workflow
 
-VendorQ compiles questionnaire responses from Assay proof packs and verifies every claim against evidence.
-Use this workflow to build the evidence-backed answer set underneath a reviewer-ready evidence packet.
+Assay can compile verifiable answers to vendor security questionnaires directly from your proof packs
+and verify every claim against evidence. This is a use-case workflow within Assay, not a separate product.
+
+The CLI surface uses the `assay vendorq` subcommand. The output is a Reviewer Packet with a settlement
+verdict (VERIFIED / VERIFIED_WITH_GAPS) that procurement teams and auditors can check independently.
 
 ## 1) Ingest questionnaire
 

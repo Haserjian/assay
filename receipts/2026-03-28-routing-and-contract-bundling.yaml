@@ -1,0 +1,146 @@
+mode: checkpoint
+verdict: partial
+
+scope_boundary: "Assay outbound docs routing fix + contract bundling for pip-only users"
+authority_boundary: "Does not cover CLI hidden-command discoverability beyond bundle, does not cover credibility leaks (Tier 3), does not verify pip package build"
+not_checked:
+  - pip package build (setup.py bdist_wheel) to confirm contracts appear in built artifact
+  - two START_HERE reconciliation
+  - hidden command discoverability (patch, explain, lock, vendorq still hidden)
+  - credibility leaks (verify-ts test count, Rekor stub, roadmap dates, draft specs)
+  - assay scan standalone viability on real repos
+  - outbound START_HERE vs docs START_HERE pilot scope contradiction
+
+claims:
+  - text: "Routing table in README starts from buyer questions with scan as first-class row"
+    type: completion
+    status: confirmed
+    basis: file_diff
+    supporting_artifacts:
+      - "README.md lines 9-17 rewritten"
+    verification_artifacts:
+      - "git diff 4f929c1..3fe18be README.md shows old 4-row table replaced with buyer-question-first table"
+    scope: "README.md only"
+    authority_boundary: "does not confirm rendering on GitHub mobile/narrow"
+    promotion_rule: null
+
+  - text: "TRY_YOUR_DATA CTA no longer points to pilot for eval comparability"
+    type: completion
+    status: confirmed
+    basis: file_diff
+    supporting_artifacts:
+      - "docs/outbound/TRY_YOUR_DATA.md final line rewritten"
+    verification_artifacts:
+      - "git show 3fe18be -- docs/outbound/TRY_YOUR_DATA.md shows new CTA: 'assay compare is the self-serve eval comparability tool'"
+    scope: "TRY_YOUR_DATA.md CTA only"
+    authority_boundary: "does not confirm PILOT_PROGRAM.md is consistent (already was)"
+    promotion_rule: null
+
+  - text: "START_HERE has 'what changes after this is running' section"
+    type: completion
+    status: confirmed
+    basis: file_diff
+    supporting_artifacts:
+      - "docs/START_HERE.md new section between step 6 and What's next"
+    verification_artifacts:
+      - "git show 3fe18be -- docs/START_HERE.md shows 3-bullet operational consequence section"
+    scope: "docs/START_HERE.md"
+    authority_boundary: null
+    promotion_rule: null
+
+  - text: "HONEST_FAILURE has 'what changes after you install this' section"
+    type: completion
+    status: confirmed
+    basis: file_diff
+    supporting_artifacts:
+      - "docs/outbound/HONEST_FAILURE.md new section before 'Where you see it'"
+    verification_artifacts:
+      - "git show 3fe18be -- docs/outbound/HONEST_FAILURE.md shows Week 1/2/4 principle-driven paragraph"
+    scope: "docs/outbound/HONEST_FAILURE.md"
+    authority_boundary: null
+    promotion_rule: null
+
+  - text: "Stock judge-comparability-v1 contract bundled with pip package"
+    type: completion
+    status: confirmed
+    basis: test_output
+    supporting_artifacts:
+      - "src/assay/contracts/__init__.py created with resolve_contract_path()"
+      - "src/assay/contracts/judge-comparability-v1.yaml copied from contracts/"
+      - "pyproject.toml package-data updated to include contracts/*.yaml"
+    verification_artifacts:
+      - "python3 -c 'from assay.contracts import resolve_contract_path; print(resolve_contract_path(None))' resolves to src/assay/contracts/judge-comparability-v1.yaml"
+      - "assay compare examples/llm_judge/external/baseline.json examples/llm_judge/external/candidate_drifted.json --claim '...' returns DENIED verdict with no -c flag"
+      - "assay bundle init -o /tmp/test_scaffold2.json scaffolds 15 fields with no -c flag"
+    scope: "compare, gate compare, bundle init commands"
+    authority_boundary: "confirmed via source install; pip wheel build not tested"
+    promotion_rule: null
+
+  - text: "pip wheel build includes bundled contracts"
+    type: completion
+    status: predicted
+    basis: inference
+    supporting_artifacts:
+      - "pyproject.toml package-data line: assay = ['schemas/*.json', 'contracts/*.yaml']"
+    verification_artifacts: []
+    scope: "package build"
+    authority_boundary: "inference from pyproject.toml — not confirmed by building a wheel"
+    promotion_rule: "Run: pip wheel . --no-deps && unzip -l assay_ai-*.whl | grep contracts"
+
+  - text: "Demo exit ramp added to run_demo.sh"
+    type: completion
+    status: confirmed
+    basis: file_diff
+    supporting_artifacts:
+      - "examples/llm_judge/run_demo.sh extended with next-steps block"
+    verification_artifacts:
+      - "git show f12020d -- examples/llm_judge/run_demo.sh shows next-steps section with bundle init, compare, scan pointers"
+    scope: "llm_judge demo only"
+    authority_boundary: "specimen demo not modified"
+    promotion_rule: null
+
+  - text: "bundle command visible in CLI help"
+    type: completion
+    status: confirmed
+    basis: file_diff
+    supporting_artifacts:
+      - "commands.py: hidden=True removed from bundle_app registration"
+    verification_artifacts:
+      - "git show f12020d -- src/assay/commands.py shows bundle_app registered with rich_help_panel='Governance' and no hidden flag"
+    scope: "bundle subcommand only"
+    authority_boundary: "other hidden commands not changed"
+    promotion_rule: null
+
+  - text: "All existing tests pass after changes"
+    type: verification
+    status: confirmed
+    basis: test_output
+    supporting_artifacts:
+      - "2963 tests in suite"
+    verification_artifacts:
+      - "pytest tests/ -x -q: 2963 passed, 12 skipped, 18 warnings in 42.92s (this session)"
+      - "pytest tests/ -k 'compare or bundle or contract' -x -q: 281 passed, 1 skipped (this session)"
+    scope: "full test suite"
+    authority_boundary: "CI not run; local only"
+    promotion_rule: null
+
+commands_run:
+  - "cd ~/assay-toolkit && python3 -m pytest tests/ -x -q (2963 passed)"
+  - "cd ~/assay-toolkit && python3 -m pytest tests/ -k 'compare or bundle or contract' -x -q (281 passed)"
+  - "cd ~/assay-toolkit && python3 -m assay bundle init -o /tmp/test_scaffold2.json (15 fields scaffolded)"
+  - "cd ~/assay-toolkit && python3 -m assay compare examples/llm_judge/external/baseline.json examples/llm_judge/external/candidate_drifted.json --claim '...' (DENIED)"
+  - "cd ~/assay-toolkit && python3 -c 'from assay.contracts import resolve_contract_path; print(resolve_contract_path(None))'"
+  - "cd ~/assay-toolkit && git commit (3fe18be, f12020d)"
+
+files_touched:
+  - README.md
+  - docs/START_HERE.md
+  - docs/outbound/HONEST_FAILURE.md
+  - docs/outbound/TRY_YOUR_DATA.md
+  - examples/llm_judge/run_demo.sh
+  - pyproject.toml
+  - src/assay/commands.py
+  - src/assay/contracts/__init__.py
+  - src/assay/contracts/judge-comparability-v1.yaml
+
+next_minimal_step: "Verify pip wheel build includes contracts: pip wheel . --no-deps && unzip -l *.whl | grep contracts"
