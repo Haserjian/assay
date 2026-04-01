@@ -19,7 +19,14 @@ from typing import Any, Dict, Optional
 
 from assay._receipts.jcs import canonicalize as jcs_canonicalize
 
-# Signing-excluded fields (must match CCIO's build.py contract)
+# CCIO Decision Receipt v0.1.x signing contract.
+# Intentionally separate from the v2 canonical projection contract in
+# _receipts/canonicalize.py. This set must match CCIO's build.py exactly,
+# including additional normalization below (None-stripping, list deduplication
+# and sorting) that the generic canonicalize path does not perform.
+# Do NOT merge into _receipts/canonicalize._PROJECTION_EXCLUSIONS without
+# auditing CCIO build.py. See _receipts/canonicalize.py module docstring
+# for the full three-contract design rationale.
 _SIGNING_EXCLUDED = frozenset({"content_hash", "signature", "signer_pubkey_sha256"})
 
 

@@ -79,5 +79,99 @@
       "assertion": "RC-G03 hash differs from RC-G01",
       "reason": "Nested 'signature' field is preserved (root-only stripping). Different payload → different hash."
     }
-  ]
+  ],
+  "v2_vectors": {
+    "projection_id": "receipt-core-v2",
+    "contract": "canonical_projection() in _receipts/canonicalize.py",
+    "attested_fields": ["receipt_id", "type", "timestamp", "payload", "verification_profile", "verification_policy"],
+    "excluded_fields": ["verification_bundle", "signatures", "trust_anchors", "signature", "signer_id", "signer_pubkey_sha256", "cose_signature", "receipt_hash", "anchor"],
+    "note": "verification_profile and verification_policy ARE attested (in projection). signer_id is excluded in v2 but was included in v0 — see RC-V2-G03.",
+    "vectors": [
+      {
+        "id": "RC-V2-G01",
+        "description": "Attested-only receipt — no excluded fields present. Stripping is a no-op.",
+        "input": {
+          "receipt_id": "r1",
+          "type": "test",
+          "timestamp": "2026-01-01T00:00:00Z",
+          "payload": {"value": 42},
+          "verification_profile": "operational-v1",
+          "verification_policy": {
+            "operational_requires": {"min_signatures": 1, "algorithms": ["ed25519"]}
+          }
+        },
+        "expected_projection": {
+          "payload": {"value": 42},
+          "receipt_id": "r1",
+          "timestamp": "2026-01-01T00:00:00Z",
+          "type": "test",
+          "verification_policy": {"operational_requires": {"algorithms": ["ed25519"], "min_signatures": 1}},
+          "verification_profile": "operational-v1"
+        },
+        "expected_canonical_utf8": "{\"payload\":{\"value\":42},\"receipt_id\":\"r1\",\"timestamp\":\"2026-01-01T00:00:00Z\",\"type\":\"test\",\"verification_policy\":{\"operational_requires\":{\"algorithms\":[\"ed25519\"],\"min_signatures\":1}},\"verification_profile\":\"operational-v1\"}",
+        "expected_sha256": "7e8128ab202e95a59df9a2925790a66ae6677368e731db643d88cb9e3e769b57",
+        "expected_bundle_digest": "sha256:7e8128ab202e95a59df9a2925790a66ae6677368e731db643d88cb9e3e769b57"
+      },
+      {
+        "id": "RC-V2-G02",
+        "description": "Receipt with all excluded fields present. Projection strips them; digest equals RC-V2-G01.",
+        "stripped_fields": ["verification_bundle", "signatures", "trust_anchors", "signature", "signer_id", "signer_pubkey_sha256", "cose_signature", "receipt_hash", "anchor"],
+        "input": {
+          "receipt_id": "r1",
+          "type": "test",
+          "timestamp": "2026-01-01T00:00:00Z",
+          "payload": {"value": 42},
+          "verification_profile": "operational-v1",
+          "verification_policy": {
+            "operational_requires": {"min_signatures": 1, "algorithms": ["ed25519"]}
+          },
+          "verification_bundle": {"bundle_digest": "sha256:deadbeef", "bundle_algorithm": "sha256", "canonicalization": "jcs-rfc8785"},
+          "signatures": [{"algorithm": "ed25519", "signer_id": "assay-ci", "value": "abc123"}],
+          "trust_anchors": [{"id": "test-registry", "type": "registry"}],
+          "signature": "legacy-sig",
+          "signer_id": "legacy-signer",
+          "signer_pubkey_sha256": "legacy-fp",
+          "cose_signature": "legacy-cose",
+          "receipt_hash": "legacy-hash",
+          "anchor": {"legacy": true}
+        },
+        "expected_sha256": "7e8128ab202e95a59df9a2925790a66ae6677368e731db643d88cb9e3e769b57",
+        "expected_bundle_digest": "sha256:7e8128ab202e95a59df9a2925790a66ae6677368e731db643d88cb9e3e769b57"
+      },
+      {
+        "id": "RC-V2-G03",
+        "description": "v0-style signer_id present at root. v2 excludes it; digest equals RC-V2-G01. Cross-version discriminator: signer_id was INCLUDED in v0 hashing but is EXCLUDED in v2.",
+        "input": {
+          "receipt_id": "r1",
+          "type": "test",
+          "timestamp": "2026-01-01T00:00:00Z",
+          "payload": {"value": 42},
+          "verification_profile": "operational-v1",
+          "verification_policy": {
+            "operational_requires": {"min_signatures": 1, "algorithms": ["ed25519"]}
+          },
+          "signer_id": "any-legacy-signer"
+        },
+        "expected_sha256": "7e8128ab202e95a59df9a2925790a66ae6677368e731db643d88cb9e3e769b57",
+        "expected_bundle_digest": "sha256:7e8128ab202e95a59df9a2925790a66ae6677368e731db643d88cb9e3e769b57"
+      }
+    ],
+    "assertions": [
+      {
+        "id": "RC-V2-A01",
+        "assertion": "RC-V2-G01 and RC-V2-G02 produce identical hashes",
+        "reason": "Same attested content. Excluded fields (verification_bundle, signatures, etc.) don't affect digest."
+      },
+      {
+        "id": "RC-V2-A02",
+        "assertion": "RC-V2-G03 hash equals RC-V2-G01",
+        "reason": "signer_id is excluded in v2. Adding it at root does not change the attested projection."
+      },
+      {
+        "id": "RC-V2-A03",
+        "assertion": "verification_profile and verification_policy ARE in the projection",
+        "reason": "They are attested fields — policy and profile changes require reissuance."
+      }
+    ]
+  }
 }
