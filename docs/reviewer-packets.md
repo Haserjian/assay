@@ -116,6 +116,19 @@ Example summary snippet:
 }
 ```
 
+## CI artifact bundle
+
+The advisory GitHub Actions workflow also runs this path automatically and
+uploads the bundle as `decision-census-advisory`.
+
+Inspect the workflow run in GitHub Actions, then open the artifact download for:
+
+- `.assay/reviewer-packet`
+- `.assay/decision-census`
+
+Those directories contain the generated reviewer packet, `DECISION_CENSUS.json`,
+`DECISION_GAPS.json`, and the matching Markdown summaries.
+
 ## Checkpoint Packet Profile
 
 Reviewer Packets also support a checkpoint-specific profile for resolved
