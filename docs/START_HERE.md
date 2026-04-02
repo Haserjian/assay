@@ -110,6 +110,7 @@ Open a PR and you'll see all three checks in your GitHub status checks.
 - `assay explain ./proof_pack_*/` -- plain-English summary of any evidence pack
 - [Reviewer Packets](reviewer-packets.md) -- compile and verify the buyer-facing reviewer-ready evidence packet
 - `assay diff` -- compare packs for cost/latency regressions
+- [Integrity surface spec](specs/INTEGRITY_SURFACE_SPEC_V1.md) and [port compatibility checklist](specs/INTEGRITY_PORT_COMPATIBILITY_CHECKLIST.md) -- the normative contract for verifier ports
 - [CI integration](ci-integration.md) -- why CI matters and how to enforce evidence discipline
 - [Quickstart reference](README_quickstart.md) -- full command reference
 - [Order of operations](ORDER_OF_OPERATIONS.md) -- detailed workflow guide

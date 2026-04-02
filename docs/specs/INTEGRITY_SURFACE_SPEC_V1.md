@@ -121,7 +121,8 @@ neither equals the actual attestation hash fails at step 5, not step 7.
 ### 4.1 `receipt.type` — normative enum (to be enforced)
 
 The `type` field is required in all receipts (`REQUIRED_RECEIPT_FIELDS`, `integrity.py:110`).
-Its value is currently checked for presence only; no enum is enforced in code.
+In the current Python reference verifier, its value is checked for presence
+only; no enum is enforced in code.
 
 **Normative rule (closes spec gap):** Verifiers SHOULD reject receipts with unknown type
 values. The following values are currently recognized:
@@ -135,9 +136,10 @@ Additional values require explicit schema version registration. Unknown type val
 encountered during verification should produce a warning in lenient mode and an error in
 strict mode.
 
-**Current enforcement status:** presence only (`integrity.py:120`). Enum validation is
-**not yet implemented** in `verify_receipt()`. This is a known under-specification;
-future multi-language implementations MUST enforce the closed enum.
+**Current enforcement status:** presence only in the Python reference verifier
+(`integrity.py:120`). Enum validation is **not yet implemented** in
+`verify_receipt()`. This is a known under-specification; future multi-language
+implementations MUST enforce the closed enum.
 
 **Dispatch note:** `receipt.type` is informational in the pack verification path. It does
 not drive code branching in `verify_pack_manifest()` or `verify_receipt()`. The risk from
@@ -214,3 +216,10 @@ The following items are out of scope for this spec but are recorded to prevent l
 
 3. **Float prohibition** — add type constraints to `latency_ms` and `token_count` in
    `schema.py` and/or the receipt JSON Schema when one is introduced.
+
+## 8. Port Checklist
+
+For an implementation-facing conformance gate, see
+[INTEGRITY_PORT_COMPATIBILITY_CHECKLIST.md](./INTEGRITY_PORT_COMPATIBILITY_CHECKLIST.md).
+That checklist turns the normative spec into a concrete verifier-port acceptance
+standard.
