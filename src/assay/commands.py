@@ -6021,6 +6021,69 @@ def vendorq_export_reviewer_cmd(
     console.print()
 
 
+@reviewer_app.command("census")
+def reviewer_census_cmd(
+    packet_dir: str = typer.Argument(..., help="Path to Reviewer Packet directory"),
+    out: Optional[str] = typer.Option(None, "--out", "-o", help="Optional output directory for the census bundle"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Build a Decision Census report from a compiled reviewer packet."""
+    from pathlib import Path
+
+    from assay.reporting.decision_census import build_decision_census_report, write_report
+    from assay.vendorq_models import VendorQInputError
+
+    packet_path = Path(packet_dir)
+    out_dir = Path(out) if out else packet_path / "decision_census"
+
+    try:
+        report = build_decision_census_report(packet_path)
+        bundle = write_report(report, out_dir)
+    except VendorQInputError as exc:
+        if output_json:
+            _output_json(
+                {
+                    "command": "reviewer census",
+                    "status": "error",
+                    "error": str(exc),
+                },
+                exit_code=3,
+            )
+        console.print(f"[red]Error:[/] {exc}")
+        raise typer.Exit(3)
+
+    if output_json:
+        _output_json(
+            {
+                "command": "reviewer census",
+                "status": "ok",
+                "report_id": report["report_id"],
+                "output_dir": bundle["output_dir"],
+                "coverage_summary": report["coverage_summary"],
+                "decision_point_count": len(report["decision_points"]),
+                "unsupported_surfaces": report.get("unsupported_surfaces", []),
+                "inventory": report.get("inventory", {}),
+            },
+            exit_code=0,
+        )
+
+    summary = report["coverage_summary"]
+    console.print()
+    console.print(Panel.fit(
+        f"[bold green]Decision Census Report Built[/]\n\n"
+        f"Packet:           {packet_dir}\n"
+        f"Inventory basis:  {report.get('inventory', {}).get('basis', 'unknown')}\n"
+        f"Coverage state:   {summary['coverage_state']}\n"
+        f"Coverage ratio:   {summary['coverage_ratio']:.2f}\n"
+        f"Expected points:  {summary['expected_count']}\n"
+        f"Observed points:  {summary['observed_count']}\n"
+        f"Missing points:   {summary['missing_count']}\n"
+        f"Output directory: {bundle['output_dir']}",
+        title="assay reviewer census",
+    ))
+    console.print()
+
+
 @reviewer_app.command("verify")
 def reviewer_verify_cmd(
     packet_dir: str = typer.Argument(..., help="Path to Reviewer Packet directory"),
