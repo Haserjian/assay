@@ -72,6 +72,50 @@ The JSON output includes:
 - `failure_reasons`
 - `settlement_verification` recomputation details
 
+## Generate a Decision Census
+
+Once a reviewer packet has been compiled, the next step is to generate a
+Decision Census report from that packet surface:
+
+```bash
+assay reviewer census reviewer_packet_demo
+assay reviewer census reviewer_packet_demo --json
+```
+
+The census is a workflow-wide coverage artifact built from the compiled
+reviewer packet. It emits:
+
+- `DECISION_CENSUS.json`
+- `DECISION_CENSUS.md`
+- `COVERAGE_MATRIX.md`
+
+The report makes expected vs observed decision points explicit and keeps
+degraded mode honest. If `PACKET_INPUTS.json` or `PACKET_MANIFEST.json` are
+absent, the census still runs and states that the inventory was inferred from
+the coverage matrix alone.
+
+Example output shape:
+
+- `coverage_summary.expected_count`
+- `coverage_summary.observed_count`
+- `coverage_summary.missing_count`
+- `coverage_summary.coverage_state`
+- `unsupported_surfaces`
+- `inventory.basis`
+
+Example summary snippet:
+
+```json
+{
+  "coverage_summary": {
+    "expected_count": 2,
+    "observed_count": 2,
+    "missing_count": 0,
+    "coverage_state": "degraded"
+  }
+}
+```
+
 ## Checkpoint Packet Profile
 
 Reviewer Packets also support a checkpoint-specific profile for resolved

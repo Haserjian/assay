@@ -463,6 +463,7 @@ assay vendorq ingest --in questionnaire.csv --out .assay/vendorq/questions.json
 assay vendorq compile --questions .assay/vendorq/questions.json --pack ./proof_pack_* --policy conservative --out .assay/vendorq/answers.json
 assay vendorq export-reviewer --proof-pack ./proof_pack_* --out reviewer_packet
 assay reviewer verify reviewer_packet
+assay reviewer census reviewer_packet
 ```
 
 Use VendorQ when the pain is: "we have to answer AI-governance questions and we cannot hand the reviewer a verifiable artifact."
@@ -508,6 +509,10 @@ assay vendorq export-reviewer \
 # Verify the reviewer packet and derive the settlement
 assay reviewer verify reviewer_packet_demo
 assay reviewer verify reviewer_packet_demo --json
+
+# Generate a Decision Census report from the compiled reviewer packet
+assay reviewer census reviewer_packet_demo
+assay reviewer census reviewer_packet_demo --json
 ```
 
 Canonical handoff flow:

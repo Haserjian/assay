@@ -63,6 +63,7 @@ questionnaire workflows. It wraps a proof pack in a structured review artifact
 with settlement logic, coverage matrix, and scope manifest.
 
 **Command**: `assay vendorq export-reviewer`
+**Next step**: `assay reviewer census`
 
 **Artifact layout**:
 
@@ -81,7 +82,9 @@ reviewer_packet/
 `EVIDENCE_REGRESSION`, `TAMPERED`, `OUT_OF_SCOPE`
 
 **When to use**: VendorQ questionnaire review, checkpoint export, browser verifier
-workflows using the existing VendorQ profile.
+workflows using the existing VendorQ profile. After verification, generate a
+Decision Census report when you need expected-vs-observed coverage surfaced as a
+portable artifact.
 
 **Docs**: [`docs/reviewer-packets.md`](reviewer-packets.md)
 
