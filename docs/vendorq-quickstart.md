@@ -56,6 +56,15 @@ The Markdown export includes an evidence navigation chain with replay command hi
 
 If you need the buyer-facing artifact another team can inspect, forward, and verify, continue with the reviewer-packet flow described in [reviewer-packets.md](./reviewer-packets.md) and use `assay vendorq export-reviewer`.
 
+After you export the reviewer packet, generate a Decision Census report to make expected vs observed coverage explicit:
+
+```bash
+assay reviewer census reviewer_packet_demo
+assay reviewer census reviewer_packet_demo --json
+```
+
+The census emits `DECISION_CENSUS.json`, `DECISION_CENSUS.md`, and `COVERAGE_MATRIX.md`. If packet inputs are missing, the report still runs and states that the inventory was inferred from the coverage matrix alone.
+
 ## Notes
 
 - `vendorq verify` validates references against all packs provided via `--pack`.
