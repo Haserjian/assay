@@ -197,7 +197,9 @@ def _build_decision_point(
         "decision_point_id": decision_point_id,
         "label": label,
         "stage": str(question.get("scope") if question else row.get("Scope") or "unknown"),
+        "decision_point_type": _expected_receipt_type(question, source_status),
         "expected_receipt_type": _expected_receipt_type(question, source_status),
+        "expected_artifact_type": _expected_emission(question, source_status),
         "expected_emission": _expected_emission(question, source_status),
         "observed_emission": _observed_emission(source_status),
         "observed_receipt_id": None,
@@ -269,6 +271,158 @@ def _render_table(rows: Iterable[Dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
+def _gap_severity(status: str) -> str:
+    if status == "missing":
+        return "high"
+    if status == "uncertain":
+        return "medium"
+    return "low"
+
+
+def _gap_probable_cause(row: Dict[str, Any]) -> str:
+    source_status = str(row.get("source_status") or "unknown").lower()
+    status = str(row.get("status") or "unknown").lower()
+    if status == "missing":
+        if source_status == "failed":
+            return "Declared evidence was not satisfied in the packet."
+        return "No emitted evidence was available in the packet surface."
+    if status == "uncertain":
+        if source_status == "partial":
+            return "Coverage was partial in the packet surface."
+        if source_status == "human_attested":
+            return "The row depends on human attestation rather than a machine-emitted receipt."
+        return "Observed evidence is incomplete or degraded."
+    return "No remediation needed."
+
+
+def _gap_remediation_hint(row: Dict[str, Any]) -> str:
+    expected_artifact = str(row.get("expected_artifact_type") or "evidence artifact")
+    status = str(row.get("status") or "unknown").lower()
+    if status == "missing":
+        return f"Collect or surface the expected {expected_artifact}."
+    if status == "uncertain":
+        return f"Complete or tighten the {expected_artifact} path, then rerun the census."
+    return "No remediation needed."
+
+
+def _build_gap_row(row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    status = str(row.get("status") or "").lower()
+    if status not in {"missing", "uncertain"}:
+        return None
+
+    return {
+        "gap_id": f"gap_{_sha256_short(str(row.get('decision_point_id') or ''), status, str(row.get('expected_artifact_type') or ''))}",
+        "decision_point_id": row.get("decision_point_id"),
+        "decision_point_type": row.get("decision_point_type") or row.get("expected_receipt_type") or "unknown",
+        "expected_artifact_type": row.get("expected_artifact_type") or row.get("expected_emission") or "unknown",
+        "observed_status": status,
+        "severity": _gap_severity(status),
+        "probable_cause": _gap_probable_cause(row),
+        "remediation_hint": _gap_remediation_hint(row),
+        "label": row.get("label"),
+        "stage": row.get("stage"),
+        "proof_refs": list(row.get("proof_refs") or []),
+        "source_status": row.get("source_status"),
+    }
+
+
+def build_decision_gap_report(report: Dict[str, Any]) -> Dict[str, Any]:
+    """Derive a remediation-focused gap report from a Decision Census report."""
+    decision_points = report.get("decision_points", [])
+    gap_rows = []
+    excluded_out_of_scope = 0
+
+    for row in decision_points:
+        if str(row.get("status") or "").lower() == "out_of_scope":
+            excluded_out_of_scope += 1
+            continue
+        gap_row = _build_gap_row(row)
+        if gap_row is not None:
+            gap_rows.append(gap_row)
+
+    missing_count = sum(1 for row in gap_rows if row["observed_status"] == "missing")
+    uncertain_count = sum(1 for row in gap_rows if row["observed_status"] == "uncertain")
+
+    return {
+        "gap_report_id": f"dgr_{report['report_id']}",
+        "generated_at": now_utc_iso(),
+        "source_report_id": report["report_id"],
+        "inventory": report.get("inventory", {}),
+        "coverage_summary": report.get("coverage_summary", {}),
+        "gap_summary": {
+            "gap_count": len(gap_rows),
+            "missing_count": missing_count,
+            "uncertain_count": uncertain_count,
+            "excluded_out_of_scope_count": excluded_out_of_scope,
+            "remediation_ready": bool(gap_rows),
+        },
+        "gaps": gap_rows,
+        "unsupported_surfaces": report.get("unsupported_surfaces", []),
+        "notes": [
+            "Gap rows are derived only from missing or uncertain census rows.",
+            "Out-of-scope rows are excluded from remediation by design.",
+        ],
+    }
+
+
+def render_gap_markdown(gap_report: Dict[str, Any]) -> str:
+    """Render a remediation-focused gap report."""
+    summary = gap_report.get("gap_summary", {})
+    lines = [
+        "# Decision Gaps",
+        "",
+        f"- Gap report ID: `{gap_report['gap_report_id']}`",
+        f"- Source report ID: `{gap_report['source_report_id']}`",
+        f"- Gap count: **{summary.get('gap_count', 0)}**",
+        f"- Missing count: **{summary.get('missing_count', 0)}**",
+        f"- Uncertain count: **{summary.get('uncertain_count', 0)}**",
+        f"- Out-of-scope excluded: **{summary.get('excluded_out_of_scope_count', 0)}**",
+        f"- Remediation ready: **{str(summary.get('remediation_ready', False)).lower()}**",
+        "",
+        "## Gaps",
+        "",
+    ]
+
+    gaps = gap_report.get("gaps", [])
+    if not gaps:
+        lines.append("No remediation gaps detected.")
+    else:
+        lines.extend([
+            "| Decision Point | Observed Status | Severity | Probable Cause | Remediation Hint | Proof |",
+            "| --- | --- | --- | --- | --- | --- |",
+        ])
+        for row in gaps:
+            proof = "; ".join(row.get("proof_refs") or []) or "None"
+            lines.append(
+                f"| {row.get('label') or row.get('decision_point_id')} | {row.get('observed_status')} | "
+                f"{row.get('severity')} | {row.get('probable_cause')} | {row.get('remediation_hint')} | {proof} |"
+            )
+
+    if gap_report.get("unsupported_surfaces"):
+        lines.extend(["", "## Unsupported Surfaces"])
+        for item in gap_report["unsupported_surfaces"]:
+            lines.append(f"- {item}")
+
+    if gap_report.get("notes"):
+        lines.extend(["", "## Notes"])
+        for note in gap_report["notes"]:
+            lines.append(f"- {note}")
+
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def write_gap_report(gap_report: Dict[str, Any], out_dir: Path) -> Dict[str, Any]:
+    """Write the Decision Gaps bundle to disk."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    write_json(out_dir / "DECISION_GAPS.json", gap_report)
+    (out_dir / "DECISION_GAPS.md").write_text(render_gap_markdown(gap_report), encoding="utf-8")
+    return {
+        "output_dir": str(out_dir.resolve()),
+        "gap_report_id": gap_report["gap_report_id"],
+        "gap_count": gap_report["gap_summary"]["gap_count"],
+    }
+
+
 def build_decision_census_report(packet_dir: Path) -> Dict[str, Any]:
     """Build a Decision Census report dict from a compiled reviewer packet."""
     bundle = _load_packet_bundle(packet_dir)
@@ -321,7 +475,7 @@ def build_decision_census_report(packet_dir: Path) -> Dict[str, Any]:
     ]
     if not bundle["packet_inputs_present"]:
         unsupported_surfaces.append(
-            "PACKET_INPUTS.json is absent, so the expected consequential decision inventory is inferred from COVERAGE_MATRIX.md only."
+            "PACKET_INPUTS.json is absent, so the expected consequential decision inventory is inferred from the coverage matrix alone."
         )
     if not bundle["packet_manifest_present"]:
         unsupported_surfaces.append(
@@ -433,9 +587,14 @@ def write_report(report: Dict[str, Any], out_dir: Path) -> Dict[str, Any]:
     write_json(out_dir / "DECISION_CENSUS.json", report)
     (out_dir / "DECISION_CENSUS.md").write_text(render_markdown(report), encoding="utf-8")
     (out_dir / "COVERAGE_MATRIX.md").write_text(render_coverage_matrix(report), encoding="utf-8")
+    gap_report = build_decision_gap_report(report)
+    gap_bundle = write_gap_report(gap_report, out_dir)
     return {
         "output_dir": str(out_dir.resolve()),
         "report_id": report["report_id"],
         "coverage_state": report["coverage_summary"]["coverage_state"],
         "coverage_ratio": report["coverage_summary"]["coverage_ratio"],
+        "gap_output_dir": gap_bundle["output_dir"],
+        "gap_report_id": gap_bundle["gap_report_id"],
+        "gap_count": gap_bundle["gap_count"],
     }

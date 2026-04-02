@@ -8,7 +8,13 @@ from typer.testing import CliRunner
 
 from assay.commands import assay_app
 from assay.reviewer_packet_compile import compile_reviewer_packet
-from assay.reporting.decision_census import build_decision_census_report, render_markdown, write_report
+from assay.reporting.decision_census import (
+    build_decision_census_report,
+    build_decision_gap_report,
+    render_gap_markdown,
+    render_markdown,
+    write_report,
+)
 from assay.vendorq_models import load_json
 
 runner = CliRunner()
@@ -45,6 +51,18 @@ def test_build_decision_census_report_from_compiled_packet(tmp_path: Path) -> No
         "Row-level receipt IDs are not exposed by the current reviewer packet surfaces."
     ]
 
+    gap_report = build_decision_gap_report(report)
+    assert gap_report["gap_summary"]["gap_count"] == 1
+    assert gap_report["gap_summary"]["missing_count"] == 0
+    assert gap_report["gap_summary"]["uncertain_count"] == 1
+    assert gap_report["gap_summary"]["excluded_out_of_scope_count"] == 1
+    assert [row["observed_status"] for row in gap_report["gaps"]] == ["uncertain"]
+    assert all(row["observed_status"] != "out_of_scope" for row in gap_report["gaps"])
+
+    gap_markdown = render_gap_markdown(gap_report)
+    assert "# Decision Gaps" in gap_markdown
+    assert "Gap count: **1**" in gap_markdown
+
     markdown = render_markdown(report)
     assert "# Decision Census Report" in markdown
     assert "Unsupported Surfaces" in markdown
@@ -53,9 +71,12 @@ def test_build_decision_census_report_from_compiled_packet(tmp_path: Path) -> No
     out_dir = tmp_path / "census_bundle"
     bundle = write_report(report, out_dir)
     assert bundle["coverage_state"] == "degraded"
+    assert bundle["gap_count"] == 1
     assert (out_dir / "DECISION_CENSUS.json").exists()
     assert (out_dir / "DECISION_CENSUS.md").exists()
     assert (out_dir / "COVERAGE_MATRIX.md").exists()
+    assert (out_dir / "DECISION_GAPS.json").exists()
+    assert (out_dir / "DECISION_GAPS.md").exists()
 
 
 def test_decision_census_runs_without_optional_packet_files(tmp_path: Path) -> None:
@@ -73,6 +94,11 @@ def test_decision_census_runs_without_optional_packet_files(tmp_path: Path) -> N
     assert report["coverage_summary"]["coverage_state"] == "degraded"
     assert report["inventory"]["basis"] == "coverage_rows_only"
     assert any("PACKET_INPUTS.json is absent" in item for item in report["unsupported_surfaces"])
+
+    gap_report = build_decision_gap_report(report)
+    assert gap_report["gap_summary"]["gap_count"] == 1
+    assert gap_report["gap_summary"]["uncertain_count"] == 1
+    assert any("coverage matrix alone" in item for item in report["unsupported_surfaces"])
 
 
 def test_reviewer_census_cli_json_and_bundle(tmp_path: Path) -> None:
@@ -98,8 +124,11 @@ def test_reviewer_census_cli_json_and_bundle(tmp_path: Path) -> None:
     assert payload["coverage_summary"]["expected_count"] == 2
     assert payload["coverage_summary"]["observed_count"] == 2
     assert payload["coverage_summary"]["coverage_state"] == "degraded"
+    assert payload["gap_count"] == 1
     assert payload["decision_point_count"] == 3
     assert payload["inventory"]["basis"] == "packet_inputs+coverage_rows"
     assert (out_dir / "DECISION_CENSUS.json").exists()
     assert (out_dir / "DECISION_CENSUS.md").exists()
     assert (out_dir / "COVERAGE_MATRIX.md").exists()
+    assert (out_dir / "DECISION_GAPS.json").exists()
+    assert (out_dir / "DECISION_GAPS.md").exists()

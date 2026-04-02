@@ -6059,6 +6059,9 @@ def reviewer_census_cmd(
                 "status": "ok",
                 "report_id": report["report_id"],
                 "output_dir": bundle["output_dir"],
+                "gap_output_dir": bundle.get("gap_output_dir"),
+                "gap_report_id": bundle.get("gap_report_id"),
+                "gap_count": bundle.get("gap_count", 0),
                 "coverage_summary": report["coverage_summary"],
                 "decision_point_count": len(report["decision_points"]),
                 "unsupported_surfaces": report.get("unsupported_surfaces", []),
@@ -6078,6 +6081,7 @@ def reviewer_census_cmd(
         f"Expected points:  {summary['expected_count']}\n"
         f"Observed points:  {summary['observed_count']}\n"
         f"Missing points:   {summary['missing_count']}\n"
+        f"Gaps emitted:     {bundle.get('gap_count', 0)}\n"
         f"Output directory: {bundle['output_dir']}",
         title="assay reviewer census",
     ))
