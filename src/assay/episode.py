@@ -61,6 +61,18 @@ class SettlementOutcome(str, Enum):
     TAMPERED = "tampered"
 
 
+class EpisodeDirectiveCode(str, Enum):
+    """Canonical bridge directives for Assay constitutional episodes."""
+
+    REOPEN_FOR_RETRY = "REOPEN_FOR_RETRY"
+    ROUTE_TO_REVIEW = "ROUTE_TO_REVIEW"
+    CLOSE_AS_TAINTED = "CLOSE_AS_TAINTED"
+    CLOSE_AS_REFUSED = "CLOSE_AS_REFUSED"
+
+
+ASSAY_EPISODE_TARGET_SUBSTRATE = "assay.episode.lifecycle_state"
+
+
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -409,6 +421,85 @@ def _snapshot_hash(snapshot: Mapping[str, Any]) -> str:
     return _canonical_hash(snapshot)
 
 
+def _string_list(value: Any) -> List[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        token = value.strip()
+        return [token] if token else []
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        items: List[str] = []
+        for entry in value:
+            token = str(entry).strip()
+            if token:
+                items.append(token)
+        return items
+    token = str(value).strip()
+    return [token] if token else []
+
+
+def _coerce_episode_state_directive_payload(directive: Any) -> Dict[str, Any]:
+    if isinstance(directive, Mapping):
+        payload = dict(directive)
+    elif hasattr(directive, "to_dict") and callable(directive.to_dict):
+        payload = dict(directive.to_dict())
+    elif hasattr(directive, "__dict__") and not isinstance(directive, type):
+        payload = {
+            key: value
+            for key, value in vars(directive).items()
+            if not key.startswith("_")
+        }
+    else:
+        raise TypeError("directive must be a mapping or mapping-like object")
+
+    episode_id = str(payload.get("episode_id") or "").strip()
+    if not episode_id:
+        raise ValueError("episode_id is required")
+
+    directive_value = payload.get("directive")
+    if isinstance(directive_value, EpisodeDirectiveCode):
+        directive_code = directive_value
+    else:
+        directive_code = EpisodeDirectiveCode(str(directive_value))
+
+    source_lane = str(payload.get("source_lane") or "").strip()
+    if not source_lane:
+        raise ValueError("source_lane is required")
+
+    source_artifact_ref = str(payload.get("source_artifact_ref") or "").strip()
+    if not source_artifact_ref:
+        raise ValueError("source_artifact_ref is required")
+
+    source_authority_ceiling = str(payload.get("source_authority_ceiling") or "").strip()
+    if not source_authority_ceiling:
+        raise ValueError("source_authority_ceiling is required")
+
+    target_substrate = payload.get("target_substrate")
+    if target_substrate is not None:
+        target_value = (
+            target_substrate.value if isinstance(target_substrate, Enum) else str(target_substrate)
+        )
+        if target_value != ASSAY_EPISODE_TARGET_SUBSTRATE:
+            raise ValueError(
+                "directive target_substrate is not consumable by the Assay episode substrate"
+            )
+    else:
+        target_value = ASSAY_EPISODE_TARGET_SUBSTRATE
+
+    return {
+        "episode_id": episode_id,
+        "directive": directive_code,
+        "directive_id": str(payload.get("directive_id") or _stable_id("directive")),
+        "source_lane": source_lane,
+        "source_artifact_ref": source_artifact_ref,
+        "source_authority_ceiling": source_authority_ceiling,
+        "target_substrate": target_value,
+        "source_reason_codes": _string_list(payload.get("source_reason_codes")),
+        "settlement_reason_codes": _string_list(payload.get("settlement_reason_codes")),
+        "evidence_refs": _string_list(payload.get("evidence_refs")),
+    }
+
+
 def _receipt_lookup_from_trace(entries: Sequence[Mapping[str, Any]]) -> Dict[str, Receipt]:
     lookup: Dict[str, Receipt] = {}
     for entry in entries:
@@ -718,7 +809,11 @@ class Episode:
         allowed: Dict[EpisodeState, Tuple[EpisodeState, ...]] = {
             EpisodeState.OPEN: (EpisodeState.EXECUTING, EpisodeState.ABANDONED),
             EpisodeState.EXECUTING: (EpisodeState.AWAITING_GUARDIAN, EpisodeState.ABANDONED),
-            EpisodeState.AWAITING_GUARDIAN: (EpisodeState.SETTLED, EpisodeState.ABANDONED),
+            EpisodeState.AWAITING_GUARDIAN: (
+                EpisodeState.EXECUTING,
+                EpisodeState.SETTLED,
+                EpisodeState.ABANDONED,
+            ),
             EpisodeState.SETTLED: (EpisodeState.PERSISTED, EpisodeState.ABANDONED),
         }
         if next_state not in allowed.get(self.state, ()):
@@ -727,6 +822,8 @@ class Episode:
         now = _utc_now()
         if next_state == EpisodeState.EXECUTING:
             self.execution_started_at = self.execution_started_at or now
+            if self.state == EpisodeState.AWAITING_GUARDIAN:
+                self.execution_completed_at = None
             self.execution_window = (self.execution_started_at, self.execution_completed_at)
         elif next_state == EpisodeState.AWAITING_GUARDIAN:
             self.execution_started_at = self.execution_started_at or now
@@ -770,6 +867,207 @@ class Episode:
         if self.state != EpisodeState.EXECUTING:
             raise EpisodeStateError(f"Episode {self._episode_id} cannot complete execution from {self.state.value}")
         self.transition(EpisodeState.AWAITING_GUARDIAN)
+
+    def _directive_receipt_payload(self, payload: Mapping[str, Any]) -> Dict[str, Any]:
+        return {
+            "directive": payload["directive"].value,
+            "directive_id": payload["directive_id"],
+            "source_lane": payload["source_lane"],
+            "source_artifact_ref": payload["source_artifact_ref"],
+            "source_authority_ceiling": payload["source_authority_ceiling"],
+            "target_substrate": payload["target_substrate"],
+            "source_reason_codes": list(payload["source_reason_codes"]),
+            "settlement_reason_codes": list(payload["settlement_reason_codes"]),
+            "evidence_refs": list(payload["evidence_refs"]),
+        }
+
+    def _find_directive_receipt(self, directive_id: str) -> Optional[Receipt]:
+        for receipt_id in self.receipts_by_type.get("episode.state_directed", []):
+            receipt = self.receipt_index[receipt_id]
+            if str(receipt.payload.get("directive_id")) == directive_id:
+                return receipt
+        return None
+
+    def _validate_episode_state_directive(self, payload: Mapping[str, Any]) -> bool:
+        directive_id = str(payload["directive_id"])
+        existing = self._find_directive_receipt(directive_id)
+        expected_payload = self._directive_receipt_payload(payload)
+        if existing is not None:
+            if existing.payload != expected_payload:
+                raise EpisodeStateError(
+                    f"directive_id {directive_id} was already consumed with different payload"
+                )
+            return False
+
+        directive_code = payload["directive"]
+        if directive_code == EpisodeDirectiveCode.REOPEN_FOR_RETRY:
+            if self.state not in {
+                EpisodeState.OPEN,
+                EpisodeState.EXECUTING,
+                EpisodeState.AWAITING_GUARDIAN,
+            }:
+                raise EpisodeStateError(
+                    f"Episode {self._episode_id} cannot apply {directive_code.value} from {self.state.value}"
+                )
+            return True
+
+        if directive_code == EpisodeDirectiveCode.ROUTE_TO_REVIEW:
+            if self.state not in {
+                EpisodeState.OPEN,
+                EpisodeState.EXECUTING,
+                EpisodeState.AWAITING_GUARDIAN,
+            }:
+                raise EpisodeStateError(
+                    f"Episode {self._episode_id} cannot route to review from {self.state.value}"
+                )
+            return True
+
+        if self.settlement is not None:
+            raise EpisodeStateError(
+                f"Episode {self._episode_id} already has a settlement; cannot apply terminal directive"
+            )
+        if self.state not in {
+            EpisodeState.OPEN,
+            EpisodeState.EXECUTING,
+            EpisodeState.AWAITING_GUARDIAN,
+        }:
+            raise EpisodeStateError(
+                f"Episode {self._episode_id} cannot settle from {self.state.value}"
+            )
+        return True
+
+    def apply_episode_state_directive(self, directive: Any) -> None:
+        """Apply a canonical bridge directive to the Assay episode substrate."""
+        if self._closed:
+            raise EpisodeStateError(
+                f"Episode {self._episode_id} is closed; cannot apply episode-state directive"
+            )
+
+        try:
+            payload = _coerce_episode_state_directive_payload(directive)
+        except (TypeError, ValueError) as exc:
+            raise EpisodeStateError(f"Invalid episode-state directive: {exc}") from exc
+
+        if payload["episode_id"] != self._episode_id:
+            raise EpisodeStateError(
+                f"directive episode_id {payload['episode_id']} does not match episode {self._episode_id}"
+            )
+
+        if not self._validate_episode_state_directive(payload):
+            return
+
+        self._emit_raw(
+            "episode.state_directed",
+            self._directive_receipt_payload(payload),
+            enforce_state=False,
+        )
+
+        directive_code = payload["directive"]
+        if directive_code == EpisodeDirectiveCode.REOPEN_FOR_RETRY:
+            self._apply_retry_directive(payload)
+            return
+        if directive_code == EpisodeDirectiveCode.ROUTE_TO_REVIEW:
+            self._apply_review_directive()
+            return
+
+        outcome = (
+            SettlementOutcome.TAMPERED
+            if directive_code == EpisodeDirectiveCode.CLOSE_AS_TAINTED
+            else SettlementOutcome.HONEST_FAIL
+        )
+        self._apply_terminal_directive(payload, outcome=outcome)
+
+    def _apply_retry_directive(self, payload: Mapping[str, Any]) -> None:
+        if self.state == EpisodeState.OPEN:
+            self.start_execution()
+            return
+        if self.state == EpisodeState.EXECUTING:
+            return
+        if self.state == EpisodeState.AWAITING_GUARDIAN:
+            self.transition(EpisodeState.EXECUTING)
+            return
+        raise EpisodeStateError(
+            f"Episode {self._episode_id} cannot apply {payload['directive'].value} from {self.state.value}"
+        )
+
+    def _apply_review_directive(self) -> None:
+        if self.state == EpisodeState.OPEN:
+            self.start_execution()
+        if self.state == EpisodeState.EXECUTING:
+            self.mark_execution_complete()
+            return
+        if self.state == EpisodeState.AWAITING_GUARDIAN:
+            return
+        raise EpisodeStateError(
+            f"Episode {self._episode_id} cannot route to review from {self.state.value}"
+        )
+
+    def _apply_terminal_directive(
+        self,
+        payload: Mapping[str, Any],
+        *,
+        outcome: SettlementOutcome,
+    ) -> SettlementRecord:
+        if self.settlement is not None:
+            raise EpisodeStateError(
+                f"Episode {self._episode_id} already has a settlement; cannot apply terminal directive"
+            )
+
+        if self.state == EpisodeState.OPEN:
+            self.start_execution()
+        if self.state == EpisodeState.EXECUTING:
+            self.mark_execution_complete()
+        if self.state != EpisodeState.AWAITING_GUARDIAN:
+            raise EpisodeStateError(
+                f"Episode {self._episode_id} cannot settle from {self.state.value}"
+            )
+
+        completeness_score, missing = self.evaluate_completeness()
+        contradiction_ids = tuple(
+            receipt.receipt_id
+            for receipt in self.receipts
+            if "contradiction" in receipt.receipt_type
+        )
+        tampered = outcome == SettlementOutcome.TAMPERED
+        decision_time = _utc_now()
+        decision_receipt = self._emit_raw(
+            "episode.settled",
+            {
+                "outcome": outcome.value,
+                "completeness_score": completeness_score,
+                "missing_obligations": list(missing),
+                "contradiction_ids": list(contradiction_ids),
+                "tampered": tampered,
+                "directive": payload["directive"].value,
+                "directive_id": payload["directive_id"],
+                "source_lane": payload["source_lane"],
+                "source_artifact_ref": payload["source_artifact_ref"],
+                "source_authority_ceiling": payload["source_authority_ceiling"],
+                "source_reason_codes": list(payload["source_reason_codes"]),
+                "settlement_reason_codes": list(payload["settlement_reason_codes"]),
+                "evidence_refs": list(payload["evidence_refs"]),
+                "directed": True,
+            },
+            created_at=decision_time,
+            enforce_state=False,
+        )
+        self.decision_id = decision_receipt.receipt_id
+        self.outcome = outcome
+        self.transition(EpisodeState.SETTLED)
+        self.settled_at = decision_time
+        self.settlement = SettlementRecord(
+            decision_id=decision_receipt.receipt_id,
+            outcome=outcome,
+            completeness_score=completeness_score,
+            missing_obligations=missing,
+            contradiction_ids=contradiction_ids,
+            guardian_notes=(
+                f"episode_state_directive:{payload['directive'].value} "
+                f"source={payload['source_artifact_ref']}"
+            ),
+            finalized_at=decision_time,
+        )
+        return self.settlement
 
     def add_child(self, kind: str, child_id: str) -> None:
         """Register lineage information for the episode."""
@@ -1359,6 +1657,10 @@ def persist_episode(episode: Episode) -> MemoryRecord:
     return episode.persist()
 
 
+def apply_episode_state_directive(episode: Episode, directive: Any) -> None:
+    episode.apply_episode_state_directive(directive)
+
+
 def get_memory_record(episode_id: str) -> Optional[MemoryRecord]:
     return MEMORY_GRAPH.get(episode_id)
 
@@ -1383,6 +1685,8 @@ class EpisodeClosedError(RuntimeError):
 
 __all__ = [
     "Checkpoint",
+    "ASSAY_EPISODE_TARGET_SUBSTRATE",
+    "EpisodeDirectiveCode",
     "EpisodeState",
     "Episode",
     "EpisodeClosedError",
@@ -1400,6 +1704,7 @@ __all__ = [
     "emit_receipt",
     "evaluate_completeness",
     "get_memory_record",
+    "apply_episode_state_directive",
     "mark_execution_complete",
     "persist_episode",
     "settle_episode",
