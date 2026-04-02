@@ -11,6 +11,8 @@ from assay.reviewer_packet_compile import compile_reviewer_packet
 from assay.reporting.decision_census import (
     build_decision_census_report,
     build_decision_gap_report,
+    evaluate_gap_thresholds,
+    load_gap_report,
     render_gap_markdown,
     render_markdown,
     write_report,
@@ -132,3 +134,102 @@ def test_reviewer_census_cli_json_and_bundle(tmp_path: Path) -> None:
     assert (out_dir / "COVERAGE_MATRIX.md").exists()
     assert (out_dir / "DECISION_GAPS.json").exists()
     assert (out_dir / "DECISION_GAPS.md").exists()
+
+
+def test_gap_gate_thresholds_and_cli(tmp_path: Path) -> None:
+    packet_dir = _compile_sample_packet(tmp_path)
+    census_dir = tmp_path / "decision_census"
+    bundle = write_report(build_decision_census_report(packet_dir), census_dir)
+    gap_report = load_gap_report(Path(bundle["gap_output_dir"]))
+
+    pass_result = evaluate_gap_thresholds(gap_report, max_missing=0, max_uncertain=1, max_total_gaps=1)
+    assert pass_result["status"] == "pass"
+    assert pass_result["reasons"] == []
+
+    warn_result = evaluate_gap_thresholds(gap_report, max_missing=0, max_uncertain=0, max_total_gaps=1)
+    assert warn_result["status"] == "warn"
+    assert any("uncertain_count" in reason for reason in warn_result["reasons"])
+
+    fail_result = evaluate_gap_thresholds(gap_report, max_missing=0, max_uncertain=1, max_total_gaps=0)
+    assert fail_result["status"] == "fail"
+    assert any("gap_count" in reason for reason in fail_result["reasons"])
+
+    gate_dir = Path(bundle["gap_output_dir"])
+    ok_cli = runner.invoke(
+        assay_app,
+        [
+            "reviewer",
+            "census-gate",
+            str(gate_dir),
+            "--max-missing",
+            "0",
+            "--max-uncertain",
+            "1",
+            "--max-total-gaps",
+            "1",
+            "--json",
+        ],
+    )
+    assert ok_cli.exit_code == 0, ok_cli.output
+    ok_payload = json.loads(ok_cli.output)
+    assert ok_payload["status"] == "pass"
+    assert ok_payload["thresholds"]["max_total_gaps"] == 1
+
+    warn_cli = runner.invoke(
+        assay_app,
+        [
+            "reviewer",
+            "census-gate",
+            str(gate_dir),
+            "--max-missing",
+            "0",
+            "--max-uncertain",
+            "0",
+            "--max-total-gaps",
+            "1",
+            "--json",
+        ],
+    )
+    assert warn_cli.exit_code == 1, warn_cli.output
+    warn_payload = json.loads(warn_cli.output)
+    assert warn_payload["status"] == "warn"
+
+    fail_cli = runner.invoke(
+        assay_app,
+        [
+            "reviewer",
+            "census-gate",
+            str(gate_dir),
+            "--max-missing",
+            "0",
+            "--max-uncertain",
+            "1",
+            "--max-total-gaps",
+            "0",
+            "--json",
+        ],
+    )
+    assert fail_cli.exit_code == 2, fail_cli.output
+    fail_payload = json.loads(fail_cli.output)
+    assert fail_payload["status"] == "fail"
+
+
+def test_gap_gate_missing_artifact_fails_honestly(tmp_path: Path) -> None:
+    missing_dir = tmp_path / "missing_gap_dir"
+    missing_dir.mkdir()
+
+    result = runner.invoke(
+        assay_app,
+        [
+            "reviewer",
+            "census-gate",
+            str(missing_dir),
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 3, result.output
+    payload = json.loads(result.output)
+    assert payload["command"] == "reviewer census-gate"
+    assert payload["status"] == "error"
+    assert "gap_report_not_found" in payload["error"]

@@ -6088,6 +6088,74 @@ def reviewer_census_cmd(
     console.print()
 
 
+@reviewer_app.command("census-gate")
+def reviewer_census_gate_cmd(
+    input_path: str = typer.Argument(..., help="Path to a Decision Gaps JSON file or census output directory"),
+    max_missing: int = typer.Option(0, "--max-missing", help="Maximum allowed missing gaps before fail"),
+    max_uncertain: int = typer.Option(0, "--max-uncertain", help="Maximum allowed uncertain gaps before warn"),
+    max_total_gaps: int = typer.Option(0, "--max-total-gaps", help="Maximum allowed total gaps before fail"),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Evaluate a Decision Gaps artifact against soft coverage thresholds."""
+    from pathlib import Path
+
+    from assay.reporting.decision_census import evaluate_gap_thresholds, load_gap_report
+    from assay.vendorq_models import VendorQInputError
+
+    try:
+        gap_report = load_gap_report(Path(input_path))
+        result = evaluate_gap_thresholds(
+            gap_report,
+            max_missing=max_missing,
+            max_uncertain=max_uncertain,
+            max_total_gaps=max_total_gaps,
+        )
+    except VendorQInputError as exc:
+        if output_json:
+            _output_json(
+                {
+                    "command": "reviewer census-gate",
+                    "status": "error",
+                    "error": str(exc),
+                },
+                exit_code=3,
+            )
+        console.print(f"[red]Error:[/] {exc}")
+        raise typer.Exit(3)
+
+    exit_code = 0 if result["status"] == "pass" else 1 if result["status"] == "warn" else 2
+    if output_json:
+        _output_json(
+            {
+                "command": "reviewer census-gate",
+                "status": result["status"],
+                **result,
+            },
+            exit_code=exit_code,
+        )
+
+    color = "green" if result["status"] == "pass" else "yellow" if result["status"] == "warn" else "red"
+    console.print()
+    console.print(Panel.fit(
+        f"[bold {color}]Decision Census Gate[/]\n\n"
+        f"Input:        {input_path}\n"
+        f"Status:       {result['status']}\n"
+        f"Gap count:    {result['gap_summary'].get('gap_count', 0)}\n"
+        f"Missing:      {result['gap_summary'].get('missing_count', 0)}\n"
+        f"Uncertain:    {result['gap_summary'].get('uncertain_count', 0)}\n"
+        f"Thresholds:   max_missing={max_missing}, max_uncertain={max_uncertain}, max_total_gaps={max_total_gaps}",
+        title="assay reviewer census-gate",
+        border_style=color,
+    ))
+    if result["reasons"]:
+        console.print()
+        console.print("[bold]Reasons:[/]")
+        for reason in result["reasons"]:
+            console.print(f"  - {reason}")
+    console.print()
+    raise typer.Exit(exit_code)
+
+
 @reviewer_app.command("verify")
 def reviewer_verify_cmd(
     packet_dir: str = typer.Argument(..., help="Path to Reviewer Packet directory"),

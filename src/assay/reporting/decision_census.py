@@ -423,6 +423,60 @@ def write_gap_report(gap_report: Dict[str, Any], out_dir: Path) -> Dict[str, Any
     }
 
 
+def load_gap_report(input_path: Path) -> Dict[str, Any]:
+    """Load a Decision Gaps report from a file or output directory."""
+    if input_path.is_dir():
+        gap_path = input_path / "DECISION_GAPS.json"
+    else:
+        gap_path = input_path
+    if not gap_path.exists():
+        raise VendorQInputError(f"gap_report_not_found: {gap_path}")
+    return load_json(gap_path)
+
+
+def evaluate_gap_thresholds(
+    gap_report: Dict[str, Any],
+    *,
+    max_missing: int = 0,
+    max_uncertain: int = 0,
+    max_total_gaps: int = 0,
+) -> Dict[str, Any]:
+    """Evaluate a Decision Gaps report against soft coverage thresholds."""
+    summary = dict(gap_report.get("gap_summary") or {})
+    missing_count = int(summary.get("missing_count", 0))
+    uncertain_count = int(summary.get("uncertain_count", 0))
+    gap_count = int(summary.get("gap_count", 0))
+
+    thresholds = {
+        "max_missing": int(max_missing),
+        "max_uncertain": int(max_uncertain),
+        "max_total_gaps": int(max_total_gaps),
+    }
+
+    reasons: List[str] = []
+    if missing_count > thresholds["max_missing"]:
+        reasons.append(f"missing_count {missing_count} > max_missing {thresholds['max_missing']}")
+    if gap_count > thresholds["max_total_gaps"]:
+        reasons.append(f"gap_count {gap_count} > max_total_gaps {thresholds['max_total_gaps']}")
+
+    status = "pass"
+    if reasons:
+        status = "fail"
+    elif uncertain_count > thresholds["max_uncertain"]:
+        status = "warn"
+        reasons.append(f"uncertain_count {uncertain_count} > max_uncertain {thresholds['max_uncertain']}")
+
+    return {
+        "status": status,
+        "gap_report_id": gap_report.get("gap_report_id"),
+        "source_report_id": gap_report.get("source_report_id"),
+        "gap_summary": summary,
+        "thresholds": thresholds,
+        "reasons": reasons,
+        "remediation_ready": bool(summary.get("remediation_ready", False)),
+    }
+
+
 def build_decision_census_report(packet_dir: Path) -> Dict[str, Any]:
     """Build a Decision Census report dict from a compiled reviewer packet."""
     bundle = _load_packet_bundle(packet_dir)
