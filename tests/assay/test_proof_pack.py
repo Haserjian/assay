@@ -368,6 +368,64 @@ class TestProofPackBuilder:
         result = verify_pack_manifest(manifest, out, empty_keystore)
         assert result.passed, f"Errors: {[e.to_dict() for e in result.errors]}"
 
+    def test_allowed_proof_pack_receipt_types_build_and_verify(
+        self, tmp_path, tmp_keys
+    ):
+        """Known proof-pack receipt types remain accepted by the local policy."""
+        receipts = [
+            _make_receipt(
+                receipt_id="r_type_001",
+                run_id="allowed-proof-pack-types",
+                seq=0,
+                type="model_call",
+            ),
+            _make_receipt(
+                receipt_id="r_type_002",
+                run_id="allowed-proof-pack-types",
+                seq=1,
+                type="guardian_verdict",
+                verdict="ALLOW",
+                rule="safety-check-v1",
+            ),
+        ]
+        pack = ProofPack(
+            run_id="allowed-proof-pack-types",
+            entries=receipts,
+            signer_id="test-signer",
+        )
+
+        out = pack.build(tmp_path / "pack", keystore=tmp_keys)
+        manifest = json.loads((out / "pack_manifest.json").read_text())
+        result = verify_pack_manifest(manifest, out, tmp_keys)
+        assert result.passed, f"Errors: {[e.to_dict() for e in result.errors]}"
+
+    def test_unknown_proof_pack_receipt_type_rejected(
+        self, tmp_path, tmp_keys
+    ):
+        """Unknown proof-pack receipt types fail closed before publication."""
+        receipts = [
+            _make_receipt(
+                receipt_id="r_type_001",
+                run_id="reject-unknown-proof-pack-type",
+                seq=0,
+                type="model_call",
+            ),
+            _make_receipt(
+                receipt_id="r_type_002",
+                run_id="reject-unknown-proof-pack-type",
+                seq=1,
+                type="experimental_verdict",
+            ),
+        ]
+        pack = ProofPack(
+            run_id="reject-unknown-proof-pack-type",
+            entries=receipts,
+            signer_id="test-signer",
+        )
+
+        with pytest.raises(ValueError, match="Unsupported proof-pack receipt type"):
+            pack.build(tmp_path / "pack", keystore=tmp_keys)
+
     def test_verify_prefers_embedded_pubkey_over_wrong_local_key(
         self, tmp_path, tmp_keys, sample_receipts
     ):

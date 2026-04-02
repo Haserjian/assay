@@ -50,6 +50,13 @@ def _sha256_hex(data: bytes) -> str:
 
 _UNSIGNED_SIDECAR_DIR = "_unsigned"
 
+# Proof packs intentionally accept a narrow receipt vocabulary.  This is a
+# proof-pack policy, not a repo-wide receipt law.
+PROOF_PACK_ALLOWED_RECEIPT_TYPES = frozenset({
+    "model_call",
+    "guardian_verdict",
+})
+
 
 def _generate_pack_id(*, deterministic_seed: Optional[str] = None) -> str:
     """Generate a pack ID.
@@ -186,6 +193,23 @@ def _assert_receipt_run_ids(entries: List[Dict[str, Any]], expected_run_id: str)
                 f"Receipt {receipt_id} belongs to run {entry_run_id!r}; "
                 f"expected {expected_run_id!r}"
             )
+
+
+def _assert_allowed_receipt_types(entries: List[Dict[str, Any]]) -> None:
+    """Fail closed on proof-pack receipt types outside the local allowlist."""
+    unknown: List[str] = []
+    for index, entry in enumerate(entries):
+        receipt_type = str(entry.get("type") or entry.get("receipt_type") or "")
+        if receipt_type and receipt_type not in PROOF_PACK_ALLOWED_RECEIPT_TYPES:
+            receipt_id = entry.get("receipt_id", "<unknown>")
+            unknown.append(f"{receipt_id}@{index}={receipt_type!r}")
+    if unknown:
+        allowed = ", ".join(sorted(PROOF_PACK_ALLOWED_RECEIPT_TYPES))
+        raise ValueError(
+            "Unsupported proof-pack receipt type(s): "
+            + ", ".join(unknown)
+            + f". Allowed types: {allowed}"
+        )
 
 
 def get_unsigned_sidecar_dir(pack_dir: Path) -> Path:
@@ -411,6 +435,7 @@ class ProofPack:
 
         sorted_entries = _sort_receipts(self.entries)
         _assert_receipt_run_ids(sorted_entries, self.run_id)
+        _assert_allowed_receipt_types(sorted_entries)
 
         # 1. Write receipt_pack.jsonl (canonical, deterministic order).
         # JSONL invariant: one JCS-canonical JSON object per line, no blank
