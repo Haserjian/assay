@@ -1,0 +1,130 @@
+name: Decision Census Advisory
+
+on:
+  pull_request:
+    paths:
+      - "src/assay/commands.py"
+      - "src/assay/reviewer_packet_*.py"
+      - "src/assay/reporting/decision_census.py"
+      - "tests/assay/test_decision_census.py"
+      - "tests/assay/test_reviewer_packet_*.py"
+      - "tests/fixtures/reviewer_packet/**"
+      - "docs/reviewer-packets.md"
+      - "docs/packets.md"
+      - "docs/vendorq-quickstart.md"
+      - "README.md"
+      - ".github/workflows/decision-census.yml"
+  push:
+    branches: [main]
+    paths:
+      - "src/assay/commands.py"
+      - "src/assay/reviewer_packet_*.py"
+      - "src/assay/reporting/decision_census.py"
+      - "tests/assay/test_decision_census.py"
+      - "tests/assay/test_reviewer_packet_*.py"
+      - "tests/fixtures/reviewer_packet/**"
+      - "docs/reviewer-packets.md"
+      - "docs/packets.md"
+      - "docs/vendorq-quickstart.md"
+      - "README.md"
+      - ".github/workflows/decision-census.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reviewer-census:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Assay
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Build reviewer packet sample
+        run: |
+          set -euo pipefail
+          mkdir -p .assay/reviewer-packet .assay/decision-census
+
+          assay vendorq export-reviewer \
+            --proof-pack tests/fixtures/reviewer_packet/sample_proof_pack \
+            --boundary tests/fixtures/reviewer_packet/sample_boundary.json \
+            --mapping tests/fixtures/reviewer_packet/sample_mapping.json \
+            --out .assay/reviewer-packet \
+            --json | tee .assay/reviewer-packet/export-reviewer.json
+
+          assay reviewer verify .assay/reviewer-packet --json \
+            | tee .assay/reviewer-packet/verify.json
+
+          assay reviewer census .assay/reviewer-packet \
+            --out .assay/decision-census \
+            --json | tee .assay/decision-census/census.json
+
+      - name: Evaluate census gate
+        run: |
+          set -euo pipefail
+          set +e
+          assay reviewer census-gate .assay/decision-census \
+            --max-missing 0 \
+            --max-uncertain 0 \
+            --max-total-gaps 1 \
+            --json | tee .assay/decision-census/gate.json
+          gate_exit=${PIPESTATUS[0]}
+          set -e
+          export GATE_EXIT="$gate_exit"
+
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          gate_path = Path(".assay/decision-census/gate.json")
+          gate = json.loads(gate_path.read_text(encoding="utf-8"))
+          summary = Path(os.environ["GITHUB_STEP_SUMMARY"])
+          status = gate.get("status", "error")
+          reasons = gate.get("reasons") or []
+
+          lines = [
+              "## Decision Census Advisory",
+              "",
+              f"- Status: `{status}`",
+              f"- Gate exit: `{os.environ.get('GATE_EXIT', 'unknown')}`",
+              f"- Gap count: `{gate['gap_summary'].get('gap_count', 0)}`",
+              f"- Missing count: `{gate['gap_summary'].get('missing_count', 0)}`",
+              f"- Uncertain count: `{gate['gap_summary'].get('uncertain_count', 0)}`",
+              f"- Thresholds: `max_missing={gate['thresholds']['max_missing']}`, `max_uncertain={gate['thresholds']['max_uncertain']}`, `max_total_gaps={gate['thresholds']['max_total_gaps']}`",
+              f"- Output directory: `.assay/decision-census`",
+          ]
+          if reasons:
+              lines.extend(["", "### Reasons"])
+              lines.extend(f"- {reason}" for reason in reasons)
+
+          summary.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+          if status == "warn":
+              print("::warning title=Decision Census Advisory::coverage warning in reviewer packet")
+          elif status == "fail":
+              print("::error title=Decision Census Advisory::coverage floor exceeded")
+          elif status == "error":
+              print("::error title=Decision Census Advisory::gate input error")
+          PY
+
+      - name: Upload decision census artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: decision-census-advisory
+          path: |
+            .assay/reviewer-packet
+            .assay/decision-census
+          if-no-files-found: warn
