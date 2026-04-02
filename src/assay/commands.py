@@ -46,6 +46,7 @@ Commands:
   assay compliance report - Map evidence pack to regulatory framework controls
   assay version       - Show version info
 """
+
 from __future__ import annotations
 
 import base64
@@ -109,7 +110,11 @@ def _extract_action_class(action: str) -> str:
 def _machine_coverage_ratio(coverage_summary: Dict[str, int]) -> Dict[str, float | int]:
     """Summarize machine-verifiable reviewer-packet coverage for console output."""
     numerator = int(coverage_summary.get("EVIDENCED", 0))
-    denominator = numerator + int(coverage_summary.get("PARTIAL", 0)) + int(coverage_summary.get("FAILED", 0))
+    denominator = (
+        numerator
+        + int(coverage_summary.get("PARTIAL", 0))
+        + int(coverage_summary.get("FAILED", 0))
+    )
     value = (numerator / denominator) if denominator else 0.0
     return {
         "numerator": numerator,
@@ -120,11 +125,21 @@ def _machine_coverage_ratio(coverage_summary: Dict[str, int]) -> Dict[str, float
 
 @assay_app.command("validate", hidden=True)
 def validate_action(
-    action: str = typer.Argument(..., help="Action to validate (e.g., 'shell:rm -rf /')"),
-    coherence_delta: float = typer.Option(0.0, "--coherence", "-c", help="Expected coherence change (-1 to 1)"),
-    dignity_delta: float = typer.Option(0.0, "--dignity", "-d", help="Expected dignity impact (-1 to 1)"),
-    emit_receipt: bool = typer.Option(True, "--receipt/--no-receipt", help="Emit validation receipt"),
-    persist: bool = typer.Option(True, "--persist/--no-persist", help="Persist receipts to disk"),
+    action: str = typer.Argument(
+        ..., help="Action to validate (e.g., 'shell:rm -rf /')"
+    ),
+    coherence_delta: float = typer.Option(
+        0.0, "--coherence", "-c", help="Expected coherence change (-1 to 1)"
+    ),
+    dignity_delta: float = typer.Option(
+        0.0, "--dignity", "-d", help="Expected dignity impact (-1 to 1)"
+    ),
+    emit_receipt: bool = typer.Option(
+        True, "--receipt/--no-receipt", help="Emit validation receipt"
+    ),
+    persist: bool = typer.Option(
+        True, "--persist/--no-persist", help="Persist receipts to disk"
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """
@@ -141,7 +156,7 @@ def validate_action(
         assay validate "shell:rm -rf /" --coherence 0.1 --dignity -0.5
     """
     from assay import __version__
-    from assay.guardian import no_coherence_by_dignity_debt, no_action_without_receipt
+    from assay.guardian import no_action_without_receipt, no_coherence_by_dignity_debt
     from assay.store import get_default_store
 
     # Start trace
@@ -183,6 +198,7 @@ def validate_action(
             return None
         if not verdict1.allowed:
             from assay._receipts.domains.blockages import create_contradiction_receipt
+
             receipt = create_contradiction_receipt(
                 claim_a=f"Action '{action}' improves coherence (+{coherence_delta:.2f})",
                 claim_a_confidence=0.8,
@@ -194,6 +210,7 @@ def validate_action(
             )
         elif not verdict2.allowed:
             from assay._receipts.domains.blockages import create_incompleteness_receipt
+
             receipt = create_incompleteness_receipt(
                 undecidable_claim=f"Cannot execute '{action}' without audit trail",
                 missing_evidence=["receipt_emission"],
@@ -247,7 +264,9 @@ def validate_action(
     if verdict1.allowed:
         console.print("[green]+[/] No coherence by dignity debt: PASS")
     else:
-        console.print(f"[red]-[/] No coherence by dignity debt: FAIL ({verdict1.reason})")
+        console.print(
+            f"[red]-[/] No coherence by dignity debt: FAIL ({verdict1.reason})"
+        )
         if verdict1.clause0_violation:
             console.print("  [red bold]CLAUSE 0 VIOLATION[/]")
 
@@ -279,13 +298,23 @@ def validate_action(
 
 @assay_app.command("health", hidden=True)
 def check_health(
-    coherence: float = typer.Option(0.8, "--coherence", "-c", help="Current coherence (0-1)"),
+    coherence: float = typer.Option(
+        0.8, "--coherence", "-c", help="Current coherence (0-1)"
+    ),
     tension: float = typer.Option(0.2, "--tension", "-t", help="Current tension (0-1)"),
-    tension_delta: float = typer.Option(-0.01, "--tension-delta", help="Tension rate of change"),
+    tension_delta: float = typer.Option(
+        -0.01, "--tension-delta", help="Tension rate of change"
+    ),
     dignity: float = typer.Option(0.3, "--dignity", "-d", help="Current dignity (0-1)"),
-    volatility: float = typer.Option(0.1, "--volatility", "-v", help="Current volatility (0-1)"),
-    stateful: bool = typer.Option(False, "--stateful", help="Use hysteresis tracker (persists state)"),
-    trace_id: Optional[str] = typer.Option(None, "--trace", help="Trace ID for stateful mode"),
+    volatility: float = typer.Option(
+        0.1, "--volatility", "-v", help="Current volatility (0-1)"
+    ),
+    stateful: bool = typer.Option(
+        False, "--stateful", help="Use hysteresis tracker (persists state)"
+    ),
+    trace_id: Optional[str] = typer.Option(
+        None, "--trace", help="Trace ID for stateful mode"
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """
@@ -303,7 +332,13 @@ def check_health(
         assay health --tension 0.5  # High tension - not in grace
         assay health --stateful --trace trace_xxx  # With hysteresis
     """
-    from assay.health import check_grace_status, format_grace_status, GraceConfig, GraceTracker, clamp
+    from assay.health import (
+        GraceConfig,
+        GraceTracker,
+        check_grace_status,
+        clamp,
+        format_grace_status,
+    )
     from assay.store import get_default_store
 
     # Clamp inputs
@@ -344,20 +379,24 @@ def check_health(
             trace_id = store.start_trace()
 
         # Update with current values
-        in_grace = tracker.update(coherence, tension, tension_delta, dignity, volatility)
+        in_grace = tracker.update(
+            coherence, tension, tension_delta, dignity, volatility
+        )
 
         # Persist this check
-        store.append_dict({
-            "type": "grace_check",
-            "coherence": coherence,
-            "tension": tension,
-            "tension_delta": tension_delta,
-            "dignity": dignity,
-            "volatility": volatility,
-            "in_grace": in_grace,
-            "history": tracker.history,
-            "stateful": True,
-        })
+        store.append_dict(
+            {
+                "type": "grace_check",
+                "coherence": coherence,
+                "tension": tension,
+                "tension_delta": tension_delta,
+                "dignity": dignity,
+                "volatility": volatility,
+                "in_grace": in_grace,
+                "history": tracker.history,
+                "stateful": True,
+            }
+        )
 
         # JSON output - check BEFORE any console prints to avoid contamination
         if output_json:
@@ -390,11 +429,13 @@ def check_health(
         history_str = "".join("+" if h else "-" for h in tracker.history)
         panel_content = f"Status: {status_text}\nHysteresis window: [{history_str}] (need {cfg.window_size} consecutive)"
 
-        console.print(Panel(
-            panel_content,
-            title=f"[{'green' if in_grace else 'yellow'} bold]{status_text}[/]",
-            border_style="green" if in_grace else "yellow",
-        ))
+        console.print(
+            Panel(
+                panel_content,
+                title=f"[{'green' if in_grace else 'yellow'} bold]{status_text}[/]",
+                border_style="green" if in_grace else "yellow",
+            )
+        )
         console.print(f"\n[dim]Trace: {trace_id}[/]")
 
     else:
@@ -408,49 +449,68 @@ def check_health(
         )
 
         if output_json:
-            _output_json({
-                "command": "health",
-                "status": "ok",
-                "in_grace": status.in_grace,
-                "stateful": False,
-                "checks": {
-                    "coherence_ok": status.coherence_ok,
-                    "tension_ok": status.tension_ok,
-                    "tension_decreasing": status.tension_decreasing,
-                    "dignity_ok": status.dignity_ok,
-                    "volatility_ok": status.volatility_ok,
-                },
-                "inputs": {
-                    "coherence": coherence,
-                    "tension": tension,
-                    "tension_delta": tension_delta,
-                    "dignity": dignity,
-                    "volatility": volatility,
-                },
-            })
+            _output_json(
+                {
+                    "command": "health",
+                    "status": "ok",
+                    "in_grace": status.in_grace,
+                    "stateful": False,
+                    "checks": {
+                        "coherence_ok": status.coherence_ok,
+                        "tension_ok": status.tension_ok,
+                        "tension_decreasing": status.tension_decreasing,
+                        "dignity_ok": status.dignity_ok,
+                        "volatility_ok": status.volatility_ok,
+                    },
+                    "inputs": {
+                        "coherence": coherence,
+                        "tension": tension,
+                        "tension_delta": tension_delta,
+                        "dignity": dignity,
+                        "volatility": volatility,
+                    },
+                }
+            )
 
         # Display with colors
         if status.in_grace:
-            console.print(Panel(
-                format_grace_status(status).replace("[+]", "[green]+[/]").replace("[-]", "[red]-[/]"),
-                title="[green bold]GRACE WINDOW[/]",
-                border_style="green",
-            ))
+            console.print(
+                Panel(
+                    format_grace_status(status)
+                    .replace("[+]", "[green]+[/]")
+                    .replace("[-]", "[red]-[/]"),
+                    title="[green bold]GRACE WINDOW[/]",
+                    border_style="green",
+                )
+            )
         else:
-            console.print(Panel(
-                format_grace_status(status).replace("[+]", "[green]+[/]").replace("[-]", "[red]-[/]"),
-                title="[yellow bold]NOT IN GRACE[/]",
-                border_style="yellow",
-            ))
+            console.print(
+                Panel(
+                    format_grace_status(status)
+                    .replace("[+]", "[green]+[/]")
+                    .replace("[-]", "[red]-[/]"),
+                    title="[yellow bold]NOT IN GRACE[/]",
+                    border_style="yellow",
+                )
+            )
 
     # Show config
-    console.print(f"\n[dim]Thresholds: C>={cfg.c_hi} T<={cfg.t_lo} D>={cfg.d_floor} V<={cfg.v_max}[/]")
+    console.print(
+        f"\n[dim]Thresholds: C>={cfg.c_hi} T<={cfg.t_lo} D>={cfg.d_floor} V<={cfg.v_max}[/]"
+    )
 
 
 @assay_app.command("demo", hidden=True)
 def run_demo(
-    scenario: str = typer.Option("all", "--scenario", "-s", help="Demo scenario: all, incomplete, contradiction, paradox, guardian"),
-    persist: bool = typer.Option(True, "--persist/--no-persist", help="Persist receipts to disk"),
+    scenario: str = typer.Option(
+        "all",
+        "--scenario",
+        "-s",
+        help="Demo scenario: all, incomplete, contradiction, paradox, guardian",
+    ),
+    persist: bool = typer.Option(
+        True, "--persist/--no-persist", help="Persist receipts to disk"
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """
@@ -574,8 +634,12 @@ def _demo_contradiction(store=None, silent: bool = False):
 
     if not silent:
         console.print("[yellow]CONTRADICTION DETECTED[/]")
-        console.print(f"  Claim A ({receipt.claim_a_confidence:.0%}): {receipt.claim_a}")
-        console.print(f"  Claim B ({receipt.claim_b_confidence:.0%}): {receipt.claim_b}")
+        console.print(
+            f"  Claim A ({receipt.claim_a_confidence:.0%}): {receipt.claim_a}"
+        )
+        console.print(
+            f"  Claim B ({receipt.claim_b_confidence:.0%}): {receipt.claim_b}"
+        )
         console.print(f"  Invariants: {', '.join(receipt.impacted_invariants)}")
         console.print(f"  Resolution: {receipt.resolution_result}")
         console.print(f"\n[dim]Receipt ID: {receipt.receipt_id}[/]\n")
@@ -592,7 +656,7 @@ def _demo_paradox(store=None, silent: bool = False):
     receipt = create_paradox_receipt(
         contradiction_id="con_abc123",
         why_frame_change_required="Both claims are valid under current policy framework. "
-                                   "Resolving requires updating the rate limit policy itself.",
+        "Resolving requires updating the rate limit policy itself.",
         candidate_reframes=[
             "Add exception for coherence-improving actions",
             "Implement grace period for near-threshold requests",
@@ -637,16 +701,18 @@ def _demo_guardian(store=None, silent: bool = False):
     verdict = no_coherence_by_dignity_debt(coherence_delta, dignity_delta)
 
     if store:
-        store.append_dict({
-            "type": "guardian_verdict",
-            "rule": "no_coherence_by_dignity_debt",
-            "coherence_delta": coherence_delta,
-            "dignity_delta": dignity_delta,
-            "dignity_composite": 0.65,
-            "allowed": verdict.allowed,
-            "reason": verdict.reason,
-            "clause0_violation": verdict.clause0_violation,
-        })
+        store.append_dict(
+            {
+                "type": "guardian_verdict",
+                "rule": "no_coherence_by_dignity_debt",
+                "coherence_delta": coherence_delta,
+                "dignity_delta": dignity_delta,
+                "dignity_composite": 0.65,
+                "allowed": verdict.allowed,
+                "reason": verdict.reason,
+                "clause0_violation": verdict.clause0_violation,
+            }
+        )
 
     if not silent:
         if not verdict.allowed:
@@ -677,23 +743,27 @@ def show_trace(
 
     if not entries:
         if output_json:
-            _output_json({
-                "command": "show",
-                "trace_id": trace_id,
-                "status": "error",
-                "errors": [f"Trace not found: {trace_id}"],
-            })
+            _output_json(
+                {
+                    "command": "show",
+                    "trace_id": trace_id,
+                    "status": "error",
+                    "errors": [f"Trace not found: {trace_id}"],
+                }
+            )
         console.print(f"[red]Trace not found:[/] {trace_id}")
         raise typer.Exit(1)
 
     if output_json:
-        _output_json({
-            "command": "show",
-            "trace_id": trace_id,
-            "status": "ok",
-            "entry_count": len(entries),
-            "entries": entries,
-        })
+        _output_json(
+            {
+                "command": "show",
+                "trace_id": trace_id,
+                "status": "ok",
+                "entry_count": len(entries),
+                "entries": entries,
+            }
+        )
 
     console.print(f"[bold]Trace:[/] {trace_id}")
     console.print(f"[dim]Entries: {len(entries)}[/]\n")
@@ -737,12 +807,14 @@ def list_traces(
     traces = store.list_traces(limit=limit)
 
     if output_json:
-        _output_json({
-            "command": "list",
-            "status": "ok",
-            "count": len(traces),
-            "traces": traces,
-        })
+        _output_json(
+            {
+                "command": "list",
+                "status": "ok",
+                "count": len(traces),
+                "traces": traces,
+            }
+        )
 
     if not traces:
         console.print("[dim]No traces found.[/]")
@@ -756,7 +828,11 @@ def list_traces(
     table.add_column("Modified")
 
     for t in traces:
-        size = f"{t['size_bytes']} B" if t['size_bytes'] < 1024 else f"{t['size_bytes']//1024} KB"
+        size = (
+            f"{t['size_bytes']} B"
+            if t["size_bytes"] < 1024
+            else f"{t['size_bytes'] // 1024} KB"
+        )
         table.add_row(
             t["trace_id"],
             t["date"],
@@ -770,8 +846,14 @@ def list_traces(
 @assay_app.command("verify", hidden=True)
 def verify_trace(
     trace_id: str = typer.Argument(..., help="Trace ID to verify"),
-    strict: bool = typer.Option(False, "--strict", help="Enable strict mode (check hashes/signatures)"),
-    policy_override: Optional[List[str]] = typer.Option(None, "--policy-override", help="Override policy values (repeatable, e.g., dignity_floor=0.5)"),
+    strict: bool = typer.Option(
+        False, "--strict", help="Enable strict mode (check hashes/signatures)"
+    ),
+    policy_override: Optional[List[str]] = typer.Option(
+        None,
+        "--policy-override",
+        help="Override policy values (repeatable, e.g., dignity_floor=0.5)",
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """
@@ -808,12 +890,14 @@ def verify_trace(
 
     if not entries:
         if output_json:
-            _output_json({
-                "command": "verify",
-                "trace_id": trace_id,
-                "status": "error",
-                "errors": [f"Trace not found: {trace_id}"],
-            })
+            _output_json(
+                {
+                    "command": "verify",
+                    "trace_id": trace_id,
+                    "status": "error",
+                    "errors": [f"Trace not found: {trace_id}"],
+                }
+            )
         console.print(f"[red]Trace not found:[/] {trace_id}")
         raise typer.Exit(1)
 
@@ -823,26 +907,36 @@ def verify_trace(
         for override in policy_override:
             if "=" not in override:
                 if output_json:
-                    _output_json({
-                        "command": "verify",
-                        "trace_id": trace_id,
-                        "status": "error",
-                        "errors": [f"Invalid policy override format: {override} (expected key=value)"],
-                    })
+                    _output_json(
+                        {
+                            "command": "verify",
+                            "trace_id": trace_id,
+                            "status": "error",
+                            "errors": [
+                                f"Invalid policy override format: {override} (expected key=value)"
+                            ],
+                        }
+                    )
                 console.print(f"[red]Invalid policy override format:[/] {override}")
-                console.print("[dim]Expected format: key=value (e.g., dignity_floor=0.5)[/]")
+                console.print(
+                    "[dim]Expected format: key=value (e.g., dignity_floor=0.5)[/]"
+                )
                 raise typer.Exit(1)
             key, value = override.split("=", 1)
             try:
                 overrides[key.strip()] = float(value.strip())
             except ValueError:
                 if output_json:
-                    _output_json({
-                        "command": "verify",
-                        "trace_id": trace_id,
-                        "status": "error",
-                        "errors": [f"Invalid policy override value: {value} (expected float)"],
-                    })
+                    _output_json(
+                        {
+                            "command": "verify",
+                            "trace_id": trace_id,
+                            "status": "error",
+                            "errors": [
+                                f"Invalid policy override value: {value} (expected float)"
+                            ],
+                        }
+                    )
                 console.print(f"[red]Invalid policy override value:[/] {value}")
                 raise typer.Exit(1)
 
@@ -880,14 +974,18 @@ def verify_trace(
         stored_at = entry.get("_stored_at")
         if stored_at and prev_stored_at:
             if stored_at < prev_stored_at:
-                errors.append(f"Entry {entry_num}: temporal ordering violation (_stored_at goes backwards)")
+                errors.append(
+                    f"Entry {entry_num}: temporal ordering violation (_stored_at goes backwards)"
+                )
         prev_stored_at = stored_at
 
         # Check parent references (if present)
         # ParadoxReceipt has contradiction_id, other receipts may have parent_receipt_id
         parent_id = entry.get("parent_receipt_id") or entry.get("contradiction_id")
         if parent_id and parent_id not in all_receipt_ids:
-            warnings.append(f"Entry {entry_num}: parent reference '{parent_id}' not found in trace")
+            warnings.append(
+                f"Entry {entry_num}: parent reference '{parent_id}' not found in trace"
+            )
 
         # Policy override checks
         if overrides:
@@ -909,13 +1007,15 @@ def verify_trace(
                     try:
                         dignity_val = float(dignity)
                         if dignity_val < floor:
-                            policy_violations.append({
-                                "entry": entry_num,
-                                "receipt_id": receipt_id,
-                                "field": "dignity_composite",
-                                "value": dignity_val,
-                                "floor": floor,
-                            })
+                            policy_violations.append(
+                                {
+                                    "entry": entry_num,
+                                    "receipt_id": receipt_id,
+                                    "field": "dignity_composite",
+                                    "value": dignity_val,
+                                    "floor": floor,
+                                }
+                            )
                             errors.append(
                                 f"Entry {entry_num}: dignity_composite ({dignity_val:.3f}) "
                                 f"below policy floor ({floor:.3f})"
@@ -931,13 +1031,15 @@ def verify_trace(
                     try:
                         coherence_val = float(coherence)
                         if coherence_val < floor:
-                            policy_violations.append({
-                                "entry": entry_num,
-                                "receipt_id": receipt_id,
-                                "field": "coherence",
-                                "value": coherence_val,
-                                "floor": floor,
-                            })
+                            policy_violations.append(
+                                {
+                                    "entry": entry_num,
+                                    "receipt_id": receipt_id,
+                                    "field": "coherence",
+                                    "value": coherence_val,
+                                    "floor": floor,
+                                }
+                            )
                             errors.append(
                                 f"Entry {entry_num}: coherence ({coherence_val:.3f}) "
                                 f"below policy floor ({floor:.3f})"
@@ -949,21 +1051,30 @@ def verify_trace(
         if strict:
             # Check for hash field
             proof = entry.get("proof", {})
-            content_hash = proof.get("hash") or entry.get("content_hash") or entry.get("hash")
+            content_hash = (
+                proof.get("hash") or entry.get("content_hash") or entry.get("hash")
+            )
 
             if entry_type and "Receipt" in str(entry_type):
                 if not content_hash:
-                    warnings.append(f"Entry {entry_num}: receipt has no content_hash (strict)")
+                    warnings.append(
+                        f"Entry {entry_num}: receipt has no content_hash (strict)"
+                    )
                 else:
                     # Verify hash matches content
                     try:
                         from assay._receipts.canonicalize import compute_payload_hash
 
                         # Exclude proof and trace metadata for hash computation
-                        payload = {k: v for k, v in entry.items()
-                                   if k not in ("proof", "_trace_id", "_stored_at")}
+                        payload = {
+                            k: v
+                            for k, v in entry.items()
+                            if k not in ("proof", "_trace_id", "_stored_at")
+                        }
                         # compute_payload_hash returns raw hex (OCD-1 resolved)
-                        computed_hash = compute_payload_hash(payload, algorithm="sha256")
+                        computed_hash = compute_payload_hash(
+                            payload, algorithm="sha256"
+                        )
 
                         # Normalize stored hash: strip prefix if present
                         hash_to_check = content_hash
@@ -971,11 +1082,17 @@ def verify_trace(
                             hash_to_check = hash_to_check.split(":", 1)[1]
 
                         if hash_to_check != computed_hash:
-                            errors.append(f"Entry {entry_num}: hash mismatch (computed {computed_hash[:25]}..., got {hash_to_check[:25]}...)")
+                            errors.append(
+                                f"Entry {entry_num}: hash mismatch (computed {computed_hash[:25]}..., got {hash_to_check[:25]}...)"
+                            )
                     except ImportError:
-                        warnings.append(f"Entry {entry_num}: cannot verify hash (canonicalize not available)")
+                        warnings.append(
+                            f"Entry {entry_num}: cannot verify hash (canonicalize not available)"
+                        )
                     except Exception as e:
-                        warnings.append(f"Entry {entry_num}: hash verification error: {e}")
+                        warnings.append(
+                            f"Entry {entry_num}: hash verification error: {e}"
+                        )
 
                 # Verify receipt_hash if present
                 receipt_hash = entry.get("receipt_hash")
@@ -983,9 +1100,15 @@ def verify_trace(
                     try:
                         from assay._receipts.canonicalize import compute_payload_hash
 
-                        payload = {k: v for k, v in entry.items()
-                                   if k not in ("proof", "_trace_id", "_stored_at", "receipt_hash")}
-                        computed_receipt_hash = compute_payload_hash(payload, algorithm="sha256")
+                        payload = {
+                            k: v
+                            for k, v in entry.items()
+                            if k
+                            not in ("proof", "_trace_id", "_stored_at", "receipt_hash")
+                        }
+                        computed_receipt_hash = compute_payload_hash(
+                            payload, algorithm="sha256"
+                        )
 
                         # Normalize stored hash: strip prefix if present
                         hash_to_check = receipt_hash
@@ -998,9 +1121,13 @@ def verify_trace(
                                 f"(computed {computed_receipt_hash[:25]}..., got {hash_to_check[:25]}...)"
                             )
                     except ImportError:
-                        warnings.append(f"Entry {entry_num}: cannot verify receipt_hash (canonicalize not available)")
+                        warnings.append(
+                            f"Entry {entry_num}: cannot verify receipt_hash (canonicalize not available)"
+                        )
                     except Exception as e:
-                        warnings.append(f"Entry {entry_num}: receipt_hash verification error: {e}")
+                        warnings.append(
+                            f"Entry {entry_num}: receipt_hash verification error: {e}"
+                        )
 
                 # Check signature if present
                 signature = proof.get("producer_signature")
@@ -1008,9 +1135,13 @@ def verify_trace(
                     try:
                         # Signature verification requires the verify key
                         # For now, just note that signature is present
-                        warnings.append(f"Entry {entry_num}: signature present but key not configured for verification")
+                        warnings.append(
+                            f"Entry {entry_num}: signature present but key not configured for verification"
+                        )
                     except Exception as e:
-                        warnings.append(f"Entry {entry_num}: signature check error: {e}")
+                        warnings.append(
+                            f"Entry {entry_num}: signature check error: {e}"
+                        )
 
     # Determine result
     passed = len(errors) == 0
@@ -1055,7 +1186,9 @@ def verify_trace(
         for warn in warnings:
             console.print(f"  [yellow]![/] {warn}")
 
-    console.print(f"\n[dim]Checked: {len(entries)} entries, {len(all_receipt_ids)} receipts[/]")
+    console.print(
+        f"\n[dim]Checked: {len(entries)} entries, {len(all_receipt_ids)} receipts[/]"
+    )
 
     if not passed:
         raise typer.Exit(2)
@@ -1079,8 +1212,9 @@ def diff_traces(
         assay diff trace_aaa trace_bbb
         assay diff trace_aaa trace_bbb --json
     """
-    from assay.store import get_default_store
     from collections import Counter
+
+    from assay.store import get_default_store
 
     store = get_default_store()
     entries_a = store.read_trace(trace_a)
@@ -1088,24 +1222,28 @@ def diff_traces(
 
     if not entries_a:
         if output_json:
-            _output_json({
-                "command": "diff",
-                "trace_a": trace_a,
-                "trace_b": trace_b,
-                "status": "error",
-                "errors": [f"Trace not found: {trace_a}"],
-            })
+            _output_json(
+                {
+                    "command": "diff",
+                    "trace_a": trace_a,
+                    "trace_b": trace_b,
+                    "status": "error",
+                    "errors": [f"Trace not found: {trace_a}"],
+                }
+            )
         console.print(f"[red]Trace not found:[/] {trace_a}")
         raise typer.Exit(1)
     if not entries_b:
         if output_json:
-            _output_json({
-                "command": "diff",
-                "trace_a": trace_a,
-                "trace_b": trace_b,
-                "status": "error",
-                "errors": [f"Trace not found: {trace_b}"],
-            })
+            _output_json(
+                {
+                    "command": "diff",
+                    "trace_a": trace_a,
+                    "trace_b": trace_b,
+                    "status": "error",
+                    "errors": [f"Trace not found: {trace_b}"],
+                }
+            )
         console.print(f"[red]Trace not found:[/] {trace_b}")
         raise typer.Exit(1)
 
@@ -1176,7 +1314,9 @@ def diff_traces(
     # Type distribution
     all_types = set(counter_a.keys()) | set(counter_b.keys())
     if all_types:
-        type_table = Table(show_header=True, header_style="bold", title="Type Distribution")
+        type_table = Table(
+            show_header=True, header_style="bold", title="Type Distribution"
+        )
         type_table.add_column("Type")
         type_table.add_column("Trace A", justify="right")
         type_table.add_column("Trace B", justify="right")
@@ -1193,17 +1333,30 @@ def diff_traces(
     console.print(f"  Only in B: {len(only_b)}")
 
     if only_a:
-        console.print(f"\n[dim]IDs only in A: {', '.join(list(only_a)[:5])}{'...' if len(only_a) > 5 else ''}[/]")
+        console.print(
+            f"\n[dim]IDs only in A: {', '.join(list(only_a)[:5])}{'...' if len(only_a) > 5 else ''}[/]"
+        )
     if only_b:
-        console.print(f"[dim]IDs only in B: {', '.join(list(only_b)[:5])}{'...' if len(only_b) > 5 else ''}[/]")
+        console.print(
+            f"[dim]IDs only in B: {', '.join(list(only_b)[:5])}{'...' if len(only_b) > 5 else ''}[/]"
+        )
 
 
 @assay_app.command("pack", hidden=True)
 def create_pack(
     trace_id: str = typer.Argument(..., help="Trace ID to package"),
-    output: Optional[str] = typer.Option(None, "--output", "-o", help="Output zip path (default: evidence_pack_<trace_id>.zip)"),
-    include_source: bool = typer.Option(False, "--include-source", help="Include relevant source files"),
-    forensic: bool = typer.Option(False, "--forensic", help="Preserve raw trace bytes (forensic fidelity)"),
+    output: Optional[str] = typer.Option(
+        None,
+        "--output",
+        "-o",
+        help="Output zip path (default: evidence_pack_<trace_id>.zip)",
+    ),
+    include_source: bool = typer.Option(
+        False, "--include-source", help="Include relevant source files"
+    ),
+    forensic: bool = typer.Option(
+        False, "--forensic", help="Preserve raw trace bytes (forensic fidelity)"
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """
@@ -1227,6 +1380,7 @@ def create_pack(
         assay pack trace_xxx --forensic  # Preserve exact bytes
     """
     from pathlib import Path
+
     from assay.evidence_pack import create_evidence_pack
 
     output_path = Path(output) if output else None
@@ -1240,37 +1394,43 @@ def create_pack(
         )
     except ValueError as e:
         if output_json:
-            _output_json({
-                "command": "pack",
-                "status": "error",
-                "trace_id": trace_id,
-                "errors": [str(e)],
-            })
+            _output_json(
+                {
+                    "command": "pack",
+                    "status": "error",
+                    "trace_id": trace_id,
+                    "errors": [str(e)],
+                }
+            )
             return  # _output_json raises, but be explicit
         console.print(f"[red]Error:[/] {e}")
         raise typer.Exit(1)
     except Exception as e:
         if output_json:
-            _output_json({
-                "command": "pack",
-                "status": "error",
-                "trace_id": trace_id,
-                "errors": [str(e)],
-            })
+            _output_json(
+                {
+                    "command": "pack",
+                    "status": "error",
+                    "trace_id": trace_id,
+                    "errors": [str(e)],
+                }
+            )
             return  # _output_json raises, but be explicit
         console.print(f"[red]Unexpected error:[/] {e}")
         raise typer.Exit(1)
 
     # JSON output mode - emit and exit
     if output_json:
-        _output_json({
-            "command": "pack",
-            "status": "ok",
-            "trace_id": trace_id,
-            "output_path": str(result_path),
-            "include_source": include_source,
-            "forensic_mode": forensic,
-        })
+        _output_json(
+            {
+                "command": "pack",
+                "status": "ok",
+                "trace_id": trace_id,
+                "output_path": str(result_path),
+                "include_source": include_source,
+                "forensic_mode": forensic,
+            }
+        )
         return  # _output_json raises, but be explicit
 
     # Console output mode
@@ -1281,8 +1441,12 @@ def create_pack(
 
 @assay_app.command("launch-check", hidden=True)
 def launch_check(
-    emit: bool = typer.Option(False, "--emit", help="Persist LaunchReadinessReceipt to disk"),
-    artifacts_dir: Optional[str] = typer.Option(None, "--artifacts-dir", help="Directory for stdout/stderr captures"),
+    emit: bool = typer.Option(
+        False, "--emit", help="Persist LaunchReadinessReceipt to disk"
+    ),
+    artifacts_dir: Optional[str] = typer.Option(
+        None, "--artifacts-dir", help="Directory for stdout/stderr captures"
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
     timeout: int = typer.Option(120, "--timeout", help="Per-check timeout in seconds"),
 ):
@@ -1324,7 +1488,9 @@ def launch_check(
     if artifacts_dir:
         artifact_path = Path(artifacts_dir)
     else:
-        artifact_path = Path.home() / ".assay" / "artifacts" / "launch-check" / timestamp
+        artifact_path = (
+            Path.home() / ".assay" / "artifacts" / "launch-check" / timestamp
+        )
     artifact_path.mkdir(parents=True, exist_ok=True)
 
     # Get working directory (assay repo root)
@@ -1339,7 +1505,9 @@ def launch_check(
     checks: List[Dict[str, Any]] = []
     demo_trace_id: Optional[str] = None
 
-    def run_check(name: str, cmd: List[str], expect_trace: bool = False) -> Dict[str, Any]:
+    def run_check(
+        name: str, cmd: List[str], expect_trace: bool = False
+    ) -> Dict[str, Any]:
         """Run a single check and capture results."""
         nonlocal demo_trace_id
 
@@ -1385,6 +1553,7 @@ def launch_check(
                 for line in result.stdout.split("\n"):
                     if "Trace:" in line or "trace_" in line:
                         import re
+
                         match = re.search(r"trace_\w+", line)
                         if match:
                             demo_trace_id = match.group(0)
@@ -1392,7 +1561,11 @@ def launch_check(
 
             error_msg = None
             if not passed:
-                error_msg = result.stderr[:500] if result.stderr else f"Exit code {result.returncode}"
+                error_msg = (
+                    result.stderr[:500]
+                    if result.stderr
+                    else f"Exit code {result.returncode}"
+                )
 
             return {
                 "name": name,
@@ -1445,14 +1618,31 @@ def launch_check(
 
     # 2. Demo
     console.print("  [dim]2/7[/] assay demo")
-    checks.append(run_check("assay_demo", ["python", "-m", "assay.cli", "demo"], expect_trace=True))
+    checks.append(
+        run_check(
+            "assay_demo", ["python", "-m", "assay.cli", "demo"], expect_trace=True
+        )
+    )
 
     # 3. Validate
     console.print("  [dim]3/7[/] assay validate")
-    checks.append(run_check("assay_validate", [
-        "python", "-m", "assay.cli", "validate",
-        "test action", "--coherence", "0.8", "--dignity", "0.7", "--receipt"
-    ]))
+    checks.append(
+        run_check(
+            "assay_validate",
+            [
+                "python",
+                "-m",
+                "assay.cli",
+                "validate",
+                "test action",
+                "--coherence",
+                "0.8",
+                "--dignity",
+                "0.7",
+                "--receipt",
+            ],
+        )
+    )
 
     # 4. Health
     console.print("  [dim]4/7[/] assay health")
@@ -1460,52 +1650,83 @@ def launch_check(
 
     # 5. Assay tests
     console.print("  [dim]5/7[/] pytest tests/assay/")
-    checks.append(run_check("assay_tests", ["python", "-m", "pytest", "tests/assay/", "-v", "--tb=short"]))
+    checks.append(
+        run_check(
+            "assay_tests",
+            ["python", "-m", "pytest", "tests/assay/", "-v", "--tb=short"],
+        )
+    )
 
     # 6. Patent receipt tests
     console.print("  [dim]6/7[/] pytest tests/receipts/test_patent_receipts.py")
-    checks.append(run_check("patent_tests", ["python", "-m", "pytest", "tests/receipts/test_patent_receipts.py", "-v", "--tb=short"]))
+    checks.append(
+        run_check(
+            "patent_tests",
+            [
+                "python",
+                "-m",
+                "pytest",
+                "tests/receipts/test_patent_receipts.py",
+                "-v",
+                "--tb=short",
+            ],
+        )
+    )
 
     # 7. Evidence pack (only if demo succeeded and we have a trace_id)
     console.print("  [dim]7/7[/] evidence pack generation")
     if demo_trace_id:
         pack_output = artifact_path / f"evidence_pack_{demo_trace_id}.zip"
-        checks.append(run_check("evidence_pack", [
-            "python", "-m", "assay.cli", "pack",
-            demo_trace_id, "-o", str(pack_output)
-        ]))
+        checks.append(
+            run_check(
+                "evidence_pack",
+                [
+                    "python",
+                    "-m",
+                    "assay.cli",
+                    "pack",
+                    demo_trace_id,
+                    "-o",
+                    str(pack_output),
+                ],
+            )
+        )
     else:
-        checks.append({
-            "name": "evidence_pack",
-            "cmd": ["assay", "pack", "<trace_id>"],
-            "cwd": cwd,
-            "passed": False,
-            "exit_code": -1,
-            "duration_ms": 0,
-            "stdout_path": None,
-            "stderr_path": None,
-            "artifact_hash": None,
-            "error_message": "Skipped: no trace_id from demo",
-        })
+        checks.append(
+            {
+                "name": "evidence_pack",
+                "cmd": ["assay", "pack", "<trace_id>"],
+                "cwd": cwd,
+                "passed": False,
+                "exit_code": -1,
+                "duration_ms": 0,
+                "stdout_path": None,
+                "stderr_path": None,
+                "artifact_hash": None,
+                "error_message": "Skipped: no trace_id from demo",
+            }
+        )
 
     console.print()
 
     # Create check result objects
     check_results = []
     for c in checks:
-        check_results.append(CheckResult(
-            receipt_id=f"chk_{uuid.uuid4().hex[:12]}",
-            name=c["name"],
-            cmd=c["cmd"],
-            cwd=c["cwd"],
-            passed=c["passed"],
-            exit_code=c["exit_code"],
-            duration_ms=c["duration_ms"],
-            stdout_path=c.get("stdout_path"),
-            stderr_path=c.get("stderr_path"),
-            artifact_hash=c.get("artifact_hash"),
-            error_message=c.get("error_message"),
-        ))
+        check_results.append(
+            CheckResult(
+                receipt_id=f"chk_{uuid.uuid4().hex[:12]}",
+                name=c["name"],
+                cmd=c["cmd"],
+                cwd=c["cwd"],
+                passed=c["passed"],
+                exit_code=c["exit_code"],
+                duration_ms=c["duration_ms"],
+                stdout_path=c.get("stdout_path"),
+                stderr_path=c.get("stderr_path"),
+                artifact_hash=c.get("artifact_hash"),
+                error_message=c.get("error_message"),
+            )
+        )
 
     # Create receipt
     receipt = create_launch_readiness_receipt(
@@ -1519,7 +1740,9 @@ def launch_check(
         emit_dir = Path.home() / ".assay" / "launch" / timestamp
         emit_dir.mkdir(parents=True, exist_ok=True)
         receipt_path = emit_dir / "LaunchReadinessReceipt.json"
-        receipt_path.write_text(json.dumps(receipt.model_dump(mode="json"), indent=2, default=str))
+        receipt_path.write_text(
+            json.dumps(receipt.model_dump(mode="json"), indent=2, default=str)
+        )
 
     # JSON output
     if output_json:
@@ -1542,7 +1765,9 @@ def launch_check(
         return
 
     # Console output - Rich table
-    table = Table(title="Launch Readiness Checks", show_header=True, header_style="bold")
+    table = Table(
+        title="Launch Readiness Checks", show_header=True, header_style="bold"
+    )
     table.add_column("Check", style="cyan")
     table.add_column("Status", justify="center")
     table.add_column("Duration", justify="right")
@@ -1551,7 +1776,11 @@ def launch_check(
     for c in check_results:
         status = "[green]PASS[/]" if c.passed else "[red]FAIL[/]"
         duration = f"{c.duration_ms}ms"
-        details = c.error_message[:50] + "..." if c.error_message and len(c.error_message) > 50 else (c.error_message or "")
+        details = (
+            c.error_message[:50] + "..."
+            if c.error_message and len(c.error_message) > 50
+            else (c.error_message or "")
+        )
         table.add_row(c.name, status, duration, details)
 
     console.print(table)
@@ -1560,9 +1789,13 @@ def launch_check(
     # Summary
     summary = receipt.component_summary
     if receipt.overall_passed:
-        console.print(f"[green bold]LAUNCH READINESS: PASSED[/] ({summary.passed}/{summary.total} checks)")
+        console.print(
+            f"[green bold]LAUNCH READINESS: PASSED[/] ({summary.passed}/{summary.total} checks)"
+        )
     else:
-        console.print(f"[red bold]LAUNCH READINESS: FAILED[/] ({summary.failed}/{summary.total} checks failed)")
+        console.print(
+            f"[red bold]LAUNCH READINESS: FAILED[/] ({summary.failed}/{summary.total} checks failed)"
+        )
 
     # Fingerprint
     fp = receipt.system_fingerprint
@@ -1576,7 +1809,9 @@ def launch_check(
 
     if receipt_path:
         console.print(f"[dim]Receipt: {receipt_path}[/]")
-        console.print(f"\n[bold]LAUNCH_READINESS: {'PASSED' if receipt.overall_passed else 'FAILED'} path={receipt_path} receipt_id={receipt.receipt_id}[/]")
+        console.print(
+            f"\n[bold]LAUNCH_READINESS: {'PASSED' if receipt.overall_passed else 'FAILED'} path={receipt_path} receipt_id={receipt.receipt_id}[/]"
+        )
 
     if not receipt.overall_passed:
         raise typer.Exit(2)
@@ -1601,13 +1836,11 @@ def try_cmd(
       pip install assay-ai
       assay try
     """
-    import hashlib
     import shutil
     import tempfile
     from pathlib import Path
 
     from assay.claim_verifier import ClaimSpec
-    from assay.integrity import verify_pack_manifest
     from assay.keystore import AssayKeyStore
     from assay.proof_pack import ProofPack
 
@@ -1713,7 +1946,9 @@ def try_cmd(
     console.print()
 
     # Step 1: good pack
-    console.print("  [bold]1.[/] Built a proof pack (2 receipts, 2 claims, Ed25519 signed)")
+    console.print(
+        "  [bold]1.[/] Built a proof pack (2 receipts, 2 claims, Ed25519 signed)"
+    )
     if good_pass:
         console.print("  [bold]2.[/] Verified it: [bold green]PASS[/]")
     else:
@@ -1724,7 +1959,9 @@ def try_cmd(
     # Step 2: tamper
     console.print("  [bold]3.[/] Changed one byte ([dim]gpt-4o -> gpt-5x[/])")
     if not tampered_pass:
-        console.print(f"  [bold]4.[/] Verified again: [bold red]FAIL[/] - {tampered_err}")
+        console.print(
+            f"  [bold]4.[/] Verified again: [bold red]FAIL[/] - {tampered_err}"
+        )
     else:
         console.print("  [bold]4.[/] Verified again: [bold green]PASS[/] (unexpected)")
 
@@ -1737,12 +1974,16 @@ def try_cmd(
     console.print("  Set up Assay in your project:")
     console.print("    [bold]assay start[/]")
     console.print()
-    console.print("  [dim]Need a reviewer-ready artifact instead? See assay vendorq --help[/]")
+    console.print(
+        "  [dim]Need a reviewer-ready artifact instead? See assay vendorq --help[/]"
+    )
 
 
 @assay_app.command("try-mcp", rich_help_panel=_TRY_PANEL)
 def try_mcp_cmd(
-    output_dir: str = typer.Option("./assay_mcp_demo", "-o", "--output", help="Output directory for the proof pack"),
+    output_dir: str = typer.Option(
+        "./assay_mcp_demo", "-o", "--output", help="Output directory for the proof pack"
+    ),
     output_json: bool = typer.Option(False, "--json", help="Structured output"),
 ):
     """See MCP tool-call auditing in 30 seconds.
@@ -1768,7 +2009,7 @@ def try_mcp_cmd(
     out_path = Path(output_dir)
 
     # --- Inline demo server script ---
-    demo_server_src = textwrap.dedent('''\
+    demo_server_src = textwrap.dedent("""\
         import json, sys
         TOOLS = [
             {"name": "get_weather", "description": "Get current weather",
@@ -1802,21 +2043,46 @@ def try_mcp_cmd(
             except: continue
             r = handle(msg)
             if r: sys.stdout.write(json.dumps(r) + "\\n"); sys.stdout.flush()
-    ''')
+    """)
 
     # JSON-RPC requests: initialize, then 3 tool calls
     requests = [
-        {"jsonrpc": "2.0", "method": "initialize", "id": 1,
-         "params": {"protocolVersion": "2024-11-05", "capabilities": {},
-                    "clientInfo": {"name": "assay-try-mcp", "version": "1.0"}}},
+        {
+            "jsonrpc": "2.0",
+            "method": "initialize",
+            "id": 1,
+            "params": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {},
+                "clientInfo": {"name": "assay-try-mcp", "version": "1.0"},
+            },
+        },
         {"jsonrpc": "2.0", "method": "notifications/initialized"},
         {"jsonrpc": "2.0", "method": "tools/list", "id": 2, "params": {}},
-        {"jsonrpc": "2.0", "method": "tools/call", "id": 3,
-         "params": {"name": "get_weather", "arguments": {"city": "Seattle"}}},
-        {"jsonrpc": "2.0", "method": "tools/call", "id": 4,
-         "params": {"name": "check_inventory", "arguments": {"product_id": "SKU-7291"}}},
-        {"jsonrpc": "2.0", "method": "tools/call", "id": 5,
-         "params": {"name": "calculate_risk", "arguments": {"amount": 15000, "category": "international_transfer"}}},
+        {
+            "jsonrpc": "2.0",
+            "method": "tools/call",
+            "id": 3,
+            "params": {"name": "get_weather", "arguments": {"city": "Seattle"}},
+        },
+        {
+            "jsonrpc": "2.0",
+            "method": "tools/call",
+            "id": 4,
+            "params": {
+                "name": "check_inventory",
+                "arguments": {"product_id": "SKU-7291"},
+            },
+        },
+        {
+            "jsonrpc": "2.0",
+            "method": "tools/call",
+            "id": 5,
+            "params": {
+                "name": "calculate_risk",
+                "arguments": {"amount": 15000, "category": "international_transfer"},
+            },
+        },
     ]
 
     tool_calls = [r for r in requests if r.get("method") == "tools/call"]
@@ -1829,17 +2095,29 @@ def try_mcp_cmd(
 
         if not output_json:
             console.print()
-            console.print("[bold]assay try-mcp[/] — MCP tool-call auditing in 30 seconds")
+            console.print(
+                "[bold]assay try-mcp[/] — MCP tool-call auditing in 30 seconds"
+            )
             console.print()
             console.print("  [dim]Starting synthetic MCP tool server...[/]")
 
         # Start proxy wrapping the demo server
         proc = subprocess.Popen(
-            [sys.executable, "-m", "assay", "mcp-proxy",
-             "--audit-dir", str(audit_dir),
-             "--store-args", "--store-results",
-             "--server-id", "try-mcp-demo",
-             "--", sys.executable, str(server_script)],
+            [
+                sys.executable,
+                "-m",
+                "assay",
+                "mcp-proxy",
+                "--audit-dir",
+                str(audit_dir),
+                "--store-args",
+                "--store-results",
+                "--server-id",
+                "try-mcp-demo",
+                "--",
+                sys.executable,
+                str(server_script),
+            ],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -1853,8 +2131,12 @@ def try_mcp_cmd(
             for line in pipe:
                 buf.append(line)
 
-        t_out = threading.Thread(target=drain, args=(proc.stdout, stdout_buf), daemon=True)
-        t_err = threading.Thread(target=drain, args=(proc.stderr, stderr_buf), daemon=True)
+        t_out = threading.Thread(
+            target=drain, args=(proc.stdout, stdout_buf), daemon=True
+        )
+        t_err = threading.Thread(
+            target=drain, args=(proc.stderr, stderr_buf), daemon=True
+        )
         t_out.start()
         t_err.start()
 
@@ -1863,10 +2145,14 @@ def try_mcp_cmd(
             proc.stdin.write((json.dumps(req) + "\n").encode())
             proc.stdin.flush()
             if req.get("method") == "tools/call" and not output_json:
-                call_idx = sum(1 for r in requests[:i + 1] if r.get("method") == "tools/call")
+                call_idx = sum(
+                    1 for r in requests[: i + 1] if r.get("method") == "tools/call"
+                )
                 name = req["params"]["name"]
                 args_str = json.dumps(req["params"]["arguments"])
-                console.print(f"  [bold]{call_idx}.[/] {name}({args_str}) [green]→ receipted[/]")
+                console.print(
+                    f"  [bold]{call_idx}.[/] {name}({args_str}) [green]→ receipted[/]"
+                )
             time.sleep(0.3)
 
         # Close stdin to signal session end
@@ -1896,9 +2182,18 @@ def try_mcp_cmd(
 
         if not built_pack or not built_pack.is_dir():
             if output_json:
-                _output_json({"command": "try-mcp", "status": "error", "error": "no_pack_produced"}, exit_code=1)
+                _output_json(
+                    {
+                        "command": "try-mcp",
+                        "status": "error",
+                        "error": "no_pack_produced",
+                    },
+                    exit_code=1,
+                )
             else:
-                console.print("\n  [red]Error:[/] No proof pack produced. Proxy may have failed.")
+                console.print(
+                    "\n  [red]Error:[/] No proof pack produced. Proxy may have failed."
+                )
                 stderr_text = b"".join(stderr_buf).decode(errors="replace").strip()
                 if stderr_text:
                     for line in stderr_text.splitlines()[-3:]:
@@ -1913,8 +2208,6 @@ def try_mcp_cmd(
         shutil.copytree(built_pack, pack_dest)
 
     # Verify the pack
-    from assay.integrity import verify_pack_manifest
-    from assay.keystore import AssayKeyStore
 
     manifest_path = pack_dest / "pack_manifest.json"
     manifest = json.loads(manifest_path.read_text())
@@ -1925,7 +2218,8 @@ def try_mcp_cmd(
     # Verify (use default keystore which has the assay-local key)
     verify_result = subprocess.run(
         [sys.executable, "-m", "assay", "verify-pack", str(pack_dest), "--json"],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     verify_passed = verify_result.returncode == 0
 
@@ -1933,42 +2227,50 @@ def try_mcp_cmd(
         verify_data = {}
         if verify_result.stdout.strip().startswith("{"):
             verify_data = json.loads(verify_result.stdout)
-        _output_json({
-            "command": "try-mcp",
-            "status": "ok" if verify_passed else "error",
-            "pack_id": pack_id,
-            "receipts": receipt_count,
-            "tool_calls": len(tool_calls),
-            "verification": "PASS" if verify_passed else "FAIL",
-            "pack_dir": str(pack_dest),
-            "verify_exit_code": verify_result.returncode,
-        })
+        _output_json(
+            {
+                "command": "try-mcp",
+                "status": "ok" if verify_passed else "error",
+                "pack_id": pack_id,
+                "receipts": receipt_count,
+                "tool_calls": len(tool_calls),
+                "verification": "PASS" if verify_passed else "FAIL",
+                "pack_dir": str(pack_dest),
+                "verify_exit_code": verify_result.returncode,
+            }
+        )
         return
 
     console.print()
 
     if verify_passed:
-        console.print(Panel(
-            f"[bold]Pack ID:[/]    {pack_id}\n"
-            f"[bold]Integrity:[/]  [bold green]PASS[/]\n"
-            f"[bold]Receipts:[/]   {receipt_count}\n"
-            f"[bold]Tool calls:[/] {len(tool_calls)} (get_weather, check_inventory, calculate_risk)\n"
-            f"[bold]Output:[/]     {pack_dest}",
-            title="[bold green]MCP Proof Pack Built & Verified[/]",
-            border_style="green",
-        ))
+        console.print(
+            Panel(
+                f"[bold]Pack ID:[/]    {pack_id}\n"
+                f"[bold]Integrity:[/]  [bold green]PASS[/]\n"
+                f"[bold]Receipts:[/]   {receipt_count}\n"
+                f"[bold]Tool calls:[/] {len(tool_calls)} (get_weather, check_inventory, calculate_risk)\n"
+                f"[bold]Output:[/]     {pack_dest}",
+                title="[bold green]MCP Proof Pack Built & Verified[/]",
+                border_style="green",
+            )
+        )
     else:
-        console.print(Panel(
-            f"Pack built but verification returned exit {verify_result.returncode}.\n"
-            f"Pack at: {pack_dest}",
-            title="[bold red]Verification Issue[/]",
-            border_style="red",
-        ))
+        console.print(
+            Panel(
+                f"Pack built but verification returned exit {verify_result.returncode}.\n"
+                f"Pack at: {pack_dest}",
+                title="[bold red]Verification Issue[/]",
+                border_style="red",
+            )
+        )
 
     console.print()
     console.print("[bold]What happened:[/]")
     console.print("  Assay proxied 3 MCP tool calls through a synthetic server.")
-    console.print("  Each call was receipted. The session was signed into a proof pack.")
+    console.print(
+        "  Each call was receipted. The session was signed into a proof pack."
+    )
     console.print("  The pack is offline-verifiable — no server, no trust required.")
     console.print()
     console.print("[bold]Verify it yourself:[/]")
@@ -1980,7 +2282,9 @@ def try_mcp_cmd(
     console.print()
     console.print("  Add a policy file:")
     console.print("    [green]$ assay mcp policy init[/]")
-    console.print("    [green]$ assay mcp-proxy --policy assay.mcp-policy.yaml -- python my_server.py[/]")
+    console.print(
+        "    [green]$ assay mcp-proxy --policy assay.mcp-policy.yaml -- python my_server.py[/]"
+    )
 
 
 # --- End of early Start Here registration ---
@@ -1997,17 +2301,22 @@ def show_version(
     store = get_default_store()
 
     if output_json:
-        _output_json({
-            "command": "version",
-            "status": "ok",
-            "version": __version__,
-            "storage_dir": str(store.base_dir),
-            "components": {
-                "guardian_rules": ["no_coherence_by_dignity_debt", "no_action_without_receipt"],
-                "health_checks": ["grace_window"],
-                "blockage_receipts": ["incompleteness", "contradiction", "paradox"],
-            },
-        })
+        _output_json(
+            {
+                "command": "version",
+                "status": "ok",
+                "version": __version__,
+                "storage_dir": str(store.base_dir),
+                "components": {
+                    "guardian_rules": [
+                        "no_coherence_by_dignity_debt",
+                        "no_action_without_receipt",
+                    ],
+                    "health_checks": ["grace_window"],
+                    "blockage_receipts": ["incompleteness", "contradiction", "paradox"],
+                },
+            }
+        )
 
     console.print(f"[bold]Assay {__version__}[/]")
     console.print("AI evidence that's harder to fake and easier to verify")
@@ -2016,7 +2325,9 @@ def show_version(
     console.print("  - Scan: find uninstrumented LLM call sites")
     console.print("  - Instrument: OpenAI, Anthropic, LangChain (2 lines)")
     console.print("  - Proof packs: receipts + manifest + Ed25519 signature")
-    console.print("  - Verify: exit 0/1/2/3 (pass / honest failure / tampered / bad input)")
+    console.print(
+        "  - Verify: exit 0/1/2/3 (pass / honest failure / tampered / bad input)"
+    )
     console.print()
     console.print(f"Storage: {store.base_dir}")
 
@@ -2026,7 +2337,6 @@ def status_cmd(
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """One-screen operational dashboard: is Assay ready here?"""
-    import os
     from datetime import datetime, timezone
     from pathlib import Path
 
@@ -2055,7 +2365,12 @@ def status_cmd(
             "total_signers": n_signers,
         }
     except Exception:
-        checks["key"] = {"signer": None, "has_key": False, "fingerprint": None, "total_signers": 0}
+        checks["key"] = {
+            "signer": None,
+            "has_key": False,
+            "fingerprint": None,
+            "total_signers": 0,
+        }
 
     # 3. Store
     receipt_count = 0
@@ -2085,6 +2400,7 @@ def status_cmd(
     if lockfile.exists():
         try:
             import json as _json
+
             lock_data = _json.loads(lockfile.read_text())
             checks["lockfile"]["lock_version"] = lock_data.get("lock_version")
             checks["lockfile"]["cards"] = list(lock_data.get("run_cards", {}).keys())
@@ -2093,8 +2409,13 @@ def status_cmd(
 
     # 5. Latest pack
     cwd_packs = sorted(
-        [d for d in Path(".").iterdir()
-         if d.is_dir() and d.name.startswith("proof_pack") and (d / "pack_manifest.json").exists()],
+        [
+            d
+            for d in Path(".").iterdir()
+            if d.is_dir()
+            and d.name.startswith("proof_pack")
+            and (d / "pack_manifest.json").exists()
+        ],
         key=lambda d: d.stat().st_mtime,
         reverse=True,
     )
@@ -2102,6 +2423,7 @@ def status_cmd(
         latest = cwd_packs[0]
         try:
             import json as _json
+
             manifest = _json.loads((latest / "pack_manifest.json").read_text())
             mtime = datetime.fromtimestamp(latest.stat().st_mtime, tz=timezone.utc)
             age_secs = (datetime.now(timezone.utc) - mtime).total_seconds()
@@ -2118,7 +2440,12 @@ def status_cmd(
                 "age": age_str,
             }
         except Exception:
-            checks["latest_pack"] = {"path": str(latest), "pack_id": "?", "receipts": "?", "age": "?"}
+            checks["latest_pack"] = {
+                "path": str(latest),
+                "pack_id": "?",
+                "receipts": "?",
+                "age": "?",
+            }
     else:
         checks["latest_pack"] = None
 
@@ -2166,7 +2493,9 @@ def status_cmd(
     # Latest pack
     lp = checks["latest_pack"]
     if lp:
-        table.add_row("Latest pack", f"{lp['path']}  ({lp['receipts']} receipts, {lp['age']})")
+        table.add_row(
+            "Latest pack", f"{lp['path']}  ({lp['receipts']} receipts, {lp['age']})"
+        )
     else:
         table.add_row("Latest pack", "[dim]none in cwd[/]")
 
@@ -2178,7 +2507,9 @@ def status_cmd(
     # Overall verdict
     ok = key["has_key"]
     if ok:
-        console.print("\n  [green]OPERATIONAL[/]  Ready to produce and verify evidence.\n")
+        console.print(
+            "\n  [green]OPERATIONAL[/]  Ready to produce and verify evidence.\n"
+        )
     else:
         console.print("\n  [yellow]SETUP NEEDED[/]  Run: assay quickstart\n")
 
@@ -2303,7 +2634,9 @@ def score_cmd(
             caps_lines.append(
                 f"- {cap['id']}: {cap['reason']} ({cap['before']['grade']} -> {cap['after']['grade']})"
             )
-        console.print(Panel("\n".join(caps_lines), title="Caps Applied", border_style="yellow"))
+        console.print(
+            Panel("\n".join(caps_lines), title="Caps Applied", border_style="yellow")
+        )
 
     fp = score.get("fastest_path")
     if fp:
@@ -2314,7 +2647,11 @@ def score_cmd(
 
     console.print("\n[bold]Next actions:[/]")
     for idx, ad in enumerate(score.get("next_actions_detail", []), 1):
-        pts = f" [dim](+{ad['points_est']:.0f} pts est.)[/]" if ad["points_est"] > 0 else ""
+        pts = (
+            f" [dim](+{ad['points_est']:.0f} pts est.)[/]"
+            if ad["points_est"] > 0
+            else ""
+        )
         console.print(f"  {idx}. {ad['action']}: {ad['command']}{pts}")
 
     console.print(f"\n[dim]{score['disclaimer']}[/]\n")
@@ -2340,7 +2677,9 @@ def report_cmd(
     markdown: bool = typer.Option(
         False, "--markdown", "--md", help="Also emit markdown summary"
     ),
-    output_json: bool = typer.Option(False, "--json", help="Output report data as JSON"),
+    output_json: bool = typer.Option(
+        False, "--json", help="Output report data as JSON"
+    ),
 ):
     """Generate a unified Evidence Readiness Report (HTML + optional SARIF/markdown).
 
@@ -2537,7 +2876,9 @@ def start_ci_cmd(
 
     console.print("  [bold]Daily use after CI is green:[/]")
     console.print("    [green]$ assay diff ./proof_pack_*/ --against-previous --why[/]")
-    console.print("    [dim]Auto-discovers baseline, traces regressions to root cause.[/]\n")
+    console.print(
+        "    [dim]Auto-discovers baseline, traces regressions to root cause.[/]\n"
+    )
 
 
 @start_app.command("mcp")
@@ -2615,9 +2956,13 @@ def start_mcp_cmd(
 def proof_pack_cmd(
     trace_id: str = typer.Argument(..., help="Trace ID to package"),
     output_dir: str = typer.Option(None, "--output", "-o", help="Output directory"),
-    mode: str = typer.Option("shadow", "--mode", "-m", help="Mode: shadow|enforced|breakglass"),
+    mode: str = typer.Option(
+        "shadow", "--mode", "-m", help="Mode: shadow|enforced|breakglass"
+    ),
     run_card: Optional[List[str]] = typer.Option(
-        None, "--run-card", "-c",
+        None,
+        "--run-card",
+        "-c",
         help="Run card: builtin name or path to JSON file (repeatable)",
     ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
@@ -2626,7 +2971,11 @@ def proof_pack_cmd(
     from pathlib import Path
 
     from assay.proof_pack import build_proof_pack
-    from assay.run_cards import collect_claims_from_cards, get_builtin_card, load_run_card
+    from assay.run_cards import (
+        collect_claims_from_cards,
+        get_builtin_card,
+        load_run_card,
+    )
 
     # Resolve run cards to claims
     claims = None
@@ -2648,7 +2997,9 @@ def proof_pack_cmd(
     out = Path(output_dir) if output_dir else Path(f"proof_pack_{trace_id}")
 
     try:
-        result_dir = build_proof_pack(trace_id, output_dir=out, mode=mode, claims=claims)
+        result_dir = build_proof_pack(
+            trace_id, output_dir=out, mode=mode, claims=claims
+        )
     except ValueError as e:
         if output_json:
             _output_json({"command": "proof-pack", "status": "error", "error": str(e)})
@@ -2661,32 +3012,36 @@ def proof_pack_cmd(
     att = manifest.get("attestation", {})
 
     if output_json:
-        _output_json({
-            "command": "proof-pack",
-            "status": "ok",
-            "pack_id": att.get("pack_id"),
-            "trace_id": trace_id,
-            "output_dir": str(result_dir),
-            "receipt_integrity": att.get("receipt_integrity"),
-            "claim_check": att.get("claim_check"),
-            "n_receipts": att.get("n_receipts"),
-            "hash_covered_files": [f["path"] for f in manifest.get("files", [])],
-            "expected_files": manifest.get("expected_files", []),
-        })
+        _output_json(
+            {
+                "command": "proof-pack",
+                "status": "ok",
+                "pack_id": att.get("pack_id"),
+                "trace_id": trace_id,
+                "output_dir": str(result_dir),
+                "receipt_integrity": att.get("receipt_integrity"),
+                "claim_check": att.get("claim_check"),
+                "n_receipts": att.get("n_receipts"),
+                "hash_covered_files": [f["path"] for f in manifest.get("files", [])],
+                "expected_files": manifest.get("expected_files", []),
+            }
+        )
 
     console.print()
     claim_line = f"Claims:     {att.get('claim_check', 'N/A')}\n" if claims else ""
-    console.print(Panel.fit(
-        f"[bold green]Proof Pack Built[/]\n\n"
-        f"Pack ID:    {att.get('pack_id')}\n"
-        f"Trace:      {trace_id}\n"
-        f"Integrity:  {att.get('receipt_integrity')}\n"
-        f"{claim_line}"
-        f"Receipts:   {att.get('n_receipts')}\n"
-        f"Mode:       {att.get('mode')}\n"
-        f"Output:     {result_dir}/",
-        title="assay proof-pack",
-    ))
+    console.print(
+        Panel.fit(
+            f"[bold green]Proof Pack Built[/]\n\n"
+            f"Pack ID:    {att.get('pack_id')}\n"
+            f"Trace:      {trace_id}\n"
+            f"Integrity:  {att.get('receipt_integrity')}\n"
+            f"{claim_line}"
+            f"Receipts:   {att.get('n_receipts')}\n"
+            f"Mode:       {att.get('mode')}\n"
+            f"Output:     {result_dir}/",
+            title="assay proof-pack",
+        )
+    )
 
     # List files
     for f in sorted(result_dir.iterdir()):
@@ -2701,59 +3056,73 @@ def proof_pack_cmd(
 def verify_pack_cmd(
     pack_dir: str = typer.Argument(..., help="Path to Proof Pack directory"),
     require_claim_pass: bool = typer.Option(
-        False, "--require-claim-pass",
+        False,
+        "--require-claim-pass",
         help="Fail (exit 1) if claim_check is not PASS. For CI gating.",
     ),
     lock: Optional[str] = typer.Option(
-        None, "--lock",
+        None,
+        "--lock",
         help="Path to assay.lock file. Enforces locked verification semantics.",
     ),
     coverage_contract: Optional[str] = typer.Option(
-        None, "--coverage-contract",
+        None,
+        "--coverage-contract",
         help="Path to coverage contract JSON. Checks receipt callsite coverage.",
     ),
     min_coverage: float = typer.Option(
-        0.8, "--min-coverage",
+        0.8,
+        "--min-coverage",
         help="Minimum coverage threshold (0.0-1.0). Used with --coverage-contract.",
     ),
     max_age_hours: Optional[float] = typer.Option(
-        None, "--max-age-hours",
+        None,
+        "--max-age-hours",
         help="Fail verification if pack timestamp_end is older than this many hours.",
     ),
     require_ci_binding: bool = typer.Option(
-        False, "--require-ci-binding",
+        False,
+        "--require-ci-binding",
         help="Fail if attestation has no ci_binding block. For CI-only verification.",
     ),
     expected_commit_sha: Optional[str] = typer.Option(
-        None, "--expected-commit-sha",
+        None,
+        "--expected-commit-sha",
         help="Fail if ci_binding.commit_sha does not match this value.",
     ),
     require_witness: bool = typer.Option(
-        False, "--require-witness",
+        False,
+        "--require-witness",
         help="Fail if pack has no valid witness bundle (T2 trust).",
     ),
     check_expiry: bool = typer.Option(
-        False, "--check-expiry",
+        False,
+        "--check-expiry",
         help="Fail (exit 1) if attestation valid_until is in the past.",
     ),
     html_out: Optional[str] = typer.Option(
-        None, "--html",
+        None,
+        "--html",
         help="Write a self-contained HTML verification report to this path.",
     ),
     badge_out: Optional[str] = typer.Option(
-        None, "--badge",
+        None,
+        "--badge",
         help="Write an SVG verification badge to this path.",
     ),
     trust_target: Optional[str] = typer.Option(
-        None, "--trust-target",
+        None,
+        "--trust-target",
         help="Evaluate trust acceptance for this target (local_verify, ci_gate, publication). Advisory only.",
     ),
     trust_policy_dir: Optional[str] = typer.Option(
-        None, "--trust-policy-dir",
+        None,
+        "--trust-policy-dir",
         help="Directory containing signers.yaml and acceptance.yaml for trust evaluation.",
     ),
     trust_enforce: bool = typer.Option(
-        False, "--enforce-trust-gate",
+        False,
+        "--enforce-trust-gate",
         help=(
             "Promote trust evaluation to a hard gate for ci_gate. "
             "Exit 1 only when ALL four conditions hold: "
@@ -2774,8 +3143,8 @@ def verify_pack_cmd(
     """
     from pathlib import Path
 
-    from assay.integrity import verify_pack_manifest
     from assay.keystore import get_default_keystore
+    from assay.proof_pack import verify_proof_pack
 
     if not 0.0 <= min_coverage <= 1.0:
         if output_json:
@@ -2787,7 +3156,9 @@ def verify_pack_cmd(
                 },
                 exit_code=3,
             )
-        console.print(f"[red]Error:[/] --min-coverage must be between 0.0 and 1.0, got {min_coverage}")
+        console.print(
+            f"[red]Error:[/] --min-coverage must be between 0.0 and 1.0, got {min_coverage}"
+        )
         raise typer.Exit(3)
     if max_age_hours is not None and max_age_hours <= 0:
         if output_json:
@@ -2799,11 +3170,14 @@ def verify_pack_cmd(
                 },
                 exit_code=3,
             )
-        console.print(f"[red]Error:[/] --max-age-hours must be > 0, got {max_age_hours}")
+        console.print(
+            f"[red]Error:[/] --max-age-hours must be > 0, got {max_age_hours}"
+        )
         raise typer.Exit(3)
 
     if expected_commit_sha:
         import re
+
         if not re.match(r"^[a-fA-F0-9]{40}$", expected_commit_sha):
             msg = (
                 f"--expected-commit-sha must be a full 40-character hex SHA, "
@@ -2811,7 +3185,10 @@ def verify_pack_cmd(
                 f"Use: git rev-parse HEAD"
             )
             if output_json:
-                _output_json({"command": "verify-pack", "status": "error", "error": msg}, exit_code=3)
+                _output_json(
+                    {"command": "verify-pack", "status": "error", "error": msg},
+                    exit_code=3,
+                )
             console.print(f"[red]Error:[/] {msg}")
             raise typer.Exit(3)
 
@@ -2820,7 +3197,13 @@ def verify_pack_cmd(
 
     if not manifest_path.exists():
         if output_json:
-            _output_json({"command": "verify-pack", "status": "error", "error": "pack_manifest.json not found"})
+            _output_json(
+                {
+                    "command": "verify-pack",
+                    "status": "error",
+                    "error": "pack_manifest.json not found",
+                }
+            )
         console.print(f"[red]Error:[/] {manifest_path} not found")
         raise typer.Exit(1)
 
@@ -2828,20 +3211,25 @@ def verify_pack_cmd(
 
     # Schema validation (verify-time enforcement)
     from assay.manifest_schema import validate_manifest
+
     schema_errors = validate_manifest(manifest)
     if schema_errors:
         if output_json:
-            _output_json({
-                "command": "verify-pack", "status": "error",
-                "error": "schema_validation_failed", "details": schema_errors,
-            })
+            _output_json(
+                {
+                    "command": "verify-pack",
+                    "status": "error",
+                    "error": "schema_validation_failed",
+                    "details": schema_errors,
+                }
+            )
         console.print("[red]Schema validation failed:[/]")
         for se in schema_errors[:10]:
             console.print(f"  {se}")
         raise typer.Exit(1)
 
     ks = get_default_keystore()
-    result = verify_pack_manifest(
+    result = verify_proof_pack(
         manifest,
         pack_path,
         ks,
@@ -2893,10 +3281,14 @@ def verify_pack_cmd(
         lock_issues = check_lockfile(lock_path)
         if lock_issues:
             if output_json:
-                _output_json({
-                    "command": "verify-pack", "status": "error",
-                    "error": "lockfile_invalid", "details": lock_issues,
-                })
+                _output_json(
+                    {
+                        "command": "verify-pack",
+                        "status": "error",
+                        "error": "lockfile_invalid",
+                        "details": lock_issues,
+                    }
+                )
             console.print(f"[red]Error:[/] Lockfile is invalid: {lock}")
             for issue in lock_issues:
                 console.print(f"  [red]{issue}[/]")
@@ -2918,15 +3310,29 @@ def verify_pack_cmd(
         cc_path = Path(coverage_contract)
         if not cc_path.exists():
             if output_json:
-                _output_json({"command": "verify-pack", "status": "error", "error": f"Coverage contract not found: {coverage_contract}"})
-            console.print(f"[red]Error:[/] Coverage contract not found: {coverage_contract}")
+                _output_json(
+                    {
+                        "command": "verify-pack",
+                        "status": "error",
+                        "error": f"Coverage contract not found: {coverage_contract}",
+                    }
+                )
+            console.print(
+                f"[red]Error:[/] Coverage contract not found: {coverage_contract}"
+            )
             raise typer.Exit(2)
 
         try:
             contract = CoverageContract.load(cc_path)
         except (json.JSONDecodeError, ValueError, KeyError) as e:
             if output_json:
-                _output_json({"command": "verify-pack", "status": "error", "error": f"Invalid coverage contract: {e}"})
+                _output_json(
+                    {
+                        "command": "verify-pack",
+                        "status": "error",
+                        "error": f"Invalid coverage contract: {e}",
+                    }
+                )
             console.print(f"[red]Error:[/] Invalid coverage contract: {e}")
             raise typer.Exit(2)
 
@@ -2962,10 +3368,16 @@ def verify_pack_cmd(
     if check_expiry:
         valid_until_str = att.get("valid_until")
         if valid_until_str:
-            from datetime import datetime as _dt, timezone as _tz
+            from datetime import datetime as _dt
+            from datetime import timezone as _tz
+
             try:
                 # Python 3.9/3.10 fromisoformat doesn't handle 'Z' suffix
-                _vu = valid_until_str.replace("Z", "+00:00") if valid_until_str.endswith("Z") else valid_until_str
+                _vu = (
+                    valid_until_str.replace("Z", "+00:00")
+                    if valid_until_str.endswith("Z")
+                    else valid_until_str
+                )
                 valid_until_ts = _dt.fromisoformat(_vu)
                 if valid_until_ts.tzinfo is None:
                     valid_until_ts = valid_until_ts.replace(tzinfo=_tz.utc)
@@ -3002,9 +3414,9 @@ def verify_pack_cmd(
     trust_eval = None
     trust_load_errors: list[str] = []
     if trust_target:
+        from assay.trust.acceptance import load_acceptance as _load_acceptance
         from assay.trust.evaluator import evaluate_trust
         from assay.trust.registry import load_registry as _load_registry
-        from assay.trust.acceptance import load_acceptance as _load_acceptance
 
         _registry = None
         _acceptance = None
@@ -3024,7 +3436,8 @@ def verify_pack_cmd(
                 trust_load_errors.append(f"acceptance.yaml: {exc}")
 
         trust_eval = evaluate_trust(
-            result, manifest,
+            result,
+            manifest,
             registry=_registry,
             acceptance_policy=_acceptance,
             target=trust_target,
@@ -3049,7 +3462,10 @@ def verify_pack_cmd(
     _artifact_paths: Dict[str, str] = {}
     if html_out or badge_out:
         from assay.verification_status import classify_verdict
-        from assay.verify_render import render_verification_badge, render_verification_html
+        from assay.verify_render import (
+            render_verification_badge,
+            render_verification_html,
+        )
 
         _ws_art: Optional[bool] = None
         if require_witness:
@@ -3183,32 +3599,43 @@ def verify_pack_cmd(
 
     if lock_failed:
         console.print()
-        console.print(Panel.fit(
-            f"[bold red]LOCK MISMATCH[/]\n\n"
-            f"Pack ID:    {att.get('pack_id')}\n"
-            f"Lock file:  {lock}\n"
-            f"Mismatches: {len(lock_errors)}",
-            title="assay verify-pack",
-        ))
+        console.print(
+            Panel.fit(
+                f"[bold red]LOCK MISMATCH[/]\n\n"
+                f"Pack ID:    {att.get('pack_id')}\n"
+                f"Lock file:  {lock}\n"
+                f"Mismatches: {len(lock_errors)}",
+                title="assay verify-pack",
+            )
+        )
         for le in lock_errors:
-            console.print(f"  [red]{le.field}[/]: expected {le.expected}, got {le.actual}")
+            console.print(
+                f"  [red]{le.field}[/]: expected {le.expected}, got {le.actual}"
+            )
         console.print()
         raise typer.Exit(2)
 
     if witness_failed:
         console.print()
-        console.print(Panel.fit(
-            f"[bold red]WITNESS VERIFICATION FAILED[/]\n\n"
-            f"Pack ID:    {att.get('pack_id')}\n"
-            f"Errors:     {len(witness_errors)}",
-            title="assay verify-pack",
-        ))
+        console.print(
+            Panel.fit(
+                f"[bold red]WITNESS VERIFICATION FAILED[/]\n\n"
+                f"Pack ID:    {att.get('pack_id')}\n"
+                f"Errors:     {len(witness_errors)}",
+                title="assay verify-pack",
+            )
+        )
         for we in witness_errors:
             console.print(f"  [red]{we}[/]")
         console.print()
         raise typer.Exit(2)
 
-    if result.passed and not claim_gate_failed and not coverage_failed and not expiry_failed:
+    if (
+        result.passed
+        and not claim_gate_failed
+        and not coverage_failed
+        and not expiry_failed
+    ):
         lock_line = f"\nLock:       PASS ({lock})" if lock else ""
         cov_line = ""
         if coverage_result is not None:
@@ -3230,65 +3657,75 @@ def verify_pack_cmd(
                 if _div:
                     posture_line += f" → [yellow]{_curr_p}[/] now"
         console.print()
-        console.print(Panel.fit(
-            f"[bold green]VERIFICATION PASSED[/]\n\n"
-            f"Pack ID:    {att.get('pack_id')}\n"
-            f"Integrity:  PASS\n"
-            f"Claims:     {claim_check}\n"
-            f"Receipts:   {result.receipt_count}\n"
-            f"Head Hash:  {result.head_hash or 'N/A'}\n"
-            f"Errors:     0\n"
-            f"Warnings:   {len(result.warnings)}"
-            f"{lock_line}"
-            f"{cov_line}"
-            f"{posture_line}",
-            title="assay verify-pack",
-        ))
+        console.print(
+            Panel.fit(
+                f"[bold green]VERIFICATION PASSED[/]\n\n"
+                f"Pack ID:    {att.get('pack_id')}\n"
+                f"Integrity:  PASS\n"
+                f"Claims:     {claim_check}\n"
+                f"Receipts:   {result.receipt_count}\n"
+                f"Head Hash:  {result.head_hash or 'N/A'}\n"
+                f"Errors:     0\n"
+                f"Warnings:   {len(result.warnings)}"
+                f"{lock_line}"
+                f"{cov_line}"
+                f"{posture_line}",
+                title="assay verify-pack",
+            )
+        )
     elif result.passed and expiry_failed:
         valid_until_str = att.get("valid_until", "N/A")
         console.print()
-        console.print(Panel.fit(
-            f"[bold yellow]PACK EXPIRED[/]\n\n"
-            f"Pack ID:      {att.get('pack_id')}\n"
-            f"Integrity:    PASS\n"
-            f"Claims:       {claim_check}\n"
-            f"Valid Until:  {valid_until_str}\n"
-            f"Receipts:     {result.receipt_count}\n\n"
-            f"--check-expiry: valid_until is in the past",
-            title="assay verify-pack",
-        ))
+        console.print(
+            Panel.fit(
+                f"[bold yellow]PACK EXPIRED[/]\n\n"
+                f"Pack ID:      {att.get('pack_id')}\n"
+                f"Integrity:    PASS\n"
+                f"Claims:       {claim_check}\n"
+                f"Valid Until:  {valid_until_str}\n"
+                f"Receipts:     {result.receipt_count}\n\n"
+                f"--check-expiry: valid_until is in the past",
+                title="assay verify-pack",
+            )
+        )
     elif result.passed and claim_gate_failed:
         console.print()
-        console.print(Panel.fit(
-            f"[bold yellow]CLAIM GATE FAILED[/]\n\n"
-            f"Pack ID:    {att.get('pack_id')}\n"
-            f"Integrity:  PASS\n"
-            f"Claims:     {claim_check}\n"
-            f"Receipts:   {result.receipt_count}\n\n"
-            f"--require-claim-pass was set but claim_check is '{claim_check}'",
-            title="assay verify-pack",
-        ))
+        console.print(
+            Panel.fit(
+                f"[bold yellow]CLAIM GATE FAILED[/]\n\n"
+                f"Pack ID:    {att.get('pack_id')}\n"
+                f"Integrity:  PASS\n"
+                f"Claims:     {claim_check}\n"
+                f"Receipts:   {result.receipt_count}\n\n"
+                f"--require-claim-pass was set but claim_check is '{claim_check}'",
+                title="assay verify-pack",
+            )
+        )
     elif result.passed and coverage_failed and coverage_result is not None:
         pct = coverage_result["coverage_pct"]
         console.print()
-        console.print(Panel.fit(
-            f"[bold yellow]COVERAGE BELOW THRESHOLD[/]\n\n"
-            f"Pack ID:    {att.get('pack_id')}\n"
-            f"Integrity:  PASS\n"
-            f"Claims:     {claim_check}\n"
-            f"Coverage:   {pct:.0%} ({coverage_result['covered_count']}/{coverage_result['total_count']})\n"
-            f"Threshold:  {min_coverage:.0%}\n"
-            f"Uncovered:  {len(coverage_result.get('uncovered_ids', []))} site(s)",
-            title="assay verify-pack",
-        ))
+        console.print(
+            Panel.fit(
+                f"[bold yellow]COVERAGE BELOW THRESHOLD[/]\n\n"
+                f"Pack ID:    {att.get('pack_id')}\n"
+                f"Integrity:  PASS\n"
+                f"Claims:     {claim_check}\n"
+                f"Coverage:   {pct:.0%} ({coverage_result['covered_count']}/{coverage_result['total_count']})\n"
+                f"Threshold:  {min_coverage:.0%}\n"
+                f"Uncovered:  {len(coverage_result.get('uncovered_ids', []))} site(s)",
+                title="assay verify-pack",
+            )
+        )
     else:
         console.print()
-        console.print(Panel.fit(
-            f"[bold red]VERIFICATION FAILED[/]\n\n"
-            f"Pack ID:    {att.get('pack_id')}\n"
-            f"Errors:     {len(result.errors)}",
-            title="assay verify-pack",
-        ))
+        console.print(
+            Panel.fit(
+                f"[bold red]VERIFICATION FAILED[/]\n\n"
+                f"Pack ID:    {att.get('pack_id')}\n"
+                f"Errors:     {len(result.errors)}",
+                title="assay verify-pack",
+            )
+        )
         for err in result.errors:
             console.print(f"  [red]{err.code}[/]: {err.message}")
 
@@ -3298,27 +3735,42 @@ def verify_pack_cmd(
 
     if trust_eval is not None and not output_json:
         _te = trust_eval
-        _auth_style = {"authorized": "green", "recognized": "yellow",
-                       "unrecognized": "red", "revoked": "red"}.get(_te.authorization.status, "dim")
-        _acc_style = {"accept": "green", "warn": "yellow",
-                      "reject": "red"}.get(_te.acceptance.decision, "dim")
+        _auth_style = {
+            "authorized": "green",
+            "recognized": "yellow",
+            "unrecognized": "red",
+            "revoked": "red",
+        }.get(_te.authorization.status, "dim")
+        _acc_style = {"accept": "green", "warn": "yellow", "reject": "red"}.get(
+            _te.acceptance.decision, "dim"
+        )
         console.print(f"\n  Trust evaluation ({_te.acceptance.target}):")
-        console.print(f"    authorization: [{_auth_style}]{_te.authorization.status}[/{_auth_style}]")
-        console.print(f"    acceptance:    [{_acc_style}]{_te.acceptance.decision}[/{_acc_style}]")
+        console.print(
+            f"    authorization: [{_auth_style}]{_te.authorization.status}[/{_auth_style}]"
+        )
+        console.print(
+            f"    acceptance:    [{_acc_style}]{_te.acceptance.decision}[/{_acc_style}]"
+        )
         if _te.authorization.reason_codes:
-            console.print(f"    auth reasons:  {', '.join(_te.authorization.reason_codes)}")
+            console.print(
+                f"    auth reasons:  {', '.join(_te.authorization.reason_codes)}"
+            )
         if _te.acceptance.reason_codes:
-            console.print(f"    accept reasons: {', '.join(_te.acceptance.reason_codes)}")
+            console.print(
+                f"    accept reasons: {', '.join(_te.acceptance.reason_codes)}"
+            )
 
     if trust_gate_failed and not output_json:
         console.print()
-        console.print(Panel.fit(
-            f"[bold red]TRUST GATE REJECTED[/]\n\n"
-            f"Pack ID:    {att.get('pack_id')}\n"
-            f"Target:     ci_gate\n"
-            f"Rationale:  {trust_eval.acceptance.rationale}",
-            title="assay verify-pack",
-        ))
+        console.print(
+            Panel.fit(
+                f"[bold red]TRUST GATE REJECTED[/]\n\n"
+                f"Pack ID:    {att.get('pack_id')}\n"
+                f"Target:     ci_gate\n"
+                f"Rationale:  {trust_eval.acceptance.rationale}",
+                title="assay verify-pack",
+            )
+        )
 
     if result.warnings:
         for w in result.warnings:
@@ -3326,7 +3778,14 @@ def verify_pack_cmd(
 
     console.print()
 
-    if result.passed and not claim_gate_failed and not coverage_failed and not expiry_failed and not lock and not trust_gate_failed:
+    if (
+        result.passed
+        and not claim_gate_failed
+        and not coverage_failed
+        and not expiry_failed
+        and not lock
+        and not trust_gate_failed
+    ):
         console.print("Next: [bold]assay lock init[/]")
         console.print()
 
@@ -3345,27 +3804,36 @@ def verify_pack_cmd(
 @assay_app.command("replay-judge", hidden=True)
 def replay_judge_cmd(
     expected_pack: str = typer.Option(
-        ..., "--expected-pack", "-e",
+        ...,
+        "--expected-pack",
+        "-e",
         help="Path to the expected (original/baseline) proof pack directory",
     ),
     observed_pack: str = typer.Option(
-        ..., "--observed-pack", "-o",
+        ...,
+        "--observed-pack",
+        "-o",
         help="Path to the observed (replayed) proof pack directory",
     ),
     out_dir: str = typer.Option(
-        ..., "--out-dir", "-O",
+        ...,
+        "--out-dir",
+        "-O",
         help="Directory to write replay_judgment.json and replay_explanation_trace.json",
     ),
     key_id: Optional[str] = typer.Option(
-        None, "--key-id",
+        None,
+        "--key-id",
         help="Signing key identity. Default: active key.",
     ),
     overwrite: bool = typer.Option(
-        False, "--overwrite",
+        False,
+        "--overwrite",
         help="Overwrite output files if they already exist.",
     ),
     pretty: bool = typer.Option(
-        False, "--pretty",
+        False,
+        "--pretty",
         help="Pretty-print JSON output (indented).",
     ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
@@ -3385,17 +3853,26 @@ def replay_judge_cmd(
     out_path = Path(out_dir)
 
     # Early validation
-    for label, p in [("expected-pack", expected_path), ("observed-pack", observed_path)]:
+    for label, p in [
+        ("expected-pack", expected_path),
+        ("observed-pack", observed_path),
+    ]:
         if not p.exists():
             msg = f"--{label} directory does not exist: {p}"
             if output_json:
-                _output_json({"command": "replay-judge", "status": "error", "error": msg}, exit_code=3)
+                _output_json(
+                    {"command": "replay-judge", "status": "error", "error": msg},
+                    exit_code=3,
+                )
             console.print(f"[red]Error:[/] {msg}")
             raise typer.Exit(3)
         if not (p / "pack_manifest.json").exists():
             msg = f"--{label} directory missing pack_manifest.json: {p}"
             if output_json:
-                _output_json({"command": "replay-judge", "status": "error", "error": msg}, exit_code=3)
+                _output_json(
+                    {"command": "replay-judge", "status": "error", "error": msg},
+                    exit_code=3,
+                )
             console.print(f"[red]Error:[/] {msg}")
             raise typer.Exit(3)
 
@@ -3415,26 +3892,35 @@ def replay_judge_cmd(
     except FileExistsError as e:
         msg = str(e)
         if output_json:
-            _output_json({"command": "replay-judge", "status": "error", "error": msg}, exit_code=3)
+            _output_json(
+                {"command": "replay-judge", "status": "error", "error": msg},
+                exit_code=3,
+            )
         console.print(f"[red]Error:[/] {msg}")
         raise typer.Exit(3)
     except Exception as e:
         msg = f"Internal error: {e}"
         if output_json:
-            _output_json({"command": "replay-judge", "status": "error", "error": msg}, exit_code=3)
+            _output_json(
+                {"command": "replay-judge", "status": "error", "error": msg},
+                exit_code=3,
+            )
         console.print(f"[red]Error:[/] {msg}")
         raise typer.Exit(3)
 
     if output_json:
-        _output_json({
-            "command": "replay-judge",
-            "status": "ok",
-            "verdict": result.verdict,
-            "judgment_id": result.judgment_id,
-            "judgment_path": str(result.judgment_path),
-            "trace_path": str(result.trace_path),
-            "exit_code": result.exit_code,
-        }, exit_code=result.exit_code)
+        _output_json(
+            {
+                "command": "replay-judge",
+                "status": "ok",
+                "verdict": result.verdict,
+                "judgment_id": result.judgment_id,
+                "judgment_path": str(result.judgment_path),
+                "trace_path": str(result.trace_path),
+                "exit_code": result.exit_code,
+            },
+            exit_code=result.exit_code,
+        )
 
     console.print(f"\nreplay verdict: [bold]{result.verdict}[/]")
     console.print(f"wrote: {result.judgment_path}")
@@ -3448,23 +3934,29 @@ def replay_judge_cmd(
 def accept_cmd(
     pack_dir: str = typer.Argument(..., help="Path to verified Proof Pack directory"),
     output: Optional[str] = typer.Option(
-        None, "--output", "-o",
+        None,
+        "--output",
+        "-o",
         help="Output path for ACCEPTANCE_RECEIPT.json. Default: <pack_dir>/ACCEPTANCE_RECEIPT.json",
     ),
     lock: Optional[str] = typer.Option(
-        None, "--lock",
+        None,
+        "--lock",
         help="Path to assay.lock file. Enforces locked verification before acceptance.",
     ),
     max_age_hours: Optional[float] = typer.Option(
-        None, "--max-age-hours",
+        None,
+        "--max-age-hours",
         help="Fail if pack is older than this many hours.",
     ),
     require_ci_binding: bool = typer.Option(
-        False, "--require-ci-binding",
+        False,
+        "--require-ci-binding",
         help="Fail if pack has no CI binding.",
     ),
     expected_commit_sha: Optional[str] = typer.Option(
-        None, "--expected-commit-sha",
+        None,
+        "--expected-commit-sha",
         help="Fail if ci_binding.commit_sha does not match.",
     ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
@@ -3483,15 +3975,21 @@ def accept_cmd(
     from pathlib import Path
 
     from assay.acceptance import generate_acceptance_receipt
-    from assay.integrity import verify_pack_manifest
     from assay.keystore import get_default_keystore
+    from assay.proof_pack import verify_proof_pack
 
     pack_path = Path(pack_dir)
     manifest_path = pack_path / "pack_manifest.json"
 
     if not manifest_path.exists():
         if output_json:
-            _output_json({"command": "accept", "status": "error", "error": "pack_manifest.json not found"})
+            _output_json(
+                {
+                    "command": "accept",
+                    "status": "error",
+                    "error": "pack_manifest.json not found",
+                }
+            )
         console.print(f"[red]Error:[/] {manifest_path} not found")
         raise typer.Exit(2)
 
@@ -3499,20 +3997,25 @@ def accept_cmd(
 
     # Schema validation
     from assay.manifest_schema import validate_manifest
+
     schema_errors = validate_manifest(manifest)
     if schema_errors:
         if output_json:
-            _output_json({
-                "command": "accept", "status": "error",
-                "error": "schema_validation_failed", "details": schema_errors,
-            })
+            _output_json(
+                {
+                    "command": "accept",
+                    "status": "error",
+                    "error": "schema_validation_failed",
+                    "details": schema_errors,
+                }
+            )
         console.print("[red]Schema validation failed:[/]")
         for se in schema_errors[:10]:
             console.print(f"  {se}")
         raise typer.Exit(2)
 
     ks = get_default_keystore()
-    result = verify_pack_manifest(
+    result = verify_proof_pack(
         manifest,
         pack_path,
         ks,
@@ -3539,10 +4042,18 @@ def accept_cmd(
     # Lock enforcement
     if lock:
         from assay.lockfile import load_lockfile, validate_against_lock
+
         lock_path = Path(lock)
         if not lock_path.exists():
             if output_json:
-                _output_json({"command": "accept", "status": "error", "error": "lock_file_not_found"}, exit_code=2)
+                _output_json(
+                    {
+                        "command": "accept",
+                        "status": "error",
+                        "error": "lock_file_not_found",
+                    },
+                    exit_code=2,
+                )
             console.print(f"[red]Error:[/] Lock file not found: {lock}")
             raise typer.Exit(2)
         lock_data = load_lockfile(lock_path)
@@ -3564,22 +4075,29 @@ def accept_cmd(
     )
 
     if output_json:
-        _output_json({
-            "command": "accept",
-            "status": "accepted" if exit_code == 0 else ("claims_failed" if exit_code == 1 else "rejected"),
-            "exit_code": exit_code,
-            "receipt_path": str(receipt_path),
-            "pack_id": receipt["pack_id"],
-            "pack_root_sha256": receipt["pack_root_sha256"],
-            "verification": receipt["verification"],
-            "signer_id": receipt["signer"]["signer_id"],
-            "lock_errors": lock_errors,
-        }, exit_code=exit_code)
+        _output_json(
+            {
+                "command": "accept",
+                "status": "accepted"
+                if exit_code == 0
+                else ("claims_failed" if exit_code == 1 else "rejected"),
+                "exit_code": exit_code,
+                "receipt_path": str(receipt_path),
+                "pack_id": receipt["pack_id"],
+                "pack_root_sha256": receipt["pack_root_sha256"],
+                "verification": receipt["verification"],
+                "signer_id": receipt["signer"]["signer_id"],
+                "lock_errors": lock_errors,
+            },
+            exit_code=exit_code,
+        )
 
     if exit_code == 0:
         console.print(f"[bold green]Accepted[/] — {receipt_path}")
     elif exit_code == 1:
-        console.print(f"[bold yellow]Claims failed[/] — receipt written to {receipt_path}")
+        console.print(
+            f"[bold yellow]Claims failed[/] — receipt written to {receipt_path}"
+        )
     else:
         console.print(f"[bold red]Rejected[/] — receipt written to {receipt_path}")
 
@@ -3601,7 +4119,8 @@ def accept_cmd(
 def verify_acceptance_cmd(
     receipt_path: str = typer.Argument(..., help="Path to ACCEPTANCE_RECEIPT.json"),
     expected_pack_root: Optional[str] = typer.Option(
-        None, "--expected-pack-root",
+        None,
+        "--expected-pack-root",
         help="Expected pack_root_sha256. Fail if receipt references a different pack.",
     ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
@@ -3620,7 +4139,13 @@ def verify_acceptance_cmd(
     rpath = Path(receipt_path)
     if not rpath.exists():
         if output_json:
-            _output_json({"command": "verify-acceptance", "status": "error", "error": "receipt not found"})
+            _output_json(
+                {
+                    "command": "verify-acceptance",
+                    "status": "error",
+                    "error": "receipt not found",
+                }
+            )
         console.print(f"[red]Error:[/] {rpath} not found")
         raise typer.Exit(2)
 
@@ -3633,22 +4158,31 @@ def verify_acceptance_cmd(
     )
 
     if output_json:
-        _output_json({
-            "command": "verify-acceptance",
-            "status": "valid" if result.passed else "invalid",
-            "pack_id": receipt.get("pack_id", ""),
-            "pack_root_sha256": receipt.get("pack_root_sha256", ""),
-            "verification": receipt.get("verification", {}),
-            "errors": result.errors,
-        }, exit_code=0 if result.passed else 2)
+        _output_json(
+            {
+                "command": "verify-acceptance",
+                "status": "valid" if result.passed else "invalid",
+                "pack_id": receipt.get("pack_id", ""),
+                "pack_root_sha256": receipt.get("pack_root_sha256", ""),
+                "verification": receipt.get("verification", {}),
+                "errors": result.errors,
+            },
+            exit_code=0 if result.passed else 2,
+        )
 
     if result.passed:
         console.print(f"[bold green]Valid[/] — {rpath}")
         console.print(f"  Pack ID:     {receipt.get('pack_id', 'N/A')}")
-        console.print(f"  Integrity:   {receipt.get('verification', {}).get('integrity', 'N/A')}")
-        console.print(f"  Claims:      {receipt.get('verification', {}).get('claims', 'N/A')}")
+        console.print(
+            f"  Integrity:   {receipt.get('verification', {}).get('integrity', 'N/A')}"
+        )
+        console.print(
+            f"  Claims:      {receipt.get('verification', {}).get('claims', 'N/A')}"
+        )
         console.print(f"  Issued:      {receipt.get('issued_at', 'N/A')}")
-        console.print(f"  Signer:      {receipt.get('signer', {}).get('signer_id', 'N/A')}")
+        console.print(
+            f"  Signer:      {receipt.get('signer', {}).get('signer_id', 'N/A')}"
+        )
     else:
         console.print(f"[bold red]Invalid[/] — {rpath}")
         for err in result.errors:
@@ -3661,21 +4195,27 @@ def verify_acceptance_cmd(
 def witness_cmd(
     pack_dir: str = typer.Argument(..., help="Path to Proof Pack directory"),
     witness_type: str = typer.Option(
-        "rfc3161", "--type", "-t",
+        "rfc3161",
+        "--type",
+        "-t",
         help="Witness provider type: rfc3161 (default) or rekor (not yet implemented).",
     ),
     tsa_url: str = typer.Option(
-        "https://freetsa.org/tsr", "--tsa-url",
+        "https://freetsa.org/tsr",
+        "--tsa-url",
         help="TSA server URL (RFC 3161 only).",
     ),
     output: Optional[str] = typer.Option(
-        None, "--output", "-o",
+        None,
+        "--output",
+        "-o",
         help="Output path for witness_bundle.json. Default: <pack_dir>/witness_bundle.json",
     ),
     acknowledge_debt: bool = typer.Option(
-        False, "--acknowledge-debt",
+        False,
+        "--acknowledge-debt",
         help="Proceed with witness submission despite governance debt. "
-             "The acknowledgment is recorded in the witness bundle metadata.",
+        "The acknowledgment is recorded in the witness bundle metadata.",
     ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
@@ -3712,7 +4252,13 @@ def witness_cmd(
 
     if not manifest_path.exists():
         if output_json:
-            _output_json({"command": "witness", "status": "error", "error": "pack_manifest.json not found"})
+            _output_json(
+                {
+                    "command": "witness",
+                    "status": "error",
+                    "error": "pack_manifest.json not found",
+                }
+            )
         console.print(f"[red]Error:[/] {manifest_path} not found")
         raise typer.Exit(2)
 
@@ -3722,10 +4268,7 @@ def witness_cmd(
     # DEBT_OUTSTANDING is warned but allowed. CLEAN passes silently.
     try:
         from assay.governance_posture import (
-            DivergenceType,
             PostureState,
-            compute_divergence,
-            evaluate_posture,
             extract_production_posture,
         )
 
@@ -3749,14 +4292,17 @@ def witness_cmd(
                     f"  Override:          assay witness {pack_dir} --acknowledge-debt"
                 )
                 if output_json:
-                    _output_json({
-                        "command": "witness",
-                        "status": "blocked",
-                        "error": "governance_posture_gate",
-                        "production_posture": _prod_state,
-                        "obligation_ids": _ob_ids,
-                        "fix": f"assay witness {pack_dir} --acknowledge-debt",
-                    }, exit_code=1)
+                    _output_json(
+                        {
+                            "command": "witness",
+                            "status": "blocked",
+                            "error": "governance_posture_gate",
+                            "production_posture": _prod_state,
+                            "obligation_ids": _ob_ids,
+                            "fix": f"assay witness {pack_dir} --acknowledge-debt",
+                        },
+                        exit_code=1,
+                    )
                 console.print(f"[bold red]BLOCKED[/]: {_msg}")
                 raise typer.Exit(1)
 
@@ -3829,17 +4375,25 @@ def witness_cmd(
                 + "; ".join(witness_result.errors)
             )
 
-        if decision_credential is not None and keystore is not None and signer_id is not None:
+        if (
+            decision_credential is not None
+            and keystore is not None
+            and signer_id is not None
+        ):
             refreshed_adc = refresh_adc_witness_state(
                 decision_credential,
                 time_authority="tsa_anchored",
                 witness_status="witnessed",
                 sign_fn=lambda data: keystore.sign_b64(data, signer_id),
             )
-            decision_credential_path.write_text(json.dumps(refreshed_adc, indent=2) + "\n")
+            decision_credential_path.write_text(
+                json.dumps(refreshed_adc, indent=2) + "\n"
+            )
     except WitnessError as e:
         if output_json:
-            _output_json({"command": "witness", "status": "error", "error": str(e)}, exit_code=2)
+            _output_json(
+                {"command": "witness", "status": "error", "error": str(e)}, exit_code=2
+            )
         console.print(f"[red]Error:[/] {e}")
         raise typer.Exit(2)
 
@@ -3857,14 +4411,17 @@ def witness_cmd(
             summary_path.write_text(summary)
 
     if output_json:
-        _output_json({
-            "command": "witness",
-            "status": "ok",
-            "witness_type": bundle["witness_type"],
-            "pack_root_sha256": bundle["pack_root_sha256"],
-            "gen_time": bundle.get("gen_time"),
-            "bundle_path": str(bundle_path),
-        }, exit_code=0)
+        _output_json(
+            {
+                "command": "witness",
+                "status": "ok",
+                "witness_type": bundle["witness_type"],
+                "pack_root_sha256": bundle["pack_root_sha256"],
+                "gen_time": bundle.get("gen_time"),
+                "bundle_path": str(bundle_path),
+            },
+            exit_code=0,
+        )
 
     console.print(f"[bold green]Witness obtained[/] — {bundle_path}")
     console.print(f"  Type:        {bundle['witness_type']}")
@@ -3881,7 +4438,9 @@ def witness_cmd(
 def verify_witness_cmd(
     pack_dir: str = typer.Argument(..., help="Path to Proof Pack directory"),
     bundle: Optional[str] = typer.Option(
-        None, "--bundle", "-b",
+        None,
+        "--bundle",
+        "-b",
         help="Path to witness_bundle.json. Default: <pack_dir>/witness_bundle.json",
     ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
@@ -3907,19 +4466,22 @@ def verify_witness_cmd(
     result = verify_witness_from_pack(pack_path, bundle_path=bundle_path)
 
     if output_json:
-        _output_json({
-            "command": "verify-witness",
-            "status": "valid" if result.passed else "invalid",
-            "gen_time": result.gen_time,
-            "errors": result.errors,
-        }, exit_code=0 if result.passed else 2)
+        _output_json(
+            {
+                "command": "verify-witness",
+                "status": "valid" if result.passed else "invalid",
+                "gen_time": result.gen_time,
+                "errors": result.errors,
+            },
+            exit_code=0 if result.passed else 2,
+        )
 
     if result.passed:
-        console.print(f"[bold green]Witness verified[/]")
+        console.print("[bold green]Witness verified[/]")
         if result.gen_time:
             console.print(f"  Gen time:  {result.gen_time}")
     else:
-        console.print(f"[bold red]Witness verification failed[/]")
+        console.print("[bold red]Witness verification failed[/]")
         for err in result.errors:
             console.print(f"  [red]{err}[/]")
 
@@ -3930,11 +4492,13 @@ def verify_witness_cmd(
 def verify_signer_cmd(
     pack_dir: str = typer.Argument(..., help="Path to Proof Pack directory"),
     expected: Optional[str] = typer.Option(
-        None, "--expected",
+        None,
+        "--expected",
         help="Expected signer_id. Fail (exit 1) if pack signer doesn't match.",
     ),
     fingerprint: Optional[str] = typer.Option(
-        None, "--fingerprint",
+        None,
+        "--fingerprint",
         help="Expected pubkey fingerprint (hex prefix). Fail (exit 1) if mismatch.",
     ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
@@ -3960,13 +4524,27 @@ def verify_signer_cmd(
 
     if not pack_path.is_dir():
         if output_json:
-            _output_json({"command": "verify-signer", "status": "error", "error": f"Not a directory: {pack_dir}"}, exit_code=3)
+            _output_json(
+                {
+                    "command": "verify-signer",
+                    "status": "error",
+                    "error": f"Not a directory: {pack_dir}",
+                },
+                exit_code=3,
+            )
         console.print(f"[red]Error:[/] {pack_dir} is not a directory")
         raise typer.Exit(3)
 
     if not manifest_path.exists():
         if output_json:
-            _output_json({"command": "verify-signer", "status": "error", "error": "pack_manifest.json not found"}, exit_code=3)
+            _output_json(
+                {
+                    "command": "verify-signer",
+                    "status": "error",
+                    "error": "pack_manifest.json not found",
+                },
+                exit_code=3,
+            )
         console.print(f"[red]Error:[/] {manifest_path} not found")
         raise typer.Exit(3)
 
@@ -4025,26 +4603,31 @@ def verify_signer_cmd(
     fp_badge = "[green]yes[/]" if local_fp_match else "[dim]no[/]"
 
     from rich.panel import Panel
+
     if match_ok:
-        console.print(Panel.fit(
-            f"[bold green]SIGNER VERIFIED[/]\n\n"
-            f"Signer ID:       {signer_id}\n"
-            f"Fingerprint:     {fp_display}\n"
-            f"Algorithm:       {signature_alg}\n"
-            f"In keystore:     {local_badge}\n"
-            f"Local FP match:  {fp_badge}",
-            title="assay verify-signer",
-        ))
+        console.print(
+            Panel.fit(
+                f"[bold green]SIGNER VERIFIED[/]\n\n"
+                f"Signer ID:       {signer_id}\n"
+                f"Fingerprint:     {fp_display}\n"
+                f"Algorithm:       {signature_alg}\n"
+                f"In keystore:     {local_badge}\n"
+                f"Local FP match:  {fp_badge}",
+                title="assay verify-signer",
+            )
+        )
     else:
-        console.print(Panel.fit(
-            f"[bold red]SIGNER MISMATCH[/]\n\n"
-            f"Signer ID:       {signer_id}\n"
-            f"Fingerprint:     {fp_display}\n"
-            f"Algorithm:       {signature_alg}\n"
-            f"In keystore:     {local_badge}\n\n"
-            f"[red]{mismatch_reason}[/]",
-            title="assay verify-signer",
-        ))
+        console.print(
+            Panel.fit(
+                f"[bold red]SIGNER MISMATCH[/]\n\n"
+                f"Signer ID:       {signer_id}\n"
+                f"Fingerprint:     {fp_display}\n"
+                f"Algorithm:       {signature_alg}\n"
+                f"In keystore:     {local_badge}\n\n"
+                f"[red]{mismatch_reason}[/]",
+                title="assay verify-signer",
+            )
+        )
     console.print()
 
     if not match_ok:
@@ -4189,23 +4772,25 @@ def demo_pack_cmd(
         att_b = manifest_b["attestation"]
 
         if output_json:
-            _output_json({
-                "command": "demo-pack",
-                "status": "ok",
-                "pack_a": {
-                    "pack_id": att_a["pack_id"],
-                    "receipt_integrity": att_a["receipt_integrity"],
-                    "claim_check": att_a["claim_check"],
-                    "n_receipts": att_a["n_receipts"],
-                    "verified": result_a.passed,
-                },
-                "pack_b": {
-                    "pack_id": att_b["pack_id"],
-                    "receipt_integrity": att_b["receipt_integrity"],
-                    "claim_check": att_b["claim_check"],
-                    "n_receipts": att_b["n_receipts"],
-                },
-            })
+            _output_json(
+                {
+                    "command": "demo-pack",
+                    "status": "ok",
+                    "pack_a": {
+                        "pack_id": att_a["pack_id"],
+                        "receipt_integrity": att_a["receipt_integrity"],
+                        "claim_check": att_a["claim_check"],
+                        "n_receipts": att_a["n_receipts"],
+                        "verified": result_a.passed,
+                    },
+                    "pack_b": {
+                        "pack_id": att_b["pack_id"],
+                        "receipt_integrity": att_b["receipt_integrity"],
+                        "claim_check": att_b["claim_check"],
+                        "n_receipts": att_b["n_receipts"],
+                    },
+                }
+            )
 
         # Output
         console.print()
@@ -4218,54 +4803,84 @@ def demo_pack_cmd(
 
         console.print()
         console.print("[dim]Step 2:[/] Built Proof Pack A (4 claims, all should pass)")
-        console.print(Panel.fit(
-            f"Pack ID:    {att_a['pack_id']}\n"
-            f"Integrity:  [green]{att_a['receipt_integrity']}[/]\n"
-            f"Claims:     [green]{att_a['claim_check']}[/]\n"
-            f"Receipts:   {att_a['n_receipts']}\n"
-            f"Verified:   [green]{'PASS' if result_a.passed else 'FAIL'}[/]",
-            title="Pack A: all claims pass",
-        ))
+        console.print(
+            Panel.fit(
+                f"Pack ID:    {att_a['pack_id']}\n"
+                f"Integrity:  [green]{att_a['receipt_integrity']}[/]\n"
+                f"Claims:     [green]{att_a['claim_check']}[/]\n"
+                f"Receipts:   {att_a['n_receipts']}\n"
+                f"Verified:   [green]{'PASS' if result_a.passed else 'FAIL'}[/]",
+                title="Pack A: all claims pass",
+            )
+        )
 
-        console.print("[dim]Step 3:[/] Built Pack B (same receipts, stricter claim: need 100 receipts)")
-        console.print(Panel.fit(
-            f"Pack ID:    {att_b['pack_id']}\n"
-            f"Integrity:  [green]{att_b['receipt_integrity']}[/]  (same receipts = same integrity)\n"
-            f"Claims:     [red]{att_b['claim_check']}[/]  (5 receipts < 100 required)\n"
-            f"Receipts:   {att_b['n_receipts']}",
-            title="Pack B: claim fails honestly",
-        ))
+        console.print(
+            "[dim]Step 3:[/] Built Pack B (same receipts, stricter claim: need 100 receipts)"
+        )
+        console.print(
+            Panel.fit(
+                f"Pack ID:    {att_b['pack_id']}\n"
+                f"Integrity:  [green]{att_b['receipt_integrity']}[/]  (same receipts = same integrity)\n"
+                f"Claims:     [red]{att_b['claim_check']}[/]  (5 receipts < 100 required)\n"
+                f"Receipts:   {att_b['n_receipts']}",
+                title="Pack B: claim fails honestly",
+            )
+        )
 
         console.print()
-        console.print("[bold]Key insight:[/] Same evidence, different claims, different outcomes.")
-        console.print("Integrity PASS + Claim FAIL = honest failure report, not a cover-up.")
+        console.print(
+            "[bold]Key insight:[/] Same evidence, different claims, different outcomes."
+        )
+        console.print(
+            "Integrity PASS + Claim FAIL = honest failure report, not a cover-up."
+        )
         console.print()
         console.print("[dim]Files in each pack:[/]")
         for f in sorted(out_a.iterdir()):
             console.print(f"  {f.name}")
         console.print()
         console.print("Next steps:")
-        console.print("  Emit receipts from your code:  [bold]from assay import emit_receipt[/]")
-        console.print("  Wrap a command:                [bold]assay run -- python my_agent.py[/]")
-        console.print("  Verify a pack:                 [bold]assay verify-pack <dir>[/]")
-        console.print("  CI gate:                       [bold]assay verify-pack <dir> --require-claim-pass[/]")
+        console.print(
+            "  Emit receipts from your code:  [bold]from assay import emit_receipt[/]"
+        )
+        console.print(
+            "  Wrap a command:                [bold]assay run -- python my_agent.py[/]"
+        )
+        console.print(
+            "  Verify a pack:                 [bold]assay verify-pack <dir>[/]"
+        )
+        console.print(
+            "  CI gate:                       [bold]assay verify-pack <dir> --require-claim-pass[/]"
+        )
 
 
-@assay_app.command("run", context_settings={"allow_extra_args": True, "allow_interspersed_args": False}, rich_help_panel="Build & Verify")
+@assay_app.command(
+    "run",
+    context_settings={"allow_extra_args": True, "allow_interspersed_args": False},
+    rich_help_panel="Build & Verify",
+)
 def run_cmd(
     ctx: typer.Context,
     run_card: Optional[List[str]] = typer.Option(
-        None, "--run-card", "-c",
+        None,
+        "--run-card",
+        "-c",
         help="Run card: builtin name or path to JSON file (repeatable)",
     ),
-    output_dir: str = typer.Option(None, "--output", "-o", help="Output directory for proof pack"),
-    mode: str = typer.Option("shadow", "--mode", "-m", help="Mode: shadow|enforced|breakglass"),
+    output_dir: str = typer.Option(
+        None, "--output", "-o", help="Output directory for proof pack"
+    ),
+    mode: str = typer.Option(
+        "shadow", "--mode", "-m", help="Mode: shadow|enforced|breakglass"
+    ),
     allow_empty: bool = typer.Option(
-        False, "--allow-empty",
+        False,
+        "--allow-empty",
         help="Allow empty receipt packs (default: fail if no receipts emitted)",
     ),
     no_generate_key: bool = typer.Option(
-        False, "--no-generate-key",
+        False,
+        "--no-generate-key",
         help="Fail if signing key doesn't exist instead of auto-generating",
     ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
@@ -4276,15 +4891,19 @@ def run_cmd(
 
     The command's receipts are captured and packaged into a signed Proof Pack.
     """
+    import shutil
     import subprocess
     import sys
-    import shutil
     from pathlib import Path
 
     from assay.claim_verifier import ClaimSpec
     from assay.keystore import get_default_keystore
     from assay.proof_pack import ProofPack
-    from assay.run_cards import collect_claims_from_cards, get_builtin_card, load_run_card
+    from assay.run_cards import (
+        collect_claims_from_cards,
+        get_builtin_card,
+        load_run_card,
+    )
     from assay.store import get_default_store
 
     cmd_args = ctx.args
@@ -4353,6 +4972,7 @@ def run_cmd(
 
     # Run the command with ASSAY_TRACE_ID in environment
     import os
+
     env = {**os.environ, "ASSAY_TRACE_ID": trace_id}
     exec_args = list(cmd_args)
     if exec_args and exec_args[0] == "python" and not shutil.which("python"):
@@ -4437,10 +5057,13 @@ def run_cmd(
         )
         raise typer.Exit(1)
     if not entries:
-        console.print("[yellow]Warning:[/] No receipts emitted. Building empty pack (--allow-empty).")
+        console.print(
+            "[yellow]Warning:[/] No receipts emitted. Building empty pack (--allow-empty)."
+        )
         entries = []
 
     from assay.proof_pack import detect_ci_binding
+
     pack = ProofPack(
         run_id=trace_id,
         entries=entries,
@@ -4460,33 +5083,37 @@ def run_cmd(
     att = manifest.get("attestation", {})
 
     if output_json:
-        _output_json({
-            "command": "run",
-            "status": "ok",
-            "exit_code": exit_code,
-            "trace_id": trace_id,
-            "pack_id": att.get("pack_id"),
-            "signer_id": signer_id,
-            "output_dir": str(result_dir),
-            "receipt_integrity": att.get("receipt_integrity"),
-            "claim_check": att.get("claim_check"),
-            "n_receipts": att.get("n_receipts"),
-        })
+        _output_json(
+            {
+                "command": "run",
+                "status": "ok",
+                "exit_code": exit_code,
+                "trace_id": trace_id,
+                "pack_id": att.get("pack_id"),
+                "signer_id": signer_id,
+                "output_dir": str(result_dir),
+                "receipt_integrity": att.get("receipt_integrity"),
+                "claim_check": att.get("claim_check"),
+                "n_receipts": att.get("n_receipts"),
+            }
+        )
 
     claim_line = f"Claims:     {att.get('claim_check', 'N/A')}\n" if claims else ""
     console.print()
-    console.print(Panel.fit(
-        f"[bold green]Proof Pack Built[/]\n\n"
-        f"Trace:      {trace_id}\n"
-        f"Pack ID:    {att.get('pack_id')}\n"
-        f"Signer:     {signer_id}\n"
-        f"Exit Code:  {exit_code}\n"
-        f"Integrity:  {att.get('receipt_integrity')}\n"
-        f"{claim_line}"
-        f"Receipts:   {att.get('n_receipts')}\n"
-        f"Output:     {result_dir}/",
-        title="assay run",
-    ))
+    console.print(
+        Panel.fit(
+            f"[bold green]Proof Pack Built[/]\n\n"
+            f"Trace:      {trace_id}\n"
+            f"Pack ID:    {att.get('pack_id')}\n"
+            f"Signer:     {signer_id}\n"
+            f"Exit Code:  {exit_code}\n"
+            f"Integrity:  {att.get('receipt_integrity')}\n"
+            f"{claim_line}"
+            f"Receipts:   {att.get('n_receipts')}\n"
+            f"Output:     {result_dir}/",
+            title="assay run",
+        )
+    )
 
     for f in sorted(result_dir.iterdir()):
         size = f.stat().st_size
@@ -4534,12 +5161,14 @@ def key_list_cmd(
         )
 
     if not info:
-        console.print(Panel.fit(
-            "[yellow]No signer keys found.[/]\n\n"
-            "Generate one with:\n"
-            "  [bold]assay key generate[/]",
-            title="assay key list",
-        ))
+        console.print(
+            Panel.fit(
+                "[yellow]No signer keys found.[/]\n\n"
+                "Generate one with:\n"
+                "  [bold]assay key generate[/]",
+                title="assay key list",
+            )
+        )
         return
 
     table = Table(show_header=True, header_style="bold magenta")
@@ -4576,7 +5205,10 @@ def key_set_active_cmd(
         ks.set_active_signer(signer_id)
     except ValueError as e:
         if output_json:
-            _output_json({"command": "key set-active", "status": "error", "error": str(e)}, exit_code=3)
+            _output_json(
+                {"command": "key set-active", "status": "error", "error": str(e)},
+                exit_code=3,
+            )
         console.print(f"[red]Error:[/] {e}")
         raise typer.Exit(3)
 
@@ -4593,31 +5225,37 @@ def key_set_active_cmd(
         )
 
     console.print()
-    console.print(Panel.fit(
-        f"[bold green]Active signer updated[/]\n\n"
-        f"Signer:      {signer_id}\n"
-        f"Fingerprint: {fp[:16]}...",
-        title="assay key set-active",
-    ))
+    console.print(
+        Panel.fit(
+            f"[bold green]Active signer updated[/]\n\n"
+            f"Signer:      {signer_id}\n"
+            f"Fingerprint: {fp[:16]}...",
+            title="assay key set-active",
+        )
+    )
     console.print()
 
 
 @key_app.command("rotate")
 def key_rotate_cmd(
     signer: Optional[str] = typer.Option(
-        None, "--signer",
+        None,
+        "--signer",
         help="Existing signer to rotate from (default: active signer)",
     ),
     new_signer: Optional[str] = typer.Option(
-        None, "--new-signer",
+        None,
+        "--new-signer",
         help="Signer ID for new key (default: <signer>-YYYYMMDDHHMMSS)",
     ),
     set_active: bool = typer.Option(
-        True, "--set-active/--no-set-active",
+        True,
+        "--set-active/--no-set-active",
         help="Set new signer as active after generation",
     ),
     lock: Optional[str] = typer.Option(
-        None, "--lock",
+        None,
+        "--lock",
         help="Optional lockfile path to append old/new signer fingerprints",
     ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
@@ -4638,7 +5276,9 @@ def key_rotate_cmd(
             f"or pick an existing signer from `assay key list`."
         )
         if output_json:
-            _output_json({"command": "key rotate", "status": "error", "error": msg}, exit_code=3)
+            _output_json(
+                {"command": "key rotate", "status": "error", "error": msg}, exit_code=3
+            )
         console.print(f"[red]Error:[/] {msg}")
         raise typer.Exit(3)
 
@@ -4649,7 +5289,9 @@ def key_rotate_cmd(
     if ks.has_key(new_signer):
         msg = f"Signer already exists: {new_signer}"
         if output_json:
-            _output_json({"command": "key rotate", "status": "error", "error": msg}, exit_code=3)
+            _output_json(
+                {"command": "key rotate", "status": "error", "error": msg}, exit_code=3
+            )
         console.print(f"[red]Error:[/] {msg}")
         raise typer.Exit(3)
 
@@ -4659,7 +5301,10 @@ def key_rotate_cmd(
         if not lock_path.exists():
             msg = f"Lock file not found: {lock_path}"
             if output_json:
-                _output_json({"command": "key rotate", "status": "error", "error": msg}, exit_code=3)
+                _output_json(
+                    {"command": "key rotate", "status": "error", "error": msg},
+                    exit_code=3,
+                )
             console.print(f"[red]Error:[/] {msg}")
             raise typer.Exit(3)
 
@@ -4712,10 +5357,12 @@ def key_rotate_cmd(
 @key_app.command("generate")
 def key_generate_cmd(
     signer_id: str = typer.Argument(
-        "assay-local", help="Signer ID for the new key (default: assay-local)",
+        "assay-local",
+        help="Signer ID for the new key (default: assay-local)",
     ),
     set_active: bool = typer.Option(
-        True, "--set-active/--no-set-active",
+        True,
+        "--set-active/--no-set-active",
         help="Set as active signer after generation",
     ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
@@ -4727,7 +5374,10 @@ def key_generate_cmd(
     if ks.has_key(signer_id):
         msg = f"Signer already exists: {signer_id}. Use `assay key rotate` to create a successor."
         if output_json:
-            _output_json({"command": "key generate", "status": "error", "error": msg}, exit_code=3)
+            _output_json(
+                {"command": "key generate", "status": "error", "error": msg},
+                exit_code=3,
+            )
         console.print(f"[red]Error:[/] {msg}")
         raise typer.Exit(3)
 
@@ -4751,20 +5401,23 @@ def key_generate_cmd(
         )
 
     console.print()
-    console.print(Panel.fit(
-        f"[bold green]Key generated[/]\n\n"
-        f"Signer:      {signer_id}\n"
-        f"Fingerprint: {fp[:16]}...\n"
-        f"Active:      {active}",
-        title="assay key generate",
-    ))
+    console.print(
+        Panel.fit(
+            f"[bold green]Key generated[/]\n\n"
+            f"Signer:      {signer_id}\n"
+            f"Fingerprint: {fp[:16]}...\n"
+            f"Active:      {active}",
+            title="assay key generate",
+        )
+    )
     console.print()
 
 
 @key_app.command("info")
 def key_info_cmd(
     signer_id: Optional[str] = typer.Argument(
-        None, help="Signer ID to inspect (default: active signer)",
+        None,
+        help="Signer ID to inspect (default: active signer)",
     ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
@@ -4779,7 +5432,9 @@ def key_info_cmd(
     if not ks.has_key(target):
         msg = f"Signer not found: {target}"
         if output_json:
-            _output_json({"command": "key info", "status": "error", "error": msg}, exit_code=3)
+            _output_json(
+                {"command": "key info", "status": "error", "error": msg}, exit_code=3
+            )
         console.print(f"[red]Error:[/] {msg}")
         raise typer.Exit(3)
 
@@ -4822,14 +5477,18 @@ def key_info_cmd(
 @key_app.command("export")
 def key_export_cmd(
     signer_id: Optional[str] = typer.Argument(
-        None, help="Signer ID to export (default: active signer)",
+        None,
+        help="Signer ID to export (default: active signer)",
     ),
     private: bool = typer.Option(
-        False, "--private",
+        False,
+        "--private",
         help="Include private key (handle with care!)",
     ),
     output: Optional[str] = typer.Option(
-        None, "-o", "--output",
+        None,
+        "-o",
+        "--output",
         help="Output directory (default: ./<signer_id>-export/)",
     ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
@@ -4846,7 +5505,9 @@ def key_export_cmd(
     if not ks.has_key(target):
         msg = f"Signer not found: {target}"
         if output_json:
-            _output_json({"command": "key export", "status": "error", "error": msg}, exit_code=3)
+            _output_json(
+                {"command": "key export", "status": "error", "error": msg}, exit_code=3
+            )
         console.print(f"[red]Error:[/] {msg}")
         raise typer.Exit(3)
 
@@ -4904,15 +5565,18 @@ def key_export_cmd(
 def key_import_cmd(
     pub_path: str = typer.Argument(..., help="Path to .pub.b64 file"),
     key_path: Optional[str] = typer.Option(
-        None, "--private",
+        None,
+        "--private",
         help="Path to .key.b64 file (private key)",
     ),
     signer_id: Optional[str] = typer.Option(
-        None, "--signer",
+        None,
+        "--signer",
         help="Signer ID to assign (default: derived from filename)",
     ),
     set_active: bool = typer.Option(
-        False, "--set-active",
+        False,
+        "--set-active",
         help="Set imported signer as active",
     ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
@@ -4929,7 +5593,9 @@ def key_import_cmd(
     if not pub_file.exists():
         msg = f"Public key file not found: {pub_path}"
         if output_json:
-            _output_json({"command": "key import", "status": "error", "error": msg}, exit_code=3)
+            _output_json(
+                {"command": "key import", "status": "error", "error": msg}, exit_code=3
+            )
         console.print(f"[red]Error:[/] {msg}")
         raise typer.Exit(3)
 
@@ -4945,7 +5611,9 @@ def key_import_cmd(
     if ks.has_key(signer_id):
         msg = f"Signer already exists: {signer_id}. Delete first or use --signer to pick a different ID."
         if output_json:
-            _output_json({"command": "key import", "status": "error", "error": msg}, exit_code=3)
+            _output_json(
+                {"command": "key import", "status": "error", "error": msg}, exit_code=3
+            )
         console.print(f"[red]Error:[/] {msg}")
         raise typer.Exit(3)
 
@@ -4957,7 +5625,9 @@ def key_import_cmd(
     except Exception as e:
         msg = f"Invalid public key file: {e}"
         if output_json:
-            _output_json({"command": "key import", "status": "error", "error": msg}, exit_code=3)
+            _output_json(
+                {"command": "key import", "status": "error", "error": msg}, exit_code=3
+            )
         console.print(f"[red]Error:[/] {msg}")
         raise typer.Exit(3)
 
@@ -4968,7 +5638,10 @@ def key_import_cmd(
         if not kf.exists():
             msg = f"Private key file not found: {key_path}"
             if output_json:
-                _output_json({"command": "key import", "status": "error", "error": msg}, exit_code=3)
+                _output_json(
+                    {"command": "key import", "status": "error", "error": msg},
+                    exit_code=3,
+                )
             console.print(f"[red]Error:[/] {msg}")
             raise typer.Exit(3)
         try:
@@ -4979,7 +5652,10 @@ def key_import_cmd(
         except Exception as e:
             msg = f"Invalid private key file: {e}"
             if output_json:
-                _output_json({"command": "key import", "status": "error", "error": msg}, exit_code=3)
+                _output_json(
+                    {"command": "key import", "status": "error", "error": msg},
+                    exit_code=3,
+                )
             console.print(f"[red]Error:[/] {msg}")
             raise typer.Exit(3)
 
@@ -5022,11 +5698,13 @@ def key_import_cmd(
 def key_revoke_cmd(
     signer_id: str = typer.Argument(..., help="Signer ID to revoke"),
     lock: Optional[str] = typer.Option(
-        None, "--lock",
+        None,
+        "--lock",
         help="Lockfile path to remove signer fingerprint from allowlist",
     ),
     delete: bool = typer.Option(
-        False, "--delete",
+        False,
+        "--delete",
         help="Also delete key files from disk",
     ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
@@ -5040,7 +5718,9 @@ def key_revoke_cmd(
     if not ks.has_key(signer_id):
         msg = f"Signer not found: {signer_id}"
         if output_json:
-            _output_json({"command": "key revoke", "status": "error", "error": msg}, exit_code=3)
+            _output_json(
+                {"command": "key revoke", "status": "error", "error": msg}, exit_code=3
+            )
         console.print(f"[red]Error:[/] {msg}")
         raise typer.Exit(3)
 
@@ -5053,7 +5733,10 @@ def key_revoke_cmd(
         if not lock_path.exists():
             msg = f"Lock file not found: {lock_path}"
             if output_json:
-                _output_json({"command": "key revoke", "status": "error", "error": msg}, exit_code=3)
+                _output_json(
+                    {"command": "key revoke", "status": "error", "error": msg},
+                    exit_code=3,
+                )
             console.print(f"[red]Error:[/] {msg}")
             raise typer.Exit(3)
 
@@ -5067,6 +5750,7 @@ def key_revoke_cmd(
             policy["allowed_fingerprints"] = allowed
             lock_data["signer_policy"] = policy
             import json
+
             lock_path.write_text(json.dumps(lock_data, indent=2) + "\n")
             removed_from_allowlist = True
             lock_updated = True
@@ -5125,15 +5809,20 @@ assay_app.add_typer(lock_app, name="lock", hidden=True, rich_help_panel="Operate
 @lock_app.command("write")
 def lock_write_cmd(
     cards: str = typer.Option(
-        ..., "--cards", "-c",
+        ...,
+        "--cards",
+        "-c",
         help="Comma-separated RunCard IDs (e.g. receipt_completeness,guardian_enforcement)",
     ),
     signer: Optional[str] = typer.Option(
-        None, "--signer",
+        None,
+        "--signer",
         help="Comma-separated signer pubkey SHA-256 fingerprints for allowlist policy",
     ),
     output: str = typer.Option(
-        "assay.lock", "--output", "-o",
+        "assay.lock",
+        "--output",
+        "-o",
         help="Output path for lockfile",
     ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
@@ -5161,25 +5850,31 @@ def lock_write_cmd(
         raise typer.Exit(1)
 
     if output_json:
-        _output_json({
-            "command": "lock write",
-            "status": "ok",
-            "output": output,
-            "run_cards": len(card_ids),
-            "composite_hash": lockfile["run_cards_composite_hash"],
-        })
+        _output_json(
+            {
+                "command": "lock write",
+                "status": "ok",
+                "output": output,
+                "run_cards": len(card_ids),
+                "composite_hash": lockfile["run_cards_composite_hash"],
+            }
+        )
     else:
         console.print()
-        console.print(Panel.fit(
-            f"[bold green]Lockfile written[/]\n\n"
-            f"Path:       {output}\n"
-            f"RunCards:    {', '.join(card_ids)}\n"
-            f"Composite:  {lockfile['run_cards_composite_hash'][:16]}...\n"
-            f"Signer:     {lockfile['signer_policy']['mode']}",
-            title="assay lock write",
-        ))
+        console.print(
+            Panel.fit(
+                f"[bold green]Lockfile written[/]\n\n"
+                f"Path:       {output}\n"
+                f"RunCards:    {', '.join(card_ids)}\n"
+                f"Composite:  {lockfile['run_cards_composite_hash'][:16]}...\n"
+                f"Signer:     {lockfile['signer_policy']['mode']}",
+                title="assay lock write",
+            )
+        )
         console.print()
-        console.print("Next: [bold]assay verify-pack <pack_dir> --lock assay.lock --require-claim-pass[/]")
+        console.print(
+            "Next: [bold]assay verify-pack <pack_dir> --lock assay.lock --require-claim-pass[/]"
+        )
         console.print()
 
 
@@ -5196,48 +5891,62 @@ def lock_check_cmd(
     lock_path = Path(path)
     if not lock_path.exists():
         if output_json:
-            _output_json({"command": "lock check", "status": "error", "error": f"Not found: {path}"})
+            _output_json(
+                {
+                    "command": "lock check",
+                    "status": "error",
+                    "error": f"Not found: {path}",
+                }
+            )
         console.print(f"[red]Error:[/] {path} not found")
         raise typer.Exit(1)
 
     issues = check_lockfile(lock_path)
 
     if output_json:
-        _output_json({
-            "command": "lock check",
-            "status": "ok" if not issues else "failed",
-            "issues": issues,
-        })
+        _output_json(
+            {
+                "command": "lock check",
+                "status": "ok" if not issues else "failed",
+                "issues": issues,
+            }
+        )
     elif issues:
         console.print()
-        console.print(Panel.fit(
-            f"[bold red]Lockfile invalid[/]\n\n"
-            f"Path:    {path}\n"
-            f"Issues:  {len(issues)}",
-            title="assay lock check",
-        ))
+        console.print(
+            Panel.fit(
+                f"[bold red]Lockfile invalid[/]\n\n"
+                f"Path:    {path}\n"
+                f"Issues:  {len(issues)}",
+                title="assay lock check",
+            )
+        )
         for issue in issues:
             console.print(f"  [red]{issue}[/]")
         console.print()
         raise typer.Exit(1)
     else:
         console.print()
-        console.print(Panel.fit(
-            f"[bold green]Lockfile valid[/]\n\n"
-            f"Path:  {path}",
-            title="assay lock check",
-        ))
+        console.print(
+            Panel.fit(
+                f"[bold green]Lockfile valid[/]\n\nPath:  {path}",
+                title="assay lock check",
+            )
+        )
         console.print()
 
 
 @lock_app.command("init")
 def lock_init_cmd(
     output: str = typer.Option(
-        "assay.lock", "--output", "-o",
+        "assay.lock",
+        "--output",
+        "-o",
         help="Output path for lockfile",
     ),
     from_pack: Optional[str] = typer.Option(
-        None, "--from-pack",
+        None,
+        "--from-pack",
         help="Copy claim_set_hash from an existing Proof Pack directory (avoids hash mismatch).",
     ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
@@ -5245,18 +5954,26 @@ def lock_init_cmd(
     """Create a lockfile with sane defaults (receipt_completeness card)."""
     from pathlib import Path
 
-    from assay.integrity import verify_pack_manifest
     from assay.keystore import get_default_keystore
     from assay.lockfile import write_lockfile
     from assay.manifest_schema import validate_manifest
+    from assay.proof_pack import verify_proof_pack
 
     card_ids = ["receipt_completeness"]
     out_path = Path(output)
 
     if out_path.exists():
         if output_json:
-            _output_json({"command": "lock init", "status": "error", "error": f"Already exists: {output} (use 'assay lock write' to overwrite)"})
-        console.print(f"[red]Error:[/] {output} already exists. Use [bold]assay lock write[/] to overwrite.")
+            _output_json(
+                {
+                    "command": "lock init",
+                    "status": "error",
+                    "error": f"Already exists: {output} (use 'assay lock write' to overwrite)",
+                }
+            )
+        console.print(
+            f"[red]Error:[/] {output} already exists. Use [bold]assay lock write[/] to overwrite."
+        )
         raise typer.Exit(1)
 
     # If --from-pack, extract claim_set_hash from the existing pack manifest
@@ -5300,11 +6017,13 @@ def lock_init_cmd(
             raise typer.Exit(1)
 
         ks = get_default_keystore()
-        verify_result = verify_pack_manifest(manifest, pack_path, ks)
+        verify_result = verify_proof_pack(manifest, pack_path, ks)
         if not verify_result.passed:
             first = verify_result.errors[0] if verify_result.errors else None
             detail = (
-                f"{first.code}: {first.message}" if first else "integrity verification failed"
+                f"{first.code}: {first.message}"
+                if first
+                else "integrity verification failed"
             )
             msg = (
                 f"Cannot import claim_set_hash from unverified pack: "
@@ -5343,26 +6062,32 @@ def lock_init_cmd(
         out_path.write_text(json.dumps(lockfile, indent=2) + "\n")
 
     if output_json:
-        _output_json({
-            "command": "lock init",
-            "status": "ok",
-            "output": output,
-            "run_cards": card_ids,
-            "composite_hash": lockfile["run_cards_composite_hash"],
-            "from_pack": from_pack,
-        })
+        _output_json(
+            {
+                "command": "lock init",
+                "status": "ok",
+                "output": output,
+                "run_cards": card_ids,
+                "composite_hash": lockfile["run_cards_composite_hash"],
+                "from_pack": from_pack,
+            }
+        )
     else:
         console.print()
-        console.print(Panel.fit(
-            f"[bold green]Lockfile created[/]\n\n"
-            f"Path:       {output}\n"
-            f"RunCards:    {', '.join(card_ids)}\n"
-            f"Composite:  {lockfile['run_cards_composite_hash'][:16]}...\n"
-            f"Signer:     {lockfile['signer_policy']['mode']}",
-            title="assay lock init",
-        ))
+        console.print(
+            Panel.fit(
+                f"[bold green]Lockfile created[/]\n\n"
+                f"Path:       {output}\n"
+                f"RunCards:    {', '.join(card_ids)}\n"
+                f"Composite:  {lockfile['run_cards_composite_hash'][:16]}...\n"
+                f"Signer:     {lockfile['signer_policy']['mode']}",
+                title="assay lock init",
+            )
+        )
         console.print()
-        console.print("Next: [bold]assay ci init github --run-command \"python your_app.py\"[/]")
+        console.print(
+            'Next: [bold]assay ci init github --run-command "python your_app.py"[/]'
+        )
         console.print()
 
 
@@ -5378,12 +6103,17 @@ assay_app.add_typer(passport_app, name="passport", rich_help_panel="Advanced")
 @assay_app.command("xray", hidden=True, rich_help_panel="Advanced")
 def xray_alias_cmd(
     passport_file: str = typer.Argument(..., help="Path to passport.json"),
-    report: Optional[str] = typer.Option(None, "--report", "-r", help="Output HTML report path"),
+    report: Optional[str] = typer.Option(
+        None, "--report", "-r", help="Output HTML report path"
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ) -> None:
     """X-Ray diagnostic for a passport (alias for 'assay passport xray')."""
     from assay.passport_commands import passport_xray_cmd
-    passport_xray_cmd(passport_file=passport_file, report=report, output_json=output_json)
+
+    passport_xray_cmd(
+        passport_file=passport_file, report=report, output_json=output_json
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -5395,14 +6125,18 @@ vendorq_app = typer.Typer(
     help="Verifiable Vendor Packet: compile and verify questionnaire answers from proof packs",
     no_args_is_help=True,
 )
-assay_app.add_typer(vendorq_app, name="vendorq", hidden=True, rich_help_panel="Compliance & Audit")
+assay_app.add_typer(
+    vendorq_app, name="vendorq", hidden=True, rich_help_panel="Compliance & Audit"
+)
 
 reviewer_app = typer.Typer(
     name="reviewer",
     help="Reviewer Packet verification and settlement inspection.",
     no_args_is_help=True,
 )
-assay_app.add_typer(reviewer_app, name="reviewer", hidden=True, rich_help_panel="Compliance & Audit")
+assay_app.add_typer(
+    reviewer_app, name="reviewer", hidden=True, rich_help_panel="Compliance & Audit"
+)
 
 checkpoint_app = typer.Typer(
     name="checkpoint",
@@ -5421,14 +6155,20 @@ vendorq_app.add_typer(vendorq_lock_app, name="lock")
 
 @checkpoint_app.command("view")
 def checkpoint_view_cmd(
-    checkpoint_attempt_id: str = typer.Argument(..., help="Checkpoint attempt id to inspect"),
-    trace_id: str = typer.Option(..., "--trace", help="Trace ID containing the checkpoint attempt"),
+    checkpoint_attempt_id: str = typer.Argument(
+        ..., help="Checkpoint attempt id to inspect"
+    ),
+    trace_id: str = typer.Option(
+        ..., "--trace", help="Trace ID containing the checkpoint attempt"
+    ),
     store_dir: Optional[str] = typer.Option(
-        None, "--store-dir",
+        None,
+        "--store-dir",
         help="Assay store directory (default: ~/.assay)",
     ),
     decision_receipt_paths: Optional[List[str]] = typer.Option(
-        None, "--decision-receipt",
+        None,
+        "--decision-receipt",
         help="Path to a canonical Decision Receipt JSON file (repeatable)",
     ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
@@ -5445,7 +6185,10 @@ def checkpoint_view_cmd(
     if not trace_entries:
         msg = f"Trace not found or empty: {trace_id}"
         if output_json:
-            _output_json({"command": "checkpoint view", "status": "error", "error": msg}, exit_code=3)
+            _output_json(
+                {"command": "checkpoint view", "status": "error", "error": msg},
+                exit_code=3,
+            )
         console.print(f"[red]Error:[/] {msg}")
         raise typer.Exit(3)
 
@@ -5455,7 +6198,10 @@ def checkpoint_view_cmd(
         if not path.is_file():
             msg = f"Decision Receipt file not found: {receipt_path}"
             if output_json:
-                _output_json({"command": "checkpoint view", "status": "error", "error": msg}, exit_code=3)
+                _output_json(
+                    {"command": "checkpoint view", "status": "error", "error": msg},
+                    exit_code=3,
+                )
             console.print(f"[red]Error:[/] {msg}")
             raise typer.Exit(3)
         try:
@@ -5463,7 +6209,10 @@ def checkpoint_view_cmd(
         except json.JSONDecodeError as exc:
             msg = f"Invalid Decision Receipt JSON at {receipt_path}: {exc}"
             if output_json:
-                _output_json({"command": "checkpoint view", "status": "error", "error": msg}, exit_code=3)
+                _output_json(
+                    {"command": "checkpoint view", "status": "error", "error": msg},
+                    exit_code=3,
+                )
             console.print(f"[red]Error:[/] {msg}")
             raise typer.Exit(3)
 
@@ -5477,7 +6226,10 @@ def checkpoint_view_cmd(
     except CheckpointValidationError as exc:
         msg = str(exc)
         if output_json:
-            _output_json({"command": "checkpoint view", "status": "error", "error": msg}, exit_code=3)
+            _output_json(
+                {"command": "checkpoint view", "status": "error", "error": msg},
+                exit_code=3,
+            )
         console.print(f"[red]Error:[/] {msg}")
         raise typer.Exit(3)
 
@@ -5489,18 +6241,22 @@ def checkpoint_view_cmd(
     }
 
     if output_json:
-        _output_json(payload, exit_code=2 if view.verification["status"] == "failed" else 0)
+        _output_json(
+            payload, exit_code=2 if view.verification["status"] == "failed" else 0
+        )
 
     console.print()
     console.print(
         Panel.fit(
-            "\n".join([
-                f"Attempt:      {view.checkpoint_attempt_id}",
-                f"Trace:        {view.trace_id or trace_id}",
-                f"Type:         {view.checkpoint_type}",
-                f"Current:      {view.current_state}",
-                f"Verification: {view.verification['status']}",
-            ]),
+            "\n".join(
+                [
+                    f"Attempt:      {view.checkpoint_attempt_id}",
+                    f"Trace:        {view.trace_id or trace_id}",
+                    f"Type:         {view.checkpoint_type}",
+                    f"Current:      {view.current_state}",
+                    f"Verification: {view.verification['status']}",
+                ]
+            ),
             title="assay checkpoint view",
         )
     )
@@ -5510,15 +6266,17 @@ def checkpoint_view_cmd(
     action_target = attempted["attempt"]["action_target"]
     console.print(
         Panel.fit(
-            "\n".join([
-                f"Requested at:  {attempted['requested_at']}",
-                f"Episode:       {attempted['subject']['episode_id']}",
-                f"Actor:         {attempted['subject']['actor_id']} ({attempted['subject']['actor_type']})",
-                f"Purpose:       {intent['purpose']}",
-                f"Target:        {action_target['system']}:{action_target['operation']}",
-                f"Relying party: {attempted['relying_party']['party_id']} ({attempted['relying_party']['role']})",
-                f"Consequence:   {attempted['relying_party']['consequence']}",
-            ]),
+            "\n".join(
+                [
+                    f"Requested at:  {attempted['requested_at']}",
+                    f"Episode:       {attempted['subject']['episode_id']}",
+                    f"Actor:         {attempted['subject']['actor_id']} ({attempted['subject']['actor_type']})",
+                    f"Purpose:       {intent['purpose']}",
+                    f"Target:        {action_target['system']}:{action_target['operation']}",
+                    f"Relying party: {attempted['relying_party']['party_id']} ({attempted['relying_party']['role']})",
+                    f"Consequence:   {attempted['relying_party']['consequence']}",
+                ]
+            ),
             title="Attempted Crossing",
         )
     )
@@ -5526,18 +6284,20 @@ def checkpoint_view_cmd(
     posture = view.last_eligible_posture
     console.print(
         Panel.fit(
-            "\n".join([
-                f"Evaluation:    {posture['evaluation_id']}",
-                f"Evaluated at:  {posture['evaluated_at']}",
-                f"Route:         {posture['route']}",
-                f"Policy:        {posture['policy']['policy_id']}@{posture['policy']['policy_version']}",
-                f"Reason codes:  {', '.join(posture['reason_codes']) if posture['reason_codes'] else 'none'}",
-                f"Release conds: {', '.join(posture['release_conditions']) if posture['release_conditions'] else 'none'}",
-                f"Support:       {posture['uncertainty']['support']:.2f}",
-                f"Freshness:     {posture['uncertainty']['freshness']:.2f}",
-                f"Consensus:     {posture['uncertainty']['consensus']:.2f}",
-                f"Policy margin: {posture['uncertainty']['policy_margin']:.2f}",
-            ]),
+            "\n".join(
+                [
+                    f"Evaluation:    {posture['evaluation_id']}",
+                    f"Evaluated at:  {posture['evaluated_at']}",
+                    f"Route:         {posture['route']}",
+                    f"Policy:        {posture['policy']['policy_id']}@{posture['policy']['policy_version']}",
+                    f"Reason codes:  {', '.join(posture['reason_codes']) if posture['reason_codes'] else 'none'}",
+                    f"Release conds: {', '.join(posture['release_conditions']) if posture['release_conditions'] else 'none'}",
+                    f"Support:       {posture['uncertainty']['support']:.2f}",
+                    f"Freshness:     {posture['uncertainty']['freshness']:.2f}",
+                    f"Consensus:     {posture['uncertainty']['consensus']:.2f}",
+                    f"Policy margin: {posture['uncertainty']['policy_margin']:.2f}",
+                ]
+            ),
             title="Last Eligible Posture",
         )
     )
@@ -5571,7 +6331,9 @@ def checkpoint_view_cmd(
     ]
     if outcome.get("human_approval"):
         approval = outcome["human_approval"]
-        outcome_lines.append(f"Approval:      {approval['decision']} by {approval['approver_id']}")
+        outcome_lines.append(
+            f"Approval:      {approval['decision']} by {approval['approver_id']}"
+        )
     if outcome.get("dispatch_attempted_at"):
         outcome_lines.append(f"Dispatch at:   {outcome['dispatch_attempted_at']}")
     if outcome.get("effect_observed_at"):
@@ -5598,17 +6360,35 @@ def checkpoint_view_cmd(
 
 @checkpoint_app.command("export-reviewer")
 def checkpoint_export_reviewer_cmd(
-    checkpoint_attempt_id: str = typer.Argument(..., help="Checkpoint attempt id to package"),
-    proof_pack: str = typer.Option(..., "--proof-pack", help="Path to proof pack directory"),
-    out: str = typer.Option(..., "--out", "-o", help="Output reviewer packet directory"),
+    checkpoint_attempt_id: str = typer.Argument(
+        ..., help="Checkpoint attempt id to package"
+    ),
+    proof_pack: str = typer.Option(
+        ..., "--proof-pack", help="Path to proof pack directory"
+    ),
+    out: str = typer.Option(
+        ..., "--out", "-o", help="Output reviewer packet directory"
+    ),
     decision_receipt_paths: Optional[List[str]] = typer.Option(
         None,
         "--decision-receipt",
         help="Path to a canonical Decision Receipt JSON file (repeatable)",
     ),
-    sign_packet: bool = typer.Option(False, "--sign-packet/--no-sign-packet", help="Sign the packet manifest with a local Ed25519 key"),
-    packet_signer: Optional[str] = typer.Option(None, "--packet-signer", help="Signer ID for packet-manifest signing (default: active signer)"),
-    keys_dir: Optional[str] = typer.Option(None, "--keys-dir", help="Optional keystore directory for packet-manifest signing"),
+    sign_packet: bool = typer.Option(
+        False,
+        "--sign-packet/--no-sign-packet",
+        help="Sign the packet manifest with a local Ed25519 key",
+    ),
+    packet_signer: Optional[str] = typer.Option(
+        None,
+        "--packet-signer",
+        help="Signer ID for packet-manifest signing (default: active signer)",
+    ),
+    keys_dir: Optional[str] = typer.Option(
+        None,
+        "--keys-dir",
+        help="Optional keystore directory for packet-manifest signing",
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Compile a reviewer packet for one resolved outbound checkpoint attempt."""
@@ -5624,7 +6404,14 @@ def checkpoint_export_reviewer_cmd(
         if not path.is_file():
             msg = f"Decision Receipt file not found: {receipt_path}"
             if output_json:
-                _output_json({"command": "checkpoint export-reviewer", "status": "error", "error": msg}, exit_code=3)
+                _output_json(
+                    {
+                        "command": "checkpoint export-reviewer",
+                        "status": "error",
+                        "error": msg,
+                    },
+                    exit_code=3,
+                )
             console.print(f"[red]Error:[/] {msg}")
             raise typer.Exit(3)
         try:
@@ -5632,7 +6419,14 @@ def checkpoint_export_reviewer_cmd(
         except json.JSONDecodeError as exc:
             msg = f"Invalid Decision Receipt JSON at {receipt_path}: {exc}"
             if output_json:
-                _output_json({"command": "checkpoint export-reviewer", "status": "error", "error": msg}, exit_code=3)
+                _output_json(
+                    {
+                        "command": "checkpoint export-reviewer",
+                        "status": "error",
+                        "error": msg,
+                    },
+                    exit_code=3,
+                )
             console.print(f"[red]Error:[/] {msg}")
             raise typer.Exit(3)
 
@@ -5658,7 +6452,14 @@ def checkpoint_export_reviewer_cmd(
         )
     except VendorQInputError as exc:
         if output_json:
-            _output_json({"command": "checkpoint export-reviewer", "status": "error", "error": str(exc)}, exit_code=3)
+            _output_json(
+                {
+                    "command": "checkpoint export-reviewer",
+                    "status": "error",
+                    "error": str(exc),
+                },
+                exit_code=3,
+            )
         console.print(f"[red]Error:[/] {exc}")
         raise typer.Exit(3)
 
@@ -5676,27 +6477,40 @@ def checkpoint_export_reviewer_cmd(
 
     ratio = result["machine_coverage"]
     console.print()
-    console.print(Panel.fit(
-        f"[bold green]Checkpoint Reviewer Packet Compiled[/]\n\n"
-        f"Attempt:           {checkpoint_attempt_id}\n"
-        f"Proof pack:        {proof_pack}\n"
-        f"Settlement:        {result['settlement_state']}\n"
-        f"Verification:      {result['verification_status']}\n"
-        f"Packet manifest:   {'signed' if result['packet_manifest_signed'] else 'unsigned'}"
-        f"{f' ({packet_signer_id})' if result['packet_manifest_signed'] and packet_signer_id else ''}\n"
-        f"Machine coverage:  {ratio['numerator']}/{ratio['denominator']} ({ratio['value']:.2%})\n"
-        f"Limitations:       {len(result['limitations'])}\n"
-        f"Output directory:  {out}",
-        title="assay checkpoint export-reviewer",
-    ))
+    console.print(
+        Panel.fit(
+            f"[bold green]Checkpoint Reviewer Packet Compiled[/]\n\n"
+            f"Attempt:           {checkpoint_attempt_id}\n"
+            f"Proof pack:        {proof_pack}\n"
+            f"Settlement:        {result['settlement_state']}\n"
+            f"Verification:      {result['verification_status']}\n"
+            f"Packet manifest:   {'signed' if result['packet_manifest_signed'] else 'unsigned'}"
+            f"{f' ({packet_signer_id})' if result['packet_manifest_signed'] and packet_signer_id else ''}\n"
+            f"Machine coverage:  {ratio['numerator']}/{ratio['denominator']} ({ratio['value']:.2%})\n"
+            f"Limitations:       {len(result['limitations'])}\n"
+            f"Output directory:  {out}",
+            title="assay checkpoint export-reviewer",
+        )
+    )
     console.print()
 
 
 @vendorq_app.command("ingest")
 def vendorq_ingest_cmd(
-    in_path: str = typer.Option(..., "--in", help="Input questionnaire file (.csv, .md, .xlsx)"),
-    source_label: str = typer.Option("", "--source-label", help="Optional source label stored in payload (defaults to input basename)"),
-    out: str = typer.Option(".assay/vendorq/questions.json", "--out", "-o", help="Output normalized questions JSON"),
+    in_path: str = typer.Option(
+        ..., "--in", help="Input questionnaire file (.csv, .md, .xlsx)"
+    ),
+    source_label: str = typer.Option(
+        "",
+        "--source-label",
+        help="Optional source label stored in payload (defaults to input basename)",
+    ),
+    out: str = typer.Option(
+        ".assay/vendorq/questions.json",
+        "--out",
+        "-o",
+        help="Output normalized questions JSON",
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Normalize a questionnaire into vendorq.question.v1 JSON."""
@@ -5706,7 +6520,9 @@ def vendorq_ingest_cmd(
     from assay.vendorq_models import VendorQInputError
 
     try:
-        payload = ingest_questionnaire(Path(in_path), Path(out), source_label=source_label)
+        payload = ingest_questionnaire(
+            Path(in_path), Path(out), source_label=source_label
+        )
     except VendorQInputError as e:
         if output_json:
             _output_json(
@@ -5733,23 +6549,35 @@ def vendorq_ingest_cmd(
         )
 
     console.print()
-    console.print(Panel.fit(
-        f"[bold green]VendorQ Questionnaire Ingested[/]\n\n"
-        f"Input:      {in_path}\n"
-        f"Output:     {out}\n"
-        f"Questions:  {len(payload['questions'])}",
-        title="assay vendorq ingest",
-    ))
+    console.print(
+        Panel.fit(
+            f"[bold green]VendorQ Questionnaire Ingested[/]\n\n"
+            f"Input:      {in_path}\n"
+            f"Output:     {out}\n"
+            f"Questions:  {len(payload['questions'])}",
+            title="assay vendorq ingest",
+        )
+    )
     console.print()
 
 
 @vendorq_app.command("compile")
 def vendorq_compile_cmd(
-    questions: str = typer.Option(..., "--questions", help="Path to vendorq.question.v1 JSON"),
-    pack: Optional[List[str]] = typer.Option(None, "--pack", help="Proof pack directory (repeatable)"),
-    policy: str = typer.Option("conservative", "--policy", help="Policy profile: conservative|balanced"),
-    org_profile: Optional[str] = typer.Option(None, "--org-profile", help="Optional organization profile JSON"),
-    out: str = typer.Option(".assay/vendorq/answers.json", "--out", "-o", help="Output answers JSON"),
+    questions: str = typer.Option(
+        ..., "--questions", help="Path to vendorq.question.v1 JSON"
+    ),
+    pack: Optional[List[str]] = typer.Option(
+        None, "--pack", help="Proof pack directory (repeatable)"
+    ),
+    policy: str = typer.Option(
+        "conservative", "--policy", help="Policy profile: conservative|balanced"
+    ),
+    org_profile: Optional[str] = typer.Option(
+        None, "--org-profile", help="Optional organization profile JSON"
+    ),
+    out: str = typer.Option(
+        ".assay/vendorq/answers.json", "--out", "-o", help="Output answers JSON"
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Compile vendor questionnaire answers from questions + evidence packs."""
@@ -5768,10 +6596,16 @@ def vendorq_compile_cmd(
     try:
         questions_payload = load_json(Path(questions))
         validate_vendorq_schema("vendorq.question.v1.schema.json", questions_payload)
-        questions_payload["questions_hash"] = canonical_sha256(questions_payload["questions"])
+        questions_payload["questions_hash"] = canonical_sha256(
+            questions_payload["questions"]
+        )
 
         pack_dirs = [Path(p) for p in (pack or [])]
-        evidence_index = build_evidence_index(pack_dirs) if pack_dirs else {"packs": [], "by_pack": {}}
+        evidence_index = (
+            build_evidence_index(pack_dirs)
+            if pack_dirs
+            else {"packs": [], "by_pack": {}}
+        )
         org = load_json(Path(org_profile)) if org_profile else None
         answers_payload = compile_answers_payload(
             questions_payload=questions_payload,
@@ -5782,7 +6616,10 @@ def vendorq_compile_cmd(
         write_json(Path(out), answers_payload)
     except VendorQInputError as e:
         if output_json:
-            _output_json({"command": "vendorq compile", "status": "error", "error": str(e)}, exit_code=3)
+            _output_json(
+                {"command": "vendorq compile", "status": "error", "error": str(e)},
+                exit_code=3,
+            )
         console.print(f"[red]Error:[/] {e}")
         raise typer.Exit(3)
 
@@ -5800,24 +6637,36 @@ def vendorq_compile_cmd(
         )
 
     console.print()
-    console.print(Panel.fit(
-        f"[bold green]VendorQ Answers Compiled[/]\n\n"
-        f"Questions:      {questions}\n"
-        f"Policy:         {answers_payload['policy_profile']}\n"
-        f"Answer count:   {len(answers_payload['answers'])}\n"
-        f"Output:         {out}",
-        title="assay vendorq compile",
-    ))
+    console.print(
+        Panel.fit(
+            f"[bold green]VendorQ Answers Compiled[/]\n\n"
+            f"Questions:      {questions}\n"
+            f"Policy:         {answers_payload['policy_profile']}\n"
+            f"Answer count:   {len(answers_payload['answers'])}\n"
+            f"Output:         {out}",
+            title="assay vendorq compile",
+        )
+    )
     console.print()
 
 
 @vendorq_app.command("verify")
 def vendorq_verify_cmd(
-    answers: str = typer.Option(..., "--answers", help="Path to vendorq.answer.v1 JSON"),
-    pack: List[str] = typer.Option(..., "--pack", help="Proof pack directory (repeatable)"),
+    answers: str = typer.Option(
+        ..., "--answers", help="Path to vendorq.answer.v1 JSON"
+    ),
+    pack: List[str] = typer.Option(
+        ..., "--pack", help="Proof pack directory (repeatable)"
+    ),
     lock: Optional[str] = typer.Option(None, "--lock", help="Path to vendorq.lock"),
-    strict: bool = typer.Option(False, "--strict", help="Treat stale evidence as errors"),
-    report_out: str = typer.Option(".assay/vendorq/verify_report.json", "--report-out", help="Write verify report JSON"),
+    strict: bool = typer.Option(
+        False, "--strict", help="Treat stale evidence as errors"
+    ),
+    report_out: str = typer.Option(
+        ".assay/vendorq/verify_report.json",
+        "--report-out",
+        help="Write verify report JSON",
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Verify vendor questionnaire answers against evidence packs and lockfile."""
@@ -5843,7 +6692,10 @@ def vendorq_verify_cmd(
         write_json(Path(report_out), report)
     except VendorQInputError as e:
         if output_json:
-            _output_json({"command": "vendorq verify", "status": "error", "error": str(e)}, exit_code=3)
+            _output_json(
+                {"command": "vendorq verify", "status": "error", "error": str(e)},
+                exit_code=3,
+            )
         console.print(f"[red]Error:[/] {e}")
         raise typer.Exit(3)
 
@@ -5862,16 +6714,18 @@ def vendorq_verify_cmd(
 
     color = "green" if not failed else "red"
     console.print()
-    console.print(Panel.fit(
-        f"[bold {color}]VENDORQ {'VERIFICATION PASSED' if not failed else 'VERIFICATION FAILED'}[/]\n\n"
-        f"Answers:          {answers}\n"
-        f"Strict mode:      {strict}\n"
-        f"Errors:           {report['summary']['errors']}\n"
-        f"Warnings:         {report['summary']['warnings']}\n"
-        f"Evidence chains:  {len(report.get('evidence_navigation', []))}\n"
-        f"Report:           {report_out}",
-        title="assay vendorq verify",
-    ))
+    console.print(
+        Panel.fit(
+            f"[bold {color}]VENDORQ {'VERIFICATION PASSED' if not failed else 'VERIFICATION FAILED'}[/]\n\n"
+            f"Answers:          {answers}\n"
+            f"Strict mode:      {strict}\n"
+            f"Errors:           {report['summary']['errors']}\n"
+            f"Warnings:         {report['summary']['warnings']}\n"
+            f"Evidence chains:  {len(report.get('evidence_navigation', []))}\n"
+            f"Report:           {report_out}",
+            title="assay vendorq verify",
+        )
+    )
     if failed:
         for err in report.get("errors", [])[:20]:
             console.print(f"  [red]{err['code']}[/]: {err['message']}")
@@ -5882,11 +6736,17 @@ def vendorq_verify_cmd(
 
 @vendorq_app.command("export")
 def vendorq_export_cmd(
-    answers: str = typer.Option(..., "--answers", help="Path to vendorq.answer.v1 JSON"),
+    answers: str = typer.Option(
+        ..., "--answers", help="Path to vendorq.answer.v1 JSON"
+    ),
     format: str = typer.Option(..., "--format", help="Export format: json|md"),
     out: str = typer.Option(..., "--out", "-o", help="Output file path"),
-    verify_report: Optional[str] = typer.Option(None, "--verify-report", help="Optional vendorq.verify_report.v1 JSON"),
-    coverage_out: Optional[str] = typer.Option(None, "--coverage-out", help="Optional vendorq.coverage_receipt.v1 JSON sidecar"),
+    verify_report: Optional[str] = typer.Option(
+        None, "--verify-report", help="Optional vendorq.verify_report.v1 JSON"
+    ),
+    coverage_out: Optional[str] = typer.Option(
+        None, "--coverage-out", help="Optional vendorq.coverage_receipt.v1 JSON sidecar"
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Export answers to JSON or Markdown auditor packet."""
@@ -5907,7 +6767,10 @@ def vendorq_export_cmd(
         )
     except VendorQInputError as e:
         if output_json:
-            _output_json({"command": "vendorq export", "status": "error", "error": str(e)}, exit_code=3)
+            _output_json(
+                {"command": "vendorq export", "status": "error", "error": str(e)},
+                exit_code=3,
+            )
         console.print(f"[red]Error:[/] {e}")
         raise typer.Exit(3)
 
@@ -5924,28 +6787,56 @@ def vendorq_export_cmd(
         )
 
     console.print()
-    console.print(Panel.fit(
-        f"[bold green]VendorQ Export Complete[/]\n\n"
-        f"Input:    {answers}\n"
-        f"Format:   {format}\n"
-        f"Output:   {out}\n"
-        f"Coverage: {coverage_out or '(not written)'}",
-        title="assay vendorq export",
-    ))
+    console.print(
+        Panel.fit(
+            f"[bold green]VendorQ Export Complete[/]\n\n"
+            f"Input:    {answers}\n"
+            f"Format:   {format}\n"
+            f"Output:   {out}\n"
+            f"Coverage: {coverage_out or '(not written)'}",
+            title="assay vendorq export",
+        )
+    )
     console.print()
 
 
 @vendorq_app.command("export-reviewer")
 def vendorq_export_reviewer_cmd(
-    proof_pack: str = typer.Option(..., "--proof-pack", help="Path to proof pack directory"),
-    boundary: str = typer.Option(..., "--boundary", help="Path to reviewer packet boundary JSON"),
-    mapping: str = typer.Option(..., "--mapping", help="Path to reviewer packet question mapping JSON"),
-    out: str = typer.Option(..., "--out", "-o", help="Output reviewer packet directory"),
-    baseline: Optional[str] = typer.Option(None, "--baseline", help="Optional baseline reviewer packet directory"),
-    challenge_receipt: Optional[str] = typer.Option(None, "--challenge-receipt", help="Optional challenge receipt path for refreshed packets"),
-    sign_packet: bool = typer.Option(False, "--sign-packet/--no-sign-packet", help="Sign the packet manifest with a local Ed25519 key"),
-    packet_signer: Optional[str] = typer.Option(None, "--packet-signer", help="Signer ID for packet-manifest signing (default: active signer)"),
-    keys_dir: Optional[str] = typer.Option(None, "--keys-dir", help="Optional keystore directory for packet-manifest signing"),
+    proof_pack: str = typer.Option(
+        ..., "--proof-pack", help="Path to proof pack directory"
+    ),
+    boundary: str = typer.Option(
+        ..., "--boundary", help="Path to reviewer packet boundary JSON"
+    ),
+    mapping: str = typer.Option(
+        ..., "--mapping", help="Path to reviewer packet question mapping JSON"
+    ),
+    out: str = typer.Option(
+        ..., "--out", "-o", help="Output reviewer packet directory"
+    ),
+    baseline: Optional[str] = typer.Option(
+        None, "--baseline", help="Optional baseline reviewer packet directory"
+    ),
+    challenge_receipt: Optional[str] = typer.Option(
+        None,
+        "--challenge-receipt",
+        help="Optional challenge receipt path for refreshed packets",
+    ),
+    sign_packet: bool = typer.Option(
+        False,
+        "--sign-packet/--no-sign-packet",
+        help="Sign the packet manifest with a local Ed25519 key",
+    ),
+    packet_signer: Optional[str] = typer.Option(
+        None,
+        "--packet-signer",
+        help="Signer ID for packet-manifest signing (default: active signer)",
+    ),
+    keys_dir: Optional[str] = typer.Option(
+        None,
+        "--keys-dir",
+        help="Optional keystore directory for packet-manifest signing",
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Experimental: compile a reviewer packet from a proof pack plus declarative packet inputs."""
@@ -5986,7 +6877,14 @@ def vendorq_export_reviewer_cmd(
         )
     except VendorQInputError as e:
         if output_json:
-            _output_json({"command": "vendorq export-reviewer", "status": "error", "error": str(e)}, exit_code=3)
+            _output_json(
+                {
+                    "command": "vendorq export-reviewer",
+                    "status": "error",
+                    "error": str(e),
+                },
+                exit_code=3,
+            )
         console.print(f"[red]Error:[/] {e}")
         raise typer.Exit(3)
 
@@ -6005,32 +6903,39 @@ def vendorq_export_reviewer_cmd(
     coverage_summary = Counter(row["Status"] for row in result["coverage_rows"])
     ratio = _machine_coverage_ratio(dict(coverage_summary))
     console.print()
-    console.print(Panel.fit(
-        f"[bold green]Reviewer Packet Compiled[/]\n\n"
-        f"Proof pack:        {proof_pack}\n"
-        f"Boundary:          {boundary}\n"
-        f"Mapping:           {mapping}\n"
-        f"Settlement:        {result['settlement_state']}\n"
-        f"Packet manifest:   {'signed' if result['packet_manifest_signed'] else 'unsigned'}"
-        f"{f' ({packet_signer_id})' if result['packet_manifest_signed'] and packet_signer_id else ''}\n"
-        f"Machine coverage:  {ratio['numerator']}/{ratio['denominator']} ({ratio['value']:.2%})\n"
-        f"Coverage rows:     {len(result['coverage_rows'])}\n"
-        f"Output directory:  {out}",
-        title="assay vendorq export-reviewer",
-    ))
+    console.print(
+        Panel.fit(
+            f"[bold green]Reviewer Packet Compiled[/]\n\n"
+            f"Proof pack:        {proof_pack}\n"
+            f"Boundary:          {boundary}\n"
+            f"Mapping:           {mapping}\n"
+            f"Settlement:        {result['settlement_state']}\n"
+            f"Packet manifest:   {'signed' if result['packet_manifest_signed'] else 'unsigned'}"
+            f"{f' ({packet_signer_id})' if result['packet_manifest_signed'] and packet_signer_id else ''}\n"
+            f"Machine coverage:  {ratio['numerator']}/{ratio['denominator']} ({ratio['value']:.2%})\n"
+            f"Coverage rows:     {len(result['coverage_rows'])}\n"
+            f"Output directory:  {out}",
+            title="assay vendorq export-reviewer",
+        )
+    )
     console.print()
 
 
 @reviewer_app.command("census")
 def reviewer_census_cmd(
     packet_dir: str = typer.Argument(..., help="Path to Reviewer Packet directory"),
-    out: Optional[str] = typer.Option(None, "--out", "-o", help="Optional output directory for the census bundle"),
+    out: Optional[str] = typer.Option(
+        None, "--out", "-o", help="Optional output directory for the census bundle"
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Build a Decision Census report from a compiled reviewer packet."""
     from pathlib import Path
 
-    from assay.reporting.decision_census import build_decision_census_report, write_report
+    from assay.reporting.decision_census import (
+        build_decision_census_report,
+        write_report,
+    )
     from assay.vendorq_models import VendorQInputError
 
     packet_path = Path(packet_dir)
@@ -6072,28 +6977,38 @@ def reviewer_census_cmd(
 
     summary = report["coverage_summary"]
     console.print()
-    console.print(Panel.fit(
-        f"[bold green]Decision Census Report Built[/]\n\n"
-        f"Packet:           {packet_dir}\n"
-        f"Inventory basis:  {report.get('inventory', {}).get('basis', 'unknown')}\n"
-        f"Coverage state:   {summary['coverage_state']}\n"
-        f"Coverage ratio:   {summary['coverage_ratio']:.2f}\n"
-        f"Expected points:  {summary['expected_count']}\n"
-        f"Observed points:  {summary['observed_count']}\n"
-        f"Missing points:   {summary['missing_count']}\n"
-        f"Gaps emitted:     {bundle.get('gap_count', 0)}\n"
-        f"Output directory: {bundle['output_dir']}",
-        title="assay reviewer census",
-    ))
+    console.print(
+        Panel.fit(
+            f"[bold green]Decision Census Report Built[/]\n\n"
+            f"Packet:           {packet_dir}\n"
+            f"Inventory basis:  {report.get('inventory', {}).get('basis', 'unknown')}\n"
+            f"Coverage state:   {summary['coverage_state']}\n"
+            f"Coverage ratio:   {summary['coverage_ratio']:.2f}\n"
+            f"Expected points:  {summary['expected_count']}\n"
+            f"Observed points:  {summary['observed_count']}\n"
+            f"Missing points:   {summary['missing_count']}\n"
+            f"Gaps emitted:     {bundle.get('gap_count', 0)}\n"
+            f"Output directory: {bundle['output_dir']}",
+            title="assay reviewer census",
+        )
+    )
     console.print()
 
 
 @reviewer_app.command("census-gate")
 def reviewer_census_gate_cmd(
-    input_path: str = typer.Argument(..., help="Path to a Decision Gaps JSON file or census output directory"),
-    max_missing: int = typer.Option(0, "--max-missing", help="Maximum allowed missing gaps before fail"),
-    max_uncertain: int = typer.Option(0, "--max-uncertain", help="Maximum allowed uncertain gaps before warn"),
-    max_total_gaps: int = typer.Option(0, "--max-total-gaps", help="Maximum allowed total gaps before fail"),
+    input_path: str = typer.Argument(
+        ..., help="Path to a Decision Gaps JSON file or census output directory"
+    ),
+    max_missing: int = typer.Option(
+        0, "--max-missing", help="Maximum allowed missing gaps before fail"
+    ),
+    max_uncertain: int = typer.Option(
+        0, "--max-uncertain", help="Maximum allowed uncertain gaps before warn"
+    ),
+    max_total_gaps: int = typer.Option(
+        0, "--max-total-gaps", help="Maximum allowed total gaps before fail"
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Evaluate a Decision Gaps artifact against soft coverage thresholds."""
@@ -6123,7 +7038,9 @@ def reviewer_census_gate_cmd(
         console.print(f"[red]Error:[/] {exc}")
         raise typer.Exit(3)
 
-    exit_code = 0 if result["status"] == "pass" else 1 if result["status"] == "warn" else 2
+    exit_code = (
+        0 if result["status"] == "pass" else 1 if result["status"] == "warn" else 2
+    )
     if output_json:
         _output_json(
             {
@@ -6134,19 +7051,27 @@ def reviewer_census_gate_cmd(
             exit_code=exit_code,
         )
 
-    color = "green" if result["status"] == "pass" else "yellow" if result["status"] == "warn" else "red"
+    color = (
+        "green"
+        if result["status"] == "pass"
+        else "yellow"
+        if result["status"] == "warn"
+        else "red"
+    )
     console.print()
-    console.print(Panel.fit(
-        f"[bold {color}]Decision Census Gate[/]\n\n"
-        f"Input:        {input_path}\n"
-        f"Status:       {result['status']}\n"
-        f"Gap count:    {result['gap_summary'].get('gap_count', 0)}\n"
-        f"Missing:      {result['gap_summary'].get('missing_count', 0)}\n"
-        f"Uncertain:    {result['gap_summary'].get('uncertain_count', 0)}\n"
-        f"Thresholds:   max_missing={max_missing}, max_uncertain={max_uncertain}, max_total_gaps={max_total_gaps}",
-        title="assay reviewer census-gate",
-        border_style=color,
-    ))
+    console.print(
+        Panel.fit(
+            f"[bold {color}]Decision Census Gate[/]\n\n"
+            f"Input:        {input_path}\n"
+            f"Status:       {result['status']}\n"
+            f"Gap count:    {result['gap_summary'].get('gap_count', 0)}\n"
+            f"Missing:      {result['gap_summary'].get('missing_count', 0)}\n"
+            f"Uncertain:    {result['gap_summary'].get('uncertain_count', 0)}\n"
+            f"Thresholds:   max_missing={max_missing}, max_uncertain={max_uncertain}, max_total_gaps={max_total_gaps}",
+            title="assay reviewer census-gate",
+            border_style=color,
+        )
+    )
     if result["reasons"]:
         console.print()
         console.print("[bold]Reasons:[/]")
@@ -6191,27 +7116,32 @@ def reviewer_verify_cmd(
     if output_json:
         _output_json(payload, exit_code=0 if result["packet_verified"] else 2)
 
-    coverage_summary = ", ".join(
-        f"{name}={count}"
-        for name, count in sorted(result["coverage_summary"].items())
-    ) or "none"
+    coverage_summary = (
+        ", ".join(
+            f"{name}={count}"
+            for name, count in sorted(result["coverage_summary"].items())
+        )
+        or "none"
+    )
     ratio = _machine_coverage_ratio(result["coverage_summary"])
     console.print()
-    console.print(Panel.fit(
-        f"[bold]{'Reviewer Packet Verified' if result['packet_verified'] else 'Reviewer Packet Failed'}[/]\n\n"
-        f"Packet:            {result['packet_id']}\n"
-        f"Settlement:        {result['settlement_state']}\n"
-        f"Interpretation:    {result['settlement_reason']}\n"
-        f"Nested proof pack: {'PASS' if result['proof_pack']['verified'] else 'FAIL'}\n"
-        f"Claims:            {result['claim_state']}\n"
-        f"Scope:             {result['scope_state']}\n"
-        f"Freshness:         {result['freshness_state']}\n"
-        f"Regression:        {result['regression_state']}\n"
-        f"Machine coverage:  {ratio['numerator']}/{ratio['denominator']} ({ratio['value']:.2%})\n"
-        f"Coverage:          {coverage_summary}",
-        title="assay reviewer verify",
-        border_style="green" if result["packet_verified"] else "red",
-    ))
+    console.print(
+        Panel.fit(
+            f"[bold]{'Reviewer Packet Verified' if result['packet_verified'] else 'Reviewer Packet Failed'}[/]\n\n"
+            f"Packet:            {result['packet_id']}\n"
+            f"Settlement:        {result['settlement_state']}\n"
+            f"Interpretation:    {result['settlement_reason']}\n"
+            f"Nested proof pack: {'PASS' if result['proof_pack']['verified'] else 'FAIL'}\n"
+            f"Claims:            {result['claim_state']}\n"
+            f"Scope:             {result['scope_state']}\n"
+            f"Freshness:         {result['freshness_state']}\n"
+            f"Regression:        {result['regression_state']}\n"
+            f"Machine coverage:  {ratio['numerator']}/{ratio['denominator']} ({ratio['value']:.2%})\n"
+            f"Coverage:          {coverage_summary}",
+            title="assay reviewer verify",
+            border_style="green" if result["packet_verified"] else "red",
+        )
+    )
 
     if result["errors"]:
         console.print()
@@ -6230,7 +7160,9 @@ def reviewer_verify_cmd(
 
 @reviewer_app.command("packet")
 def reviewer_packet_cmd(
-    input_dir: str = typer.Option(..., "--input", "-i", help="Path to compiled Reviewer Packet directory"),
+    input_dir: str = typer.Option(
+        ..., "--input", "-i", help="Path to compiled Reviewer Packet directory"
+    ),
     output: str = typer.Option(..., "--output", "-o", help="Output HTML file path"),
 ):
     """Render a compiled Reviewer Packet as a self-contained HTML file."""
@@ -6253,29 +7185,44 @@ def reviewer_packet_cmd(
     output_path.write_text(html, encoding="utf-8")
 
     console.print()
-    console.print(Panel.fit(
-        f"[bold green]Reviewer Packet HTML rendered[/]\n\n"
-        f"Input:  {packet_dir}\n"
-        f"Output: {output_path}",
-        title="assay reviewer packet",
-    ))
+    console.print(
+        Panel.fit(
+            f"[bold green]Reviewer Packet HTML rendered[/]\n\n"
+            f"Input:  {packet_dir}\n"
+            f"Output: {output_path}",
+            title="assay reviewer packet",
+        )
+    )
 
 
 @reviewer_app.command("challenge")
 def reviewer_challenge_cmd(
     packet_dir: str = typer.Argument(..., help="Path to Reviewer Packet directory"),
-    reason: str = typer.Option(..., "--reason", help="Why the reviewer is challenging the packet"),
-    claim_ref: Optional[str] = typer.Option(None, "--claim-ref", help="Optional claim or question reference"),
-    out: Optional[str] = typer.Option(None, "--out", "-o", help="Optional output challenge receipt path"),
-    signer_id: Optional[str] = typer.Option(None, "--signer-id", help="Signer identity for the challenge receipt"),
-    keys_dir: Optional[str] = typer.Option(None, "--keys-dir", help="Optional keystore directory"),
+    reason: str = typer.Option(
+        ..., "--reason", help="Why the reviewer is challenging the packet"
+    ),
+    claim_ref: Optional[str] = typer.Option(
+        None, "--claim-ref", help="Optional claim or question reference"
+    ),
+    out: Optional[str] = typer.Option(
+        None, "--out", "-o", help="Optional output challenge receipt path"
+    ),
+    signer_id: Optional[str] = typer.Option(
+        None, "--signer-id", help="Signer identity for the challenge receipt"
+    ),
+    keys_dir: Optional[str] = typer.Option(
+        None, "--keys-dir", help="Optional keystore directory"
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Create a signed reviewer challenge receipt without introducing workflow software."""
     from pathlib import Path
 
     from assay.keystore import AssayKeyStore
-    from assay.reviewer_packet_events import build_reviewer_challenge, write_reviewer_challenge
+    from assay.reviewer_packet_events import (
+        build_reviewer_challenge,
+        write_reviewer_challenge,
+    )
 
     keystore = AssayKeyStore(Path(keys_dir)) if keys_dir else AssayKeyStore()
     payload = build_reviewer_challenge(
@@ -6285,7 +7232,9 @@ def reviewer_challenge_cmd(
         signer_id=signer_id,
         keystore=keystore,
     )
-    destination = write_reviewer_challenge(Path(packet_dir), payload, out_path=Path(out) if out else None)
+    destination = write_reviewer_challenge(
+        Path(packet_dir), payload, out_path=Path(out) if out else None
+    )
 
     if output_json:
         _output_json(
@@ -6300,34 +7249,53 @@ def reviewer_challenge_cmd(
         )
 
     console.print()
-    console.print(Panel.fit(
-        f"[bold green]Reviewer Challenge Created[/]\n\n"
-        f"Packet:       {packet_dir}\n"
-        f"Challenge ID: {payload['challenge_id']}\n"
-        f"Reason:       {reason}\n"
-        f"Receipt:      {destination}",
-        title="assay reviewer challenge",
-    ))
+    console.print(
+        Panel.fit(
+            f"[bold green]Reviewer Challenge Created[/]\n\n"
+            f"Packet:       {packet_dir}\n"
+            f"Challenge ID: {payload['challenge_id']}\n"
+            f"Reason:       {reason}\n"
+            f"Receipt:      {destination}",
+            title="assay reviewer challenge",
+        )
+    )
     console.print()
     raise typer.Exit(0)
 
 
 @assay_app.command("attest", hidden=True, rich_help_panel="Advanced")
 def attest_cmd(
-    question: str = typer.Option(..., "--question", help="Reviewer-facing question or claim"),
-    assertion: str = typer.Option(..., "--assertion", help="Human assertion to package"),
+    question: str = typer.Option(
+        ..., "--question", help="Reviewer-facing question or claim"
+    ),
+    assertion: str = typer.Option(
+        ..., "--assertion", help="Human assertion to package"
+    ),
     attester: str = typer.Option(..., "--attester", help="Named human attester"),
-    pack: str = typer.Option(..., "--pack", help="Proof-pack or packet directory to attach the attestation beside"),
-    out: Optional[str] = typer.Option(None, "--out", "-o", help="Optional output attestation path"),
-    signer_id: Optional[str] = typer.Option(None, "--signer-id", help="Signer identity for the attestation receipt"),
-    keys_dir: Optional[str] = typer.Option(None, "--keys-dir", help="Optional keystore directory"),
+    pack: str = typer.Option(
+        ...,
+        "--pack",
+        help="Proof-pack or packet directory to attach the attestation beside",
+    ),
+    out: Optional[str] = typer.Option(
+        None, "--out", "-o", help="Optional output attestation path"
+    ),
+    signer_id: Optional[str] = typer.Option(
+        None, "--signer-id", help="Signer identity for the attestation receipt"
+    ),
+    keys_dir: Optional[str] = typer.Option(
+        None, "--keys-dir", help="Optional keystore directory"
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Create a thin HUMAN_ATTESTED receipt that stays visibly separate from machine evidence."""
     from pathlib import Path
 
     from assay.keystore import AssayKeyStore
-    from assay.reviewer_packet_events import build_human_attestation, write_human_attestation
+    from assay.reviewer_packet_events import (
+        build_human_attestation,
+        write_human_attestation,
+    )
 
     keystore = AssayKeyStore(Path(keys_dir)) if keys_dir else AssayKeyStore()
     payload = build_human_attestation(
@@ -6337,7 +7305,9 @@ def attest_cmd(
         signer_id=signer_id,
         keystore=keystore,
     )
-    destination = write_human_attestation(Path(pack), payload, out_path=Path(out) if out else None)
+    destination = write_human_attestation(
+        Path(pack), payload, out_path=Path(out) if out else None
+    )
 
     if output_json:
         _output_json(
@@ -6352,22 +7322,28 @@ def attest_cmd(
         )
 
     console.print()
-    console.print(Panel.fit(
-        f"[bold green]Human Attestation Created[/]\n\n"
-        f"Question:      {question}\n"
-        f"Attester:      {attester}\n"
-        f"Evidence type: {payload['evidence_type']}\n"
-        f"Receipt:       {destination}",
-        title="assay attest",
-    ))
+    console.print(
+        Panel.fit(
+            f"[bold green]Human Attestation Created[/]\n\n"
+            f"Question:      {question}\n"
+            f"Attester:      {attester}\n"
+            f"Evidence type: {payload['evidence_type']}\n"
+            f"Receipt:       {destination}",
+            title="assay attest",
+        )
+    )
     console.print()
     raise typer.Exit(0)
 
 
 @vendorq_lock_app.command("write")
 def vendorq_lock_write_cmd(
-    answers: str = typer.Option(..., "--answers", help="Path to vendorq.answer.v1 JSON"),
-    pack: List[str] = typer.Option(..., "--pack", help="Proof pack directory (repeatable)"),
+    answers: str = typer.Option(
+        ..., "--answers", help="Path to vendorq.answer.v1 JSON"
+    ),
+    pack: List[str] = typer.Option(
+        ..., "--pack", help="Proof pack directory (repeatable)"
+    ),
     out: str = typer.Option("vendorq.lock", "--out", "-o", help="Output lock path"),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
@@ -6384,7 +7360,10 @@ def vendorq_lock_write_cmd(
         lock_payload = write_vendorq_lock(answers_payload, evidence_index, Path(out))
     except VendorQInputError as e:
         if output_json:
-            _output_json({"command": "vendorq lock write", "status": "error", "error": str(e)}, exit_code=3)
+            _output_json(
+                {"command": "vendorq lock write", "status": "error", "error": str(e)},
+                exit_code=3,
+            )
         console.print(f"[red]Error:[/] {e}")
         raise typer.Exit(3)
 
@@ -6401,13 +7380,15 @@ def vendorq_lock_write_cmd(
         )
 
     console.print()
-    console.print(Panel.fit(
-        f"[bold green]vendorq.lock written[/]\n\n"
-        f"Path:         {out}\n"
-        f"Policy:       {lock_payload['policy_profile']}\n"
-        f"Pack digests: {len(lock_payload['pack_digests'])}",
-        title="assay vendorq lock write",
-    ))
+    console.print(
+        Panel.fit(
+            f"[bold green]vendorq.lock written[/]\n\n"
+            f"Path:         {out}\n"
+            f"Policy:       {lock_payload['policy_profile']}\n"
+            f"Pack digests: {len(lock_payload['pack_digests'])}",
+            title="assay vendorq lock write",
+        )
+    )
     console.print()
 
 
@@ -6460,7 +7441,9 @@ def _discover_packs(search_dir: Optional[str] = None):
 @packs_app.command("list")
 def packs_list_cmd(
     directory: Optional[str] = typer.Option(
-        None, "-d", "--directory",
+        None,
+        "-d",
+        "--directory",
         help="Directory to search (default: cwd)",
     ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
@@ -6475,25 +7458,32 @@ def packs_list_cmd(
     items = []
     for pack_dir, manifest in packs:
         att = manifest.get("attestation", {})
-        is_baseline = baseline_resolved is not None and pack_dir.resolve() == baseline_resolved
-        items.append({
-            "path": str(pack_dir),
-            "pack_id": manifest.get("pack_id", "unknown"),
-            "n_receipts": att.get("n_receipts", 0),
-            "receipt_integrity": att.get("receipt_integrity", "unknown"),
-            "claim_check": att.get("claim_check", "N/A"),
-            "signer_id": manifest.get("signer_id", "unknown"),
-            "timestamp": att.get("timestamp_start", ""),
-            "is_baseline": is_baseline,
-        })
+        is_baseline = (
+            baseline_resolved is not None and pack_dir.resolve() == baseline_resolved
+        )
+        items.append(
+            {
+                "path": str(pack_dir),
+                "pack_id": manifest.get("pack_id", "unknown"),
+                "n_receipts": att.get("n_receipts", 0),
+                "receipt_integrity": att.get("receipt_integrity", "unknown"),
+                "claim_check": att.get("claim_check", "N/A"),
+                "signer_id": manifest.get("signer_id", "unknown"),
+                "timestamp": att.get("timestamp_start", ""),
+                "is_baseline": is_baseline,
+            }
+        )
 
     if output_json:
-        _output_json({
-            "command": "packs list",
-            "status": "ok",
-            "count": len(items),
-            "packs": items,
-        }, exit_code=0)
+        _output_json(
+            {
+                "command": "packs list",
+                "status": "ok",
+                "count": len(items),
+                "packs": items,
+            },
+            exit_code=0,
+        )
 
     if not items:
         console.print("No proof packs found. Create one with [bold]assay run[/].")
@@ -6511,7 +7501,11 @@ def packs_list_cmd(
     for item in items:
         marker = "B" if item["is_baseline"] else ""
         integrity_style = "green" if item["receipt_integrity"] == "PASS" else "red"
-        claim_style = "green" if item["claim_check"] == "PASS" else ("yellow" if item["claim_check"] == "N/A" else "red")
+        claim_style = (
+            "green"
+            if item["claim_check"] == "PASS"
+            else ("yellow" if item["claim_check"] == "N/A" else "red")
+        )
         table.add_row(
             marker,
             item["pack_id"],
@@ -6543,7 +7537,9 @@ def packs_show_cmd(
     if not p.is_dir():
         msg = f"Not a directory: {pack_dir}"
         if output_json:
-            _output_json({"command": "packs show", "status": "error", "error": msg}, exit_code=3)
+            _output_json(
+                {"command": "packs show", "status": "error", "error": msg}, exit_code=3
+            )
         console.print(f"[red]Error:[/] {msg}")
         raise typer.Exit(3)
 
@@ -6551,7 +7547,9 @@ def packs_show_cmd(
     if not manifest_path.exists():
         msg = f"No pack_manifest.json in {pack_dir}"
         if output_json:
-            _output_json({"command": "packs show", "status": "error", "error": msg}, exit_code=3)
+            _output_json(
+                {"command": "packs show", "status": "error", "error": msg}, exit_code=3
+            )
         console.print(f"[red]Error:[/] {msg}")
         raise typer.Exit(3)
 
@@ -6562,21 +7560,26 @@ def packs_show_cmd(
     receipt_file = p / "receipt_pack.jsonl"
     actual_receipts = 0
     if receipt_file.exists():
-        actual_receipts = sum(1 for line in receipt_file.read_text().splitlines() if line.strip())
+        actual_receipts = sum(
+            1 for line in receipt_file.read_text().splitlines() if line.strip()
+        )
 
     # Check baseline
     from assay.diff import load_baseline
+
     baseline = load_baseline()
     is_baseline = baseline is not None and p.resolve() == baseline.resolve()
 
     # File inventory
     files = []
     for f_info in manifest.get("files", []):
-        files.append({
-            "path": f_info["path"],
-            "sha256": f_info.get("sha256", "")[:16] + "...",
-            "bytes": f_info.get("bytes", 0),
-        })
+        files.append(
+            {
+                "path": f_info["path"],
+                "sha256": f_info.get("sha256", "")[:16] + "...",
+                "bytes": f_info.get("bytes", 0),
+            }
+        )
 
     result = {
         "command": "packs show",
@@ -6606,7 +7609,11 @@ def packs_show_cmd(
 
     console.print()
     integrity_style = "green" if att.get("receipt_integrity") == "PASS" else "red"
-    claim_style = "green" if att.get("claim_check") == "PASS" else ("yellow" if att.get("claim_check") == "N/A" else "red")
+    claim_style = (
+        "green"
+        if att.get("claim_check") == "PASS"
+        else ("yellow" if att.get("claim_check") == "N/A" else "red")
+    )
 
     body = (
         f"Pack ID:       {result['pack_id']}\n"
@@ -6641,7 +7648,9 @@ def packs_show_cmd(
 
 @packs_app.command("pin-baseline")
 def packs_pin_baseline_cmd(
-    pack_dir: str = typer.Argument(..., help="Path to proof pack directory to pin as baseline"),
+    pack_dir: str = typer.Argument(
+        ..., help="Path to proof pack directory to pin as baseline"
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Pin a proof pack as the diff baseline (alias for baseline set)."""
@@ -6653,34 +7662,43 @@ def packs_pin_baseline_cmd(
     if not p.is_dir():
         msg = f"Not a directory: {pack_dir}"
         if output_json:
-            _output_json({"command": "packs pin-baseline", "status": "error", "error": msg}, exit_code=3)
+            _output_json(
+                {"command": "packs pin-baseline", "status": "error", "error": msg},
+                exit_code=3,
+            )
         console.print(f"[red]Error:[/] {msg}")
         raise typer.Exit(3)
 
     if not (p / "pack_manifest.json").exists():
         msg = f"No pack_manifest.json in {pack_dir}"
         if output_json:
-            _output_json({"command": "packs pin-baseline", "status": "error", "error": msg}, exit_code=3)
+            _output_json(
+                {"command": "packs pin-baseline", "status": "error", "error": msg},
+                exit_code=3,
+            )
         console.print(f"[red]Error:[/] {msg}")
         raise typer.Exit(3)
 
     bf = save_baseline(p)
     if output_json:
-        _output_json({
-            "command": "packs pin-baseline",
-            "status": "ok",
-            "pack_path": str(p.resolve()),
-            "baseline_file": str(bf),
-        }, exit_code=0)
+        _output_json(
+            {
+                "command": "packs pin-baseline",
+                "status": "ok",
+                "pack_path": str(p.resolve()),
+                "baseline_file": str(bf),
+            },
+            exit_code=0,
+        )
 
     console.print()
-    console.print(Panel.fit(
-        f"[bold green]Baseline pinned[/]\n\n"
-        f"Pack:      {p}\n"
-        f"Stored in: {bf}",
-        title="assay packs pin-baseline",
-    ))
-    console.print(f"Next: [bold]assay diff <new_pack> --against-previous[/]")
+    console.print(
+        Panel.fit(
+            f"[bold green]Baseline pinned[/]\n\nPack:      {p}\nStored in: {bf}",
+            title="assay packs pin-baseline",
+        )
+    )
+    console.print("Next: [bold]assay diff <new_pack> --against-previous[/]")
     console.print()
 
 
@@ -6689,12 +7707,16 @@ baseline_app = typer.Typer(
     help="Manage the diff baseline pack pointer (.assay/baseline.json)",
     no_args_is_help=True,
 )
-assay_app.add_typer(baseline_app, name="baseline", hidden=True, rich_help_panel="Operate")
+assay_app.add_typer(
+    baseline_app, name="baseline", hidden=True, rich_help_panel="Operate"
+)
 
 
 @baseline_app.command("set")
 def baseline_set_cmd(
-    pack_dir: str = typer.Argument(..., help="Path to proof pack directory to use as baseline"),
+    pack_dir: str = typer.Argument(
+        ..., help="Path to proof pack directory to use as baseline"
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Save a proof pack as the diff baseline."""
@@ -6705,29 +7727,48 @@ def baseline_set_cmd(
     p = Path(pack_dir)
     if not p.is_dir():
         if output_json:
-            _output_json({"command": "baseline set", "status": "error", "error": f"Not a directory: {pack_dir}"})
+            _output_json(
+                {
+                    "command": "baseline set",
+                    "status": "error",
+                    "error": f"Not a directory: {pack_dir}",
+                }
+            )
         console.print(f"[red]Error:[/] {pack_dir} is not a directory")
         raise typer.Exit(3)
 
     if not (p / "pack_manifest.json").exists():
         if output_json:
-            _output_json({"command": "baseline set", "status": "error", "error": f"No pack_manifest.json in {pack_dir}"})
+            _output_json(
+                {
+                    "command": "baseline set",
+                    "status": "error",
+                    "error": f"No pack_manifest.json in {pack_dir}",
+                }
+            )
         console.print(f"[red]Error:[/] No pack_manifest.json found in {pack_dir}")
         raise typer.Exit(3)
 
     bf = save_baseline(p)
     if output_json:
-        _output_json({"command": "baseline set", "status": "ok", "pack_path": str(p.resolve()), "baseline_file": str(bf)})
+        _output_json(
+            {
+                "command": "baseline set",
+                "status": "ok",
+                "pack_path": str(p.resolve()),
+                "baseline_file": str(bf),
+            }
+        )
     else:
         console.print()
-        console.print(Panel.fit(
-            f"[bold green]Baseline set[/]\n\n"
-            f"Pack:      {p}\n"
-            f"Stored in: {bf}",
-            title="assay baseline set",
-        ))
+        console.print(
+            Panel.fit(
+                f"[bold green]Baseline set[/]\n\nPack:      {p}\nStored in: {bf}",
+                title="assay baseline set",
+            )
+        )
         console.print()
-        console.print(f"Next: [bold]assay diff <new_pack> --against-previous[/]")
+        console.print("Next: [bold]assay diff <new_pack> --against-previous[/]")
         console.print()
 
 
@@ -6741,13 +7782,17 @@ def baseline_get_cmd(
     baseline = load_baseline()
     if baseline is None:
         if output_json:
-            _output_json({"command": "baseline get", "status": "none", "pack_path": None})
+            _output_json(
+                {"command": "baseline get", "status": "none", "pack_path": None}
+            )
         else:
             console.print("No baseline set. Use [bold]assay baseline set <pack_dir>[/]")
         return
 
     if output_json:
-        _output_json({"command": "baseline get", "status": "ok", "pack_path": str(baseline)})
+        _output_json(
+            {"command": "baseline get", "status": "ok", "pack_path": str(baseline)}
+        )
     else:
         console.print(f"Baseline: [bold]{baseline}[/]")
 
@@ -6776,7 +7821,9 @@ def _gate_error(msg: str, *, command: str = "assay gate", output_json: bool) -> 
     raise typer.Exit(3)
 
 
-def _gate_write_report(payload: dict, report_path: "Path", *, output_json: bool) -> None:
+def _gate_write_report(
+    payload: dict, report_path: "Path", *, output_json: bool
+) -> None:
     """Write a gate JSON report to disk, exiting 3 on write failure."""
     try:
         report_path.parent.mkdir(parents=True, exist_ok=True)
@@ -6790,12 +7837,26 @@ def _gate_write_report(payload: dict, report_path: "Path", *, output_json: bool)
 @gate_app.command("check")
 def gate_check_cmd(
     path: str = typer.Argument(".", help="Repository directory to score"),
-    min_score: Optional[float] = typer.Option(None, "--min-score", help="Minimum passing score (0-100)"),
-    fail_on_regression: bool = typer.Option(False, "--fail-on-regression", help="Fail if score dropped below baseline"),
-    require_lock: bool = typer.Option(False, "--require-lock", help="Fail if assay.lock is missing or invalid"),
-    baseline: Optional[str] = typer.Option(None, "--baseline", help="Path to score-baseline.json (default: .assay/score-baseline.json)"),
-    save_report: Optional[str] = typer.Option(None, "--save-report", help="Write gate JSON report to file"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Include score breakdown and next actions"),
+    min_score: Optional[float] = typer.Option(
+        None, "--min-score", help="Minimum passing score (0-100)"
+    ),
+    fail_on_regression: bool = typer.Option(
+        False, "--fail-on-regression", help="Fail if score dropped below baseline"
+    ),
+    require_lock: bool = typer.Option(
+        False, "--require-lock", help="Fail if assay.lock is missing or invalid"
+    ),
+    baseline: Optional[str] = typer.Option(
+        None,
+        "--baseline",
+        help="Path to score-baseline.json (default: .assay/score-baseline.json)",
+    ),
+    save_report: Optional[str] = typer.Option(
+        None, "--save-report", help="Write gate JSON report to file"
+    ),
+    verbose: bool = typer.Option(
+        False, "--verbose", "-v", help="Include score breakdown and next actions"
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Enforce minimum evidence score in CI. Pass/fail only.
@@ -6922,7 +7983,7 @@ def gate_check_cmd(
     if baseline_score is not None:
         lines.append(f"Baseline: {baseline_score:.1f}")
     if report["regression_detected"]:
-        lines.append(f"[red]Regression detected[/]")
+        lines.append("[red]Regression detected[/]")
     if report["reasons"]:
         lines.append("")
         for r in report["reasons"]:
@@ -6970,7 +8031,11 @@ def gate_check_cmd(
         if actions_detail:
             console.print("\n[bold]Next actions:[/]")
             for idx, ad in enumerate(actions_detail, 1):
-                pts = f" [dim](+{ad['points_est']:.0f} pts est.)[/]" if ad["points_est"] > 0 else ""
+                pts = (
+                    f" [dim](+{ad['points_est']:.0f} pts est.)[/]"
+                    if ad["points_est"] > 0
+                    else ""
+                )
                 console.print(f"  {idx}. {ad['action']}: {ad['command']}{pts}")
 
     console.print()
@@ -6980,7 +8045,9 @@ def gate_check_cmd(
     if exit_code == 0:
         console.print("Next: [bold]assay gate save-baseline[/] to lock in this score")
     elif not verbose:
-        console.print("Next: fix issues with [bold]assay score[/] to see breakdown, or use [bold]--verbose[/]")
+        console.print(
+            "Next: fix issues with [bold]assay score[/] to see breakdown, or use [bold]--verbose[/]"
+        )
 
     console.print()
     raise typer.Exit(exit_code)
@@ -6989,7 +8056,9 @@ def gate_check_cmd(
 @gate_app.command("save-baseline")
 def gate_save_baseline_cmd(
     path: str = typer.Argument(".", help="Repository directory to score"),
-    output: Optional[str] = typer.Option(None, "--output", "-o", help="Output path (default: .assay/score-baseline.json)"),
+    output: Optional[str] = typer.Option(
+        None, "--output", "-o", help="Output path (default: .assay/score-baseline.json)"
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Save the current Evidence Readiness Score as the gate baseline."""
@@ -7002,7 +8071,9 @@ def gate_save_baseline_cmd(
 
     root = P(path).resolve()
     if not root.exists() or not root.is_dir():
-        _gate_error(f"Directory not found: {path}", command=_cmd, output_json=output_json)
+        _gate_error(
+            f"Directory not found: {path}", command=_cmd, output_json=output_json
+        )
 
     try:
         facts = gather_score_facts(root)
@@ -7014,35 +8085,54 @@ def gate_save_baseline_cmd(
     try:
         save_score_baseline(current, out_path)
     except OSError as e:
-        _gate_error(f"Cannot write baseline: {e}", command=_cmd, output_json=output_json)
+        _gate_error(
+            f"Cannot write baseline: {e}", command=_cmd, output_json=output_json
+        )
 
     if output_json:
-        _output_json({
-            "command": "assay gate save-baseline",
-            "status": "ok",
-            "score": current["score"],
-            "grade": current["grade"],
-            "baseline_file": str(out_path),
-        })
+        _output_json(
+            {
+                "command": "assay gate save-baseline",
+                "status": "ok",
+                "score": current["score"],
+                "grade": current["grade"],
+                "baseline_file": str(out_path),
+            }
+        )
 
     console.print()
-    console.print(Panel.fit(
-        f"[bold green]Baseline saved[/]\n\n"
-        f"Score: {current['score']:.1f} ({current['grade']})\n"
-        f"File:  {out_path}",
-        title="assay gate save-baseline",
-    ))
+    console.print(
+        Panel.fit(
+            f"[bold green]Baseline saved[/]\n\n"
+            f"Score: {current['score']:.1f} ({current['grade']})\n"
+            f"File:  {out_path}",
+            title="assay gate save-baseline",
+        )
+    )
     console.print()
-    console.print(f"Next: [bold]assay gate check --min-score {max(0, current['score'] - 5):.0f} --fail-on-regression[/]")
+    console.print(
+        f"Next: [bold]assay gate check --min-score {max(0, current['score'] - 5):.0f} --fail-on-regression[/]"
+    )
     console.print()
 
 
 @gate_app.command("compare")
 def gate_compare_cmd(
-    baseline: str = typer.Argument(..., help="Baseline evidence bundle or pack directory"),
-    candidate: str = typer.Argument(..., help="Candidate evidence bundle or pack directory"),
-    contract: Optional[str] = typer.Option(None, "--contract", "-c", help="Path to comparability contract. Defaults to bundled judge-comparability-v1."),
-    save_report: Optional[str] = typer.Option(None, "--save-report", help="Write gate report JSON to file"),
+    baseline: str = typer.Argument(
+        ..., help="Baseline evidence bundle or pack directory"
+    ),
+    candidate: str = typer.Argument(
+        ..., help="Candidate evidence bundle or pack directory"
+    ),
+    contract: Optional[str] = typer.Option(
+        None,
+        "--contract",
+        "-c",
+        help="Path to comparability contract. Defaults to bundled judge-comparability-v1.",
+    ),
+    save_report: Optional[str] = typer.Option(
+        None, "--save-report", help="Write gate report JSON to file"
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Enforce comparability verdict as a CI gate. Fail-closed.
@@ -7145,17 +8235,21 @@ def gate_compare_cmd(
 
     # Gate banner
     if gate_passed:
-        console.print(Panel(
-            "[bold green]GATE: PASS[/]",
-            border_style="green",
-        ))
+        console.print(
+            Panel(
+                "[bold green]GATE: PASS[/]",
+                border_style="green",
+            )
+        )
     else:
-        console.print(Panel(
-            f"[bold red]GATE: FAIL[/]\n\n"
-            f"  Verdict {diff.verdict.value} is not SATISFIED.\n"
-            f"  In gate mode, only SATISFIED passes.",
-            border_style="red",
-        ))
+        console.print(
+            Panel(
+                f"[bold red]GATE: FAIL[/]\n\n"
+                f"  Verdict {diff.verdict.value} is not SATISFIED.\n"
+                f"  In gate mode, only SATISFIED passes.",
+                border_style="red",
+            )
+        )
 
     raise typer.Exit(exit_code)
 
@@ -7174,9 +8268,18 @@ assay_app.add_typer(bundle_app, name="bundle", rich_help_panel="Governance")
 
 @bundle_app.command("init")
 def bundle_init_cmd(
-    contract: Optional[str] = typer.Option(None, "--contract", "-c", help="Path to comparability contract (YAML/JSON). Defaults to bundled judge-comparability-v1."),
-    output: str = typer.Option("evidence_bundle.json", "--output", "-o", help="Output file path"),
-    output_json: bool = typer.Option(False, "--json", help="Output as JSON to stdout instead of file"),
+    contract: Optional[str] = typer.Option(
+        None,
+        "--contract",
+        "-c",
+        help="Path to comparability contract (YAML/JSON). Defaults to bundled judge-comparability-v1.",
+    ),
+    output: str = typer.Option(
+        "evidence_bundle.json", "--output", "-o", help="Output file path"
+    ),
+    output_json: bool = typer.Option(
+        False, "--json", help="Output as JSON to stdout instead of file"
+    ),
 ):
     """Scaffold a template evidence bundle from a comparability contract.
 
@@ -7231,8 +8334,10 @@ def bundle_init_cmd(
     out_path = P(output)
     out_path.write_text(payload, encoding="utf-8")
     console.print(f"[green]Wrote template bundle:[/] {out_path}")
-    console.print(f"  {len(fields)} fields stubbed from contract [bold]{ctr.contract_id}[/]")
-    console.print(f"  Fill in field values, then run:")
+    console.print(
+        f"  {len(fields)} fields stubbed from contract [bold]{ctr.contract_id}[/]"
+    )
+    console.print("  Fill in field values, then run:")
     contract_hint = f" -c {contract}" if contract else ""
     console.print(f"    [dim]assay compare baseline.json {out_path}{contract_hint}[/]")
 
@@ -7246,15 +8351,21 @@ contract_app = typer.Typer(
     help="Comparability contract utilities (diff, inspect)",
     no_args_is_help=True,
 )
-assay_app.add_typer(contract_app, name="contract", hidden=True, rich_help_panel="Advanced")
+assay_app.add_typer(
+    contract_app, name="contract", hidden=True, rich_help_panel="Advanced"
+)
 
 
 @contract_app.command("diff")
 def contract_diff_cmd(
     old: str = typer.Option(..., "--old", help="Path to old contract (YAML/JSON)"),
     new: str = typer.Option(..., "--new", help="Path to new contract (YAML/JSON)"),
-    bundles: str = typer.Option(..., "--bundles", help="Directory containing evidence bundle pairs"),
-    save_report: Optional[str] = typer.Option(None, "--save-report", help="Write diff report JSON to file"),
+    bundles: str = typer.Option(
+        ..., "--bundles", help="Directory containing evidence bundle pairs"
+    ),
+    save_report: Optional[str] = typer.Option(
+        None, "--save-report", help="Write diff report JSON to file"
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Diff two contract versions by replaying evidence bundles.
@@ -7282,7 +8393,7 @@ def contract_diff_cmd(
     """
     from pathlib import Path as P
 
-    from assay.comparability.bundle import EvidenceBundle, find_bundle, load_bundle
+    from assay.comparability.bundle import find_bundle, load_bundle
     from assay.comparability.contract import ContractValidationError, load_contract
     from assay.comparability.contract_diff import replay
 
@@ -7306,13 +8417,14 @@ def contract_diff_cmd(
         raise typer.Exit(3)
 
     # Find all subdirectories with evidence_bundle.json
-    bundle_dirs = sorted([
-        d for d in bundles_dir.iterdir()
-        if d.is_dir() and find_bundle(d) is not None
-    ])
+    bundle_dirs = sorted(
+        [d for d in bundles_dir.iterdir() if d.is_dir() and find_bundle(d) is not None]
+    )
 
     if len(bundle_dirs) < 2:
-        console.print(f"[red]Need at least 2 bundle directories, found {len(bundle_dirs)}[/]")
+        console.print(
+            f"[red]Need at least 2 bundle directories, found {len(bundle_dirs)}[/]"
+        )
         raise typer.Exit(3)
 
     # Load bundles
@@ -7344,26 +8456,34 @@ def contract_diff_cmd(
 
     # Rich console output
     console.print()
-    console.print(Panel(
-        f"[bold]Contract Diff Report[/]\n"
-        f"Old: {old_ctr.contract_id} v{old_ctr.version}\n"
-        f"New: {new_ctr.contract_id} v{new_ctr.version}",
-        border_style="blue",
-    ))
+    console.print(
+        Panel(
+            f"[bold]Contract Diff Report[/]\n"
+            f"Old: {old_ctr.contract_id} v{old_ctr.version}\n"
+            f"New: {new_ctr.contract_id} v{new_ctr.version}",
+            border_style="blue",
+        )
+    )
 
     # Clause changes
     if report.clause_changes:
         console.print(f"\n[bold]Clause changes ({len(report.clause_changes)}):[/]")
         for cc in report.clause_changes:
-            icon = {"severity_relaxed": "[yellow]\u2193[/]", "severity_tightened": "[red]\u2191[/]",
-                    "field_added": "[green]+[/]", "field_removed": "[red]-[/]",
-                    "rule_changed": "[cyan]~[/]"}.get(cc.change_type, "?")
-            console.print(f"  {icon} {cc.field}: {cc.old_severity.value} \u2192 {cc.new_severity.value} ({cc.change_type})")
+            icon = {
+                "severity_relaxed": "[yellow]\u2193[/]",
+                "severity_tightened": "[red]\u2191[/]",
+                "field_added": "[green]+[/]",
+                "field_removed": "[red]-[/]",
+                "rule_changed": "[cyan]~[/]",
+            }.get(cc.change_type, "?")
+            console.print(
+                f"  {icon} {cc.field}: {cc.old_severity.value} \u2192 {cc.new_severity.value} ({cc.change_type})"
+            )
     else:
         console.print("\n[dim]No clause changes.[/]")
 
     # Summary
-    console.print(f"\n[bold]Replay summary:[/]")
+    console.print("\n[bold]Replay summary:[/]")
     console.print(f"  Bundle pairs replayed: {report.total_pairs}")
     console.print(f"  Stable (no verdict change): {report.stable_count}")
     console.print(f"  Flips: {len(report.flips)}")
@@ -7373,22 +8493,28 @@ def contract_diff_cmd(
         console.print(f"\n[bold]Verdict flips ({len(report.flips)}):[/]")
         for flip in report.flips:
             console.print(f"\n  [bold]{flip.bundle_ref}[/]")
-            console.print(f"    {flip.old_verdict.value} \u2192 {flip.new_verdict.value}")
+            console.print(
+                f"    {flip.old_verdict.value} \u2192 {flip.new_verdict.value}"
+            )
             console.print(f"    Trigger: {flip.triggering_field}")
             console.print(f"    Reason: {flip.reason}")
         console.print()
-        console.print(Panel(
-            f"[bold yellow]{len(report.flips)} verdict flip(s) detected[/]\n"
-            f"The contract amendment changes outcomes for existing evidence.",
-            border_style="yellow",
-        ))
+        console.print(
+            Panel(
+                f"[bold yellow]{len(report.flips)} verdict flip(s) detected[/]\n"
+                f"The contract amendment changes outcomes for existing evidence.",
+                border_style="yellow",
+            )
+        )
     else:
         console.print()
-        console.print(Panel(
-            "[bold green]No verdict flips[/]\n"
-            "The contract amendment is safe for the current organic corpus.",
-            border_style="green",
-        ))
+        console.print(
+            Panel(
+                "[bold green]No verdict flips[/]\n"
+                "The contract amendment is safe for the current organic corpus.",
+                border_style="green",
+            )
+        )
 
     raise typer.Exit(0 if not report.flips else 1)
 
@@ -7415,19 +8541,21 @@ def cards_list_cmd(
     cards = get_all_builtin_cards()
 
     if output_json:
-        _output_json({
-            "command": "cards list",
-            "status": "ok",
-            "cards": [
-                {
-                    "card_id": c.card_id,
-                    "name": c.name,
-                    "description": c.description,
-                    "claims": len(c.claims),
-                }
-                for c in cards
-            ],
-        })
+        _output_json(
+            {
+                "command": "cards list",
+                "status": "ok",
+                "cards": [
+                    {
+                        "card_id": c.card_id,
+                        "name": c.name,
+                        "description": c.description,
+                        "claims": len(c.claims),
+                    }
+                    for c in cards
+                ],
+            }
+        )
 
     table = Table(show_header=True, header_style="bold")
     table.add_column("Card ID", style="cyan")
@@ -7443,7 +8571,9 @@ def cards_list_cmd(
 
 @cards_app.command("show")
 def cards_show_cmd(
-    card_id: str = typer.Argument(help="Card ID to display (e.g. receipt_completeness)"),
+    card_id: str = typer.Argument(
+        help="Card ID to display (e.g. receipt_completeness)"
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Show details of a specific run card, including its claims."""
@@ -7452,22 +8582,31 @@ def cards_show_cmd(
     card = get_builtin_card(card_id)
     if card is None:
         from assay.run_cards import BUILTIN_CARDS
+
         valid = ", ".join(sorted(BUILTIN_CARDS.keys()))
         if output_json:
-            _output_json({"command": "cards show", "status": "error",
-                          "error": f"Unknown card: {card_id}", "valid_cards": valid},
-                         exit_code=3)
+            _output_json(
+                {
+                    "command": "cards show",
+                    "status": "error",
+                    "error": f"Unknown card: {card_id}",
+                    "valid_cards": valid,
+                },
+                exit_code=3,
+            )
         console.print(f"[red]Unknown card:[/] {card_id}")
         console.print(f"[dim]Valid cards: {valid}[/]")
         raise typer.Exit(3)
 
     if output_json:
-        _output_json({
-            "command": "cards show",
-            "status": "ok",
-            **card.to_dict(),
-            "claim_set_hash": card.claim_set_hash(),
-        })
+        _output_json(
+            {
+                "command": "cards show",
+                "status": "ok",
+                **card.to_dict(),
+                "claim_set_hash": card.claim_set_hash(),
+            }
+        )
 
     console.print(f"[bold]{card.name}[/]  [dim]({card.card_id})[/]")
     console.print(f"  {card.description}")
@@ -7481,7 +8620,9 @@ def cards_show_cmd(
 
     for cl in card.claims:
         sev_style = "red" if cl.severity == "critical" else "yellow"
-        table.add_row(cl.claim_id, cl.check, f"[{sev_style}]{cl.severity}[/]", cl.description)
+        table.add_row(
+            cl.claim_id, cl.check, f"[{sev_style}]{cl.severity}[/]", cl.description
+        )
 
     console.print(table)
 
@@ -7513,7 +8654,9 @@ def ci_init_cmd(
         "-o",
         help="Workflow output path",
     ),
-    force: bool = typer.Option(False, "--force", help="Overwrite existing workflow file"),
+    force: bool = typer.Option(
+        False, "--force", help="Overwrite existing workflow file"
+    ),
     min_score: int = typer.Option(
         0,
         "--min-score",
@@ -7529,18 +8672,28 @@ def ci_init_cmd(
     provider_norm = provider.strip().lower()
     if provider_norm != "github":
         if output_json:
-            _output_json({
-                "command": "ci init",
-                "status": "error",
-                "error": f"Unsupported provider '{provider}'. Supported: github",
-            })
-        console.print(f"[red]Error:[/] Unsupported provider '{provider}'. Supported: github")
+            _output_json(
+                {
+                    "command": "ci init",
+                    "status": "error",
+                    "error": f"Unsupported provider '{provider}'. Supported: github",
+                }
+            )
+        console.print(
+            f"[red]Error:[/] Unsupported provider '{provider}'. Supported: github"
+        )
         raise typer.Exit(1)
 
     run_command = " ".join(run_command.strip().split())
     if not run_command:
         if output_json:
-            _output_json({"command": "ci init", "status": "error", "error": "run_command cannot be empty"})
+            _output_json(
+                {
+                    "command": "ci init",
+                    "status": "error",
+                    "error": "run_command cannot be empty",
+                }
+            )
         console.print("[red]Error:[/] --run-command cannot be empty")
         raise typer.Exit(1)
 
@@ -7554,18 +8707,26 @@ def ci_init_cmd(
     workflow_path = Path(output)
     if workflow_path.exists() and not force:
         if output_json:
-            _output_json({
-                "command": "ci init",
-                "status": "error",
-                "error": f"{output} already exists (use --force to overwrite)",
-            })
-        console.print(f"[red]Error:[/] {output} already exists. Use --force to overwrite.")
+            _output_json(
+                {
+                    "command": "ci init",
+                    "status": "error",
+                    "error": f"{output} already exists (use --force to overwrite)",
+                }
+            )
+        console.print(
+            f"[red]Error:[/] {output} already exists. Use --force to overwrite."
+        )
         raise typer.Exit(1)
 
     workflow_path.parent.mkdir(parents=True, exist_ok=True)
 
-    min_score_comment = "  # raise this once your score is stable" if min_score == 0 else ""
-    placeholder_comment = "  # TODO: replace with your actual run command" if is_placeholder else ""
+    min_score_comment = (
+        "  # raise this once your score is stable" if min_score == 0 else ""
+    )
+    placeholder_comment = (
+        "  # TODO: replace with your actual run command" if is_placeholder else ""
+    )
 
     workflow = f"""name: Assay Verify
 
@@ -7678,33 +8839,45 @@ jobs:
     workflow_path.write_text(workflow, encoding="utf-8")
 
     if output_json:
-        _output_json({
-            "command": "ci init",
-            "status": "ok",
-            "provider": "github",
-            "output": str(workflow_path),
-            "run_command": run_command,
-            "cards": [c.strip() for c in cards.split(",") if c.strip()],
-            "min_score": min_score,
-        })
+        _output_json(
+            {
+                "command": "ci init",
+                "status": "ok",
+                "provider": "github",
+                "output": str(workflow_path),
+                "run_command": run_command,
+                "cards": [c.strip() for c in cards.split(",") if c.strip()],
+                "min_score": min_score,
+            }
+        )
 
     console.print()
-    console.print(Panel.fit(
-        f"[bold green]CI workflow generated (3 jobs)[/]\n\n"
-        f"Provider:   github\n"
-        f"Output:     {workflow_path}\n"
-        f"Run:        {run_command}\n"
-        f"RunCards:   {cards}\n"
-        f"MinScore:   {min_score}",
-        title="assay ci init github",
-    ))
+    console.print(
+        Panel.fit(
+            f"[bold green]CI workflow generated (3 jobs)[/]\n\n"
+            f"Provider:   github\n"
+            f"Output:     {workflow_path}\n"
+            f"Run:        {run_command}\n"
+            f"RunCards:   {cards}\n"
+            f"MinScore:   {min_score}",
+            title="assay ci init github",
+        )
+    )
     if is_placeholder:
-        console.print("[yellow]Warning:[/] Using placeholder command 'python my_app.py'.")
-        console.print(f"  Edit [bold]{workflow_path}[/] and replace with your actual run command.")
-        console.print(f"  Or re-run: assay ci init github --run-command \"python your_app.py\" --force")
+        console.print(
+            "[yellow]Warning:[/] Using placeholder command 'python my_app.py'."
+        )
+        console.print(
+            f"  Edit [bold]{workflow_path}[/] and replace with your actual run command."
+        )
+        console.print(
+            '  Or re-run: assay ci init github --run-command "python your_app.py" --force'
+        )
         console.print()
     console.print("Next:")
-    console.print(f"  1. Review [bold]{workflow_path}[/] (3 jobs: gate, verify, report)")
+    console.print(
+        f"  1. Review [bold]{workflow_path}[/] (3 jobs: gate, verify, report)"
+    )
     console.print("  2. Commit and push")
     console.print("  3. Open a PR to see score gate + verification + SARIF in checks")
     console.print()
@@ -7714,7 +8887,9 @@ jobs:
 def ci_doctor_cmd(
     lock: Optional[str] = typer.Option(None, "--lock", help="Path to lockfile"),
     strict: bool = typer.Option(False, "--strict", help="Treat warnings as failures"),
-    output_json: bool = typer.Option(False, "--json", help="Machine-readable JSON output"),
+    output_json: bool = typer.Option(
+        False, "--json", help="Machine-readable JSON output"
+    ),
 ):
     """Run doctor checks with the CI profile.
 
@@ -7731,7 +8906,10 @@ def ci_doctor_cmd(
     report = run_doctor(Profile.CI, lock_path=lock_path, strict=strict)
 
     if output_json:
-        _output_json(report.to_dict(), exit_code=report.exit_code_strict() if strict else report.exit_code)
+        _output_json(
+            report.to_dict(),
+            exit_code=report.exit_code_strict() if strict else report.exit_code,
+        )
         return
 
     _render_doctor_report(report, strict)
@@ -7984,8 +9162,8 @@ def _build_trust_readme(profile: str) -> str:
         "\n"
         "| From | To | Change |\n"
         "|------|----|--------|\n"
-        f"| minimal | reviewer | Edit `acceptance.yaml`: change `unrecognized` decision from `accept` to `warn` |\n"
-        f"| reviewer | strict | Edit workflow: add `enforce-trust: true`. Edit `acceptance.yaml`: change `unrecognized` from `warn` to `reject` |\n"
+        "| minimal | reviewer | Edit `acceptance.yaml`: change `unrecognized` decision from `accept` to `warn` |\n"
+        "| reviewer | strict | Edit workflow: add `enforce-trust: true`. Edit `acceptance.yaml`: change `unrecognized` from `warn` to `reject` |\n"
     )
 
 
@@ -8011,7 +9189,7 @@ def _build_workflow_yaml(profile: str, cfg: dict) -> str:
 
     return f"""# Assay Verify — generated by: assay trust bootstrap --profile {profile}
 #
-# Trust posture: {cfg['description']}
+# Trust posture: {cfg["description"]}
 # Action pinned to immutable commit SHA for supply-chain safety.
 
 name: Assay Verify
@@ -8050,17 +9228,27 @@ jobs:
 
 @trust_app.command("bootstrap")
 def trust_bootstrap_cmd(
-    profile: str = typer.Option("minimal", "--profile", "-p", help="Trust profile: minimal, reviewer, strict"),
-    output_dir: str = typer.Option(".", "--output-dir", "-o", help="Root directory for emitted files"),
-    force: bool = typer.Option(False, "--force", help="Overwrite existing trust/ directory"),
-    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be written without writing"),
+    profile: str = typer.Option(
+        "minimal", "--profile", "-p", help="Trust profile: minimal, reviewer, strict"
+    ),
+    output_dir: str = typer.Option(
+        ".", "--output-dir", "-o", help="Root directory for emitted files"
+    ),
+    force: bool = typer.Option(
+        False, "--force", help="Overwrite existing trust/ directory"
+    ),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Show what would be written without writing"
+    ),
 ):
     """Bootstrap trust policy files and CI workflow for proof pack verification."""
     from pathlib import Path
 
     profile = profile.strip().lower()
     if profile not in _PROFILE_CONFIGS:
-        console.print(f"[red]Error:[/] Unknown profile '{profile}'. Choose: minimal, reviewer, strict")
+        console.print(
+            f"[red]Error:[/] Unknown profile '{profile}'. Choose: minimal, reviewer, strict"
+        )
         raise typer.Exit(1)
 
     cfg = _PROFILE_CONFIGS[profile]
@@ -8079,15 +9267,20 @@ def trust_bootstrap_cmd(
     if not force and not dry_run:
         existing = [p for p in files if p.exists()]
         if existing:
-            rel_paths = [str(p.relative_to(root)) if p.is_relative_to(root) else str(p) for p in existing]
-            console.print(f"[red]Error:[/] Existing files would be overwritten:")
+            rel_paths = [
+                str(p.relative_to(root)) if p.is_relative_to(root) else str(p)
+                for p in existing
+            ]
+            console.print("[red]Error:[/] Existing files would be overwritten:")
             for rp in rel_paths:
                 console.print(f"  {rp}")
             console.print("Use --force to overwrite.")
             raise typer.Exit(1)
 
     if dry_run:
-        console.print(f"\n[bold]Assay Trust Bootstrap[/] ({profile} profile) — dry run\n")
+        console.print(
+            f"\n[bold]Assay Trust Bootstrap[/] ({profile} profile) — dry run\n"
+        )
         for path, content in files.items():
             rel = path.relative_to(root) if path.is_relative_to(root) else path
             console.print(f"  Would write: [bold]{rel}[/]")
@@ -8101,20 +9294,24 @@ def trust_bootstrap_cmd(
 
     # Print summary
     console.print()
-    console.print(Panel.fit(
-        f"[bold green]Assay Trust Bootstrap[/] ({profile} profile)\n\n"
-        f"Writing files:\n"
-        f"  trust/signers.yaml              signer registry (placeholder — register your key)\n"
-        f"  trust/acceptance.yaml           acceptance rules ({cfg['description']} mode)\n"
-        f"  trust/README.md                 setup guide + gallery links\n"
-        f"  .github/workflows/assay-verify.yml   CI workflow with trust evaluation\n\n"
-        f"{cfg['posture_summary']}",
-        title="assay trust bootstrap",
-    ))
+    console.print(
+        Panel.fit(
+            f"[bold green]Assay Trust Bootstrap[/] ({profile} profile)\n\n"
+            f"Writing files:\n"
+            f"  trust/signers.yaml              signer registry (placeholder — register your key)\n"
+            f"  trust/acceptance.yaml           acceptance rules ({cfg['description']} mode)\n"
+            f"  trust/README.md                 setup guide + gallery links\n"
+            f"  .github/workflows/assay-verify.yml   CI workflow with trust evaluation\n\n"
+            f"{cfg['posture_summary']}",
+            title="assay trust bootstrap",
+        )
+    )
     console.print()
     console.print("Next steps:")
     console.print("  1. Run: [bold]assay key list[/]")
-    console.print("  2. Copy your fingerprint into [bold]trust/signers.yaml[/] (replace the placeholder)")
+    console.print(
+        "  2. Copy your fingerprint into [bold]trust/signers.yaml[/] (replace the placeholder)"
+    )
     console.print("  3. Generate a proof pack: [bold]assay run -- <your command>[/]")
     console.print("  4. Commit trust/, proof pack, and push")
     console.print("  5. Open a PR — trust evaluation appears in the PR comment")
@@ -8150,7 +9347,9 @@ def onboard_cmd(
         "--entrypoint",
         help="Entrypoint file hint for patch placement",
     ),
-    skip_doctor: bool = typer.Option(False, "--skip-doctor", help="Skip assay doctor preflight"),
+    skip_doctor: bool = typer.Option(
+        False, "--skip-doctor", help="Skip assay doctor preflight"
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Guided project setup: doctor -> scan -> patch suggestion -> first run commands.
@@ -8166,7 +9365,13 @@ def onboard_cmd(
     root = P(path).resolve()
     if not root.exists() or not root.is_dir():
         if output_json:
-            _output_json({"command": "onboard", "status": "error", "error": f"Directory not found: {path}"})
+            _output_json(
+                {
+                    "command": "onboard",
+                    "status": "error",
+                    "error": f"Directory not found: {path}",
+                }
+            )
         console.print(f"[red]Error:[/] Directory not found: {path}")
         raise typer.Exit(1)
 
@@ -8187,46 +9392,60 @@ def onboard_cmd(
 
     next_steps: list[str] = []
     if patch_line:
-        next_steps.append(f"Add to your entrypoint ({selected_entrypoint}): {patch_line}")
+        next_steps.append(
+            f"Add to your entrypoint ({selected_entrypoint}): {patch_line}"
+        )
     else:
-        next_steps.append("No SDK patterns detected; add manual emission: from assay import emit_receipt")
+        next_steps.append(
+            "No SDK patterns detected; add manual emission: from assay import emit_receipt"
+        )
     next_steps.append(
         f"Generate first Proof Pack: assay run -c receipt_completeness -- {selected_run}"
     )
-    next_steps.append("Verify + explain: assay verify-pack ./proof_pack_*/ && assay explain ./proof_pack_*/ --format md")
+    next_steps.append(
+        "Verify + explain: assay verify-pack ./proof_pack_*/ && assay explain ./proof_pack_*/ --format md"
+    )
     next_steps.append("Lock baseline: assay lock init")
-    next_steps.append("Enable CI: assay ci init github --run-command \"" + selected_run + "\"")
+    next_steps.append(
+        'Enable CI: assay ci init github --run-command "' + selected_run + '"'
+    )
 
     if output_json:
-        _output_json({
-            "command": "onboard",
-            "status": "ok",
-            "path": str(root),
-            "doctor": None if doctor_report is None else {
-                "status": doctor_report.overall_status,
-                "summary": doctor_report.summary,
-            },
-            "scan_summary": summary,
-            "top_paths": top_paths,
-            "entrypoint": selected_entrypoint,
-            "run_command": selected_run,
-            "patch_line": patch_line,
-            "next_steps": next_steps,
-        })
+        _output_json(
+            {
+                "command": "onboard",
+                "status": "ok",
+                "path": str(root),
+                "doctor": None
+                if doctor_report is None
+                else {
+                    "status": doctor_report.overall_status,
+                    "summary": doctor_report.summary,
+                },
+                "scan_summary": summary,
+                "top_paths": top_paths,
+                "entrypoint": selected_entrypoint,
+                "run_command": selected_run,
+                "patch_line": patch_line,
+                "next_steps": next_steps,
+            }
+        )
 
     console.print()
-    console.print(Panel.fit(
-        f"[bold]Step 1: Preflight[/]\n"
-        f"Doctor: {'skipped' if doctor_report is None else doctor_report.overall_status.upper()}\n\n"
-        f"[bold]Step 2: Scan[/]\n"
-        f"Call sites: {summary['sites_total']} total, {summary['uninstrumented']} uninstrumented\n"
-        f"High/Med/Low: {summary['high']}/{summary['medium']}/{summary['low']}\n\n"
-        f"[bold]Step 3: Suggested entrypoint[/]\n"
-        f"{selected_entrypoint}\n\n"
-        f"[bold]Step 4: Recommended run command[/]\n"
-        f"{selected_run}",
-        title="assay onboard",
-    ))
+    console.print(
+        Panel.fit(
+            f"[bold]Step 1: Preflight[/]\n"
+            f"Doctor: {'skipped' if doctor_report is None else doctor_report.overall_status.upper()}\n\n"
+            f"[bold]Step 2: Scan[/]\n"
+            f"Call sites: {summary['sites_total']} total, {summary['uninstrumented']} uninstrumented\n"
+            f"High/Med/Low: {summary['high']}/{summary['medium']}/{summary['low']}\n\n"
+            f"[bold]Step 3: Suggested entrypoint[/]\n"
+            f"{selected_entrypoint}\n\n"
+            f"[bold]Step 4: Recommended run command[/]\n"
+            f"{selected_run}",
+            title="assay onboard",
+        )
+    )
     console.print()
     console.print("[bold]Next 5 moves:[/]")
     for i, step in enumerate(next_steps, 1):
@@ -8238,12 +9457,18 @@ def onboard_cmd(
 def patch_cmd(
     path: str = typer.Argument(".", help="Directory to scan and patch"),
     entrypoint: Optional[str] = typer.Option(
-        None, "--entrypoint", help="File to patch (auto-detected if omitted)",
+        None,
+        "--entrypoint",
+        help="File to patch (auto-detected if omitted)",
     ),
     dry_run: bool = typer.Option(False, "--dry-run", help="Show diff without writing"),
     yes: bool = typer.Option(False, "--yes", "-y", help="Apply without confirmation"),
-    backup: bool = typer.Option(True, "--backup/--no-backup", help="Back up original file before patching"),
-    undo: bool = typer.Option(False, "--undo", help="Restore from backup (reverses a previous patch)"),
+    backup: bool = typer.Option(
+        True, "--backup/--no-backup", help="Back up original file before patching"
+    ),
+    undo: bool = typer.Option(
+        False, "--undo", help="Restore from backup (reverses a previous patch)"
+    ),
     output_json: bool = typer.Option(False, "--json", help="Machine-readable output"),
 ):
     """Auto-insert SDK integration patches into your entrypoint."""
@@ -8255,7 +9480,13 @@ def patch_cmd(
     root = P(path).resolve()
     if not root.exists() or not root.is_dir():
         if output_json:
-            _output_json({"command": "patch", "status": "error", "error": f"Directory not found: {path}"})
+            _output_json(
+                {
+                    "command": "patch",
+                    "status": "error",
+                    "error": f"Directory not found: {path}",
+                }
+            )
         console.print(f"[red]Error:[/] Directory not found: {path}")
         raise typer.Exit(3)
 
@@ -8265,7 +9496,13 @@ def patch_cmd(
             bak_files = list(root.glob("**/*.assay.bak"))
             if not bak_files:
                 if output_json:
-                    _output_json({"command": "patch", "status": "error", "error": "No .assay.bak files found"})
+                    _output_json(
+                        {
+                            "command": "patch",
+                            "status": "error",
+                            "error": "No .assay.bak files found",
+                        }
+                    )
                 console.print("[red]No .assay.bak files found.[/] Nothing to undo.")
                 raise typer.Exit(1)
             # Derive entrypoint from first .bak file
@@ -8273,11 +9510,15 @@ def patch_cmd(
             entrypoint = str(bak.relative_to(root)).replace(".assay.bak", "")
         success = undo_patch(root, entrypoint)
         if output_json:
-            _output_json({
-                "command": "patch", "action": "undo",
-                "status": "ok" if success else "error",
-                "entrypoint": entrypoint,
-            }, exit_code=0 if success else 1)
+            _output_json(
+                {
+                    "command": "patch",
+                    "action": "undo",
+                    "status": "ok" if success else "error",
+                    "entrypoint": entrypoint,
+                },
+                exit_code=0 if success else 1,
+            )
         if success:
             console.print(f"[green]Restored {entrypoint}[/] from backup.")
         else:
@@ -8290,7 +9531,13 @@ def patch_cmd(
 
     if not uninstrumented:
         if output_json:
-            _output_json({"command": "patch", "status": "ok", "message": "No uninstrumented call sites found"})
+            _output_json(
+                {
+                    "command": "patch",
+                    "status": "ok",
+                    "message": "No uninstrumented call sites found",
+                }
+            )
         console.print("[green]No uninstrumented call sites found.[/] Nothing to patch.")
         raise typer.Exit(0)
 
@@ -8303,9 +9550,15 @@ def patch_cmd(
         raise typer.Exit(3)
 
     if not plan.has_work:
-        msg = f"Already patched: {', '.join(plan.already_patched)}" if plan.already_patched else "Nothing to patch"
+        msg = (
+            f"Already patched: {', '.join(plan.already_patched)}"
+            if plan.already_patched
+            else "Nothing to patch"
+        )
         if output_json:
-            _output_json({"command": "patch", "status": "ok", "message": msg, **plan.to_dict()})
+            _output_json(
+                {"command": "patch", "status": "ok", "message": msg, **plan.to_dict()}
+            )
         console.print(f"[green]{msg}[/]")
         if plan.langchain_note:
             console.print(f"\n[yellow]Note:[/] {plan.langchain_note}")
@@ -8315,26 +9568,34 @@ def patch_cmd(
     diff = generate_diff(plan, root)
 
     if output_json and dry_run:
-        _output_json({
-            "command": "patch",
-            "status": "dry_run",
-            "diff": diff,
-            **plan.to_dict(),
-        }, exit_code=0)
+        _output_json(
+            {
+                "command": "patch",
+                "status": "dry_run",
+                "diff": diff,
+                **plan.to_dict(),
+            },
+            exit_code=0,
+        )
         # _output_json raises typer.Exit(exit_code)
 
     if output_json:
         # Apply first, then report
         apply_patch(plan, root, backup=backup)
-        _output_json({
-            "command": "patch",
-            "status": "applied",
-            "diff": diff,
-            **plan.to_dict(),
-        }, exit_code=0)
+        _output_json(
+            {
+                "command": "patch",
+                "status": "applied",
+                "diff": diff,
+                **plan.to_dict(),
+            },
+            exit_code=0,
+        )
         # _output_json raises typer.Exit(exit_code)
 
-    console.print(f"\n[bold]Scanning...[/] found {len(uninstrumented)} uninstrumented call sites")
+    console.print(
+        f"\n[bold]Scanning...[/] found {len(uninstrumented)} uninstrumented call sites"
+    )
     console.print(f"[bold]Detected frameworks:[/] {', '.join(plan.frameworks)}")
     console.print(f"[bold]Entrypoint:[/] {plan.entrypoint}")
     if plan.already_patched:
@@ -8357,49 +9618,68 @@ def patch_cmd(
             raise typer.Exit(0)
 
     apply_patch(plan, root, backup=backup)
-    console.print(f"[green]Patched {plan.entrypoint}[/] with {len(plan.lines_to_insert)} integration line(s).")
+    console.print(
+        f"[green]Patched {plan.entrypoint}[/] with {len(plan.lines_to_insert)} integration line(s)."
+    )
 
     # Check if other files still have uninstrumented call sites
     other_files = {f.path for f in uninstrumented if f.path != plan.entrypoint}
     if other_files:
-        console.print(f"\n[dim]Note: {len(other_files)} other file(s) have uninstrumented call sites.")
-        console.print("  If your app has multiple entrypoints/processes, run assay patch again.[/dim]")
+        console.print(
+            f"\n[dim]Note: {len(other_files)} other file(s) have uninstrumented call sites."
+        )
+        console.print(
+            "  If your app has multiple entrypoints/processes, run assay patch again.[/dim]"
+        )
 
-    console.print(f"\nNext: [bold]assay run -c receipt_completeness -- python {plan.entrypoint}[/]")
+    console.print(
+        f"\nNext: [bold]assay run -c receipt_completeness -- python {plan.entrypoint}[/]"
+    )
 
 
 @assay_app.command("scan", rich_help_panel="Build & Verify")
 def scan_cmd(
     path: str = typer.Argument(".", help="Directory to scan"),
-    output_json: bool = typer.Option(False, "--json", help="Machine-readable JSON output"),
-    ci: bool = typer.Option(False, "--ci", help="CI mode (non-zero exit on uninstrumented sites)"),
+    output_json: bool = typer.Option(
+        False, "--json", help="Machine-readable JSON output"
+    ),
+    ci: bool = typer.Option(
+        False, "--ci", help="CI mode (non-zero exit on uninstrumented sites)"
+    ),
     fail_on: str = typer.Option(
-        "high", "--fail-on",
+        "high",
+        "--fail-on",
         help="Minimum confidence to fail on in CI mode: high, medium, low",
     ),
     include: Optional[str] = typer.Option(
-        None, "--include",
+        None,
+        "--include",
         help="Comma-separated glob patterns to include (e.g. 'src/**/*.py')",
     ),
     exclude: Optional[str] = typer.Option(
-        None, "--exclude",
+        None,
+        "--exclude",
         help="Comma-separated glob patterns to exclude (e.g. 'tests/**')",
     ),
     report: bool = typer.Option(
-        False, "--report",
+        False,
+        "--report",
         help="Generate a self-contained HTML evidence gap report",
     ),
     report_path: Optional[str] = typer.Option(
-        None, "--report-path",
+        None,
+        "--report-path",
         help="Output path for HTML report (default: evidence_gap_report.html)",
     ),
     emit_contract: Optional[str] = typer.Option(
-        None, "--emit-contract",
+        None,
+        "--emit-contract",
         help="Write a coverage contract JSON file from scan results. "
-             "LangChain/LiteLLM sites are excluded by default (no runtime callsite_id support).",
+        "LangChain/LiteLLM sites are excluded by default (no runtime callsite_id support).",
     ),
     include_low: bool = typer.Option(
-        False, "--include-low",
+        False,
+        "--include-low",
         help="Include LOW confidence sites in the coverage contract",
     ),
 ):
@@ -8424,24 +9704,34 @@ def scan_cmd(
     if not scan_path.exists():
         msg = f"Directory not found: {path}"
         if output_json:
-            _output_json({"tool": "assay-scan", "status": "error", "error": msg}, exit_code=3)
+            _output_json(
+                {"tool": "assay-scan", "status": "error", "error": msg}, exit_code=3
+            )
         console.print(f"[red]Error:[/] {msg}")
         raise typer.Exit(3)
     if not scan_path.is_dir():
         msg = f"Not a directory: {path}"
         if output_json:
-            _output_json({"tool": "assay-scan", "status": "error", "error": msg}, exit_code=3)
+            _output_json(
+                {"tool": "assay-scan", "status": "error", "error": msg}, exit_code=3
+            )
         console.print(f"[red]Error:[/] {msg}")
         raise typer.Exit(3)
 
-    include_pats = [p.strip() for p in include.split(",") if p.strip()] if include else None
-    exclude_pats = [p.strip() for p in exclude.split(",") if p.strip()] if exclude else None
+    include_pats = (
+        [p.strip() for p in include.split(",") if p.strip()] if include else None
+    )
+    exclude_pats = (
+        [p.strip() for p in exclude.split(",") if p.strip()] if exclude else None
+    )
 
     try:
         result = scan_directory(scan_path, include=include_pats, exclude=exclude_pats)
     except Exception as e:
         if output_json:
-            _output_json({"tool": "assay-scan", "status": "error", "error": str(e)}, exit_code=2)
+            _output_json(
+                {"tool": "assay-scan", "status": "error", "error": str(e)}, exit_code=2
+            )
         else:
             console.print(f"[red]Scan error:[/] {e}")
         raise typer.Exit(2)
@@ -8452,11 +9742,15 @@ def scan_cmd(
 
         try:
             contract = CoverageContract.from_scan_result(
-                result, include_low=include_low, project_root=str(P(path).resolve()),
+                result,
+                include_low=include_low,
+                project_root=str(P(path).resolve()),
             )
             # Count excluded framework sites for user visibility
             full_contract = CoverageContract.from_scan_result(
-                result, include_low=include_low, include_all_frameworks=True,
+                result,
+                include_low=include_low,
+                include_all_frameworks=True,
                 project_root=str(P(path).resolve()),
             )
             n_excluded = len(full_contract.call_sites) - len(contract.call_sites)
@@ -8465,7 +9759,9 @@ def scan_cmd(
             contract.write(contract_path)
             if not output_json:
                 n = len(contract.call_sites)
-                exc_note = f", {n_excluded} excluded (LangChain/LiteLLM)" if n_excluded else ""
+                exc_note = (
+                    f", {n_excluded} excluded (LangChain/LiteLLM)" if n_excluded else ""
+                )
                 console.print(
                     f"  [bold green]Coverage contract written:[/] {contract_path} "
                     f"({n} site{'s' if n != 1 else ''}{exc_note})"
@@ -8473,7 +9769,14 @@ def scan_cmd(
                 console.print()
         except Exception as e:
             if output_json:
-                _output_json({"tool": "assay-scan", "status": "error", "error": f"contract emission failed: {e}"}, exit_code=2)
+                _output_json(
+                    {
+                        "tool": "assay-scan",
+                        "status": "error",
+                        "error": f"contract emission failed: {e}",
+                    },
+                    exit_code=2,
+                )
             else:
                 console.print(f"[red]Contract emission error:[/] {e}")
             raise typer.Exit(2)
@@ -8497,7 +9800,14 @@ def scan_cmd(
             write_json(gap_report, json_path)
         except Exception as e:
             if output_json:
-                _output_json({"tool": "assay-scan", "status": "error", "error": f"report generation failed: {e}"}, exit_code=2)
+                _output_json(
+                    {
+                        "tool": "assay-scan",
+                        "status": "error",
+                        "error": f"report generation failed: {e}",
+                    },
+                    exit_code=2,
+                )
             else:
                 console.print(f"[red]Report generation error:[/] {e}")
             raise typer.Exit(2)
@@ -8512,7 +9822,11 @@ def scan_cmd(
         s = result.summary
         exit_code = 0
         if ci:
-            threshold = {"high": Confidence.HIGH, "medium": Confidence.MEDIUM, "low": Confidence.LOW}.get(fail_on, Confidence.HIGH)
+            threshold = {
+                "high": Confidence.HIGH,
+                "medium": Confidence.MEDIUM,
+                "low": Confidence.LOW,
+            }.get(fail_on, Confidence.HIGH)
             if threshold == Confidence.HIGH and s["high"] > 0:
                 exit_code = 1
             elif threshold == Confidence.MEDIUM and (s["high"] + s["medium"]) > 0:
@@ -8533,9 +9847,13 @@ def scan_cmd(
         console.print("  [dim]No LLM call sites detected.[/]")
         console.print()
         console.print("  [bold]Next steps:[/]")
-        console.print("    1. If you use wrappers, add manual receipt emission near your model call:")
+        console.print(
+            "    1. If you use wrappers, add manual receipt emission near your model call:"
+        )
         console.print("       from assay import emit_receipt")
-        console.print("       emit_receipt('model_call', {'provider': '...', 'model_id': '...'})")
+        console.print(
+            "       emit_receipt('model_call', {'provider': '...', 'model_id': '...'})"
+        )
         console.print("    2. Run a first pack anyway:")
         console.print("       assay run --allow-empty -- python your_app.py")
         console.print("    3. Verify + demo confidence model:")
@@ -8545,7 +9863,9 @@ def scan_cmd(
         raise typer.Exit(0)
 
     # Header
-    console.print(f"  [bold]Found {s['sites_total']} LLM call site{'s' if s['sites_total'] != 1 else ''}:[/]")
+    console.print(
+        f"  [bold]Found {s['sites_total']} LLM call site{'s' if s['sites_total'] != 1 else ''}:[/]"
+    )
     console.print()
 
     conf_styles = {
@@ -8561,7 +9881,9 @@ def scan_cmd(
     for finding in result.findings:
         conf = conf_styles.get(finding.confidence.value, "")
         status = status_styles[finding.instrumented]
-        console.print(f"  {conf} {finding.path}:{finding.line:<6} {finding.call:<45} {status}")
+        console.print(
+            f"  {conf} {finding.path}:{finding.line:<6} {finding.call:<45} {status}"
+        )
 
     console.print()
     console.print(
@@ -8580,7 +9902,11 @@ def scan_cmd(
 
     # Exit code
     if ci:
-        threshold = {"high": Confidence.HIGH, "medium": Confidence.MEDIUM, "low": Confidence.LOW}.get(fail_on, Confidence.HIGH)
+        threshold = {
+            "high": Confidence.HIGH,
+            "medium": Confidence.MEDIUM,
+            "low": Confidence.LOW,
+        }.get(fail_on, Confidence.HIGH)
         if threshold == Confidence.HIGH and s["high"] > 0:
             raise typer.Exit(1)
         elif threshold == Confidence.MEDIUM and (s["high"] + s["medium"]) > 0:
@@ -8594,28 +9920,37 @@ def scan_cmd(
 @assay_app.command("doctor", rich_help_panel="Operate")
 def doctor_cmd(
     profile: str = typer.Option(
-        "local", "--profile", "-p",
+        "local",
+        "--profile",
+        "-p",
         help="Check profile: local, ci, release, ledger",
     ),
     pack: Optional[str] = typer.Option(
-        None, "--pack",
+        None,
+        "--pack",
         help="Path to Proof Pack directory to check",
     ),
     lock: Optional[str] = typer.Option(
-        None, "--lock",
+        None,
+        "--lock",
         help="Path to lockfile to check",
     ),
     strict: bool = typer.Option(
-        False, "--strict",
+        False,
+        "--strict",
         help="Treat warnings as failures",
     ),
-    output_json: bool = typer.Option(False, "--json", help="Machine-readable JSON output"),
+    output_json: bool = typer.Option(
+        False, "--json", help="Machine-readable JSON output"
+    ),
     fix: bool = typer.Option(
-        False, "--fix",
+        False,
+        "--fix",
         help="Apply safe automatic fixes (generate key, write lockfile)",
     ),
     check_orphans: bool = typer.Option(
-        False, "--check-orphans",
+        False,
+        "--check-orphans",
         help="Also detect orphaned episodes and open contradictions (store-backed checks)",
     ),
 ):
@@ -8633,13 +9968,15 @@ def doctor_cmd(
     """
     from pathlib import Path
 
-    from assay.doctor import Profile, CheckStatus, run_doctor
+    from assay.doctor import CheckStatus, Profile, run_doctor
 
     # Parse profile
     try:
         prof = Profile(profile.lower())
     except ValueError:
-        console.print(f"[red]Error:[/] Unknown profile '{profile}'. Use: local, ci, release, ledger")
+        console.print(
+            f"[red]Error:[/] Unknown profile '{profile}'. Use: local, ci, release, ledger"
+        )
         raise typer.Exit(3)
 
     pack_dir = Path(pack) if pack else None
@@ -8660,20 +9997,28 @@ def doctor_cmd(
             if check.status in (CheckStatus.WARN, CheckStatus.FAIL) and check.fix:
                 if check.id == "DOCTOR_KEY_001" and check.status == CheckStatus.WARN:
                     try:
-                        from assay.keystore import DEFAULT_SIGNER_ID, get_default_keystore
+                        from assay.keystore import (
+                            DEFAULT_SIGNER_ID,
+                            get_default_keystore,
+                        )
+
                         ks = get_default_keystore()
                         ks.generate_key(DEFAULT_SIGNER_ID)
                         check.status = CheckStatus.PASS
                         check.message += " (fixed: key generated)"
                         if not output_json:
-                            console.print(f"  [green]Fixed:[/] Generated signing key")
+                            console.print("  [green]Fixed:[/] Generated signing key")
                     except Exception as e:
                         if not output_json:
                             console.print(f"  [red]Fix failed:[/] {e}")
 
-                elif check.id == "DOCTOR_LOCK_001" and check.status in (CheckStatus.WARN, CheckStatus.FAIL):
+                elif check.id == "DOCTOR_LOCK_001" and check.status in (
+                    CheckStatus.WARN,
+                    CheckStatus.FAIL,
+                ):
                     try:
                         from assay.lockfile import write_lockfile
+
                         target = lock_path or Path("assay.lock")
                         write_lockfile(
                             ["receipt_completeness"],
@@ -8687,6 +10032,7 @@ def doctor_cmd(
                         for other in report.checks:
                             if other.id == "DOCTOR_LOCK_002":
                                 from assay.doctor import _check_lock_002
+
                                 refreshed = _check_lock_002(target)
                                 other.status = refreshed.status
                                 other.message = refreshed.message
@@ -8699,11 +10045,15 @@ def doctor_cmd(
 
         # Recompute next command after fixes
         from assay.doctor import _determine_next_command
+
         report.next_command = _determine_next_command(report)
 
     # Output
     if output_json:
-        _output_json(report.to_dict(), exit_code=report.exit_code_strict() if strict else report.exit_code)
+        _output_json(
+            report.to_dict(),
+            exit_code=report.exit_code_strict() if strict else report.exit_code,
+        )
         return
 
     _render_doctor_report(report, strict)
@@ -8757,9 +10107,15 @@ def _render_doctor_report(report, strict: bool = False) -> None:
 @assay_app.command("explain", rich_help_panel="Operate")
 def explain_cmd(
     pack_dir: str = typer.Argument(..., help="Path to proof pack directory"),
-    output_format: str = typer.Option("text", "--format", "-f", help="Output format: text, md, json"),
-    output_json: bool = typer.Option(False, "--json", help="Output as JSON (same as --format json)"),
-    causal: bool = typer.Option(False, "--causal", help="Show backward causal chains from failures"),
+    output_format: str = typer.Option(
+        "text", "--format", "-f", help="Output format: text, md, json"
+    ),
+    output_json: bool = typer.Option(
+        False, "--json", help="Output as JSON (same as --format json)"
+    ),
+    causal: bool = typer.Option(
+        False, "--causal", help="Show backward causal chains from failures"
+    ),
 ):
     """Explain a proof pack in plain English.
 
@@ -8792,7 +10148,11 @@ def explain_cmd(
     causal_data = None
     if causal:
         from assay.analyze import load_pack_receipts
-        from assay.incident import build_causal_chains, render_causal_md, render_causal_text
+        from assay.incident import (
+            build_causal_chains,
+            render_causal_md,
+            render_causal_text,
+        )
 
         try:
             receipts = load_pack_receipts(pd)
@@ -8816,6 +10176,7 @@ def explain_cmd(
         console.print(render_md(info))
         if causal_data is not None:
             from assay.incident import render_causal_md
+
             console.print()
             console.print(render_causal_md(causal_data))
         return
@@ -8824,6 +10185,7 @@ def explain_cmd(
     console.print(render_text(info))
     if causal_data is not None:
         from assay.incident import render_causal_text
+
         console.print()
         console.print(render_causal_text(causal_data))
 
@@ -8850,7 +10212,6 @@ def demo_incident_cmd(
     from pathlib import Path
 
     from assay.claim_verifier import ClaimSpec
-    from assay.explain import explain_pack, render_text
     from assay.integrity import verify_pack_manifest
     from assay.keystore import AssayKeyStore
     from assay.proof_pack import ProofPack
@@ -8985,26 +10346,28 @@ def demo_incident_cmd(
         att_bad = manifest_bad["attestation"]
 
         if output_json:
-            _output_json({
-                "command": "demo-incident",
-                "status": "ok",
-                "act1": {
-                    "pack_id": att_good["pack_id"],
-                    "integrity": att_good["receipt_integrity"],
-                    "claims": att_good["claim_check"],
-                    "model": "gpt-4",
-                    "guardian": True,
-                    "n_receipts": att_good["n_receipts"],
-                },
-                "act2": {
-                    "pack_id": att_bad["pack_id"],
-                    "integrity": att_bad["receipt_integrity"],
-                    "claims": att_bad["claim_check"],
-                    "model": "gpt-3.5-turbo",
-                    "guardian": False,
-                    "n_receipts": att_bad["n_receipts"],
-                },
-            })
+            _output_json(
+                {
+                    "command": "demo-incident",
+                    "status": "ok",
+                    "act1": {
+                        "pack_id": att_good["pack_id"],
+                        "integrity": att_good["receipt_integrity"],
+                        "claims": att_good["claim_check"],
+                        "model": "gpt-4",
+                        "guardian": True,
+                        "n_receipts": att_good["n_receipts"],
+                    },
+                    "act2": {
+                        "pack_id": att_bad["pack_id"],
+                        "integrity": att_bad["receipt_integrity"],
+                        "claims": att_bad["claim_check"],
+                        "model": "gpt-3.5-turbo",
+                        "guardian": False,
+                        "n_receipts": att_bad["n_receipts"],
+                    },
+                }
+            )
 
         # --- Console output ---
         console.print()
@@ -9017,33 +10380,37 @@ def demo_incident_cmd(
         # Act 1
         console.print("[bold]ACT 1: Correct operation[/]")
         console.print("  Agent uses gpt-4 with guardian enforcement.")
-        console.print(f"  3 receipts: 2 model_call (gpt-4) + 1 guardian_verdict")
+        console.print("  3 receipts: 2 model_call (gpt-4) + 1 guardian_verdict")
         console.print()
-        console.print(Panel.fit(
-            f"Integrity:  [green]{att_good['receipt_integrity']}[/]\n"
-            f"Claims:     [green]{att_good['claim_check']}[/]\n"
-            f"  has_model_calls:    [green]PASS[/]\n"
-            f"  guardian_enforced:  [green]PASS[/]\n"
-            f"  no_breakglass:     [green]PASS[/]",
-            title="Act 1: PASS / PASS",
-            border_style="green",
-        ))
+        console.print(
+            Panel.fit(
+                f"Integrity:  [green]{att_good['receipt_integrity']}[/]\n"
+                f"Claims:     [green]{att_good['claim_check']}[/]\n"
+                f"  has_model_calls:    [green]PASS[/]\n"
+                f"  guardian_enforced:  [green]PASS[/]\n"
+                f"  no_breakglass:     [green]PASS[/]",
+                title="Act 1: PASS / PASS",
+                border_style="green",
+            )
+        )
 
         console.print()
         console.print("[bold]ACT 2: Someone cuts corners[/]")
         console.print("  Model swapped to gpt-3.5-turbo (cheaper, less capable).")
         console.print("  Guardian check removed entirely.")
-        console.print(f"  2 receipts: 2 model_call (gpt-3.5-turbo), no guardian_verdict")
+        console.print("  2 receipts: 2 model_call (gpt-3.5-turbo), no guardian_verdict")
         console.print()
-        console.print(Panel.fit(
-            f"Integrity:  [green]{att_bad['receipt_integrity']}[/]  (evidence is authentic)\n"
-            f"Claims:     [red]{att_bad['claim_check']}[/]  (policy violated)\n"
-            f"  has_model_calls:    [green]PASS[/]\n"
-            f"  guardian_enforced:  [red]FAIL[/]  -- no guardian_verdict receipt\n"
-            f"  no_breakglass:     [green]PASS[/]",
-            title="Act 2: PASS / FAIL",
-            border_style="red",
-        ))
+        console.print(
+            Panel.fit(
+                f"Integrity:  [green]{att_bad['receipt_integrity']}[/]  (evidence is authentic)\n"
+                f"Claims:     [red]{att_bad['claim_check']}[/]  (policy violated)\n"
+                f"  has_model_calls:    [green]PASS[/]\n"
+                f"  guardian_enforced:  [red]FAIL[/]  -- no guardian_verdict receipt\n"
+                f"  no_breakglass:     [green]PASS[/]",
+                title="Act 2: PASS / FAIL",
+                border_style="red",
+            )
+        )
 
         console.print()
         console.print("[bold]THE EVIDENCE[/]")
@@ -9052,7 +10419,9 @@ def demo_incident_cmd(
         console.print("  Act 2 receipts show: gpt-3.5-turbo, no guardian")
         console.print()
         console.print("  The model was swapped. The guardian was removed.")
-        console.print("  The evidence is cryptographic. Nobody can argue about what happened.")
+        console.print(
+            "  The evidence is cryptographic. Nobody can argue about what happened."
+        )
         console.print()
 
         console.print("[bold]KEY INSIGHT[/]")
@@ -9070,9 +10439,13 @@ def demo_incident_cmd(
 @assay_app.command("quickstart", rich_help_panel="Operate", hidden=True)
 def quickstart_cmd(
     path: str = typer.Argument(".", help="Project directory to explore"),
-    skip_demo: bool = typer.Option(False, "--skip-demo", help="Skip demo-challenge generation"),
+    skip_demo: bool = typer.Option(
+        False, "--skip-demo", help="Skip demo-challenge generation"
+    ),
     output_json: bool = typer.Option(False, "--json", help="Machine-readable output"),
-    force: bool = typer.Option(False, "--force", help="Bypass the large-directory guard"),
+    force: bool = typer.Option(
+        False, "--force", help="Bypass the large-directory guard"
+    ),
 ):
     """One command to see Assay in action.
 
@@ -9095,7 +10468,14 @@ def quickstart_cmd(
     root = P(path).resolve()
     if not root.exists() or not root.is_dir():
         if output_json:
-            _output_json({"command": "quickstart", "status": "error", "error": f"Directory not found: {path}"}, exit_code=3)
+            _output_json(
+                {
+                    "command": "quickstart",
+                    "status": "error",
+                    "error": f"Directory not found: {path}",
+                },
+                exit_code=3,
+            )
         console.print(f"[red]Error:[/] Directory not found: {path}")
         raise typer.Exit(3)
 
@@ -9114,7 +10494,9 @@ def quickstart_cmd(
             "  cd your-project && assay quickstart"
         )
         if output_json:
-            _output_json({"command": "quickstart", "status": "error", "error": msg}, exit_code=3)
+            _output_json(
+                {"command": "quickstart", "status": "error", "error": msg}, exit_code=3
+            )
         console.print(f"[yellow]Warning:[/] {msg}")
         raise typer.Exit(3)
 
@@ -9132,7 +10514,10 @@ def quickstart_cmd(
                 "Tip: cd into your project first, or use --force to proceed."
             )
             if output_json:
-                _output_json({"command": "quickstart", "status": "error", "error": msg}, exit_code=3)
+                _output_json(
+                    {"command": "quickstart", "status": "error", "error": msg},
+                    exit_code=3,
+                )
             console.print(f"[yellow]Warning:[/] {msg}")
             raise typer.Exit(3)
 
@@ -9160,23 +10545,47 @@ def quickstart_cmd(
 
                 ts_base = "2026-02-10T12:00:0"
                 receipts = [
-                    {"receipt_id": "r_chal_001", "type": "model_call",
-                     "timestamp": f"{ts_base}0Z", "schema_version": "3.0", "seq": 0,
-                     "model_id": "gpt-4", "provider": "openai",
-                     "total_tokens": 2500, "input_tokens": 1800, "output_tokens": 700,
-                     "latency_ms": 1100, "finish_reason": "stop"},
-                    {"receipt_id": "r_chal_002", "type": "guardian_verdict",
-                     "timestamp": f"{ts_base}1Z", "schema_version": "3.0", "seq": 1,
-                     "verdict": "allow", "action": "generate_summary",
-                     "reason": "Content is within policy bounds"},
+                    {
+                        "receipt_id": "r_chal_001",
+                        "type": "model_call",
+                        "timestamp": f"{ts_base}0Z",
+                        "schema_version": "3.0",
+                        "seq": 0,
+                        "model_id": "gpt-4",
+                        "provider": "openai",
+                        "total_tokens": 2500,
+                        "input_tokens": 1800,
+                        "output_tokens": 700,
+                        "latency_ms": 1100,
+                        "finish_reason": "stop",
+                    },
+                    {
+                        "receipt_id": "r_chal_002",
+                        "type": "guardian_verdict",
+                        "timestamp": f"{ts_base}1Z",
+                        "schema_version": "3.0",
+                        "seq": 1,
+                        "verdict": "allow",
+                        "action": "generate_summary",
+                        "reason": "Content is within policy bounds",
+                    },
                 ]
                 claims = [
-                    ClaimSpec(claim_id="has_model_calls", description="At least one model_call receipt",
-                              check="receipt_type_present", params={"receipt_type": "model_call"}),
+                    ClaimSpec(
+                        claim_id="has_model_calls",
+                        description="At least one model_call receipt",
+                        check="receipt_type_present",
+                        params={"receipt_type": "model_call"},
+                    ),
                 ]
 
-                pack = ProofPack(run_id="quickstart-run", entries=receipts,
-                                 signer_id="challenge", claims=claims, mode="shadow")
+                pack = ProofPack(
+                    run_id="quickstart-run",
+                    entries=receipts,
+                    signer_id="challenge",
+                    claims=claims,
+                    mode="shadow",
+                )
                 good_dir = pack.build(td / "good", keystore=ks)
 
                 demo_dir.mkdir(parents=True, exist_ok=True)
@@ -9195,16 +10604,24 @@ def quickstart_cmd(
                 target = b'"gpt-4"'
                 idx = data.find(target)
                 if idx >= 0:
-                    data[idx + 1:idx + 6] = b"gpt-5"
+                    data[idx + 1 : idx + 6] = b"gpt-5"
                 receipt_file.write_bytes(bytes(data))
 
             _print(f"  [green]Created[/] {demo_dir}/ (good + tampered packs)")
-            results["steps"].append({"step": "demo", "status": "ok", "dir": str(demo_dir)})
-            next_steps.append(f"Verify good pack:     assay verify-pack {demo_dir}/good/")
-            next_steps.append(f"Verify tampered pack: assay verify-pack {demo_dir}/tampered/")
+            results["steps"].append(
+                {"step": "demo", "status": "ok", "dir": str(demo_dir)}
+            )
+            next_steps.append(
+                f"Verify good pack:     assay verify-pack {demo_dir}/good/"
+            )
+            next_steps.append(
+                f"Verify tampered pack: assay verify-pack {demo_dir}/tampered/"
+            )
         except Exception as e:
             _print(f"  [yellow]Skipped:[/] {e}")
-            results["steps"].append({"step": "demo", "status": "skipped", "error": str(e)})
+            results["steps"].append(
+                {"step": "demo", "status": "skipped", "error": str(e)}
+            )
     else:
         _print()
         _print("[dim]Step 1: Skipped (--skip-demo)[/]")
@@ -9217,20 +10634,30 @@ def quickstart_cmd(
         scan_result = scan_directory(root, exclude=["challenge_pack/**"])
         s = scan_result.summary
         uninstrumented = s["uninstrumented"]
-        _print(f"  Found {s['sites_total']} call site(s): "
-               f"[green]{s['instrumented']} instrumented[/], "
-               f"[{'red' if uninstrumented else 'green'}]{uninstrumented} uninstrumented[/]")
+        _print(
+            f"  Found {s['sites_total']} call site(s): "
+            f"[green]{s['instrumented']} instrumented[/], "
+            f"[{'red' if uninstrumented else 'green'}]{uninstrumented} uninstrumented[/]"
+        )
 
-        results["steps"].append({
-            "step": "scan", "status": "ok",
-            "sites_total": s["sites_total"],
-            "instrumented": s["instrumented"],
-            "uninstrumented": uninstrumented,
-        })
+        results["steps"].append(
+            {
+                "step": "scan",
+                "status": "ok",
+                "sites_total": s["sites_total"],
+                "instrumented": s["instrumented"],
+                "uninstrumented": uninstrumented,
+            }
+        )
 
         # Generate report if there are findings (skip in JSON mode)
         if scan_result.findings and not output_json:
-            from assay.reporting.evidence_gap import build_report, render_html, write_report
+            from assay.reporting.evidence_gap import (
+                build_report,
+                render_html,
+                write_report,
+            )
+
             report_file = root / "assay_quickstart_report.html"
             gap_report = build_report(scan_result.to_dict(), root)
             html = render_html(gap_report)
@@ -9240,9 +10667,11 @@ def quickstart_cmd(
 
         if uninstrumented > 0:
             next_steps.append(f"Patch entrypoint:     assay patch {path}")
-        next_steps.append(f"Run with receipts:    assay run -c receipt_completeness -- python your_app.py")
-        next_steps.append(f"Lock baseline:        assay lock init")
-        next_steps.append(f"Enable CI:            assay ci init github")
+        next_steps.append(
+            "Run with receipts:    assay run -c receipt_completeness -- python your_app.py"
+        )
+        next_steps.append("Lock baseline:        assay lock init")
+        next_steps.append("Enable CI:            assay ci init github")
 
     except Exception as e:
         _print(f"  [yellow]Scan error:[/] {e}")
@@ -9255,16 +10684,23 @@ def quickstart_cmd(
         _print("[dim]No AI call sites found.[/] Add SDK integrations and re-scan:")
         _print()
         _print("  python3 -m pip install 'assay-ai[openai]'")
-        _print(f"  # Add to your entrypoint:")
-        _print(f"  # from assay.integrations.openai import patch; patch()")
+        _print("  # Add to your entrypoint:")
+        _print("  # from assay.integrations.openai import patch; patch()")
         _print()
         _print(f"  Then re-run: [bold]{scan_cmd}[/]")
-        results["next_steps"] = [f"Install SDK: python3 -m pip install 'assay-ai[openai]'", f"Re-scan: {scan_cmd}"]
+        results["next_steps"] = [
+            "Install SDK: python3 -m pip install 'assay-ai[openai]'",
+            f"Re-scan: {scan_cmd}",
+        ]
     else:
         # Separate demo (synthetic) steps from real-project steps
         demo_step_prefixes = ("Verify good pack", "Verify tampered pack")
-        demo_steps = [s for s in next_steps if s.lstrip().startswith(demo_step_prefixes)]
-        real_steps_raw = [s for s in next_steps if not s.lstrip().startswith(demo_step_prefixes)]
+        demo_steps = [
+            s for s in next_steps if s.lstrip().startswith(demo_step_prefixes)
+        ]
+        real_steps_raw = [
+            s for s in next_steps if not s.lstrip().startswith(demo_step_prefixes)
+        ]
         real_steps_raw.insert(0, f"View gap report:      {scan_cmd}")
 
         if demo_steps:
@@ -9289,7 +10725,9 @@ def quickstart_cmd(
 
 @assay_app.command("demo-challenge", rich_help_panel="Start Here")
 def demo_challenge_cmd(
-    output_dir: str = typer.Option("./challenge_pack", "--output", "-o", help="Output directory"),
+    output_dir: str = typer.Option(
+        "./challenge_pack", "--output", "-o", help="Output directory"
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Generate a challenge: one valid pack, one tampered pack.
@@ -9394,6 +10832,7 @@ def demo_challenge_cmd(
 
         # Copy good pack
         import shutil
+
         if good_out.exists():
             shutil.rmtree(good_out)
         shutil.copytree(good_dir, good_out)
@@ -9408,7 +10847,7 @@ def demo_challenge_cmd(
         target = b'"gpt-4"'
         idx = data.find(target)
         if idx >= 0:
-            data[idx + 1:idx + 6] = b"gpt-5"
+            data[idx + 1 : idx + 6] = b"gpt-5"
         receipt_file.write_bytes(bytes(data))
 
     # Generate SHA256 sums
@@ -9454,51 +10893,63 @@ def demo_challenge_cmd(
     tampered_result = verify_pack_manifest(tampered_manifest, tampered_out, verify_ks)
 
     if output_json:
-        _output_json({
-            "command": "demo-challenge",
-            "status": "ok",
-            "output_dir": str(out),
-            "good_pack": str(good_out),
-            "tampered_pack": str(tampered_out),
-            "good_result": "PASS" if good_result.passed else "FAIL",
-            "tampered_result": "PASS" if tampered_result.passed else "FAIL",
-        })
+        _output_json(
+            {
+                "command": "demo-challenge",
+                "status": "ok",
+                "output_dir": str(out),
+                "good_pack": str(good_out),
+                "tampered_pack": str(tampered_out),
+                "good_result": "PASS" if good_result.passed else "FAIL",
+                "tampered_result": "PASS" if tampered_result.passed else "FAIL",
+            }
+        )
 
     console.print()
     console.print("[bold]ASSAY CHALLENGE PACK[/]")
     console.print()
-    console.print(f"  Created two proof packs. One is authentic. One has been tampered with.")
-    console.print(f"  One byte changed in the receipts. Can your machine tell?")
+    console.print(
+        "  Created two proof packs. One is authentic. One has been tampered with."
+    )
+    console.print("  One byte changed in the receipts. Can your machine tell?")
     console.print()
 
     # Good pack result
-    console.print(Panel.fit(
-        f"[bold green]VERIFICATION PASSED[/]\n\n"
-        f"Pack ID:    {good_att['pack_id']}\n"
-        f"Integrity:  [green]PASS[/]\n"
-        f"Claims:     [green]PASS[/]\n"
-        f"Receipts:   {good_att['n_receipts']}\n"
-        f"Head Hash:  {good_att.get('head_hash', 'N/A')[:16]}...\n"
-        f"Signature:  Ed25519 [green]valid[/]",
-        title=f"good/ -- assay verify-pack {good_out}/",
-        border_style="green",
-    ))
+    console.print(
+        Panel.fit(
+            f"[bold green]VERIFICATION PASSED[/]\n\n"
+            f"Pack ID:    {good_att['pack_id']}\n"
+            f"Integrity:  [green]PASS[/]\n"
+            f"Claims:     [green]PASS[/]\n"
+            f"Receipts:   {good_att['n_receipts']}\n"
+            f"Head Hash:  {good_att.get('head_hash', 'N/A')[:16]}...\n"
+            f"Signature:  Ed25519 [green]valid[/]",
+            title=f"good/ -- assay verify-pack {good_out}/",
+            border_style="green",
+        )
+    )
     console.print()
 
     # Tampered pack result
-    err_msg = tampered_result.errors[0].message if tampered_result.errors else "unknown error"
-    console.print(Panel.fit(
-        f"[bold red]VERIFICATION FAILED[/]\n\n"
-        f"Pack ID:    {good_att['pack_id']}\n"
-        f"Integrity:  [red]FAIL[/]\n"
-        f"Error:      [red]{err_msg}[/]",
-        title=f"tampered/ -- assay verify-pack {tampered_out}/",
-        border_style="red",
-    ))
+    err_msg = (
+        tampered_result.errors[0].message if tampered_result.errors else "unknown error"
+    )
+    console.print(
+        Panel.fit(
+            f"[bold red]VERIFICATION FAILED[/]\n\n"
+            f"Pack ID:    {good_att['pack_id']}\n"
+            f"Integrity:  [red]FAIL[/]\n"
+            f"Error:      [red]{err_msg}[/]",
+            title=f"tampered/ -- assay verify-pack {tampered_out}/",
+            border_style="red",
+        )
+    )
 
     console.print()
     console.print("  [bold]What happened:[/]")
-    console.print("  The tampered pack changed [bold]\"gpt-4\"[/] to [bold]\"gpt-5\"[/] in the receipts.")
+    console.print(
+        '  The tampered pack changed [bold]"gpt-4"[/] to [bold]"gpt-5"[/] in the receipts.'
+    )
     console.print("  The manifest hash no longer matches. Verification fails.")
     console.print("  No server access needed. No trust required. Just math.")
     console.print()
@@ -9511,10 +10962,22 @@ def demo_challenge_cmd(
 @assay_app.command("analyze", rich_help_panel="Operate", hidden=True)
 def analyze_cmd(
     pack_dir: Optional[str] = typer.Argument(None, help="Path to proof pack directory"),
-    history: bool = typer.Option(False, "--history", help="Analyze local trace history instead of a pack"),
-    since: int = typer.Option(7, "--since", help="Days of history to analyze (with --history)"),
-    regime_detect: bool = typer.Option(False, "--regime-detect", help="Detect regime changes (model swaps, cost/latency drift)"),
-    window_hours: int = typer.Option(24, "--window-hours", help="Window size in hours for regime detection (default: 24)"),
+    history: bool = typer.Option(
+        False, "--history", help="Analyze local trace history instead of a pack"
+    ),
+    since: int = typer.Option(
+        7, "--since", help="Days of history to analyze (with --history)"
+    ),
+    regime_detect: bool = typer.Option(
+        False,
+        "--regime-detect",
+        help="Detect regime changes (model swaps, cost/latency drift)",
+    ),
+    window_hours: int = typer.Option(
+        24,
+        "--window-hours",
+        help="Window size in hours for regime detection (default: 24)",
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Analyze receipts for cost, latency, and error breakdowns.
@@ -9539,7 +11002,6 @@ def analyze_cmd(
     from pathlib import Path
 
     from assay.analyze import (
-        AnalysisResult,
         analyze_receipts,
         load_history_receipts,
         load_pack_receipts,
@@ -9550,7 +11012,9 @@ def analyze_cmd(
         raise typer.Exit(3)
 
     if pack_dir and history:
-        console.print("[red]Error:[/] Provide either a pack directory or --history, not both")
+        console.print(
+            "[red]Error:[/] Provide either a pack directory or --history, not both"
+        )
         raise typer.Exit(3)
 
     try:
@@ -9568,15 +11032,19 @@ def analyze_cmd(
             manifest_path = pd / "pack_manifest.json"
             if manifest_path.exists():
                 import json as _json
+
                 manifest = _json.loads(manifest_path.read_text())
                 att = manifest.get("attestation", {})
-                integrity = str(att.get("receipt_integrity") or att.get("integrity") or "").upper()
+                integrity = str(
+                    att.get("receipt_integrity") or att.get("integrity") or ""
+                ).upper()
                 result.verified = integrity == "PASS"
         else:
             receipts, trace_count = load_history_receipts(since_days=since)
             result = analyze_receipts(receipts)
             result.source_type = "history"
             from assay.store import assay_home
+
             result.source_path = str(assay_home())
             result.trace_count = trace_count
             result.history_days = since
@@ -9589,6 +11057,7 @@ def analyze_cmd(
     regime_report = None
     if regime_detect:
         from assay.regime import detect_regimes
+
         regime_report = detect_regimes(receipts, window_hours=window_hours)
 
     if output_json:
@@ -9609,7 +11078,9 @@ def _render_analysis(result, regime_report=None) -> None:
     if result.model_calls == 0:
         console.print("[yellow]No model_call receipts found.[/]")
         if result.total_receipts > 0:
-            console.print(f"  ({result.total_receipts} total receipts, but none were model_call type)")
+            console.print(
+                f"  ({result.total_receipts} total receipts, but none were model_call type)"
+            )
         console.print()
         raise typer.Exit(0)
 
@@ -9665,7 +11136,13 @@ def _render_analysis(result, regime_report=None) -> None:
         model_table.add_column("Errors", justify="right")
         for model_id, b in sorted(result.by_model.items()):
             err_str = f"[red]{b['errors']}[/]" if b["errors"] else "0"
-            model_table.add_row(model_id, str(b["calls"]), f"{b['total_tokens']:,}", f"${b['cost_usd']:.4f}", err_str)
+            model_table.add_row(
+                model_id,
+                str(b["calls"]),
+                f"{b['total_tokens']:,}",
+                f"${b['cost_usd']:.4f}",
+                err_str,
+            )
         console.print(Panel(model_table, title="By Model", border_style="green"))
 
     # By provider
@@ -9676,12 +11153,19 @@ def _render_analysis(result, regime_report=None) -> None:
         prov_table.add_column("Tokens", justify="right")
         prov_table.add_column("Cost", justify="right")
         for prov, b in sorted(result.by_provider.items()):
-            prov_table.add_row(prov, str(b["calls"]), f"{b['total_tokens']:,}", f"${b['cost_usd']:.4f}")
+            prov_table.add_row(
+                prov, str(b["calls"]), f"{b['total_tokens']:,}", f"${b['cost_usd']:.4f}"
+            )
         console.print(Panel(prov_table, title="By Provider", border_style="magenta"))
 
     # Finish reasons
     if result.finish_reasons:
-        fr_parts = [f"{reason}: {count}" for reason, count in sorted(result.finish_reasons.items(), key=lambda x: str(x[0]))]
+        fr_parts = [
+            f"{reason}: {count}"
+            for reason, count in sorted(
+                result.finish_reasons.items(), key=lambda x: str(x[0])
+            )
+        ]
         console.print(f"  [dim]Finish reasons:[/] {', '.join(fr_parts)}")
 
     # Regime detection results
@@ -9698,12 +11182,14 @@ def _render_regime(report) -> None:
     _severity_style = {"alert": "bold red", "warning": "yellow", "info": "dim"}
 
     if not report.flags:
-        console.print(Panel(
-            f"[green]No regime changes detected[/] across {report.n_windows} "
-            f"window(s) ({report.window_hours}h each, {report.n_receipts} calls).",
-            title="Regime Detection",
-            border_style="green",
-        ))
+        console.print(
+            Panel(
+                f"[green]No regime changes detected[/] across {report.n_windows} "
+                f"window(s) ({report.window_hours}h each, {report.n_receipts} calls).",
+                title="Regime Detection",
+                border_style="green",
+            )
+        )
         return
 
     # Summary
@@ -9734,26 +11220,46 @@ def _render_regime(report) -> None:
             f.description,
         )
 
-    console.print(Panel(
-        flag_table,
-        title=f"Regime Detection -- {summary_line}",
-        border_style="red" if report.n_alerts else "yellow",
-    ))
+    console.print(
+        Panel(
+            flag_table,
+            title=f"Regime Detection -- {summary_line}",
+            border_style="red" if report.n_alerts else "yellow",
+        )
+    )
 
 
 @assay_app.command("diff", hidden=True, rich_help_panel="Advanced")
 def diff_cmd(
-    pack_a: str = typer.Argument(..., help="Baseline pack directory (or current pack with --against-previous)"),
+    pack_a: str = typer.Argument(
+        ..., help="Baseline pack directory (or current pack with --against-previous)"
+    ),
     pack_b: Optional[str] = typer.Argument(None, help="Current pack directory"),
-    against_previous: bool = typer.Option(False, "--against-previous", help="Auto-find baseline pack from same directory"),
-    why: bool = typer.Option(False, "--why", help="Explain regressions with receipt-level detail"),
-    report: Optional[str] = typer.Option(None, "--report", help="Write a self-contained diff report (.html or .json)"),
-    no_verify: bool = typer.Option(False, "--no-verify", help="Skip integrity verification"),
+    against_previous: bool = typer.Option(
+        False, "--against-previous", help="Auto-find baseline pack from same directory"
+    ),
+    why: bool = typer.Option(
+        False, "--why", help="Explain regressions with receipt-level detail"
+    ),
+    report: Optional[str] = typer.Option(
+        None, "--report", help="Write a self-contained diff report (.html or .json)"
+    ),
+    no_verify: bool = typer.Option(
+        False, "--no-verify", help="Skip integrity verification"
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
-    gate_cost_pct: float = typer.Option(None, "--gate-cost-pct", help="Max allowed cost increase (percent, e.g. 20)"),
-    gate_p95_pct: float = typer.Option(None, "--gate-p95-pct", help="Max allowed p95 latency increase (percent)"),
-    gate_errors: int = typer.Option(None, "--gate-errors", help="Max allowed error count in pack B"),
-    gate_strict: bool = typer.Option(False, "--gate-strict", help="Fail gates when data is missing (instead of skip)"),
+    gate_cost_pct: float = typer.Option(
+        None, "--gate-cost-pct", help="Max allowed cost increase (percent, e.g. 20)"
+    ),
+    gate_p95_pct: float = typer.Option(
+        None, "--gate-p95-pct", help="Max allowed p95 latency increase (percent)"
+    ),
+    gate_errors: int = typer.Option(
+        None, "--gate-errors", help="Max allowed error count in pack B"
+    ),
+    gate_strict: bool = typer.Option(
+        False, "--gate-strict", help="Fail gates when data is missing (instead of skip)"
+    ),
 ):
     """Diff two proof packs: claims, cost, latency, model mix.
 
@@ -9786,12 +11292,20 @@ def diff_cmd(
     """
     from pathlib import Path
 
-    from assay.diff import diff_packs, evaluate_gates, explain_why, find_previous_pack, load_baseline
+    from assay.diff import (
+        diff_packs,
+        evaluate_gates,
+        explain_why,
+        find_previous_pack,
+        load_baseline,
+    )
 
     # Resolve pack paths
     if against_previous:
         if pack_b is not None:
-            console.print("[red]Error:[/] --against-previous takes one pack argument, not two")
+            console.print(
+                "[red]Error:[/] --against-previous takes one pack argument, not two"
+            )
             raise typer.Exit(3)
         current = Path(pack_a)
         if not current.is_dir():
@@ -9818,7 +11332,9 @@ def diff_cmd(
         pb = current
     else:
         if pack_b is None:
-            console.print("[red]Error:[/] Two pack arguments required (or use --against-previous)")
+            console.print(
+                "[red]Error:[/] Two pack arguments required (or use --against-previous)"
+            )
             raise typer.Exit(3)
         pa = Path(pack_a)
         pb = Path(pack_b)
@@ -9833,7 +11349,9 @@ def diff_cmd(
     result = diff_packs(pa, pb, verify=not no_verify)
 
     # Evaluate threshold gates if any were requested
-    has_gates = gate_cost_pct is not None or gate_p95_pct is not None or gate_errors is not None
+    has_gates = (
+        gate_cost_pct is not None or gate_p95_pct is not None or gate_errors is not None
+    )
     gate_eval = None
     if has_gates:
         gate_eval = evaluate_gates(
@@ -9859,7 +11377,11 @@ def diff_cmd(
         from assay.reporting.diff_gate import (
             build_report,
             render_html,
+        )
+        from assay.reporting.diff_gate import (
             write_json as write_diff_report_json,
+        )
+        from assay.reporting.diff_gate import (
             write_report as write_diff_report_html,
         )
 
@@ -9878,7 +11400,14 @@ def diff_cmd(
                 write_diff_report_html(render_html(diff_report), report_path)
         except Exception as e:
             if output_json:
-                _output_json({"command": "diff", "status": "error", "error": f"report generation failed: {e}"}, exit_code=3)
+                _output_json(
+                    {
+                        "command": "diff",
+                        "status": "error",
+                        "error": f"report generation failed: {e}",
+                    },
+                    exit_code=3,
+                )
             console.print(f"[red]Error:[/] report generation failed: {e}")
             raise typer.Exit(3)
 
@@ -9901,7 +11430,9 @@ def diff_cmd(
     if report:
         console.print(f"  [bold green]Report written:[/] {report}")
 
-    _render_diff(result, gate_eval=gate_eval, exit_code=exit_code, why_results=why_results)
+    _render_diff(
+        result, gate_eval=gate_eval, exit_code=exit_code, why_results=why_results
+    )
 
 
 def _fmt_delta(a_val, b_val, fmt: str = "d", prefix: str = "", suffix: str = "") -> str:
@@ -9941,7 +11472,6 @@ def _fmt_delta(a_val, b_val, fmt: str = "d", prefix: str = "", suffix: str = "")
 
 def _render_diff(result, *, gate_eval=None, exit_code=None, why_results=None) -> None:
     """Render diff result to console with Rich panels."""
-    from assay.diff import DiffResult
 
     console.print()
 
@@ -9960,18 +11490,26 @@ def _render_diff(result, *, gate_eval=None, exit_code=None, why_results=None) ->
     # Header
     a = result.pack_a
     b = result.pack_b
-    console.print(f"[bold]assay diff[/]")
+    console.print("[bold]assay diff[/]")
     console.print()
-    console.print(f"  Pack A: {a.path}  ({a.n_receipts} receipts, {a.timestamp_start[:10] if a.timestamp_start else '?'})")
-    console.print(f"  Pack B: {b.path}  ({b.n_receipts} receipts, {b.timestamp_start[:10] if b.timestamp_start else '?'})")
+    console.print(
+        f"  Pack A: {a.path}  ({a.n_receipts} receipts, {a.timestamp_start[:10] if a.timestamp_start else '?'})"
+    )
+    console.print(
+        f"  Pack B: {b.path}  ({b.n_receipts} receipts, {b.timestamp_start[:10] if b.timestamp_start else '?'})"
+    )
 
     # Warnings
     if result.signer_changed:
         console.print(f"  [yellow]Signer changed:[/] {a.signer_id} -> {b.signer_id}")
     if result.version_changed:
-        console.print(f"  [yellow]Verifier version changed:[/] {a.verifier_version} -> {b.verifier_version}")
+        console.print(
+            f"  [yellow]Verifier version changed:[/] {a.verifier_version} -> {b.verifier_version}"
+        )
     if not result.same_claim_set:
-        console.print(f"  [yellow]Claim sets differ[/] (different cards or card versions)")
+        console.print(
+            "  [yellow]Claim sets differ[/] (different cards or card versions)"
+        )
     console.print()
 
     # Claims
@@ -9980,8 +11518,16 @@ def _render_diff(result, *, gate_eval=None, exit_code=None, why_results=None) ->
         claims_table.add_column("claim")
         claims_table.add_column("change")
         for cd in result.claim_deltas:
-            a_str = "[green]PASS[/]" if cd.a_passed else ("[red]FAIL[/]" if cd.a_passed is False else "[dim]--[/]")
-            b_str = "[green]PASS[/]" if cd.b_passed else ("[red]FAIL[/]" if cd.b_passed is False else "[dim]--[/]")
+            a_str = (
+                "[green]PASS[/]"
+                if cd.a_passed
+                else ("[red]FAIL[/]" if cd.a_passed is False else "[dim]--[/]")
+            )
+            b_str = (
+                "[green]PASS[/]"
+                if cd.b_passed
+                else ("[red]FAIL[/]" if cd.b_passed is False else "[dim]--[/]")
+            )
             status_str = ""
             if cd.regressed:
                 status_str = "  [bold red]REGRESSED[/]"
@@ -10008,27 +11554,55 @@ def _render_diff(result, *, gate_eval=None, exit_code=None, why_results=None) ->
         summary.add_column("b", justify="right")
         summary.add_column("delta")
 
-        summary.add_row("Model calls", str(aa.model_calls), "->", str(ba.model_calls),
-                         _fmt_delta(aa.model_calls, ba.model_calls))
-        summary.add_row("Total tokens", f"{aa.total_tokens:,}", "->", f"{ba.total_tokens:,}",
-                         _fmt_delta(aa.total_tokens, ba.total_tokens))
-        summary.add_row("Est. cost", f"${aa.cost_usd:.4f}", "->", f"${ba.cost_usd:.4f}",
-                         _fmt_delta(aa.cost_usd, ba.cost_usd, fmt="cost"))
+        summary.add_row(
+            "Model calls",
+            str(aa.model_calls),
+            "->",
+            str(ba.model_calls),
+            _fmt_delta(aa.model_calls, ba.model_calls),
+        )
+        summary.add_row(
+            "Total tokens",
+            f"{aa.total_tokens:,}",
+            "->",
+            f"{ba.total_tokens:,}",
+            _fmt_delta(aa.total_tokens, ba.total_tokens),
+        )
+        summary.add_row(
+            "Est. cost",
+            f"${aa.cost_usd:.4f}",
+            "->",
+            f"${ba.cost_usd:.4f}",
+            _fmt_delta(aa.cost_usd, ba.cost_usd, fmt="cost"),
+        )
 
         err_color_a = "[red]" if aa.errors else ""
         err_color_b = "[red]" if ba.errors else ""
         err_end_a = "[/]" if aa.errors else ""
         err_end_b = "[/]" if ba.errors else ""
-        summary.add_row("Errors",
-                         f"{err_color_a}{aa.errors}{err_end_a}", "->",
-                         f"{err_color_b}{ba.errors}{err_end_b}",
-                         _fmt_delta(aa.errors, ba.errors))
+        summary.add_row(
+            "Errors",
+            f"{err_color_a}{aa.errors}{err_end_a}",
+            "->",
+            f"{err_color_b}{ba.errors}{err_end_b}",
+            _fmt_delta(aa.errors, ba.errors),
+        )
 
         if aa.latencies and ba.latencies:
-            summary.add_row("Latency p50", f"{aa.latency_p50}ms", "->", f"{ba.latency_p50}ms",
-                             _fmt_delta(aa.latency_p50 or 0, ba.latency_p50 or 0, fmt="ms"))
-            summary.add_row("Latency p95", f"{aa.latency_p95}ms", "->", f"{ba.latency_p95}ms",
-                             _fmt_delta(aa.latency_p95 or 0, ba.latency_p95 or 0, fmt="ms"))
+            summary.add_row(
+                "Latency p50",
+                f"{aa.latency_p50}ms",
+                "->",
+                f"{ba.latency_p50}ms",
+                _fmt_delta(aa.latency_p50 or 0, ba.latency_p50 or 0, fmt="ms"),
+            )
+            summary.add_row(
+                "Latency p95",
+                f"{aa.latency_p95}ms",
+                "->",
+                f"{ba.latency_p95}ms",
+                _fmt_delta(aa.latency_p95 or 0, ba.latency_p95 or 0, fmt="ms"),
+            )
 
         console.print(Panel(summary, title="Summary", border_style="blue"))
 
@@ -10063,6 +11637,7 @@ def _render_diff(result, *, gate_eval=None, exit_code=None, why_results=None) ->
         gate_table = Table(show_header=False, box=None, padding=(0, 2))
         gate_table.add_column("gate")
         gate_table.add_column("result")
+
         def _fmt_threshold(val: float, unit: str) -> str:
             s = f"{val:g}"
             if unit == "pct":
@@ -10074,18 +11649,40 @@ def _render_diff(result, *, gate_eval=None, exit_code=None, why_results=None) ->
                 if g.passed:
                     gate_table.add_row(g.name, "[dim]skipped (no data)[/]")
                 else:
-                    gate_table.add_row(g.name, "[red]FAIL[/]  [dim]missing data (strict mode)[/]")
+                    gate_table.add_row(
+                        g.name, "[red]FAIL[/]  [dim]missing data (strict mode)[/]"
+                    )
             elif g.passed:
-                actual_str = f"{g.actual:.1f}%" if g.unit == "pct" and g.actual is not None else str(int(g.actual)) if g.actual is not None else "?"
-                gate_table.add_row(g.name, f"[green]PASS[/]  {actual_str} <= {_fmt_threshold(g.threshold, g.unit)}")
+                actual_str = (
+                    f"{g.actual:.1f}%"
+                    if g.unit == "pct" and g.actual is not None
+                    else str(int(g.actual))
+                    if g.actual is not None
+                    else "?"
+                )
+                gate_table.add_row(
+                    g.name,
+                    f"[green]PASS[/]  {actual_str} <= {_fmt_threshold(g.threshold, g.unit)}",
+                )
             else:
-                actual_str = f"{g.actual:.1f}%" if g.unit == "pct" and g.actual is not None else str(int(g.actual)) if g.actual is not None else "inf"
-                gate_table.add_row(g.name, f"[red]FAIL[/]  {actual_str} > {_fmt_threshold(g.threshold, g.unit)}")
+                actual_str = (
+                    f"{g.actual:.1f}%"
+                    if g.unit == "pct" and g.actual is not None
+                    else str(int(g.actual))
+                    if g.actual is not None
+                    else "inf"
+                )
+                gate_table.add_row(
+                    g.name,
+                    f"[red]FAIL[/]  {actual_str} > {_fmt_threshold(g.threshold, g.unit)}",
+                )
 
         n_passed = sum(1 for g in gate_eval.results if g.passed and not g.skipped)
         n_failed = sum(1 for g in gate_eval.results if not g.passed)
         n_skipped = sum(1 for g in gate_eval.results if g.passed and g.skipped)
-        gate_table.add_row("", f"[dim]{n_passed} passed, {n_failed} failed, {n_skipped} skipped[/]")
+        gate_table.add_row(
+            "", f"[dim]{n_passed} passed, {n_failed} failed, {n_skipped} skipped[/]"
+        )
 
         border = "red" if gate_eval.any_failed else "green"
         title = "Gates (THRESHOLD EXCEEDED)" if gate_eval.any_failed else "Gates"
@@ -10112,11 +11709,13 @@ def _render_diff(result, *, gate_eval=None, exit_code=None, why_results=None) ->
                 why_lines.append(f"  Chain:    {' <- '.join(parts)}")
             why_lines.append("")
 
-        console.print(Panel(
-            "\n".join(why_lines).rstrip(),
-            title="Why (receipt-level forensics)",
-            border_style="yellow",
-        ))
+        console.print(
+            Panel(
+                "\n".join(why_lines).rstrip(),
+                title="Why (receipt-level forensics)",
+                border_style="yellow",
+            )
+        )
 
     final_exit = exit_code if exit_code is not None else result.exit_code
     console.print()
@@ -10150,8 +11749,12 @@ mcp_app.add_typer(mcp_policy_app, name="policy")
 
 @mcp_policy_app.command("init")
 def mcp_policy_init_cmd(
-    output: str = typer.Option("assay.mcp-policy.yaml", "-o", "--output", help="Output file path"),
-    server_id: Optional[str] = typer.Option(None, "--server-id", help="Server identifier to pre-fill"),
+    output: str = typer.Option(
+        "assay.mcp-policy.yaml", "-o", "--output", help="Output file path"
+    ),
+    server_id: Optional[str] = typer.Option(
+        None, "--server-id", help="Server identifier to pre-fill"
+    ),
     force: bool = typer.Option(False, "--force", help="Overwrite existing file"),
     output_json: bool = typer.Option(False, "--json", help="Machine-readable output"),
 ):
@@ -10173,13 +11776,18 @@ def mcp_policy_init_cmd(
     out_path = P(output)
     if out_path.exists() and not force:
         if output_json:
-            _output_json({
-                "command": "mcp policy init",
-                "status": "error",
-                "error": f"File already exists: {output}",
-                "fix": f"assay mcp policy init --force",
-            }, exit_code=1)
-        console.print(f"[red]Error:[/] {output} already exists. Use --force to overwrite.")
+            _output_json(
+                {
+                    "command": "mcp policy init",
+                    "status": "error",
+                    "error": f"File already exists: {output}",
+                    "fix": "assay mcp policy init --force",
+                },
+                exit_code=1,
+            )
+        console.print(
+            f"[red]Error:[/] {output} already exists. Use --force to overwrite."
+        )
         raise typer.Exit(1)
 
     sid = server_id or "my-server"
@@ -10251,27 +11859,33 @@ audit_dir: ".assay/mcp"
     out_path.write_text(policy_content, encoding="utf-8")
 
     if output_json:
-        _output_json({
-            "command": "mcp policy init",
-            "status": "ok",
-            "output": str(out_path),
-            "server_id": sid,
-        })
+        _output_json(
+            {
+                "command": "mcp policy init",
+                "status": "ok",
+                "output": str(out_path),
+                "server_id": sid,
+            }
+        )
 
     console.print()
-    console.print(Panel.fit(
-        f"[bold green]MCP policy file created[/]\n\n"
-        f"File:       {out_path}\n"
-        f"Server ID:  {sid}\n"
-        f"Privacy:    args hashed, results hashed (default)\n"
-        f"Auto-pack:  enabled",
-        title="assay mcp policy init",
-    ))
+    console.print(
+        Panel.fit(
+            f"[bold green]MCP policy file created[/]\n\n"
+            f"File:       {out_path}\n"
+            f"Server ID:  {sid}\n"
+            f"Privacy:    args hashed, results hashed (default)\n"
+            f"Auto-pack:  enabled",
+            title="assay mcp policy init",
+        )
+    )
     console.print()
     console.print("Next:")
     console.print(f"  1. Edit [bold]{out_path}[/] to customize tool restrictions")
     console.print(f"  2. Validate: [bold]assay mcp policy validate {out_path}[/]")
-    console.print(f"  3. Start proxy: [bold]assay mcp-proxy --policy {out_path} -- python my_server.py[/]")
+    console.print(
+        f"  3. Start proxy: [bold]assay mcp-proxy --policy {out_path} -- python my_server.py[/]"
+    )
     console.print()
 
 
@@ -10299,7 +11913,11 @@ def mcp_policy_validate_cmd(
     except PolicyLoadError as exc:
         if output_json:
             _output_json(
-                {"command": "mcp policy validate", "status": "error", "error": str(exc)},
+                {
+                    "command": "mcp policy validate",
+                    "status": "error",
+                    "error": str(exc),
+                },
                 exit_code=1,
             )
         console.print(f"[red]Error:[/] {exc}")
@@ -10309,52 +11927,82 @@ def mcp_policy_validate_cmd(
     n_deny = len(policy.tools.deny)
     n_allow = len(policy.tools.allow)
     n_constraints = len(policy.tools.constraints)
-    budget_str = str(policy.budget.max_tool_calls) if policy.budget.max_tool_calls else "unlimited"
+    budget_str = (
+        str(policy.budget.max_tool_calls)
+        if policy.budget.max_tool_calls
+        else "unlimited"
+    )
 
     if output_json:
-        _output_json({
-            "command": "mcp policy validate",
-            "status": "ok",
-            "file": str(path),
-            "hash": policy.source_hash,
-            "version": policy.version,
-            "server_id": policy.server_id,
-            "mode": policy.mode,
-            "tools_default": policy.tools.default,
-            "deny_rules": n_deny,
-            "allow_rules": n_allow,
-            "constraints": n_constraints,
-            "max_tool_calls": policy.budget.max_tool_calls,
-        })
+        _output_json(
+            {
+                "command": "mcp policy validate",
+                "status": "ok",
+                "file": str(path),
+                "hash": policy.source_hash,
+                "version": policy.version,
+                "server_id": policy.server_id,
+                "mode": policy.mode,
+                "tools_default": policy.tools.default,
+                "deny_rules": n_deny,
+                "allow_rules": n_allow,
+                "constraints": n_constraints,
+                "max_tool_calls": policy.budget.max_tool_calls,
+            }
+        )
 
     console.print()
-    console.print(Panel.fit(
-        f"[bold green]Policy valid[/]\n\n"
-        f"File:        {path}\n"
-        f"Hash:        {policy.source_hash}\n"
-        f"Version:     {policy.version}\n"
-        f"Server ID:   {policy.server_id or '(none)'}\n"
-        f"Mode:        [bold]{policy.mode}[/]\n"
-        f"Default:     {policy.tools.default}\n"
-        f"Deny rules:  {n_deny}\n"
-        f"Allow rules: {n_allow}\n"
-        f"Constraints: {n_constraints}\n"
-        f"Budget:      {budget_str} calls/session",
-        title="assay mcp policy validate",
-    ))
+    console.print(
+        Panel.fit(
+            f"[bold green]Policy valid[/]\n\n"
+            f"File:        {path}\n"
+            f"Hash:        {policy.source_hash}\n"
+            f"Version:     {policy.version}\n"
+            f"Server ID:   {policy.server_id or '(none)'}\n"
+            f"Mode:        [bold]{policy.mode}[/]\n"
+            f"Default:     {policy.tools.default}\n"
+            f"Deny rules:  {n_deny}\n"
+            f"Allow rules: {n_allow}\n"
+            f"Constraints: {n_constraints}\n"
+            f"Budget:      {budget_str} calls/session",
+            title="assay mcp policy validate",
+        )
+    )
     console.print()
 
 
-@assay_app.command("mcp-proxy", context_settings={"allow_extra_args": True, "allow_interspersed_args": False}, rich_help_panel="MCP")
+@assay_app.command(
+    "mcp-proxy",
+    context_settings={"allow_extra_args": True, "allow_interspersed_args": False},
+    rich_help_panel="MCP",
+)
 def mcp_proxy_cmd(
     ctx: typer.Context,
-    audit_dir: str = typer.Option(".assay/mcp", "--audit-dir", help="Directory for receipts and packs"),
-    server_id: Optional[str] = typer.Option(None, "--server-id", help="Server identifier for receipts"),
-    store_args: bool = typer.Option(False, "--store-args", help="Store tool arguments in cleartext (default: hash-only)"),
-    store_results: bool = typer.Option(False, "--store-results", help="Store tool results in cleartext (default: hash-only)"),
-    no_auto_pack: bool = typer.Option(False, "--no-auto-pack", help="Disable auto-pack on session end"),
-    output_json: bool = typer.Option(False, "--json", help="JSON output for status messages"),
-    policy: Optional[str] = typer.Option(None, "--policy", help="Path to assay.mcp-policy.yaml (fail-closed if missing)"),
+    audit_dir: str = typer.Option(
+        ".assay/mcp", "--audit-dir", help="Directory for receipts and packs"
+    ),
+    server_id: Optional[str] = typer.Option(
+        None, "--server-id", help="Server identifier for receipts"
+    ),
+    store_args: bool = typer.Option(
+        False,
+        "--store-args",
+        help="Store tool arguments in cleartext (default: hash-only)",
+    ),
+    store_results: bool = typer.Option(
+        False,
+        "--store-results",
+        help="Store tool results in cleartext (default: hash-only)",
+    ),
+    no_auto_pack: bool = typer.Option(
+        False, "--no-auto-pack", help="Disable auto-pack on session end"
+    ),
+    output_json: bool = typer.Option(
+        False, "--json", help="JSON output for status messages"
+    ),
+    policy: Optional[str] = typer.Option(
+        None, "--policy", help="Path to assay.mcp-policy.yaml (fail-closed if missing)"
+    ),
 ):
     """MCP Notary Proxy: receipt every tool call.
 
@@ -10397,7 +12045,7 @@ def mcp_proxy_cmd(
             "\n"
             "[bold]Fix:[/]\n"
             "  1. Start proxy:           [bold]assay mcp-proxy -- python my_server.py[/]\n"
-            "  2. Claude Desktop config: [bold]{\"command\": \"assay\", \"args\": [\"mcp-proxy\", \"--\", \"python\", \"my_server.py\"]}[/]\n"
+            '  2. Claude Desktop config: [bold]{"command": "assay", "args": ["mcp-proxy", "--", "python", "my_server.py"]}[/]\n'
             "  3. Keep the [bold]--[/] separator before the upstream command."
         )
         raise typer.Exit(3)
@@ -10407,9 +12055,11 @@ def mcp_proxy_cmd(
         from pathlib import Path as P
 
         from assay.mcp_policy import PolicyLoadError
+
         try:
             # Validate early so we get a clear error before starting the server
             from assay.mcp_policy import load_policy
+
             load_policy(P(policy))
         except PolicyLoadError as exc:
             if output_json:
@@ -10501,14 +12151,18 @@ audit_app = typer.Typer(
     help="Auditor handoff: bundle and verify evidence packs",
     no_args_is_help=True,
 )
-assay_app.add_typer(audit_app, name="audit", hidden=True, rich_help_panel="Compliance & Audit")
+assay_app.add_typer(
+    audit_app, name="audit", hidden=True, rich_help_panel="Compliance & Audit"
+)
 
 
 @audit_app.command("bundle")
 def audit_bundle_cmd(
     pack_dir: str = typer.Argument(..., help="Path to Proof Pack directory"),
     output: Optional[str] = typer.Option(
-        None, "--output", "-o",
+        None,
+        "--output",
+        "-o",
         help="Output file path (default: audit_bundle_{pack_id}.tar.gz)",
     ),
     output_json: bool = typer.Option(False, "--json", help="Output metadata as JSON"),
@@ -10528,21 +12182,35 @@ def audit_bundle_cmd(
     from pathlib import Path
 
     from assay.explain import explain_pack, render_md
-    from assay.integrity import verify_pack_manifest
     from assay.keystore import get_default_keystore
+    from assay.proof_pack import verify_proof_pack
 
     pack_path = Path(pack_dir)
     manifest_path = pack_path / "pack_manifest.json"
 
     if not pack_path.is_dir():
         if output_json:
-            _output_json({"command": "audit bundle", "status": "error", "error": f"Not a directory: {pack_dir}"}, exit_code=3)
+            _output_json(
+                {
+                    "command": "audit bundle",
+                    "status": "error",
+                    "error": f"Not a directory: {pack_dir}",
+                },
+                exit_code=3,
+            )
         console.print(f"[red]Error:[/] {pack_dir} is not a directory")
         raise typer.Exit(3)
 
     if not manifest_path.exists():
         if output_json:
-            _output_json({"command": "audit bundle", "status": "error", "error": "pack_manifest.json not found"}, exit_code=3)
+            _output_json(
+                {
+                    "command": "audit bundle",
+                    "status": "error",
+                    "error": "pack_manifest.json not found",
+                },
+                exit_code=3,
+            )
         console.print(f"[red]Error:[/] {manifest_path} not found")
         raise typer.Exit(3)
 
@@ -10550,15 +12218,21 @@ def audit_bundle_cmd(
 
     # Verify before bundling -- refuse to bundle tampered evidence
     ks = get_default_keystore()
-    vr = verify_pack_manifest(manifest, pack_path, ks)
+    vr = verify_proof_pack(manifest, pack_path, ks)
     if not vr.passed:
         if output_json:
-            _output_json({
-                "command": "audit bundle", "status": "error",
-                "error": "verification_failed",
-                "details": vr.to_dict(),
-            }, exit_code=3)
-        console.print("[red]Error:[/] Pack verification failed. Cannot bundle tampered evidence.")
+            _output_json(
+                {
+                    "command": "audit bundle",
+                    "status": "error",
+                    "error": "verification_failed",
+                    "details": vr.to_dict(),
+                },
+                exit_code=3,
+            )
+        console.print(
+            "[red]Error:[/] Pack verification failed. Cannot bundle tampered evidence."
+        )
         for err in vr.errors:
             console.print(f"  [red]{err.code}[/]: {err.message}")
         raise typer.Exit(3)
@@ -10567,12 +12241,15 @@ def audit_bundle_cmd(
     out_path = Path(output) if output else Path(f"audit_bundle_{pack_id}.tar.gz")
 
     # Build supplementary files
-    signer_info_bytes = json.dumps({
-        "signer_id": manifest.get("signer_id", "unknown"),
-        "signer_pubkey": manifest.get("signer_pubkey"),
-        "signer_pubkey_sha256": manifest.get("signer_pubkey_sha256"),
-        "signature_alg": manifest.get("signature_alg", "ed25519"),
-    }, indent=2).encode("utf-8")
+    signer_info_bytes = json.dumps(
+        {
+            "signer_id": manifest.get("signer_id", "unknown"),
+            "signer_pubkey": manifest.get("signer_pubkey"),
+            "signer_pubkey_sha256": manifest.get("signer_pubkey_sha256"),
+            "signature_alg": manifest.get("signature_alg", "ed25519"),
+        },
+        indent=2,
+    ).encode("utf-8")
 
     try:
         info = explain_pack(pack_path)
@@ -10582,13 +12259,21 @@ def audit_bundle_cmd(
 
     instructions_bytes = _VERIFY_INSTRUCTIONS_MD.encode("utf-8")
 
-    verify_result_bytes = json.dumps({
-        "verified_at_bundle_time": True,
-        **vr.to_dict(),
-    }, indent=2).encode("utf-8")
+    verify_result_bytes = json.dumps(
+        {
+            "verified_at_bundle_time": True,
+            **vr.to_dict(),
+        },
+        indent=2,
+    ).encode("utf-8")
 
     # Generated file names to skip from pack dir (we supply fresh versions)
-    generated_names = {"SIGNER_INFO.json", "PACK_SUMMARY.md", "VERIFY_INSTRUCTIONS.md", "VERIFY_RESULT.json"}
+    generated_names = {
+        "SIGNER_INFO.json",
+        "PACK_SUMMARY.md",
+        "VERIFY_INSTRUCTIONS.md",
+        "VERIFY_RESULT.json",
+    }
 
     with tarfile.open(str(out_path), "w:gz") as tar:
         for file_path in sorted(pack_path.rglob("*")):
@@ -10615,35 +12300,44 @@ def audit_bundle_cmd(
     file_count = sum(
         1
         for f in pack_path.rglob("*")
-        if f.is_file() and not (len(f.relative_to(pack_path).parts) == 1 and f.name in generated_names)
+        if f.is_file()
+        and not (len(f.relative_to(pack_path).parts) == 1 and f.name in generated_names)
     ) + len(generated_names)
 
     if output_json:
-        _output_json({
-            "command": "audit bundle",
-            "status": "ok",
-            "pack_id": pack_id,
-            "bundle_path": str(out_path),
-            "bundle_bytes": bundle_size,
-            "file_count": file_count,
-            "signer_id": manifest.get("signer_id"),
-            "verification_passed": True,
-        }, exit_code=0)
+        _output_json(
+            {
+                "command": "audit bundle",
+                "status": "ok",
+                "pack_id": pack_id,
+                "bundle_path": str(out_path),
+                "bundle_bytes": bundle_size,
+                "file_count": file_count,
+                "signer_id": manifest.get("signer_id"),
+                "verification_passed": True,
+            },
+            exit_code=0,
+        )
 
     console.print()
     from rich.panel import Panel
-    console.print(Panel.fit(
-        f"[bold green]AUDIT BUNDLE CREATED[/]\n\n"
-        f"Pack ID:    {pack_id}\n"
-        f"Signer:     {manifest.get('signer_id')}\n"
-        f"Files:      {file_count}\n"
-        f"Size:       {bundle_size:,} bytes\n"
-        f"Output:     {out_path}",
-        title="assay audit bundle",
-    ))
+
+    console.print(
+        Panel.fit(
+            f"[bold green]AUDIT BUNDLE CREATED[/]\n\n"
+            f"Pack ID:    {pack_id}\n"
+            f"Signer:     {manifest.get('signer_id')}\n"
+            f"Files:      {file_count}\n"
+            f"Size:       {bundle_size:,} bytes\n"
+            f"Output:     {out_path}",
+            title="assay audit bundle",
+        )
+    )
     console.print()
     console.print(f"[dim]Hand off [bold]{out_path}[/bold] to the auditor.[/]")
-    console.print(f"[dim]Auditor verifies with:[/] python3 -m pip install assay-ai && tar xzf {out_path.name} && assay verify-pack .")
+    console.print(
+        f"[dim]Auditor verifies with:[/] python3 -m pip install assay-ai && tar xzf {out_path.name} && assay verify-pack ."
+    )
     console.print()
 
 
@@ -10661,17 +12355,27 @@ assay_app.add_typer(flow_app, name="flow", hidden=True, rich_help_panel="Workflo
 
 @flow_app.command("try")
 def flow_try_cmd(
-    apply: bool = typer.Option(False, "--apply", help="Execute steps (default: dry-run)"),
+    apply: bool = typer.Option(
+        False, "--apply", help="Execute steps (default: dry-run)"
+    ),
     output_json: bool = typer.Option(False, "--json", help="Structured output"),
 ):
     """See Assay in action: demo packs + verify."""
-    from assay.flow import build_flow_try, render_flow_dry_run, render_flow_result, run_flow
+    from assay.flow import (
+        build_flow_try,
+        render_flow_dry_run,
+        render_flow_result,
+        run_flow,
+    )
 
     flow = build_flow_try()
     result = run_flow(flow, apply=apply, json_mode=output_json)
 
     if output_json:
-        _output_json({"command": "flow try", **result.to_dict()}, exit_code=1 if result.failed_step else 0)
+        _output_json(
+            {"command": "flow try", **result.to_dict()},
+            exit_code=1 if result.failed_step else 0,
+        )
     elif apply:
         render_flow_result(result, console)
     else:
@@ -10685,20 +12389,31 @@ def flow_try_cmd(
 def flow_adopt_cmd(
     path: str = typer.Argument(".", help="Project directory"),
     run_command: str = typer.Option(
-        "python app.py", "--run-command",
+        "python app.py",
+        "--run-command",
         help="Command to wrap with assay run",
     ),
-    apply: bool = typer.Option(False, "--apply", help="Execute steps (default: dry-run)"),
+    apply: bool = typer.Option(
+        False, "--apply", help="Execute steps (default: dry-run)"
+    ),
     output_json: bool = typer.Option(False, "--json", help="Structured output"),
 ):
     """Instrument your project: scan -> patch -> run -> verify -> explain."""
-    from assay.flow import build_flow_adopt, render_flow_dry_run, render_flow_result, run_flow
+    from assay.flow import (
+        build_flow_adopt,
+        render_flow_dry_run,
+        render_flow_result,
+        run_flow,
+    )
 
     flow = build_flow_adopt(run_command=run_command, path=path)
     result = run_flow(flow, apply=apply, json_mode=output_json)
 
     if output_json:
-        _output_json({"command": "flow adopt", **result.to_dict()}, exit_code=1 if result.failed_step else 0)
+        _output_json(
+            {"command": "flow adopt", **result.to_dict()},
+            exit_code=1 if result.failed_step else 0,
+        )
     elif apply:
         render_flow_result(result, console)
     else:
@@ -10711,20 +12426,31 @@ def flow_adopt_cmd(
 @flow_app.command("ci")
 def flow_ci_cmd(
     run_command: str = typer.Option(
-        "python app.py", "--run-command",
+        "python app.py",
+        "--run-command",
         help="Command Assay should wrap in CI",
     ),
-    apply: bool = typer.Option(False, "--apply", help="Execute steps (default: dry-run)"),
+    apply: bool = typer.Option(
+        False, "--apply", help="Execute steps (default: dry-run)"
+    ),
     output_json: bool = typer.Option(False, "--json", help="Structured output"),
 ):
     """Set up CI evidence gating: lock -> ci init -> baseline."""
-    from assay.flow import build_flow_ci, render_flow_dry_run, render_flow_result, run_flow
+    from assay.flow import (
+        build_flow_ci,
+        render_flow_dry_run,
+        render_flow_result,
+        run_flow,
+    )
 
     flow = build_flow_ci(run_command=run_command)
     result = run_flow(flow, apply=apply, json_mode=output_json)
 
     if output_json:
-        _output_json({"command": "flow ci", **result.to_dict()}, exit_code=1 if result.failed_step else 0)
+        _output_json(
+            {"command": "flow ci", **result.to_dict()},
+            exit_code=1 if result.failed_step else 0,
+        )
     elif apply:
         render_flow_result(result, console)
     else:
@@ -10737,20 +12463,31 @@ def flow_ci_cmd(
 @flow_app.command("mcp")
 def flow_mcp_cmd(
     server_command: Optional[str] = typer.Option(
-        None, "--server-command",
+        None,
+        "--server-command",
         help="MCP server startup command",
     ),
-    apply: bool = typer.Option(False, "--apply", help="Execute steps (default: dry-run)"),
+    apply: bool = typer.Option(
+        False, "--apply", help="Execute steps (default: dry-run)"
+    ),
     output_json: bool = typer.Option(False, "--json", help="Structured output"),
 ):
     """Set up MCP tool call auditing: policy init + proxy guidance."""
-    from assay.flow import build_flow_mcp, render_flow_dry_run, render_flow_result, run_flow
+    from assay.flow import (
+        build_flow_mcp,
+        render_flow_dry_run,
+        render_flow_result,
+        run_flow,
+    )
 
     flow = build_flow_mcp(server_command=server_command)
     result = run_flow(flow, apply=apply, json_mode=output_json)
 
     if output_json:
-        _output_json({"command": "flow mcp", **result.to_dict()}, exit_code=1 if result.failed_step else 0)
+        _output_json(
+            {"command": "flow mcp", **result.to_dict()},
+            exit_code=1 if result.failed_step else 0,
+        )
     elif apply:
         render_flow_result(result, console)
     else:
@@ -10762,18 +12499,30 @@ def flow_mcp_cmd(
 
 @flow_app.command("audit")
 def flow_audit_cmd(
-    pack_dir: str = typer.Argument("./proof_pack_*/", help="Path to proof pack directory"),
-    apply: bool = typer.Option(False, "--apply", help="Execute steps (default: dry-run)"),
+    pack_dir: str = typer.Argument(
+        "./proof_pack_*/", help="Path to proof pack directory"
+    ),
+    apply: bool = typer.Option(
+        False, "--apply", help="Execute steps (default: dry-run)"
+    ),
     output_json: bool = typer.Option(False, "--json", help="Structured output"),
 ):
     """Auditor handoff: verify -> explain -> bundle."""
-    from assay.flow import build_flow_audit, render_flow_dry_run, render_flow_result, run_flow
+    from assay.flow import (
+        build_flow_audit,
+        render_flow_dry_run,
+        render_flow_result,
+        run_flow,
+    )
 
     flow = build_flow_audit(pack_dir=pack_dir)
     result = run_flow(flow, apply=apply, json_mode=output_json)
 
     if output_json:
-        _output_json({"command": "flow audit", **result.to_dict()}, exit_code=1 if result.failed_step else 0)
+        _output_json(
+            {"command": "flow audit", **result.to_dict()},
+            exit_code=1 if result.failed_step else 0,
+        )
     elif apply:
         render_flow_result(result, console)
     else:
@@ -10792,17 +12541,23 @@ compliance_app = typer.Typer(
     help="Compliance assessment: map evidence packs to regulatory frameworks",
     no_args_is_help=True,
 )
-assay_app.add_typer(compliance_app, name="compliance", hidden=True, rich_help_panel="Compliance & Audit")
+assay_app.add_typer(
+    compliance_app, name="compliance", hidden=True, rich_help_panel="Compliance & Audit"
+)
 
 
 @compliance_app.command("report")
 def compliance_report_cmd(
     pack_dir: str = typer.Argument(..., help="Path to proof pack directory"),
     framework: str = typer.Option(
-        "eu-ai-act", "--framework", "-f",
+        "eu-ai-act",
+        "--framework",
+        "-f",
         help="Framework: eu-ai-act, soc2, iso42001, nist-ai-rmf, all",
     ),
-    output_format: str = typer.Option("text", "--format", help="Output: text, md, json"),
+    output_format: str = typer.Option(
+        "text", "--format", help="Output: text, md, json"
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Generate a compliance report mapping evidence to regulatory controls.
@@ -10833,22 +12588,28 @@ def compliance_report_cmd(
     pd = Path(pack_dir)
     if not pd.is_dir():
         if output_json or output_format == "json":
-            _output_json({
-                "command": "compliance report",
-                "status": "error",
-                "error": f"Not a directory: {pack_dir}",
-            }, exit_code=3)
+            _output_json(
+                {
+                    "command": "compliance report",
+                    "status": "error",
+                    "error": f"Not a directory: {pack_dir}",
+                },
+                exit_code=3,
+            )
         console.print(f"[red]Error:[/] {pack_dir} is not a directory")
         raise typer.Exit(3)
 
     manifest_path = pd / "pack_manifest.json"
     if not manifest_path.exists():
         if output_json or output_format == "json":
-            _output_json({
-                "command": "compliance report",
-                "status": "error",
-                "error": "pack_manifest.json not found",
-            }, exit_code=3)
+            _output_json(
+                {
+                    "command": "compliance report",
+                    "status": "error",
+                    "error": "pack_manifest.json not found",
+                },
+                exit_code=3,
+            )
         console.print(f"[red]Error:[/] {manifest_path} not found")
         raise typer.Exit(3)
 
@@ -10858,12 +12619,15 @@ def compliance_report_cmd(
     else:
         if framework not in ALL_FRAMEWORK_IDS:
             if output_json or output_format == "json":
-                _output_json({
-                    "command": "compliance report",
-                    "status": "error",
-                    "error": f"Unknown framework: {framework}",
-                    "supported": ALL_FRAMEWORK_IDS,
-                }, exit_code=3)
+                _output_json(
+                    {
+                        "command": "compliance report",
+                        "status": "error",
+                        "error": f"Unknown framework: {framework}",
+                        "supported": ALL_FRAMEWORK_IDS,
+                    },
+                    exit_code=3,
+                )
             console.print(
                 f"[red]Error:[/] Unknown framework: {framework}. "
                 f"Supported: {', '.join(ALL_FRAMEWORK_IDS)}"
@@ -10877,7 +12641,11 @@ def compliance_report_cmd(
 
     if output_json or output_format == "json":
         if len(reports) == 1:
-            payload = {"command": "compliance report", "status": "ok", **reports[0].to_dict()}
+            payload = {
+                "command": "compliance report",
+                "status": "ok",
+                **reports[0].to_dict(),
+            }
         else:
             payload = {
                 "command": "compliance report",
@@ -10907,14 +12675,20 @@ incident_app = typer.Typer(
     help="Incident forensics and timeline analysis",
     no_args_is_help=True,
 )
-assay_app.add_typer(incident_app, name="incident", hidden=True, rich_help_panel="Compliance & Audit")
+assay_app.add_typer(
+    incident_app, name="incident", hidden=True, rich_help_panel="Compliance & Audit"
+)
 
 
 @incident_app.command("timeline")
 def incident_timeline_cmd(
     pack_dir: str = typer.Argument(..., help="Path to proof pack directory"),
-    against: Optional[str] = typer.Option(None, "--against", help="Baseline pack for divergence detection"),
-    output_format: str = typer.Option("text", "--format", "-f", help="Output: text, md, json"),
+    against: Optional[str] = typer.Option(
+        None, "--against", help="Baseline pack for divergence detection"
+    ),
+    output_format: str = typer.Option(
+        "text", "--format", "-f", help="Output: text, md, json"
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Build an incident timeline from a proof pack.
@@ -10963,11 +12737,13 @@ def incident_timeline_cmd(
         raise typer.Exit(3)
 
     if output_json or output_format == "json":
-        _output_json({
-            "command": "incident timeline",
-            "status": "ok",
-            **timeline.to_dict(),
-        })
+        _output_json(
+            {
+                "command": "incident timeline",
+                "status": "ok",
+                **timeline.to_dict(),
+            }
+        )
         return
 
     if output_format == "md":
@@ -10981,9 +12757,15 @@ def incident_timeline_cmd(
 @incident_app.command("replay")
 def incident_replay_cmd(
     pack_dir: str = typer.Argument(..., help="Path to proof pack directory"),
-    policy: str = typer.Option(..., "--policy", "-p", help="Candidate policy YAML file"),
-    current_policy: Optional[str] = typer.Option(None, "--current-policy", help="Current policy for delta comparison"),
-    output_format: str = typer.Option("text", "--format", "-f", help="Output: text, md, json"),
+    policy: str = typer.Option(
+        ..., "--policy", "-p", help="Candidate policy YAML file"
+    ),
+    current_policy: Optional[str] = typer.Option(
+        None, "--current-policy", help="Current policy for delta comparison"
+    ),
+    output_format: str = typer.Option(
+        "text", "--format", "-f", help="Output: text, md, json"
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Replay historical evidence against a candidate policy.
@@ -11025,11 +12807,13 @@ def incident_replay_cmd(
         raise typer.Exit(3)
 
     if output_json or output_format == "json":
-        _output_json({
-            "command": "incident replay",
-            "status": "ok",
-            **impact.to_dict(),
-        })
+        _output_json(
+            {
+                "command": "incident replay",
+                "status": "ok",
+                **impact.to_dict(),
+            }
+        )
         return
 
     if output_format == "md":
@@ -11049,18 +12833,34 @@ policy_app = typer.Typer(
     help="Policy management and impact analysis",
     no_args_is_help=True,
 )
-assay_app.add_typer(policy_app, name="policy", hidden=True, rich_help_panel="Compliance & Audit")
+assay_app.add_typer(
+    policy_app, name="policy", hidden=True, rich_help_panel="Compliance & Audit"
+)
 
 
 @policy_app.command("impact")
 def policy_impact_cmd(
-    policy_new: str = typer.Option(..., "--policy-new", help="Candidate policy YAML file"),
-    packs: str = typer.Option(..., "--packs", help="Directory containing pack subdirectories"),
-    policy_old: Optional[str] = typer.Option(None, "--policy-old", help="Current/baseline policy YAML"),
-    fail_if_newly_denied: Optional[int] = typer.Option(None, "--fail-if-newly-denied", help="Fail if newly denied > N"),
-    fail_if_risk_delta: Optional[float] = typer.Option(None, "--fail-if-risk-delta", help="Fail if risk delta > X"),
-    do_emit_receipt: bool = typer.Option(False, "--emit-receipt", help="Emit PolicyImpactReceipt to trace"),
-    output_format: str = typer.Option("text", "--format", "-f", help="Output: text, md, json"),
+    policy_new: str = typer.Option(
+        ..., "--policy-new", help="Candidate policy YAML file"
+    ),
+    packs: str = typer.Option(
+        ..., "--packs", help="Directory containing pack subdirectories"
+    ),
+    policy_old: Optional[str] = typer.Option(
+        None, "--policy-old", help="Current/baseline policy YAML"
+    ),
+    fail_if_newly_denied: Optional[int] = typer.Option(
+        None, "--fail-if-newly-denied", help="Fail if newly denied > N"
+    ),
+    fail_if_risk_delta: Optional[float] = typer.Option(
+        None, "--fail-if-risk-delta", help="Fail if risk delta > X"
+    ),
+    do_emit_receipt: bool = typer.Option(
+        False, "--emit-receipt", help="Emit PolicyImpactReceipt to trace"
+    ),
+    output_format: str = typer.Option(
+        "text", "--format", "-f", help="Output: text, md, json"
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Analyze the impact of a policy change on historical evidence.
@@ -11149,7 +12949,9 @@ def policy_impact_cmd(
 
 @policy_app.command("recommend")
 def policy_recommend_cmd(
-    store_dir: Optional[str] = typer.Option(None, "--store-dir", help="Assay store directory (default: ~/.assay/)"),
+    store_dir: Optional[str] = typer.Option(
+        None, "--store-dir", help="Assay store directory (default: ~/.assay/)"
+    ),
     window: int = typer.Option(7, "--window", "-w", help="Window size in days"),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
@@ -11207,12 +13009,24 @@ assay_app.add_typer(pilot_app, name="pilot", hidden=True, rich_help_panel="Workf
 @pilot_app.command("run")
 def pilot_run_cmd(
     repo: str = typer.Argument(".", help="Repository directory"),
-    config: Optional[str] = typer.Option(None, "--config", "-c", help="Path to pilot.yaml"),
-    test_cmd: Optional[str] = typer.Option(None, "--test-cmd", "-t", help="Test command (overrides config)"),
-    mode: Optional[str] = typer.Option(None, "--mode", "-m", help="Scan mode: high-only or high+medium"),
-    output: str = typer.Option("pilot_bundle", "--output", "-o", help="Bundle output directory"),
-    allow_empty: bool = typer.Option(False, "--allow-empty", help="Allow empty receipt packs"),
-    allow_dirty: bool = typer.Option(False, "--allow-dirty", help="Allow dirty working tree"),
+    config: Optional[str] = typer.Option(
+        None, "--config", "-c", help="Path to pilot.yaml"
+    ),
+    test_cmd: Optional[str] = typer.Option(
+        None, "--test-cmd", "-t", help="Test command (overrides config)"
+    ),
+    mode: Optional[str] = typer.Option(
+        None, "--mode", "-m", help="Scan mode: high-only or high+medium"
+    ),
+    output: str = typer.Option(
+        "pilot_bundle", "--output", "-o", help="Bundle output directory"
+    ),
+    allow_empty: bool = typer.Option(
+        False, "--allow-empty", help="Allow empty receipt packs"
+    ),
+    allow_dirty: bool = typer.Option(
+        False, "--allow-dirty", help="Allow dirty working tree"
+    ),
     patch: bool = typer.Option(False, "--patch", help="Run assay patch before test"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Simulate without executing"),
     resume: bool = typer.Option(False, "--resume", help="Resume from last checkpoint"),
@@ -11234,7 +13048,14 @@ def pilot_run_cmd(
     repo_path = Path(repo).resolve()
     if not repo_path.is_dir():
         if output_json:
-            _output_json({"command": "pilot run", "status": "error", "error": f"Directory not found: {repo}"}, exit_code=3)
+            _output_json(
+                {
+                    "command": "pilot run",
+                    "status": "error",
+                    "error": f"Directory not found: {repo}",
+                },
+                exit_code=3,
+            )
         console.print(f"[red]Error:[/] Directory not found: {repo}")
         raise typer.Exit(3)
 
@@ -11256,7 +13077,10 @@ def pilot_run_cmd(
         pilot_config = load_pilot_config(config, repo_path, cli_overrides=cli_overrides)
     except PilotError as e:
         if output_json:
-            _output_json({"command": "pilot run", "status": "error", "error": str(e)}, exit_code=1)
+            _output_json(
+                {"command": "pilot run", "status": "error", "error": str(e)},
+                exit_code=1,
+            )
         console.print(f"[red]Error:[/] {e}")
         raise typer.Exit(1)
 
@@ -11268,18 +13092,23 @@ def pilot_run_cmd(
         result = run_pilot(repo_path, pilot_config, dry_run=dry_run, resume=resume)
     except PilotError as e:
         if output_json:
-            _output_json({"command": "pilot run", "status": "error", "error": str(e)}, exit_code=1)
+            _output_json(
+                {"command": "pilot run", "status": "error", "error": str(e)},
+                exit_code=1,
+            )
         console.print(f"[red]Error:[/] {e}")
         raise typer.Exit(1)
 
     if output_json:
-        _output_json({
-            "command": "pilot run",
-            "status": "ok",
-            "output_dir": result["output_dir"],
-            "steps_completed": result["steps_completed"],
-            "dry_run": dry_run,
-        })
+        _output_json(
+            {
+                "command": "pilot run",
+                "status": "ok",
+                "output_dir": result["output_dir"],
+                "steps_completed": result["steps_completed"],
+                "dry_run": dry_run,
+            }
+        )
 
     console.print(f"[green]Pilot run complete.[/] Bundle: {result['output_dir']}")
     console.print(f"Steps: {', '.join(result['steps_completed'])}")
@@ -11289,7 +13118,11 @@ def pilot_run_cmd(
 @pilot_app.command("verify")
 def pilot_verify_cmd(
     bundle: str = typer.Argument(..., help="Path to pilot bundle directory"),
-    profile: Optional[str] = typer.Option(None, "--profile", help="Verification profile: score-delta, integrity-only, otel-bridge"),
+    profile: Optional[str] = typer.Option(
+        None,
+        "--profile",
+        help="Verification profile: score-delta, integrity-only, otel-bridge",
+    ),
     self_test: bool = typer.Option(False, "--self-test", help="Run tamper self-test"),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
@@ -11311,7 +13144,14 @@ def pilot_verify_cmd(
     bundle_path = Path(bundle).resolve()
     if not bundle_path.is_dir():
         if output_json:
-            _output_json({"command": "pilot verify", "status": "error", "error": "Bundle path does not exist"}, exit_code=3)
+            _output_json(
+                {
+                    "command": "pilot verify",
+                    "status": "error",
+                    "error": "Bundle path does not exist",
+                },
+                exit_code=3,
+            )
         console.print(f"[red]Error:[/] Bundle path does not exist: {bundle}")
         raise typer.Exit(3)
 
@@ -11350,7 +13190,9 @@ def pilot_verify_cmd(
         for err in errors:
             console.print(f"[red]{err}[/]")
         labels = {2: "INTEGRITY_FAIL", 3: "MALFORMED"}
-        console.print(f"[red]VERIFY_{labels.get(exit_code, 'FAIL')}:[/] exit {exit_code}")
+        console.print(
+            f"[red]VERIFY_{labels.get(exit_code, 'FAIL')}:[/] exit {exit_code}"
+        )
 
     if self_test and exit_code == 0:
         st_code, st_errors = _run_self_test(bundle_path)
@@ -11368,9 +13210,15 @@ def pilot_verify_cmd(
 def pilot_closeout_cmd(
     bundle: str = typer.Argument(..., help="Path to pilot bundle directory"),
     repo: Optional[str] = typer.Option(None, "--repo", help="Repository identifier"),
-    dry_run: bool = typer.Option(False, "--dry-run", help="Validate without writing logs"),
-    json_output_path: Optional[str] = typer.Option(None, "--json-output", help="Write closeout row JSON to this path"),
-    log_path: Optional[str] = typer.Option(None, "--log", help="JSONL replication log path"),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Validate without writing logs"
+    ),
+    json_output_path: Optional[str] = typer.Option(
+        None, "--json-output", help="Write closeout row JSON to this path"
+    ),
+    log_path: Optional[str] = typer.Option(
+        None, "--log", help="JSONL replication log path"
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Run closeout pipeline: verify, self-test, build closeout row.
@@ -11399,18 +13247,27 @@ def pilot_closeout_cmd(
         )
     except PilotError as e:
         if output_json:
-            _output_json({"command": "pilot closeout", "status": "error", "error": str(e)}, exit_code=1)
+            _output_json(
+                {"command": "pilot closeout", "status": "error", "error": str(e)},
+                exit_code=1,
+            )
         console.print(f"[red]Error:[/] {e}")
         raise typer.Exit(1)
 
     if output_json:
-        _output_json({
-            "command": "pilot closeout",
-            "status": "ok",
-            **row,
-        })
+        _output_json(
+            {
+                "command": "pilot closeout",
+                "status": "ok",
+                **row,
+            }
+        )
 
-    delta_str = f"{row.get('score_delta', 'N/A'):+.1f}" if isinstance(row.get("score_delta"), (int, float)) else "N/A"
+    delta_str = (
+        f"{row.get('score_delta', 'N/A'):+.1f}"
+        if isinstance(row.get("score_delta"), (int, float))
+        else "N/A"
+    )
     tamper_str = str(row.get("tamper_exit", "N/A"))
     console.print(
         f"[green]CLOSEOUT_OK:[/] {row.get('repo', 'unknown')} "
@@ -11423,7 +13280,9 @@ def pilot_closeout_cmd(
 
 @assay_app.command("decision", hidden=True)
 def decision_validate_cmd(
-    receipt_path: str = typer.Argument(..., help="Path to a Decision Receipt JSON file"),
+    receipt_path: str = typer.Argument(
+        ..., help="Path to a Decision Receipt JSON file"
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Validate a Decision Receipt against constitutional invariants.
@@ -11441,8 +13300,14 @@ def decision_validate_cmd(
     path = _Path(receipt_path)
     if not path.exists():
         if output_json:
-            _output_json({"command": "decision", "status": "error",
-                          "error": f"File not found: {receipt_path}"}, exit_code=1)
+            _output_json(
+                {
+                    "command": "decision",
+                    "status": "error",
+                    "error": f"File not found: {receipt_path}",
+                },
+                exit_code=1,
+            )
         console.print(f"[red]Error:[/] {receipt_path} not found")
         raise typer.Exit(1)
 
@@ -11450,8 +13315,14 @@ def decision_validate_cmd(
         data = json.loads(path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError) as e:
         if output_json:
-            _output_json({"command": "decision", "status": "error",
-                          "error": f"Cannot parse: {e}"}, exit_code=1)
+            _output_json(
+                {
+                    "command": "decision",
+                    "status": "error",
+                    "error": f"Cannot parse: {e}",
+                },
+                exit_code=1,
+            )
         console.print(f"[red]Error:[/] Cannot parse {receipt_path}: {e}")
         raise typer.Exit(1)
 
@@ -11480,31 +13351,36 @@ def decision_validate_cmd(
         policy = data.get("policy_id", "?")
 
         console.print()
-        console.print(Panel.fit(
-            f"[bold green]Decision Receipt: VALID[/]\n\n"
-            f"Verdict:     [bold]{verdict}[/]\n"
-            f"Subject:     {subject}\n"
-            f"Type:        {decision_type}\n"
-            f"Authority:   {authority}\n"
-            f"Disposition: {disposition}\n"
-            f"Confidence:  {confidence}\n"
-            f"Evidence:    {'sufficient' if ev_suff else 'insufficient'}\n"
-            f"Policy:      {policy}\n"
-            + (f"\nReason: {reason}" if reason else ""),
-            title="assay decision",
-        ))
+        console.print(
+            Panel.fit(
+                f"[bold green]Decision Receipt: VALID[/]\n\n"
+                f"Verdict:     [bold]{verdict}[/]\n"
+                f"Subject:     {subject}\n"
+                f"Type:        {decision_type}\n"
+                f"Authority:   {authority}\n"
+                f"Disposition: {disposition}\n"
+                f"Confidence:  {confidence}\n"
+                f"Evidence:    {'sufficient' if ev_suff else 'insufficient'}\n"
+                f"Policy:      {policy}\n" + (f"\nReason: {reason}" if reason else ""),
+                title="assay decision",
+            )
+        )
     else:
         console.print()
-        console.print(Panel.fit(
-            f"[bold red]Decision Receipt: INVALID[/]\n\n"
-            f"Verdict:  {verdict}\n"
-            f"Subject:  {subject}\n"
-            f"Errors:   {len(result.errors)}",
-            title="assay decision",
-        ))
+        console.print(
+            Panel.fit(
+                f"[bold red]Decision Receipt: INVALID[/]\n\n"
+                f"Verdict:  {verdict}\n"
+                f"Subject:  {subject}\n"
+                f"Errors:   {len(result.errors)}",
+                title="assay decision",
+            )
+        )
         for err in result.errors:
             field_str = f" ({err.field})" if err.field else ""
-            console.print(f"  [{err.layer}] [red]{err.rule}[/]{field_str}: {err.message}")
+            console.print(
+                f"  [{err.layer}] [red]{err.rule}[/]{field_str}: {err.message}"
+            )
 
     console.print()
     raise typer.Exit(0 if result.valid else 1)
@@ -11514,7 +13390,11 @@ def decision_validate_cmd(
 def why_cmd(
     receipt_id: str = typer.Argument(..., help="Receipt ID to explain"),
     output_json: bool = typer.Option(False, "--json", help="Structured JSON output"),
-    trace: bool = typer.Option(False, "--trace", help="Show full backward chain through parent_receipt_id links"),
+    trace: bool = typer.Option(
+        False,
+        "--trace",
+        help="Show full backward chain through parent_receipt_id links",
+    ),
 ):
     """Explain why a decision was made.
 
@@ -11531,17 +13411,19 @@ def why_cmd(
       assay why r_abc123def456 --json
       assay why r_abc123def456 --trace
     """
-    from assay.why import ReceiptIndex, explain_why, render_text
+    from assay.why import explain_why, render_text
 
     trace_depth = 10 if trace else 1
     result = explain_why(receipt_id, trace_depth=trace_depth)
 
     if output_json:
-        _output_json({
-            "command": "why",
-            "status": "ok",
-            **result.to_dict(),
-        })
+        _output_json(
+            {
+                "command": "why",
+                "status": "ok",
+                **result.to_dict(),
+            }
+        )
         return
 
     text = render_text(result)
@@ -11566,13 +13448,20 @@ assay_app.add_typer(packet_app, name="packet", rich_help_panel="Compliance & Aud
 
 @packet_app.command("init")
 def packet_init_cmd(
-    questionnaire: str = typer.Option(..., "--questionnaire", "-q", help="Path to questionnaire (JSON or CSV)"),
-    packs: List[str] = typer.Option(..., "--packs", "-p", help="Path(s) to proof pack directories"),
-    output: str = typer.Option("./packet_draft", "--output", "-o", help="Output directory for draft"),
+    questionnaire: str = typer.Option(
+        ..., "--questionnaire", "-q", help="Path to questionnaire (JSON or CSV)"
+    ),
+    packs: List[str] = typer.Option(
+        ..., "--packs", "-p", help="Path(s) to proof pack directories"
+    ),
+    output: str = typer.Option(
+        "./packet_draft", "--output", "-o", help="Output directory for draft"
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Scaffold a packet workdir with stub bindings for every questionnaire item."""
     from pathlib import Path
+
     from assay.compiled_packet import init_packet
 
     q_path = Path(questionnaire)
@@ -11600,34 +13489,63 @@ def packet_init_cmd(
         console.print(f"  Questionnaire items: {result['questionnaire_items']}")
         console.print(f"  Stub bindings: {result['stub_bindings']}")
         console.print(f"  Pack references: {result['pack_references']}")
-        console.print(f"\n[dim]Next: edit {result['output_dir']}/claim_bindings.jsonl to author claim bindings.[/]")
-        console.print(f"[dim]Then: assay packet compile --draft {result['output_dir']} --packs {' '.join(packs)}[/]")
+        console.print(
+            f"\n[dim]Next: edit {result['output_dir']}/claim_bindings.jsonl to author claim bindings.[/]"
+        )
+        console.print(
+            f"[dim]Then: assay packet compile --draft {result['output_dir']} --packs {' '.join(packs)}[/]"
+        )
     raise typer.Exit(0)
 
 
 @packet_app.command("compile")
 def packet_compile_cmd(
-    draft: str = typer.Option(..., "--draft", "-d", help="Path to packet draft directory"),
-    packs: List[str] = typer.Option(..., "--packs", "-p", help="Path(s) to proof pack directories"),
-    output: str = typer.Option("./compiled_packet", "--output", "-o", help="Output directory"),
-    bundle: bool = typer.Option(True, "--bundle/--no-bundle", help="Bundle proof packs into output"),
+    draft: str = typer.Option(
+        ..., "--draft", "-d", help="Path to packet draft directory"
+    ),
+    packs: List[str] = typer.Option(
+        ..., "--packs", "-p", help="Path(s) to proof pack directories"
+    ),
+    output: str = typer.Option(
+        "./compiled_packet", "--output", "-o", help="Output directory"
+    ),
+    bundle: bool = typer.Option(
+        True, "--bundle/--no-bundle", help="Bundle proof packs into output"
+    ),
     signer: str = typer.Option("assay-local", "--signer", "-s", help="Signer ID"),
-    subject_type: str = typer.Option(..., "--subject-type", help="Subject type: artifact, run, or decision"),
-    subject_id: str = typer.Option(..., "--subject-id", help="Stable human-readable subject identifier"),
-    subject_digest: str = typer.Option(..., "--subject-digest", help="SHA-256 content digest: 'sha256:<64hex>' or bare 64 hex chars"),
-    subject_uri: Optional[str] = typer.Option(None, "--subject-uri", help="Optional locator URI"),
-    source_commit: Optional[str] = typer.Option(None, "--source-commit", help="Source commit provenance bound into the manifest and packet root; required for artifact packets"),
-    policy_id: str = typer.Option("default", "--policy-id", help="Policy identifier for admissibility"),
+    subject_type: str = typer.Option(
+        ..., "--subject-type", help="Subject type: artifact, run, or decision"
+    ),
+    subject_id: str = typer.Option(
+        ..., "--subject-id", help="Stable human-readable subject identifier"
+    ),
+    subject_digest: str = typer.Option(
+        ...,
+        "--subject-digest",
+        help="SHA-256 content digest: 'sha256:<64hex>' or bare 64 hex chars",
+    ),
+    subject_uri: Optional[str] = typer.Option(
+        None, "--subject-uri", help="Optional locator URI"
+    ),
+    source_commit: Optional[str] = typer.Option(
+        None,
+        "--source-commit",
+        help="Source commit provenance bound into the manifest and packet root; required for artifact packets",
+    ),
+    policy_id: str = typer.Option(
+        "default", "--policy-id", help="Policy identifier for admissibility"
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Validate, canonicalize, sign, and package a compiled packet with subject binding."""
-    from pathlib import Path
-    from assay.compiled_packet import compile_packet
-
     # Validate and normalize subject_digest to canonical sha256:<64hex> form.
     # Only bare 64-char lowercase hex is auto-prefixed. Everything else must
     # be explicit or is rejected with a diagnostic message.
     import re
+    from pathlib import Path
+
+    from assay.compiled_packet import compile_packet
+
     normalized_digest = subject_digest
     if normalized_digest.startswith("sha256:"):
         pass  # already canonical form
@@ -11637,10 +13555,10 @@ def packet_compile_cmd(
         normalized_digest = f"sha256:{normalized_digest.lower()}"
     elif re.fullmatch(r"[0-9a-f]{40}", normalized_digest):
         console.print(
-            f"[red]Error:[/] --subject-digest looks like a 40-char Git SHA-1 object ID.\n"
-            f"  Assay requires a SHA-256 content digest (64 hex chars).\n"
-            f"  To get a SHA-256 digest of a file: sha256sum <file> | cut -d' ' -f1\n"
-            f"  To get a SHA-256 of a git tree: git hash-object --stdin < <file>"
+            "[red]Error:[/] --subject-digest looks like a 40-char Git SHA-1 object ID.\n"
+            "  Assay requires a SHA-256 content digest (64 hex chars).\n"
+            "  To get a SHA-256 digest of a file: sha256sum <file> | cut -d' ' -f1\n"
+            "  To get a SHA-256 of a git tree: git hash-object --stdin < <file>"
         )
         raise typer.Exit(1)
     else:
@@ -11700,6 +13618,7 @@ def packet_verify_cmd(
 ):
     """Verify a compiled packet independently."""
     from pathlib import Path
+
     from assay.compiled_packet import verify_packet
 
     result = verify_packet(Path(packet_dir))
@@ -11715,32 +13634,59 @@ def packet_verify_cmd(
             "INVALID": "red",
         }.get(result.verdict, "white")
 
-        integrity_color = {"INTACT": "green", "DEGRADED": "yellow", "TAMPERED": "red", "INVALID": "red"}.get(result.integrity_verdict, "white")
-        completeness_color = {"COMPLETE": "green", "PARTIAL": "yellow", "INCOMPLETE": "red"}.get(result.completeness_verdict, "white")
+        integrity_color = {
+            "INTACT": "green",
+            "DEGRADED": "yellow",
+            "TAMPERED": "red",
+            "INVALID": "red",
+        }.get(result.integrity_verdict, "white")
+        completeness_color = {
+            "COMPLETE": "green",
+            "PARTIAL": "yellow",
+            "INCOMPLETE": "red",
+        }.get(result.completeness_verdict, "white")
 
         adm_color = "green" if result.admissible else "red"
         console.print(f"Verdict: [{verdict_color}]{result.verdict}[/{verdict_color}]")
-        console.print(f"  Integrity:    [{integrity_color}]{result.integrity_verdict}[/{integrity_color}]")
-        console.print(f"  Completeness: [{completeness_color}]{result.completeness_verdict}[/{completeness_color}]")
+        console.print(
+            f"  Integrity:    [{integrity_color}]{result.integrity_verdict}[/{integrity_color}]"
+        )
+        console.print(
+            f"  Completeness: [{completeness_color}]{result.completeness_verdict}[/{completeness_color}]"
+        )
         console.print(f"  Admissible:   [{adm_color}]{result.admissible}[/{adm_color}]")
         if result.subject:
             s = result.subject
-            console.print(f"Subject: {s.get('subject_type', '?')}:{s.get('subject_id', '?')} [{s.get('subject_digest', '?')[:16]}...]")
+            console.print(
+                f"Subject: {s.get('subject_type', '?')}:{s.get('subject_id', '?')} [{s.get('subject_digest', '?')[:16]}...]"
+            )
         if getattr(result, "source_commit", ""):
             console.print(f"Source commit: {result.source_commit}")
         console.print(f"Packet: {result.packet_id}")
-        console.print(f"Root: {result.packet_root_sha256[:16]}..." if result.packet_root_sha256 else "Root: none")
+        console.print(
+            f"Root: {result.packet_root_sha256[:16]}..."
+            if result.packet_root_sha256
+            else "Root: none"
+        )
 
         if result.pack_results:
             console.print("\nPack results:")
             for pr in result.pack_results:
                 status = pr.get("pack_integrity", "?")
-                color = "green" if status == "PASS" else "red" if status in ("FAIL", "MISSING") else "dim"
+                color = (
+                    "green"
+                    if status == "PASS"
+                    else "red"
+                    if status in ("FAIL", "MISSING")
+                    else "dim"
+                )
                 console.print(f"  [{color}]{pr['pack_id']}: {status}[/{color}]")
 
         if result.coverage:
             cov = result.coverage
-            console.print(f"\nCoverage: {cov.get('total_bindings', 0)}/{cov.get('total_questionnaire_items', 0)} items bound")
+            console.print(
+                f"\nCoverage: {cov.get('total_bindings', 0)}/{cov.get('total_questionnaire_items', 0)} items bound"
+            )
             if cov.get("status_counts"):
                 for s, c in sorted(cov["status_counts"].items()):
                     console.print(f"  {s}: {c}")
@@ -11766,13 +13712,27 @@ def packet_verify_cmd(
 # assay compare — contract-based comparability evaluation
 # ---------------------------------------------------------------------------
 
+
 @assay_app.command("compare", rich_help_panel="Governance")
 def compare_cmd(
-    baseline: str = typer.Argument(..., help="Baseline evidence bundle file or pack directory"),
-    candidate: str = typer.Argument(..., help="Candidate evidence bundle file or pack directory"),
-    contract: Optional[str] = typer.Option(None, "--contract", "-c", help="Path to comparability contract (YAML/JSON). Defaults to bundled judge-comparability-v1."),
-    claim_summary: Optional[str] = typer.Option(None, "--claim", help="Claim under test (e.g. 'candidate scores 11% higher')"),
-    claim_metric: Optional[str] = typer.Option(None, "--metric", help="Metric name (e.g. 'mean_helpfulness_score')"),
+    baseline: str = typer.Argument(
+        ..., help="Baseline evidence bundle file or pack directory"
+    ),
+    candidate: str = typer.Argument(
+        ..., help="Candidate evidence bundle file or pack directory"
+    ),
+    contract: Optional[str] = typer.Option(
+        None,
+        "--contract",
+        "-c",
+        help="Path to comparability contract (YAML/JSON). Defaults to bundled judge-comparability-v1.",
+    ),
+    claim_summary: Optional[str] = typer.Option(
+        None, "--claim", help="Claim under test (e.g. 'candidate scores 11% higher')"
+    ),
+    claim_metric: Optional[str] = typer.Option(
+        None, "--metric", help="Metric name (e.g. 'mean_helpfulness_score')"
+    ),
     claim_delta: Optional[float] = typer.Option(None, "--delta", help="Score delta"),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
@@ -11803,9 +13763,6 @@ def compare_cmd(
     from assay.comparability.engine import evaluate
     from assay.comparability.types import (
         ClaimUnderTest,
-        InstrumentContinuity,
-        Severity,
-        Verdict,
     )
 
     # Load contract (resolve bundled default if not specified)
@@ -11816,7 +13773,9 @@ def compare_cmd(
         ctr = load_contract(contract_path)
     except ContractValidationError as e:
         if output_json:
-            _output_json({"command": "compare", "status": "error", "error": str(e)}, exit_code=3)
+            _output_json(
+                {"command": "compare", "status": "error", "error": str(e)}, exit_code=3
+            )
         console.print(f"[red]Error:[/] {e}")
         raise typer.Exit(3)
 
@@ -11832,7 +13791,14 @@ def compare_cmd(
                     f"judge_evidence.json, judge_evidence.yaml"
                 )
                 if output_json:
-                    _output_json({"command": "compare", "status": "error", "error": f"{label}: {msg}"}, exit_code=3)
+                    _output_json(
+                        {
+                            "command": "compare",
+                            "status": "error",
+                            "error": f"{label}: {msg}",
+                        },
+                        exit_code=3,
+                    )
                 console.print(f"[red]Error:[/] {label}: {msg}")
                 raise typer.Exit(3)
             p = found
@@ -11841,7 +13807,14 @@ def compare_cmd(
         except (FileNotFoundError, ValueError, IsADirectoryError) as e:
             msg = str(e)
             if output_json:
-                _output_json({"command": "compare", "status": "error", "error": f"{label}: {msg}"}, exit_code=3)
+                _output_json(
+                    {
+                        "command": "compare",
+                        "status": "error",
+                        "error": f"{label}: {msg}",
+                    },
+                    exit_code=3,
+                )
             console.print(f"[red]Error:[/] {label}: {msg}")
             raise typer.Exit(3)
 
@@ -11863,10 +13836,12 @@ def compare_cmd(
 
     # Emit comparability receipt (all verdicts, not only denials)
     from assay.comparability.receipt import emit_comparability_receipt
+
     try:
         emit_comparability_receipt(diff, source="assay compare")
     except Exception as e:
         import warnings
+
         warnings.warn(
             f"assay compare: receipt emission failed: {e}",
             RuntimeWarning,
@@ -11903,15 +13878,17 @@ def _render_constitutional_diff(diff, contract) -> None:
     }
     color = verdict_colors.get(diff.verdict, "bold")
 
-    console.print(Panel(
-        f"[{color}]COMPARABILITY VERDICT: {diff.verdict.value}[/]",
-        border_style=color.replace("bold ", ""),
-        expand=True,
-    ))
+    console.print(
+        Panel(
+            f"[{color}]COMPARABILITY VERDICT: {diff.verdict.value}[/]",
+            border_style=color.replace("bold ", ""),
+            expand=True,
+        )
+    )
 
     # Claim under test
     if diff.claim:
-        console.print(f"\n  Claim under test:")
+        console.print("\n  Claim under test:")
         console.print(f'    "{diff.claim.summary}"')
         if diff.claim.delta is not None:
             console.print(f"    delta: {diff.claim.delta:+.2f} ({diff.claim.metric})")
@@ -11923,16 +13900,18 @@ def _render_constitutional_diff(diff, contract) -> None:
 
     # Instrument continuity
     if diff.instrument_continuity == InstrumentContinuity.BROKEN:
-        console.print(f"\n  [red]Instrument continuity: BROKEN[/]")
-        console.print(f"  The measurement instrument changed between runs.")
+        console.print("\n  [red]Instrument continuity: BROKEN[/]")
+        console.print("  The measurement instrument changed between runs.")
     elif diff.instrument_continuity == InstrumentContinuity.UNKNOWN:
-        console.print(f"\n  [yellow]Instrument continuity: UNKNOWN[/]")
-        console.print(f"  Instrument identity fields are missing from evidence.")
+        console.print("\n  [yellow]Instrument continuity: UNKNOWN[/]")
+        console.print("  Instrument identity fields are missing from evidence.")
 
     # Mismatches
     if diff.mismatches:
         console.print()
-        invalidating = [m for m in diff.mismatches if m.severity == Severity.INVALIDATING]
+        invalidating = [
+            m for m in diff.mismatches if m.severity == Severity.INVALIDATING
+        ]
         degrading = [m for m in diff.mismatches if m.severity == Severity.DEGRADING]
 
         if invalidating:
@@ -12004,13 +13983,17 @@ def _render_constitutional_diff(diff, contract) -> None:
             for a in diff.consequence.required_actions:
                 consequence_panel_lines.append(f"    -> {a}")
         if diff.contract_id:
-            consequence_panel_lines.append(f"\n  Contract: {diff.contract_id} (v{diff.contract_version})")
+            consequence_panel_lines.append(
+                f"\n  Contract: {diff.contract_id} (v{diff.contract_version})"
+            )
 
-        console.print(Panel(
-            "\n".join(consequence_panel_lines),
-            title="CONSEQUENCE",
-            border_style="dim",
-        ))
+        console.print(
+            Panel(
+                "\n".join(consequence_panel_lines),
+                title="CONSEQUENCE",
+                border_style="dim",
+            )
+        )
 
     console.print()
 

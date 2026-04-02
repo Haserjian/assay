@@ -8,10 +8,10 @@ The exit codes are a public API:
 These are the exact exit codes documented in every post, the HTML report,
 and the README. If they break, the launch messaging is a lie.
 """
+
 from __future__ import annotations
 
 import json
-import shutil
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -30,6 +30,7 @@ runner = CliRunner()
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_receipt(**overrides):
     base = {
@@ -66,6 +67,41 @@ def _build_pack(
     return out, ks
 
 
+def _build_external_pack_with_unknown_type(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> tuple[Path, AssayKeyStore]:
+    """Build a valid external pack that violates the proof-pack type policy."""
+    ks = AssayKeyStore(keys_dir=tmp_path / "keys")
+    ks.generate_key("exit-code-signer")
+    receipts = [
+        _make_receipt(
+            receipt_id="r_exit_001",
+            seq=0,
+            type="model_call",
+        ),
+        _make_receipt(
+            receipt_id="r_exit_002",
+            seq=1,
+            type="experimental_verdict",
+        ),
+    ]
+
+    with monkeypatch.context() as context:
+        context.setattr(
+            "assay.proof_pack._assert_allowed_receipt_types", lambda entries: None
+        )
+        pack = ProofPack(
+            run_id="exit-code-foreign-pack",
+            entries=receipts,
+            signer_id="exit-code-signer",
+            mode="shadow",
+        )
+        out = pack.build(tmp_path / "foreign_pack", keystore=ks)
+
+    return out, ks
+
+
 def _tamper_receipts(pack_dir: Path):
     """Modify a receipt value in receipt_pack.jsonl (preserves JSON validity)."""
     receipt_file = pack_dir / "receipt_pack.jsonl"
@@ -81,13 +117,16 @@ def _tamper_receipts(pack_dir: Path):
 # Exit code 0: everything passes
 # ---------------------------------------------------------------------------
 
+
 class TestExitCode0:
     """Exit 0 = integrity PASS, claims PASS (or no claim gate)."""
 
     def test_valid_pack_exits_0(self, tmp_path):
         pack_dir, ks = _build_pack(tmp_path)
         result = runner.invoke(assay_app, ["verify-pack", str(pack_dir)])
-        assert result.exit_code == 0, f"Expected 0, got {result.exit_code}\n{result.output}"
+        assert result.exit_code == 0, (
+            f"Expected 0, got {result.exit_code}\n{result.output}"
+        )
 
     def test_valid_pack_json_exits_0(self, tmp_path):
         pack_dir, ks = _build_pack(tmp_path)
@@ -96,7 +135,9 @@ class TestExitCode0:
         payload = json.loads(result.output)
         assert payload["status"] == "ok"
 
-    def test_valid_pack_with_passing_claims_and_require_claim_pass_exits_0(self, tmp_path):
+    def test_valid_pack_with_passing_claims_and_require_claim_pass_exits_0(
+        self, tmp_path
+    ):
         """Claims PASS + --require-claim-pass => exit 0."""
         claims = [
             ClaimSpec(
@@ -111,21 +152,38 @@ class TestExitCode0:
             assay_app,
             ["verify-pack", str(pack_dir), "--require-claim-pass"],
         )
-        assert result.exit_code == 0, f"Expected 0, got {result.exit_code}\n{result.output}"
+        assert result.exit_code == 0, (
+            f"Expected 0, got {result.exit_code}\n{result.output}"
+        )
 
 
 # ---------------------------------------------------------------------------
 # Exit code 2: integrity failure
 # ---------------------------------------------------------------------------
 
+
 class TestExitCode2:
     """Exit 2 = tampered evidence (integrity FAIL)."""
+
+    def test_unknown_receipt_type_exits_2(self, tmp_path, monkeypatch):
+        pack_dir, _ks = _build_external_pack_with_unknown_type(tmp_path, monkeypatch)
+
+        result = runner.invoke(assay_app, ["verify-pack", str(pack_dir), "--json"])
+
+        assert result.exit_code == 2
+        payload = json.loads(result.output)
+        assert payload["status"] == "failed"
+        assert any(
+            "experimental_verdict" in error["message"] for error in payload["errors"]
+        )
 
     def test_tampered_receipts_exits_2(self, tmp_path):
         pack_dir, ks = _build_pack(tmp_path)
         _tamper_receipts(pack_dir)
         result = runner.invoke(assay_app, ["verify-pack", str(pack_dir)])
-        assert result.exit_code == 2, f"Expected 2, got {result.exit_code}\n{result.output}"
+        assert result.exit_code == 2, (
+            f"Expected 2, got {result.exit_code}\n{result.output}"
+        )
 
     def test_tampered_receipts_json_exits_2(self, tmp_path):
         pack_dir, ks = _build_pack(tmp_path)
@@ -139,7 +197,9 @@ class TestExitCode2:
         pack_dir, ks = _build_pack(tmp_path)
         (pack_dir / "pack_signature.sig").unlink()
         result = runner.invoke(assay_app, ["verify-pack", str(pack_dir)])
-        assert result.exit_code == 2, f"Expected 2, got {result.exit_code}\n{result.output}"
+        assert result.exit_code == 2, (
+            f"Expected 2, got {result.exit_code}\n{result.output}"
+        )
 
     def test_corrupt_manifest_exits_2(self, tmp_path):
         pack_dir, ks = _build_pack(tmp_path)
@@ -148,14 +208,16 @@ class TestExitCode2:
         data["receipt_count_expected"] = 999
         manifest_path.write_text(json.dumps(data))
         result = runner.invoke(assay_app, ["verify-pack", str(pack_dir)])
-        assert result.exit_code == 2, f"Expected 2, got {result.exit_code}\n{result.output}"
+        assert result.exit_code == 2, (
+            f"Expected 2, got {result.exit_code}\n{result.output}"
+        )
 
     def test_invalid_receipt_json_exits_2(self, tmp_path):
         """Corrupt receipt_pack.jsonl parsing must be classified as tamper (exit 2)."""
         pack_dir, ks = _build_pack(tmp_path)
         receipt_path = pack_dir / "receipt_pack.jsonl"
         # Valid UTF-8 but invalid JSON on line 1.
-        receipt_path.write_text("{\"receipt_id\":\n", encoding="utf-8")
+        receipt_path.write_text('{"receipt_id":\n', encoding="utf-8")
         result = runner.invoke(assay_app, ["verify-pack", str(pack_dir)])
         assert result.exit_code == 2, (
             f"Invalid receipt JSON should be integrity failure (2), got {result.exit_code}\n"
@@ -166,6 +228,7 @@ class TestExitCode2:
 # ---------------------------------------------------------------------------
 # Exit code 1: claim gate failure
 # ---------------------------------------------------------------------------
+
 
 class TestExitCode1:
     """Exit 1 = integrity PASS but claim gate failed."""
@@ -195,7 +258,9 @@ class TestExitCode1:
             assay_app,
             ["verify-pack", str(pack_dir), "--require-claim-pass"],
         )
-        assert result.exit_code == 1, f"Expected 1, got {result.exit_code}\n{result.output}"
+        assert result.exit_code == 1, (
+            f"Expected 1, got {result.exit_code}\n{result.output}"
+        )
 
     def test_failing_claims_without_flag_exits_0(self, tmp_path):
         """Claims FAIL but no --require-claim-pass => exit 0 (integrity passed)."""
@@ -219,6 +284,7 @@ class TestExitCode1:
 # ---------------------------------------------------------------------------
 # Truth table: all combinations
 # ---------------------------------------------------------------------------
+
 
 class TestTruthTable:
     """Exhaustive truth table matching the README and post messaging."""
@@ -309,6 +375,7 @@ class TestTruthTable:
 # Coverage contract via verify-pack --coverage-contract
 # ---------------------------------------------------------------------------
 
+
 class TestCoverageContractCLI:
     """Exit codes and output for --coverage-contract flag on verify-pack."""
 
@@ -318,8 +385,12 @@ class TestCoverageContractCLI:
 
         sites = [
             ContractSite(
-                callsite_id=cid, path=f"{cid}.py", line=1,
-                call="create()", confidence="high", instrumented=False,
+                callsite_id=cid,
+                path=f"{cid}.py",
+                line=1,
+                call="create()",
+                confidence="high",
+                instrumented=False,
             )
             for cid in callsite_ids
         ]
@@ -338,12 +409,20 @@ class TestCoverageContractCLI:
         receipts = [_make_receipt(seq=0, callsite_id=cid)]
         pack_dir, ks = _build_pack(tmp_path, receipts=receipts)
 
-        result = runner.invoke(assay_app, [
-            "verify-pack", str(pack_dir),
-            "--coverage-contract", str(contract_path),
-            "--min-coverage", "0.8",
-        ])
-        assert result.exit_code == 0, f"Expected 0, got {result.exit_code}\n{result.output}"
+        result = runner.invoke(
+            assay_app,
+            [
+                "verify-pack",
+                str(pack_dir),
+                "--coverage-contract",
+                str(contract_path),
+                "--min-coverage",
+                "0.8",
+            ],
+        )
+        assert result.exit_code == 0, (
+            f"Expected 0, got {result.exit_code}\n{result.output}"
+        )
 
     def test_coverage_fail_exits_1(self, tmp_path):
         """Coverage below threshold -> exit 1."""
@@ -357,12 +436,20 @@ class TestCoverageContractCLI:
         receipts = [_make_receipt(seq=0, callsite_id=cid_a)]
         pack_dir, ks = _build_pack(tmp_path, receipts=receipts)
 
-        result = runner.invoke(assay_app, [
-            "verify-pack", str(pack_dir),
-            "--coverage-contract", str(contract_path),
-            "--min-coverage", "0.8",
-        ])
-        assert result.exit_code == 1, f"Expected 1, got {result.exit_code}\n{result.output}"
+        result = runner.invoke(
+            assay_app,
+            [
+                "verify-pack",
+                str(pack_dir),
+                "--coverage-contract",
+                str(contract_path),
+                "--min-coverage",
+                "0.8",
+            ],
+        )
+        assert result.exit_code == 1, (
+            f"Expected 1, got {result.exit_code}\n{result.output}"
+        )
 
     def test_coverage_fail_shows_yellow_panel_not_red(self, tmp_path):
         """Coverage failure shows COVERAGE BELOW THRESHOLD, not VERIFICATION FAILED."""
@@ -375,11 +462,17 @@ class TestCoverageContractCLI:
         receipts = [_make_receipt(seq=0, callsite_id=cid_a)]
         pack_dir, ks = _build_pack(tmp_path, receipts=receipts)
 
-        result = runner.invoke(assay_app, [
-            "verify-pack", str(pack_dir),
-            "--coverage-contract", str(contract_path),
-            "--min-coverage", "0.8",
-        ])
+        result = runner.invoke(
+            assay_app,
+            [
+                "verify-pack",
+                str(pack_dir),
+                "--coverage-contract",
+                str(contract_path),
+                "--min-coverage",
+                "0.8",
+            ],
+        )
         assert "COVERAGE BELOW THRESHOLD" in result.output
         assert "VERIFICATION FAILED" not in result.output
 
@@ -392,11 +485,16 @@ class TestCoverageContractCLI:
         receipts = [_make_receipt(seq=0, callsite_id=cid)]
         pack_dir, ks = _build_pack(tmp_path, receipts=receipts)
 
-        result = runner.invoke(assay_app, [
-            "verify-pack", str(pack_dir),
-            "--coverage-contract", str(contract_path),
-            "--json",
-        ])
+        result = runner.invoke(
+            assay_app,
+            [
+                "verify-pack",
+                str(pack_dir),
+                "--coverage-contract",
+                str(contract_path),
+                "--json",
+            ],
+        )
         data = json.loads(result.output)
         assert "coverage" in data
         assert data["coverage"]["coverage_pct"] == 1.0
@@ -405,19 +503,29 @@ class TestCoverageContractCLI:
     def test_missing_contract_exits_2(self, tmp_path):
         """Missing contract file -> exit 2."""
         pack_dir, ks = _build_pack(tmp_path)
-        result = runner.invoke(assay_app, [
-            "verify-pack", str(pack_dir),
-            "--coverage-contract", "/nonexistent/contract.json",
-        ])
+        result = runner.invoke(
+            assay_app,
+            [
+                "verify-pack",
+                str(pack_dir),
+                "--coverage-contract",
+                "/nonexistent/contract.json",
+            ],
+        )
         assert result.exit_code == 2
 
     def test_min_coverage_out_of_range_exits_3(self, tmp_path):
         """--min-coverage outside 0.0-1.0 -> exit 3."""
         pack_dir, ks = _build_pack(tmp_path)
-        result = runner.invoke(assay_app, [
-            "verify-pack", str(pack_dir),
-            "--min-coverage", "1.5",
-        ])
+        result = runner.invoke(
+            assay_app,
+            [
+                "verify-pack",
+                str(pack_dir),
+                "--min-coverage",
+                "1.5",
+            ],
+        )
         assert result.exit_code == 3
 
     def test_integrity_fail_trumps_coverage(self, tmp_path):
@@ -432,11 +540,17 @@ class TestCoverageContractCLI:
         pack_dir, ks = _build_pack(tmp_path, receipts=receipts)
         _tamper_receipts(pack_dir)
 
-        result = runner.invoke(assay_app, [
-            "verify-pack", str(pack_dir),
-            "--coverage-contract", str(contract_path),
-            "--min-coverage", "0.8",
-        ])
+        result = runner.invoke(
+            assay_app,
+            [
+                "verify-pack",
+                str(pack_dir),
+                "--coverage-contract",
+                str(contract_path),
+                "--min-coverage",
+                "0.8",
+            ],
+        )
         assert result.exit_code == 2, (
             f"Integrity failure should be exit 2, got {result.exit_code}\n{result.output}"
         )
@@ -460,7 +574,8 @@ class TestFreshnessGateCLI:
     def test_fresh_pack_with_large_max_age_exits_0(self, tmp_path):
         pack_dir, _ks = _build_pack(tmp_path)
         result = runner.invoke(
-            assay_app, ["verify-pack", str(pack_dir), "--max-age-hours", "100000", "--json"]
+            assay_app,
+            ["verify-pack", str(pack_dir), "--max-age-hours", "100000", "--json"],
         )
         assert result.exit_code == 0, result.output
         payload = json.loads(result.output)
@@ -482,6 +597,7 @@ class TestFreshnessGateCLI:
 # P1b: Signer-not-pinned warning when --lock is absent
 # ---------------------------------------------------------------------------
 
+
 class TestSignerNotPinnedWarning:
     """When verification passes without --lock, warn that signer identity
     is not pinned. This prevents operators from treating 'VERIFIED' as
@@ -501,8 +617,9 @@ class TestSignerNotPinnedWarning:
         assert result.exit_code == 0, result.output
         payload = json.loads(result.output)
         warnings = payload.get("warnings", [])
-        assert any("signer identity not pinned" in w for w in warnings), \
+        assert any("signer identity not pinned" in w for w in warnings), (
             f"Expected signer-not-pinned warning in {warnings}"
+        )
 
     def test_locked_pass_does_not_emit_warning(self, tmp_path):
         """When --lock is used and passes, no signer-not-pinned warning."""
@@ -539,5 +656,6 @@ class TestSignerNotPinnedWarning:
         assert result.exit_code == 0, result.output
         payload = json.loads(result.output)
         warnings = payload.get("warnings", [])
-        assert not any("signer identity not pinned" in w for w in warnings), \
+        assert not any("signer identity not pinned" in w for w in warnings), (
             f"Should NOT have signer-not-pinned warning when locked: {warnings}"
+        )

@@ -9,6 +9,7 @@ See docs/specs/COMPILED_PACKET_SPEC_V1.md for the full specification.
 Core invariant: proof packs remain the evidentiary substrate.
 Compiled packets reference and bind proof packs — they do not replace or swallow them.
 """
+
 from __future__ import annotations
 
 import base64
@@ -18,10 +19,10 @@ import shutil
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from assay._receipts.jcs import canonicalize as jcs_canonicalize
-from assay.keystore import AssayKeyStore, DEFAULT_SIGNER_ID, get_default_keystore
+from assay.keystore import DEFAULT_SIGNER_ID, AssayKeyStore, get_default_keystore
 
 try:
     from assay import __version__ as _assay_version
@@ -33,11 +34,22 @@ except Exception:
 # Constants
 # ---------------------------------------------------------------------------
 
-BINDING_STATUS_VALUES = {"SUPPORTED", "PARTIAL", "UNSUPPORTED", "OUT_OF_SCOPE", "NON_CLAIM"}
+BINDING_STATUS_VALUES = {
+    "SUPPORTED",
+    "PARTIAL",
+    "UNSUPPORTED",
+    "OUT_OF_SCOPE",
+    "NON_CLAIM",
+}
 EVIDENCE_BASIS_VALUES = {"MACHINE", "HUMAN", "MIXED", "NONE"}
 CLAIM_TYPE_VALUES = {
-    "CERTIFICATION", "PROCESS", "TECH_CONTROL",
-    "INCIDENT", "METRIC", "COMMITMENT", "LEGAL",
+    "CERTIFICATION",
+    "PROCESS",
+    "TECH_CONTROL",
+    "INCIDENT",
+    "METRIC",
+    "COMMITMENT",
+    "LEGAL",
 }
 SUBJECT_TYPE_VALUES = {"artifact", "run", "decision"}
 
@@ -45,6 +57,7 @@ SUBJECT_TYPE_VALUES = {"artifact", "run", "decision"}
 # This is the only accepted format. Raw hex, bare hashes, or other
 # algorithms are rejected. The algorithm tag is part of the identity.
 import re
+
 _SUBJECT_DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 
 PACKET_MANIFEST_FILE = "packet_manifest.json"
@@ -67,6 +80,7 @@ KERNEL_FILES = [
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _sha256_hex(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
@@ -88,6 +102,7 @@ def _now_iso() -> str:
 # ---------------------------------------------------------------------------
 # Pack loading
 # ---------------------------------------------------------------------------
+
 
 def _load_pack_metadata(pack_dir: Path) -> Dict[str, Any]:
     """Load minimal metadata from a proof pack for packet compilation."""
@@ -119,11 +134,14 @@ def _load_pack_metadata(pack_dir: Path) -> Dict[str, Any]:
 # Questionnaire handling
 # ---------------------------------------------------------------------------
 
+
 def load_questionnaire_json(path: Path) -> Dict[str, Any]:
     """Load a vendorq.question.v1 questionnaire JSON file."""
     data = json.loads(Path(path).read_text())
     if data.get("schema_version") != "vendorq.question.v1":
-        raise ValueError(f"Expected schema_version 'vendorq.question.v1', got {data.get('schema_version')!r}")
+        raise ValueError(
+            f"Expected schema_version 'vendorq.question.v1', got {data.get('schema_version')!r}"
+        )
     if not data.get("questions"):
         raise ValueError("Questionnaire has no questions")
     return data
@@ -132,16 +150,19 @@ def load_questionnaire_json(path: Path) -> Dict[str, Any]:
 def questionnaire_from_csv(csv_path: Path) -> Dict[str, Any]:
     """Convert a VendorQ CSV questionnaire to vendorq.question.v1 JSON."""
     import csv
+
     rows = []
     with open(csv_path, newline="") as f:
         reader = csv.DictReader(f)
         for row in reader:
-            rows.append({
-                "question_id": row["question_id"].strip(),
-                "question_text": row["question_text"].strip(),
-                "type_hint": row.get("type_hint", "unknown").strip(),
-                "required_format": row.get("required_format", "text").strip(),
-            })
+            rows.append(
+                {
+                    "question_id": row["question_id"].strip(),
+                    "question_text": row["question_text"].strip(),
+                    "type_hint": row.get("type_hint", "unknown").strip(),
+                    "required_format": row.get("required_format", "text").strip(),
+                }
+            )
     if not rows:
         raise ValueError(f"No questions found in {csv_path}")
 
@@ -159,13 +180,22 @@ def questionnaire_from_csv(csv_path: Path) -> Dict[str, Any]:
 # Binding validation
 # ---------------------------------------------------------------------------
 
+
 def _validate_binding(binding: Dict[str, Any], pack_refs: Dict[str, str]) -> List[str]:
     """Validate a single claim binding. Returns list of error messages."""
     errors = []
 
-    for field in ("binding_id", "questionnaire_item_id", "claim_type",
-                   "binding_status", "evidence_basis", "evidence_refs",
-                   "answer_summary", "scope_notes", "missing_evidence"):
+    for field in (
+        "binding_id",
+        "questionnaire_item_id",
+        "claim_type",
+        "binding_status",
+        "evidence_basis",
+        "evidence_refs",
+        "answer_summary",
+        "scope_notes",
+        "missing_evidence",
+    ):
         if field not in binding:
             errors.append(f"Missing required field: {field}")
 
@@ -186,7 +216,7 @@ def _validate_binding(binding: Dict[str, Any], pack_refs: Dict[str, str]) -> Lis
     if basis in ("MACHINE", "MIXED") and not refs:
         errors.append(f"evidence_basis={basis} but evidence_refs is empty")
     if basis == "NONE" and refs:
-        errors.append(f"evidence_basis=NONE but evidence_refs is non-empty")
+        errors.append("evidence_basis=NONE but evidence_refs is non-empty")
 
     # PARTIAL must have missing_evidence
     if status == "PARTIAL":
@@ -212,6 +242,7 @@ def _validate_binding(binding: Dict[str, Any], pack_refs: Dict[str, str]) -> Lis
 # ---------------------------------------------------------------------------
 # init_packet — scaffold a packet workdir
 # ---------------------------------------------------------------------------
+
 
 def init_packet(
     *,
@@ -296,6 +327,7 @@ def init_packet(
 # compile_packet — validate, canonicalize, sign, bundle
 # ---------------------------------------------------------------------------
 
+
 def _validate_subject(subject: Dict[str, Any]) -> List[str]:
     """Validate a subject binding. Returns list of errors."""
     errors = []
@@ -303,7 +335,9 @@ def _validate_subject(subject: Dict[str, Any]) -> List[str]:
     if not st:
         errors.append("subject.subject_type is required")
     elif st not in SUBJECT_TYPE_VALUES:
-        errors.append(f"subject.subject_type '{st}' not in {sorted(SUBJECT_TYPE_VALUES)}")
+        errors.append(
+            f"subject.subject_type '{st}' not in {sorted(SUBJECT_TYPE_VALUES)}"
+        )
     if not subject.get("subject_id"):
         errors.append("subject.subject_id is required")
     digest = subject.get("subject_digest", "")
@@ -312,8 +346,8 @@ def _validate_subject(subject: Dict[str, Any]) -> List[str]:
     elif not _SUBJECT_DIGEST_RE.match(digest):
         errors.append(
             f"subject.subject_digest must be 'sha256:<64 hex chars>', got '{digest[:40]}...'"
-            if len(digest) > 40 else
-            f"subject.subject_digest must be 'sha256:<64 hex chars>', got '{digest}'"
+            if len(digest) > 40
+            else f"subject.subject_digest must be 'sha256:<64 hex chars>', got '{digest}'"
         )
     return errors
 
@@ -400,11 +434,11 @@ def compile_packet(
         try:
             binding = json.loads(line)
         except json.JSONDecodeError as e:
-            all_errors.append(f"Line {i+1}: invalid JSON: {e}")
+            all_errors.append(f"Line {i + 1}: invalid JSON: {e}")
             continue
         errors = _validate_binding(binding, pack_root_map)
         for err in errors:
-            all_errors.append(f"Line {i+1} ({binding.get('binding_id', '?')}): {err}")
+            all_errors.append(f"Line {i + 1} ({binding.get('binding_id', '?')}): {err}")
         bindings.append(binding)
 
     if all_errors:
@@ -418,7 +452,9 @@ def compile_packet(
     canonical_lines = []
     for b in bindings:
         canonical_lines.append(jcs_canonicalize(b).decode("utf-8"))
-    bindings_bytes = ("\n".join(canonical_lines) + "\n").encode("utf-8") if canonical_lines else b""
+    bindings_bytes = (
+        ("\n".join(canonical_lines) + "\n").encode("utf-8") if canonical_lines else b""
+    )
 
     # 5. Re-canonicalize questionnaire
     questionnaire_bytes = jcs_canonicalize(questionnaire)
@@ -588,6 +624,7 @@ def compile_packet(
 # verify_packet — independent verification
 # ---------------------------------------------------------------------------
 
+
 def derive_top_level_verdict(integrity_verdict: str, completeness_verdict: str) -> str:
     """Derive top-level verdict from two-axis verdicts.
 
@@ -651,7 +688,9 @@ class PacketVerifyResult:
     @property
     def verdict(self) -> str:
         """Derived top-level verdict. See PACKET_SEMANTICS_V1.md §3.3-3.4."""
-        return derive_top_level_verdict(self.integrity_verdict, self.completeness_verdict)
+        return derive_top_level_verdict(
+            self.integrity_verdict, self.completeness_verdict
+        )
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -703,7 +742,9 @@ def verify_packet(
     if not manifest_path.exists():
         return PacketVerifyResult(
             integrity_verdict="INVALID",
-            errors=[PacketVerifyError("E_PKT_SCHEMA", f"Missing {PACKET_MANIFEST_FILE}")],
+            errors=[
+                PacketVerifyError("E_PKT_SCHEMA", f"Missing {PACKET_MANIFEST_FILE}")
+            ],
         )
 
     try:
@@ -711,7 +752,9 @@ def verify_packet(
     except json.JSONDecodeError as e:
         return PacketVerifyResult(
             integrity_verdict="INVALID",
-            errors=[PacketVerifyError("E_PKT_SCHEMA", f"Invalid JSON in manifest: {e}")],
+            errors=[
+                PacketVerifyError("E_PKT_SCHEMA", f"Invalid JSON in manifest: {e}")
+            ],
         )
 
     packet_id = manifest.get("packet_id", "unknown")
@@ -719,35 +762,54 @@ def verify_packet(
     source_commit = manifest.get("source_commit", "")
 
     # Basic schema check
-    for field in ("packet_id", "schema_version", "hash_alg", "files",
-                   "signature", "signature_alg", "signer_pubkey",
-                   "signer_pubkey_sha256", "packet_root_sha256"):
+    for field in (
+        "packet_id",
+        "schema_version",
+        "hash_alg",
+        "files",
+        "signature",
+        "signature_alg",
+        "signer_pubkey",
+        "signer_pubkey_sha256",
+        "packet_root_sha256",
+    ):
         if field not in manifest:
             errors.append(PacketVerifyError("E_PKT_SCHEMA", f"Missing field: {field}"))
-    if "source_commit" in manifest and (not isinstance(source_commit, str) or not source_commit.strip()):
+    if "source_commit" in manifest and (
+        not isinstance(source_commit, str) or not source_commit.strip()
+    ):
         errors.append(PacketVerifyError("E_PKT_SCHEMA", "Invalid field: source_commit"))
 
     if errors:
         return PacketVerifyResult(
-            integrity_verdict="INVALID", packet_id=packet_id,
-            packet_root_sha256=packet_root, source_commit=source_commit, errors=errors,
+            integrity_verdict="INVALID",
+            packet_id=packet_id,
+            packet_root_sha256=packet_root,
+            source_commit=source_commit,
+            errors=errors,
         )
 
     # 2. File hash verification
     for entry in manifest.get("files", []):
         fpath = packet_dir / entry["path"]
         if not fpath.exists():
-            errors.append(PacketVerifyError(
-                "E_PKT_TAMPER", f"Missing file: {entry['path']}", field=entry["path"]
-            ))
+            errors.append(
+                PacketVerifyError(
+                    "E_PKT_TAMPER",
+                    f"Missing file: {entry['path']}",
+                    field=entry["path"],
+                )
+            )
             continue
         actual_hash = _sha256_hex(fpath.read_bytes())
         if actual_hash != entry["sha256"]:
-            errors.append(PacketVerifyError(
-                "E_PKT_TAMPER",
-                f"Hash mismatch for {entry['path']}: expected {entry['sha256'][:16]}..., got {actual_hash[:16]}...",
-                field=entry["path"],
-            ))
+            errors.append(
+                PacketVerifyError(
+                    "E_PKT_TAMPER",
+                    f"Hash mismatch for {entry['path']}: expected {entry['sha256'][:16]}..., got {actual_hash[:16]}...",
+                    field=entry["path"],
+                )
+            )
 
     # 3. Signature verification
     try:
@@ -757,26 +819,37 @@ def verify_packet(
         # Verify pubkey fingerprint
         expected_fp = _sha256_hex(pubkey_bytes)
         if expected_fp != manifest.get("signer_pubkey_sha256", ""):
-            errors.append(PacketVerifyError(
-                "E_PKT_SIG_INVALID", "signer_pubkey_sha256 does not match signer_pubkey"
-            ))
+            errors.append(
+                PacketVerifyError(
+                    "E_PKT_SIG_INVALID",
+                    "signer_pubkey_sha256 does not match signer_pubkey",
+                )
+            )
 
         # Reconstruct unsigned manifest
-        unsigned = {k: v for k, v in manifest.items()
-                    if k not in ("signature", "packet_root_sha256")}
+        unsigned = {
+            k: v
+            for k, v in manifest.items()
+            if k not in ("signature", "packet_root_sha256")
+        }
         canonical_unsigned = jcs_canonicalize(unsigned)
 
         # Verify Ed25519
-        from nacl.signing import VerifyKey
         from nacl.exceptions import BadSignatureError
+        from nacl.signing import VerifyKey
+
         vk = VerifyKey(pubkey_bytes)
         sig_bytes = base64.b64decode(manifest["signature"])
         try:
             vk.verify(canonical_unsigned, sig_bytes)
         except (BadSignatureError, ValueError):
-            errors.append(PacketVerifyError("E_PKT_SIG_INVALID", "Ed25519 signature is invalid"))
+            errors.append(
+                PacketVerifyError("E_PKT_SIG_INVALID", "Ed25519 signature is invalid")
+            )
     except Exception as e:
-        errors.append(PacketVerifyError("E_PKT_SIG_INVALID", f"Signature verification error: {e}"))
+        errors.append(
+            PacketVerifyError("E_PKT_SIG_INVALID", f"Signature verification error: {e}")
+        )
 
     # 4. Detached signature parity
     sig_path = packet_dir / PACKET_SIGNATURE_FILE
@@ -784,11 +857,16 @@ def verify_packet(
         detached_sig = sig_path.read_bytes()
         manifest_sig = base64.b64decode(manifest.get("signature", ""))
         if detached_sig != manifest_sig:
-            errors.append(PacketVerifyError(
-                "E_PKT_SIG_INVALID", "Detached signature does not match manifest signature"
-            ))
+            errors.append(
+                PacketVerifyError(
+                    "E_PKT_SIG_INVALID",
+                    "Detached signature does not match manifest signature",
+                )
+            )
     else:
-        errors.append(PacketVerifyError("E_PKT_TAMPER", f"Missing {PACKET_SIGNATURE_FILE}"))
+        errors.append(
+            PacketVerifyError("E_PKT_TAMPER", f"Missing {PACKET_SIGNATURE_FILE}")
+        )
 
     # 5. Subject binding check
     subject_block = manifest.get("subject")
@@ -797,24 +875,29 @@ def verify_packet(
     else:
         for field in ("subject_type", "subject_id", "subject_digest"):
             if not subject_block.get(field):
-                errors.append(PacketVerifyError(
-                    "E_PKT_SCHEMA", f"Missing subject.{field}"
-                ))
+                errors.append(
+                    PacketVerifyError("E_PKT_SCHEMA", f"Missing subject.{field}")
+                )
         st = subject_block.get("subject_type", "")
         if st and st not in SUBJECT_TYPE_VALUES:
-            errors.append(PacketVerifyError(
-                "E_PKT_SCHEMA", f"Invalid subject_type: {st}"
-            ))
+            errors.append(
+                PacketVerifyError("E_PKT_SCHEMA", f"Invalid subject_type: {st}")
+            )
         digest = subject_block.get("subject_digest", "")
         if digest and not _SUBJECT_DIGEST_RE.match(digest):
-            errors.append(PacketVerifyError(
-                "E_PKT_SCHEMA", f"Invalid subject_digest format: must be 'sha256:<64 hex>'"
-            ))
+            errors.append(
+                PacketVerifyError(
+                    "E_PKT_SCHEMA",
+                    "Invalid subject_digest format: must be 'sha256:<64 hex>'",
+                )
+            )
         if _source_commit_required(subject_block) and not source_commit:
-            errors.append(PacketVerifyError(
-                "E_PKT_SCHEMA",
-                "Missing required source_commit for artifact packet provenance"
-            ))
+            errors.append(
+                PacketVerifyError(
+                    "E_PKT_SCHEMA",
+                    "Missing required source_commit for artifact packet provenance",
+                )
+            )
 
     # 5b. Admissibility contract check
     admissibility = manifest.get("admissibility")
@@ -823,10 +906,12 @@ def verify_packet(
         adm_digest = admissibility.get("subject_digest", "")
         subj_digest = (subject_block or {}).get("subject_digest", "")
         if adm_digest and subj_digest and adm_digest != subj_digest:
-            errors.append(PacketVerifyError(
-                "E_PKT_TAMPER",
-                "admissibility.subject_digest does not match subject.subject_digest"
-            ))
+            errors.append(
+                PacketVerifyError(
+                    "E_PKT_TAMPER",
+                    "admissibility.subject_digest does not match subject.subject_digest",
+                )
+            )
 
     # 6. Packet root invariant (now includes subject_digest)
     subject_digest_for_root = (subject_block or {}).get("subject_digest", "")
@@ -844,10 +929,12 @@ def verify_packet(
         root_input["source_commit"] = source_commit
     expected_root = _sha256_hex(jcs_canonicalize(root_input))
     if expected_root != packet_root:
-        errors.append(PacketVerifyError(
-            "E_PKT_ROOT_INVARIANT",
-            f"Packet root mismatch: expected {expected_root[:16]}..., got {packet_root[:16]}..."
-        ))
+        errors.append(
+            PacketVerifyError(
+                "E_PKT_ROOT_INVARIANT",
+                f"Packet root mismatch: expected {expected_root[:16]}..., got {packet_root[:16]}...",
+            )
+        )
 
     # 6-8. Content hash cross-checks
     for fname, manifest_key in [
@@ -860,17 +947,26 @@ def verify_packet(
             actual = _sha256_hex(fpath.read_bytes())
             expected = manifest.get(manifest_key, "")
             if actual != expected:
-                errors.append(PacketVerifyError(
-                    "E_PKT_TAMPER",
-                    f"{manifest_key} mismatch: file={actual[:16]}..., manifest={expected[:16]}...",
-                    field=fname,
-                ))
+                errors.append(
+                    PacketVerifyError(
+                        "E_PKT_TAMPER",
+                        f"{manifest_key} mismatch: file={actual[:16]}..., manifest={expected[:16]}...",
+                        field=fname,
+                    )
+                )
 
     # If we already have tamper/sig errors, short-circuit
-    if any(e.code in ("E_PKT_TAMPER", "E_PKT_SIG_INVALID", "E_PKT_ROOT_INVARIANT") for e in errors):
+    if any(
+        e.code in ("E_PKT_TAMPER", "E_PKT_SIG_INVALID", "E_PKT_ROOT_INVARIANT")
+        for e in errors
+    ):
         return PacketVerifyResult(
-            integrity_verdict="TAMPERED", packet_id=packet_id,
-            packet_root_sha256=packet_root, source_commit=source_commit, errors=errors, warnings=warnings,
+            integrity_verdict="TAMPERED",
+            packet_id=packet_id,
+            packet_root_sha256=packet_root,
+            source_commit=source_commit,
+            errors=errors,
+            warnings=warnings,
         )
 
     # 9. Pack reference validation (bundled packs)
@@ -889,17 +985,20 @@ def verify_packet(
                 pr["pack_present"] = False
                 pr["pack_integrity"] = "MISSING"
                 pr["errors"] = ["Referenced pack not found in bundle"]
-                errors.append(PacketVerifyError(
-                    "E_PKT_PACK_MISSING", f"Bundled pack not found: {bundle_path}"
-                ))
+                errors.append(
+                    PacketVerifyError(
+                        "E_PKT_PACK_MISSING", f"Bundled pack not found: {bundle_path}"
+                    )
+                )
             else:
                 # Verify bundled pack
-                from assay.integrity import verify_pack_manifest
+                from assay.proof_pack import verify_proof_pack
+
                 pack_manifest_path = pack_path / "pack_manifest.json"
                 if pack_manifest_path.exists():
                     pack_manifest = json.loads(pack_manifest_path.read_bytes())
                     ks = keystore or get_default_keystore()
-                    pack_result = verify_pack_manifest(pack_manifest, pack_path, ks)
+                    pack_result = verify_proof_pack(pack_manifest, pack_path, ks)
                     pr["pack_present"] = True
                     if pack_result.passed:
                         pr["pack_integrity"] = "PASS"
@@ -909,17 +1008,21 @@ def verify_packet(
                         if actual_root != ref.get("pack_root_sha256", ""):
                             pr["pack_integrity"] = "FAIL"
                             pr["errors"] = ["pack_root_sha256 mismatch"]
-                            errors.append(PacketVerifyError(
-                                "E_PKT_REF_MISMATCH",
-                                f"Pack {pid}: pack_root_sha256 mismatch"
-                            ))
+                            errors.append(
+                                PacketVerifyError(
+                                    "E_PKT_REF_MISMATCH",
+                                    f"Pack {pid}: pack_root_sha256 mismatch",
+                                )
+                            )
                     else:
                         pr["pack_integrity"] = "FAIL"
                         pr["errors"] = [e.message for e in pack_result.errors[:3]]
-                        errors.append(PacketVerifyError(
-                            "E_PKT_PACK_INVALID",
-                            f"Bundled pack {pid} failed verification"
-                        ))
+                        errors.append(
+                            PacketVerifyError(
+                                "E_PKT_PACK_INVALID",
+                                f"Bundled pack {pid} failed verification",
+                            )
+                        )
                 else:
                     pr["pack_present"] = False
                     pr["pack_integrity"] = "MISSING"
@@ -943,7 +1046,9 @@ def verify_packet(
             binding = json.loads(line)
             for ref in binding.get("evidence_refs", []):
                 rpid = ref.get("pack_id", "")
-                known_packs = {r.get("pack_id"): r.get("pack_root_sha256") for r in pack_refs}
+                known_packs = {
+                    r.get("pack_id"): r.get("pack_root_sha256") for r in pack_refs
+                }
                 if rpid not in known_packs:
                     binding_ref_errors += 1
                     warnings.append(
@@ -957,12 +1062,19 @@ def verify_packet(
         coverage_data = json.loads(coverage_path.read_bytes())
         unbound = coverage_data.get("unbound_items", [])
         if unbound:
-            warnings.append(f"{len(unbound)} questionnaire item(s) have no binding: {', '.join(unbound[:5])}")
+            warnings.append(
+                f"{len(unbound)} questionnaire item(s) have no binding: {', '.join(unbound[:5])}"
+            )
 
     # Determine two-axis verdicts (per PACKET_SEMANTICS_V1.md)
 
     # Integrity: is the packet envelope authentic?
-    fatal_codes = {"E_PKT_TAMPER", "E_PKT_SIG_INVALID", "E_PKT_ROOT_INVARIANT", "E_PKT_SCHEMA"}
+    fatal_codes = {
+        "E_PKT_TAMPER",
+        "E_PKT_SIG_INVALID",
+        "E_PKT_ROOT_INVARIANT",
+        "E_PKT_SCHEMA",
+    }
     degrading_codes = {"E_PKT_PACK_MISSING", "E_PKT_PACK_INVALID", "E_PKT_REF_MISMATCH"}
 
     has_fatal = any(e.code in fatal_codes for e in errors)
@@ -1000,22 +1112,28 @@ def verify_packet(
     admissibility_reasons: List[Dict[str, str]] = []
 
     if integrity_verdict != "INTACT":
-        admissibility_reasons.append({
-            "code": "INTEGRITY_FAILURE",
-            "message": f"Integrity is {integrity_verdict}, must be INTACT",
-        })
+        admissibility_reasons.append(
+            {
+                "code": "INTEGRITY_FAILURE",
+                "message": f"Integrity is {integrity_verdict}, must be INTACT",
+            }
+        )
 
     if not subject_block or not subject_block.get("subject_digest"):
-        admissibility_reasons.append({
-            "code": "SUBJECT_BINDING_MISSING",
-            "message": "No valid subject binding in manifest",
-        })
+        admissibility_reasons.append(
+            {
+                "code": "SUBJECT_BINDING_MISSING",
+                "message": "No valid subject binding in manifest",
+            }
+        )
 
     if bundle_mode != "bundled":
-        admissibility_reasons.append({
-            "code": "NOT_SELF_CONTAINED",
-            "message": "Packet is not bundled — evidence cannot be verified offline",
-        })
+        admissibility_reasons.append(
+            {
+                "code": "NOT_SELF_CONTAINED",
+                "message": "Packet is not bundled — evidence cannot be verified offline",
+            }
+        )
 
     admissible = len(admissibility_reasons) == 0
 

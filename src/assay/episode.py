@@ -19,6 +19,7 @@ Design rules:
   - Thread-safe: delegates to AssayStore's RLock.
   - One Episode = one trace = one causal chain of receipts.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -29,18 +30,18 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
-from assay.claim_verifier import ClaimSpec
 from assay._receipts.jcs import canonicalize as jcs_canonicalize
+from assay.claim_verifier import ClaimSpec
 from assay.integrity import VerifyResult
 from assay.keystore import AssayKeyStore, get_default_keystore
-from assay.proof_pack import ProofPack
+from assay.proof_pack import ProofPack, verify_proof_pack
 from assay.receipt_composition import require_allowed_successor
 from assay.store import AssayStore, get_default_store
-
 
 # ---------------------------------------------------------------------------
 # Constitutional contract types
 # ---------------------------------------------------------------------------
+
 
 class EpisodeState(str, Enum):
     """Lifecycle state for a constitutional episode."""
@@ -91,7 +92,9 @@ def _parse_datetime(value: Any) -> datetime:
             parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
         except ValueError:
             return _utc_now()
-        return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
+        return (
+            parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
+        )
     return _utc_now()
 
 
@@ -113,7 +116,9 @@ def _normalize_value(value: Any) -> Any:
     if hasattr(value, "to_dict") and callable(value.to_dict):
         return _normalize_value(value.to_dict())
     if hasattr(value, "__dict__") and not isinstance(value, type):
-        return _normalize_value({k: v for k, v in vars(value).items() if not k.startswith("_")})
+        return _normalize_value(
+            {k: v for k, v in vars(value).items() if not k.startswith("_")}
+        )
     return value
 
 
@@ -145,7 +150,9 @@ class Obligation:
         if isinstance(value, Obligation):
             return value
         if isinstance(value, Mapping):
-            obligation_id = str(value.get("obligation_id") or value.get("id") or value.get("name") or "").strip()
+            obligation_id = str(
+                value.get("obligation_id") or value.get("id") or value.get("name") or ""
+            ).strip()
             if not obligation_id:
                 raise ValueError("obligation_id is required")
             description = str(value.get("description") or value.get("summary") or "")
@@ -243,7 +250,9 @@ class Receipt:
             receipt_id=str(body["receipt_id"]),
             episode_id=str(episode_id),
             receipt_type=str(receipt_type),
-            payload=dict(normalized_payload) if isinstance(normalized_payload, dict) else {},
+            payload=dict(normalized_payload)
+            if isinstance(normalized_payload, dict)
+            else {},
             created_at=_parse_datetime(body["timestamp"]),
             seq=int(seq),
             parent_receipt_id=parent_receipt_id,
@@ -265,7 +274,8 @@ class Receipt:
         payload: Dict[str, Any] = {
             key: value
             for key, value in data.items()
-            if key not in {
+            if key
+            not in {
                 "receipt_id",
                 "receipt_type",
                 "type",
@@ -289,7 +299,9 @@ class Receipt:
             payload=payload,
             created_at=timestamp,
             seq=seq,
-            parent_receipt_id=str(parent_receipt_id) if parent_receipt_id is not None else None,
+            parent_receipt_id=str(parent_receipt_id)
+            if parent_receipt_id is not None
+            else None,
             task_id=str(task_id) if task_id is not None else None,
             schema_version=schema_version,
             canonical_hash=canonical_hash,
@@ -385,7 +397,9 @@ def _bucket_for_receipt_type(receipt_type: str) -> str:
         return "claims"
     if "contradiction" in receipt_type:
         return "contradictions"
-    if receipt_type.startswith("decision.") or receipt_type.startswith("episode.settled"):
+    if receipt_type.startswith("decision.") or receipt_type.startswith(
+        "episode.settled"
+    ):
         return "decisions"
     if "pack" in receipt_type:
         return "packs"
@@ -470,14 +484,18 @@ def _coerce_episode_state_directive_payload(directive: Any) -> Dict[str, Any]:
     if not source_artifact_ref:
         raise ValueError("source_artifact_ref is required")
 
-    source_authority_ceiling = str(payload.get("source_authority_ceiling") or "").strip()
+    source_authority_ceiling = str(
+        payload.get("source_authority_ceiling") or ""
+    ).strip()
     if not source_authority_ceiling:
         raise ValueError("source_authority_ceiling is required")
 
     target_substrate = payload.get("target_substrate")
     if target_substrate is not None:
         target_value = (
-            target_substrate.value if isinstance(target_substrate, Enum) else str(target_substrate)
+            target_substrate.value
+            if isinstance(target_substrate, Enum)
+            else str(target_substrate)
         )
         if target_value != ASSAY_EPISODE_TARGET_SUBSTRATE:
             raise ValueError(
@@ -500,7 +518,9 @@ def _coerce_episode_state_directive_payload(directive: Any) -> Dict[str, Any]:
     }
 
 
-def _receipt_lookup_from_trace(entries: Sequence[Mapping[str, Any]]) -> Dict[str, Receipt]:
+def _receipt_lookup_from_trace(
+    entries: Sequence[Mapping[str, Any]],
+) -> Dict[str, Receipt]:
     lookup: Dict[str, Receipt] = {}
     for entry in entries:
         receipt = Receipt.from_trace_dict(entry)
@@ -514,9 +534,12 @@ def _strip_runtime_metadata(entry: Mapping[str, Any]) -> Dict[str, Any]:
         for key, value in entry.items()
         if key not in {"_trace_id", "_stored_at"}
     }
+
+
 # ---------------------------------------------------------------------------
 # Checkpoint result
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class Checkpoint:
@@ -532,6 +555,7 @@ class Checkpoint:
 # ---------------------------------------------------------------------------
 # Verdict (thin wrapper over VerifyResult for ergonomics)
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class Verdict:
@@ -559,6 +583,7 @@ class Verdict:
 # ---------------------------------------------------------------------------
 # Episode
 # ---------------------------------------------------------------------------
+
 
 class Episode:
     """An episode-scoped evidence session.
@@ -618,10 +643,18 @@ class Episode:
         self.receipts_by_type: Dict[str, List[str]] = {}
         self.child_ids: Dict[str, List[str]] = _child_mapping()
         self.obligation_context: Dict[str, Any] = dict(obligation_context or {})
-        self.required_obligations: Tuple[Obligation, ...] = _coerce_obligations(required_obligations)
+        self.required_obligations: Tuple[Obligation, ...] = _coerce_obligations(
+            required_obligations
+        )
         self.parent_episode_id = parent_episode_id
-        self.state = state if isinstance(state, EpisodeState) else EpisodeState(str(state))
-        self.outcome = outcome if isinstance(outcome, SettlementOutcome) or outcome is None else SettlementOutcome(str(outcome))
+        self.state = (
+            state if isinstance(state, EpisodeState) else EpisodeState(str(state))
+        )
+        self.outcome = (
+            outcome
+            if isinstance(outcome, SettlementOutcome) or outcome is None
+            else SettlementOutcome(str(outcome))
+        )
         self.opened_at = _utc_now()
         self.execution_started_at: Optional[datetime] = None
         self.execution_completed_at: Optional[datetime] = None
@@ -645,9 +678,26 @@ class Episode:
                 "guardian_profile": self._guardian_profile,
                 "risk_class": self._risk_class,
                 **({"metadata": self._metadata} if self._metadata else {}),
-                **({"obligation_context": self.obligation_context} if self.obligation_context else {}),
-                **({"required_obligations": [obligation.to_dict() for obligation in self.required_obligations]} if self.required_obligations else {}),
-                **({"parent_episode_id": self.parent_episode_id} if self.parent_episode_id else {}),
+                **(
+                    {"obligation_context": self.obligation_context}
+                    if self.obligation_context
+                    else {}
+                ),
+                **(
+                    {
+                        "required_obligations": [
+                            obligation.to_dict()
+                            for obligation in self.required_obligations
+                        ]
+                    }
+                    if self.required_obligations
+                    else {}
+                ),
+                **(
+                    {"parent_episode_id": self.parent_episode_id}
+                    if self.parent_episode_id
+                    else {}
+                ),
             },
             created_at=self.opened_at,
             enforce_state=False,
@@ -719,7 +769,9 @@ class Episode:
 
     def _ensure_can_emit(self) -> None:
         if self.state not in {EpisodeState.OPEN, EpisodeState.EXECUTING}:
-            raise EpisodeStateError(f"Episode {self._episode_id} cannot emit from {self.state.value}")
+            raise EpisodeStateError(
+                f"Episode {self._episode_id} cannot emit from {self.state.value}"
+            )
 
     def _emit_raw(
         self,
@@ -757,7 +809,9 @@ class Episode:
         self._receipt_ids.append(receipt.receipt_id)
         self.receipts.append(receipt)
         self.receipt_index[receipt.receipt_id] = receipt
-        self.receipts_by_type.setdefault(receipt.receipt_type, []).append(receipt.receipt_id)
+        self.receipts_by_type.setdefault(receipt.receipt_type, []).append(
+            receipt.receipt_id
+        )
         self.child_ids["receipts"].append(receipt.receipt_id)
         bucket = _bucket_for_receipt_type(receipt.receipt_type)
         if bucket != "receipts":
@@ -808,7 +862,10 @@ class Episode:
 
         allowed: Dict[EpisodeState, Tuple[EpisodeState, ...]] = {
             EpisodeState.OPEN: (EpisodeState.EXECUTING, EpisodeState.ABANDONED),
-            EpisodeState.EXECUTING: (EpisodeState.AWAITING_GUARDIAN, EpisodeState.ABANDONED),
+            EpisodeState.EXECUTING: (
+                EpisodeState.AWAITING_GUARDIAN,
+                EpisodeState.ABANDONED,
+            ),
             EpisodeState.AWAITING_GUARDIAN: (
                 EpisodeState.EXECUTING,
                 EpisodeState.SETTLED,
@@ -817,18 +874,26 @@ class Episode:
             EpisodeState.SETTLED: (EpisodeState.PERSISTED, EpisodeState.ABANDONED),
         }
         if next_state not in allowed.get(self.state, ()):
-            raise EpisodeStateError(f"Invalid transition: {self.state.value} -> {next_state.value}")
+            raise EpisodeStateError(
+                f"Invalid transition: {self.state.value} -> {next_state.value}"
+            )
 
         now = _utc_now()
         if next_state == EpisodeState.EXECUTING:
             self.execution_started_at = self.execution_started_at or now
             if self.state == EpisodeState.AWAITING_GUARDIAN:
                 self.execution_completed_at = None
-            self.execution_window = (self.execution_started_at, self.execution_completed_at)
+            self.execution_window = (
+                self.execution_started_at,
+                self.execution_completed_at,
+            )
         elif next_state == EpisodeState.AWAITING_GUARDIAN:
             self.execution_started_at = self.execution_started_at or now
             self.execution_completed_at = now
-            self.execution_window = (self.execution_started_at, self.execution_completed_at)
+            self.execution_window = (
+                self.execution_started_at,
+                self.execution_completed_at,
+            )
         elif next_state == EpisodeState.SETTLED:
             self.settled_at = now
         elif next_state == EpisodeState.PERSISTED:
@@ -837,11 +902,15 @@ class Episode:
             # ABANDONED is a terminal state. It MUST emit a receipt.
             # Without this, episodes can silently disappear — violating
             # "no silent epistemic death."
-            self._emit_lifecycle("episode.abandoned", {
-                "abandoned_from": self.state.value,
-                "receipt_count": len(self._receipt_ids),
-                "abandoned_at": now.isoformat(),
-            }, enforce_state=False)
+            self._emit_lifecycle(
+                "episode.abandoned",
+                {
+                    "abandoned_from": self.state.value,
+                    "receipt_count": len(self._receipt_ids),
+                    "abandoned_at": now.isoformat(),
+                },
+                enforce_state=False,
+            )
 
         self.state = next_state
 
@@ -855,7 +924,9 @@ class Episode:
         if self.state == EpisodeState.EXECUTING:
             return
         if self.state != EpisodeState.OPEN:
-            raise EpisodeStateError(f"Episode {self._episode_id} cannot start execution from {self.state.value}")
+            raise EpisodeStateError(
+                f"Episode {self._episode_id} cannot start execution from {self.state.value}"
+            )
         self.transition(EpisodeState.EXECUTING)
 
     def mark_execution_complete(self) -> None:
@@ -865,7 +936,9 @@ class Episode:
         if self.state == EpisodeState.OPEN:
             self.start_execution()
         if self.state != EpisodeState.EXECUTING:
-            raise EpisodeStateError(f"Episode {self._episode_id} cannot complete execution from {self.state.value}")
+            raise EpisodeStateError(
+                f"Episode {self._episode_id} cannot complete execution from {self.state.value}"
+            )
         self.transition(EpisodeState.AWAITING_GUARDIAN)
 
     def _directive_receipt_payload(self, payload: Mapping[str, Any]) -> Dict[str, Any]:
@@ -1088,7 +1161,9 @@ class Episode:
                 if isinstance(entry, Receipt):
                     observed_types.add(entry.receipt_type)
                 elif isinstance(entry, Mapping):
-                    observed_types.add(str(entry.get("type") or entry.get("receipt_type") or ""))
+                    observed_types.add(
+                        str(entry.get("type") or entry.get("receipt_type") or "")
+                    )
                 else:
                     observed_types.add(str(getattr(entry, "receipt_type", "")))
 
@@ -1103,10 +1178,14 @@ class Episode:
         if not self.required_obligations:
             completeness = 1.0
         else:
-            completeness = (len(self.required_obligations) - len(missing)) / len(self.required_obligations)
+            completeness = (len(self.required_obligations) - len(missing)) / len(
+                self.required_obligations
+            )
         return completeness, tuple(missing)
 
-    def detect_tampering(self, receipts: Optional[Sequence[Mapping[str, Any]]] = None) -> bool:
+    def detect_tampering(
+        self, receipts: Optional[Sequence[Mapping[str, Any]]] = None
+    ) -> bool:
         """Check whether the stored trace diverges from the in-memory receipt log."""
         live_entries: Sequence[Mapping[str, Any]]
         if receipts is None:
@@ -1134,16 +1213,30 @@ class Episode:
             "metadata": _normalize_value(self._metadata),
             "obligation_context": _normalize_value(self.obligation_context),
             "parent_episode_id": self.parent_episode_id,
-            "required_obligations": [obligation.to_dict() for obligation in self.required_obligations],
+            "required_obligations": [
+                obligation.to_dict() for obligation in self.required_obligations
+            ],
             "state": self.state.value,
-            "outcome": self.outcome.value if isinstance(self.outcome, SettlementOutcome) else self.outcome,
+            "outcome": self.outcome.value
+            if isinstance(self.outcome, SettlementOutcome)
+            else self.outcome,
             "opened_at": _isoformat(self.opened_at),
-            "execution_started_at": _isoformat(self.execution_started_at) if self.execution_started_at else None,
-            "execution_completed_at": _isoformat(self.execution_completed_at) if self.execution_completed_at else None,
+            "execution_started_at": _isoformat(self.execution_started_at)
+            if self.execution_started_at
+            else None,
+            "execution_completed_at": _isoformat(self.execution_completed_at)
+            if self.execution_completed_at
+            else None,
             "execution_window": [
-                _isoformat(self.execution_window[0]) if self.execution_window and self.execution_window[0] else None,
-                _isoformat(self.execution_window[1]) if self.execution_window and self.execution_window[1] else None,
-            ] if self.execution_window else None,
+                _isoformat(self.execution_window[0])
+                if self.execution_window and self.execution_window[0]
+                else None,
+                _isoformat(self.execution_window[1])
+                if self.execution_window and self.execution_window[1]
+                else None,
+            ]
+            if self.execution_window
+            else None,
             "settled_at": _isoformat(self.settled_at) if self.settled_at else None,
             "child_ids": _normalize_value(self.child_ids),
             "receipts": [receipt.to_trace_dict() for receipt in self.receipts],
@@ -1158,7 +1251,9 @@ class Episode:
         """Return the settled episode snapshot with derived metadata included."""
         snapshot = self._settlement_snapshot()
         snapshot["proof_pack_hash"] = self.proof_pack_hash
-        snapshot["persisted_at"] = _isoformat(self.persisted_at) if self.persisted_at else None
+        snapshot["persisted_at"] = (
+            _isoformat(self.persisted_at) if self.persisted_at else None
+        )
         return snapshot
 
     def canonical_snapshot_hash(self) -> str:
@@ -1184,7 +1279,10 @@ class Episode:
         if self.state == EpisodeState.EXECUTING:
             self.mark_execution_complete()
         if self.state != EpisodeState.AWAITING_GUARDIAN:
-            if self.state in {EpisodeState.SETTLED, EpisodeState.PERSISTED} and self.settlement is not None:
+            if (
+                self.state in {EpisodeState.SETTLED, EpisodeState.PERSISTED}
+                and self.settlement is not None
+            ):
                 return self.settlement
             raise EpisodeStateError(
                 f"Episode {self._episode_id} cannot settle from {self.state.value}"
@@ -1243,10 +1341,18 @@ class Episode:
         if self.settlement is None:
             self.settle()
         if self.state not in {EpisodeState.SETTLED, EpisodeState.PERSISTED}:
-            raise EpisodeStateError(f"Episode {self._episode_id} must be settled before proof pack emission")
+            raise EpisodeStateError(
+                f"Episode {self._episode_id} must be settled before proof pack emission"
+            )
         if self.proof_pack is not None:
-            if output_dir is not None and self.proof_pack.pack_dir is not None and Path(output_dir) != self.proof_pack.pack_dir:
-                raise EpisodeStateError("Episode already emitted a proof pack to a different directory")
+            if (
+                output_dir is not None
+                and self.proof_pack.pack_dir is not None
+                and Path(output_dir) != self.proof_pack.pack_dir
+            ):
+                raise EpisodeStateError(
+                    "Episode already emitted a proof pack to a different directory"
+                )
             return self.proof_pack
 
         entries = self._store.read_trace(self._trace_id)
@@ -1283,10 +1389,18 @@ class Episode:
         """Persist a settled episode into the memory graph."""
         if self.state == EpisodeState.PERSISTED and self._episode_id in MEMORY_GRAPH:
             return MEMORY_GRAPH[self._episode_id]
-        if self.settlement is None or self.proof_pack is None or not self.proof_pack_hash:
-            raise EpisodePersistenceError("Episode must be settled and have a proof pack before persistence")
+        if (
+            self.settlement is None
+            or self.proof_pack is None
+            or not self.proof_pack_hash
+        ):
+            raise EpisodePersistenceError(
+                "Episode must be settled and have a proof pack before persistence"
+            )
         if self.state != EpisodeState.SETTLED:
-            raise EpisodePersistenceError(f"Episode {self._episode_id} cannot persist from {self.state.value}")
+            raise EpisodePersistenceError(
+                f"Episode {self._episode_id} cannot persist from {self.state.value}"
+            )
 
         persisted_time = _utc_now()
         self.persisted_at = persisted_time
@@ -1348,6 +1462,7 @@ class Episode:
                 POSTURE_RECEIPT_TYPE,
                 evaluate_posture,
             )
+
             posture = evaluate_posture()
             posture_data = posture.to_receipt_dict()
             posture_data.pop("type", None)  # _emit_raw sets the type
@@ -1377,7 +1492,9 @@ class Episode:
 
         # Determine output path
         if output_dir is None:
-            suffix = f"_cp{self._checkpoint_count}" if self._checkpoint_count > 1 else ""
+            suffix = (
+                f"_cp{self._checkpoint_count}" if self._checkpoint_count > 1 else ""
+            )
             output_dir = Path(f"proof_pack_{self._trace_id}{suffix}")
 
         ks = keystore or get_default_keystore()
@@ -1413,11 +1530,14 @@ class Episode:
         if self._closed:
             return  # idempotent
 
-        self._emit_lifecycle("episode.closed", {
-            "status": status,
-            "receipt_count": len(self._receipt_ids),
-            **({"summary": summary} if summary else {}),
-        })
+        self._emit_lifecycle(
+            "episode.closed",
+            {
+                "status": status,
+                "receipt_count": len(self._receipt_ids),
+                **({"summary": summary} if summary else {}),
+            },
+        )
         self._closed = True
 
     # ------------------------------------------------------------------
@@ -1437,6 +1557,7 @@ class Episode:
 # ---------------------------------------------------------------------------
 # Verification (standalone, works on any checkpoint/pack)
 # ---------------------------------------------------------------------------
+
 
 def verify_checkpoint(
     checkpoint: Checkpoint,
@@ -1481,7 +1602,7 @@ def verify_pack(
     import json as _json
 
     from assay.claim_verifier import verify_claims
-    from assay.integrity import verify_pack_manifest, verify_receipt_pack
+    from assay.integrity import verify_receipt_pack
 
     pack_dir = Path(pack_dir)
     errors: List[str] = []
@@ -1490,7 +1611,9 @@ def verify_pack(
     receipt_path = pack_dir / "receipt_pack.jsonl"
     if not receipt_path.exists():
         return Verdict(
-            ok=False, integrity_pass=False, claims_pass=False,
+            ok=False,
+            integrity_pass=False,
+            claims_pass=False,
             errors=["receipt_pack.jsonl not found"],
         )
 
@@ -1507,12 +1630,14 @@ def verify_pack(
         for e in receipt_result.errors:
             errors.append(f"{e.code}: {e.message}")
 
+    manifest_result: Optional[VerifyResult] = None
+
     # Manifest check (if manifest exists)
     manifest_path = pack_dir / "pack_manifest.json"
     if manifest_path.exists():
         ks = keystore or get_default_keystore()
         manifest = _json.loads(manifest_path.read_text())
-        manifest_result = verify_pack_manifest(manifest, pack_dir, ks)
+        manifest_result = verify_proof_pack(manifest, pack_dir, ks)
         if not manifest_result.passed:
             integrity_pass = False
             for e in manifest_result.errors:
@@ -1538,20 +1663,23 @@ def verify_pack(
         if not claims_pass:
             for r in claim_result.results:
                 if not r.passed:
-                    errors.append(f"claim:{r.claim_id}: expected {r.expected}, got {r.actual}")
+                    errors.append(
+                        f"claim:{r.claim_id}: expected {r.expected}, got {r.actual}"
+                    )
 
     return Verdict(
         ok=integrity_pass and claims_pass,
         integrity_pass=integrity_pass,
         claims_pass=claims_pass,
         errors=errors,
-        detail=receipt_result,
+        detail=manifest_result or receipt_result,
     )
 
 
 # ---------------------------------------------------------------------------
 # Module-level convenience
 # ---------------------------------------------------------------------------
+
 
 def open_episode(
     *,
@@ -1606,6 +1734,7 @@ def open_episode(
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def emit_receipt(
     episode: Episode,
@@ -1680,6 +1809,7 @@ def _generate_episode_id() -> str:
 
 class EpisodeClosedError(RuntimeError):
     """Raised when trying to emit or seal on a closed episode."""
+
     pass
 
 

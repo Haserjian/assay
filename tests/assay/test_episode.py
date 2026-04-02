@@ -5,21 +5,22 @@ Tests the episode lifecycle, receipt emission, checkpoint sealing,
 and verdict verification — the bridge from CLI-shaped packaging
 to organism-shaped runtime evidence.
 """
+
 import json
-import tempfile
 from pathlib import Path
 
 import pytest
 
 from assay.episode import (
     Checkpoint,
-    Episode,
     EpisodeClosedError,
     Verdict,
     open_episode,
     verify_checkpoint,
     verify_pack,
 )
+from assay.keystore import AssayKeyStore
+from assay.proof_pack import ProofPack
 from assay.store import AssayStore
 
 
@@ -182,13 +183,16 @@ class TestReceiptEmission:
     def test_data_cannot_overwrite_structural_fields(self, tmp_store):
         """User data must not clobber receipt_id, type, episode_id, etc."""
         ep = open_episode(store=tmp_store)
-        rid = ep.emit("model.invoked", {
-            "receipt_id": "SHOULD_BE_IGNORED",
-            "type": "SHOULD_BE_IGNORED",
-            "episode_id": "SHOULD_BE_IGNORED",
-            "schema_version": "SHOULD_BE_IGNORED",
-            "model": "gpt-4",
-        })
+        rid = ep.emit(
+            "model.invoked",
+            {
+                "receipt_id": "SHOULD_BE_IGNORED",
+                "type": "SHOULD_BE_IGNORED",
+                "episode_id": "SHOULD_BE_IGNORED",
+                "schema_version": "SHOULD_BE_IGNORED",
+                "model": "gpt-4",
+            },
+        )
         entries = tmp_store.read_trace(ep.trace_id)
         model_call = [e for e in entries if e.get("model") == "gpt-4"][0]
         assert model_call["receipt_id"] == rid
@@ -297,6 +301,38 @@ class TestCheckpointSealing:
 class TestVerification:
     """Verify checkpoints and produce verdicts."""
 
+    def _build_external_pack_with_unknown_type(
+        self, tmp_path: Path, monkeypatch
+    ) -> Path:
+        ks = AssayKeyStore(keys_dir=tmp_path / "keys")
+        ks.generate_key("episode-test-signer")
+        entries = [
+            {
+                "receipt_id": "r_episode_001",
+                "type": "model_call",
+                "timestamp": "2026-04-02T00:00:00+00:00",
+                "schema_version": "3.0",
+                "seq": 0,
+            },
+            {
+                "receipt_id": "r_episode_002",
+                "type": "experimental_verdict",
+                "timestamp": "2026-04-02T00:00:01+00:00",
+                "schema_version": "3.0",
+                "seq": 1,
+            },
+        ]
+        with monkeypatch.context() as context:
+            context.setattr(
+                "assay.proof_pack._assert_allowed_receipt_types", lambda entries: None
+            )
+            pack = ProofPack(
+                run_id="episode-foreign-pack",
+                entries=entries,
+                signer_id="episode-test-signer",
+            )
+            return pack.build(tmp_path / "foreign_pack", keystore=ks)
+
     def test_verify_checkpoint_pass(self, tmp_store, tmp_path):
         ep = open_episode(store=tmp_store)
         ep.emit("model.invoked", {"model": "gpt-4"})
@@ -327,6 +363,17 @@ class TestVerification:
         verdict = verify_pack(cp.pack_dir)
         assert verdict.integrity_pass is False
         assert verdict.ok is False
+
+    def test_verify_rejects_unknown_non_proof_pack_receipt_type(
+        self, tmp_path, monkeypatch
+    ):
+        pack_dir = self._build_external_pack_with_unknown_type(tmp_path, monkeypatch)
+
+        verdict = verify_pack(pack_dir)
+
+        assert verdict.integrity_pass is False
+        assert verdict.ok is False
+        assert any("experimental_verdict" in error for error in verdict.errors)
 
     def test_verify_missing_pack_dir(self, tmp_path):
         fake_cp = Checkpoint(
@@ -390,10 +437,14 @@ class TestSettlementPattern:
             # Emit runtime receipts
             r1 = ep.emit("model.invoked", {"model": "gpt-4", "tokens": 800})
             r2 = ep.emit("tool.invoked", {"tool": "email_draft"}, parent_receipt_id=r1)
-            r3 = ep.emit("guardian.approved", {
-                "action": "send_email",
-                "policy": "outbound_comms",
-            }, parent_receipt_id=r2)
+            r3 = ep.emit(
+                "guardian.approved",
+                {
+                    "action": "send_email",
+                    "policy": "outbound_comms",
+                },
+                parent_receipt_id=r2,
+            )
 
             # Seal before consequence
             cp = ep.seal_checkpoint(
@@ -467,6 +518,7 @@ class TestImportSurface:
 
     def test_import_from_assay(self):
         import assay
+
         assert hasattr(assay, "open_episode")
         assert hasattr(assay, "verify_checkpoint")
         assert hasattr(assay, "verify_pack")
@@ -477,8 +529,10 @@ class TestImportSurface:
 
     def test_open_episode_callable(self):
         import assay
+
         assert callable(assay.open_episode)
 
     def test_verify_checkpoint_callable(self):
         import assay
+
         assert callable(assay.verify_checkpoint)

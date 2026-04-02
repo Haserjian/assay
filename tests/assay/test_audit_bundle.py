@@ -1,4 +1,5 @@
 """Tests for assay audit bundle and assay verify-signer commands."""
+
 from __future__ import annotations
 
 import json
@@ -7,7 +8,6 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-import pytest
 from typer.testing import CliRunner
 
 from assay.commands import assay_app
@@ -20,6 +20,7 @@ runner = CliRunner()
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 def _make_receipt(**overrides):
     base = {
@@ -47,17 +48,48 @@ def _build_pack(tmp_path: Path, signer_id: str = "audit-test-signer"):
     return out, ks
 
 
+def _build_external_pack_with_unknown_type(
+    tmp_path: Path, monkeypatch, signer_id: str = "audit-test-signer"
+):
+    """Build a cryptographically valid pack that bypassed local build-time policy."""
+    ks = AssayKeyStore(keys_dir=tmp_path / "keys")
+    ks.generate_key(signer_id)
+    receipts = [
+        _make_receipt(receipt_id="r_audit_001", seq=0, type="model_call"),
+        _make_receipt(receipt_id="r_audit_002", seq=1, type="experimental_verdict"),
+    ]
+    with monkeypatch.context() as context:
+        context.setattr(
+            "assay.proof_pack._assert_allowed_receipt_types", lambda entries: None
+        )
+        pack = ProofPack(
+            run_id="audit-test-run-foreign",
+            entries=receipts,
+            signer_id=signer_id,
+            mode="shadow",
+        )
+        out = pack.build(tmp_path / "foreign_pack", keystore=ks)
+    return out, ks
+
+
 # ---------------------------------------------------------------------------
 # audit bundle tests
 # ---------------------------------------------------------------------------
 
+
 class TestAuditBundle:
     def test_creates_tarball(self, tmp_path):
         pack_dir, _ks = _build_pack(tmp_path)
-        result = runner.invoke(assay_app, [
-            "audit", "bundle", str(pack_dir),
-            "-o", str(tmp_path / "bundle.tar.gz"),
-        ])
+        result = runner.invoke(
+            assay_app,
+            [
+                "audit",
+                "bundle",
+                str(pack_dir),
+                "-o",
+                str(tmp_path / "bundle.tar.gz"),
+            ],
+        )
         assert result.exit_code == 0, f"Exit {result.exit_code}: {result.output}"
         assert (tmp_path / "bundle.tar.gz").exists()
 
@@ -87,11 +119,17 @@ class TestAuditBundle:
 
     def test_json_output(self, tmp_path):
         pack_dir, _ks = _build_pack(tmp_path)
-        result = runner.invoke(assay_app, [
-            "audit", "bundle", str(pack_dir),
-            "-o", str(tmp_path / "bundle.tar.gz"),
-            "--json",
-        ])
+        result = runner.invoke(
+            assay_app,
+            [
+                "audit",
+                "bundle",
+                str(pack_dir),
+                "-o",
+                str(tmp_path / "bundle.tar.gz"),
+                "--json",
+            ],
+        )
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["status"] == "ok"
@@ -107,12 +145,16 @@ class TestAuditBundle:
         assert len(bundles) == 1
 
     def test_bad_input_not_a_directory(self, tmp_path):
-        result = runner.invoke(assay_app, ["audit", "bundle", str(tmp_path / "nonexistent")])
+        result = runner.invoke(
+            assay_app, ["audit", "bundle", str(tmp_path / "nonexistent")]
+        )
         assert result.exit_code == 3
 
     def test_bad_input_no_manifest(self, tmp_path):
         (tmp_path / "empty_pack").mkdir()
-        result = runner.invoke(assay_app, ["audit", "bundle", str(tmp_path / "empty_pack")])
+        result = runner.invoke(
+            assay_app, ["audit", "bundle", str(tmp_path / "empty_pack")]
+        )
         assert result.exit_code == 3
 
     def test_refuses_tampered_pack(self, tmp_path):
@@ -141,6 +183,20 @@ class TestAuditBundle:
         data = json.loads(result.output)
         assert data["error"] == "verification_failed"
 
+    def test_refuses_unknown_receipt_type_pack_json(self, tmp_path, monkeypatch):
+        """audit bundle must fail closed on imported packs outside the proof-pack type policy."""
+        pack_dir, _ks = _build_external_pack_with_unknown_type(tmp_path, monkeypatch)
+
+        result = runner.invoke(assay_app, ["audit", "bundle", str(pack_dir), "--json"])
+
+        assert result.exit_code == 3
+        data = json.loads(result.output)
+        assert data["error"] == "verification_failed"
+        assert any(
+            "experimental_verdict" in err["message"]
+            for err in data["details"]["errors"]
+        )
+
     def test_verify_result_in_bundle(self, tmp_path):
         pack_dir, _ks = _build_pack(tmp_path)
         out = tmp_path / "bundle.tar.gz"
@@ -154,6 +210,7 @@ class TestAuditBundle:
 # ---------------------------------------------------------------------------
 # verify-signer tests
 # ---------------------------------------------------------------------------
+
 
 class TestVerifySigner:
     def test_shows_signer_info(self, tmp_path):
@@ -173,23 +230,42 @@ class TestVerifySigner:
 
     def test_expected_match(self, tmp_path):
         pack_dir, _ks = _build_pack(tmp_path)
-        result = runner.invoke(assay_app, [
-            "verify-signer", str(pack_dir), "--expected", "audit-test-signer",
-        ])
+        result = runner.invoke(
+            assay_app,
+            [
+                "verify-signer",
+                str(pack_dir),
+                "--expected",
+                "audit-test-signer",
+            ],
+        )
         assert result.exit_code == 0
 
     def test_expected_mismatch(self, tmp_path):
         pack_dir, _ks = _build_pack(tmp_path)
-        result = runner.invoke(assay_app, [
-            "verify-signer", str(pack_dir), "--expected", "someone-else",
-        ])
+        result = runner.invoke(
+            assay_app,
+            [
+                "verify-signer",
+                str(pack_dir),
+                "--expected",
+                "someone-else",
+            ],
+        )
         assert result.exit_code == 1
 
     def test_expected_mismatch_json(self, tmp_path):
         pack_dir, _ks = _build_pack(tmp_path)
-        result = runner.invoke(assay_app, [
-            "verify-signer", str(pack_dir), "--expected", "someone-else", "--json",
-        ])
+        result = runner.invoke(
+            assay_app,
+            [
+                "verify-signer",
+                str(pack_dir),
+                "--expected",
+                "someone-else",
+                "--json",
+            ],
+        )
         assert result.exit_code == 1
         data = json.loads(result.output)
         assert data["status"] == "mismatch"
@@ -199,25 +275,41 @@ class TestVerifySigner:
         pack_dir, _ks = _build_pack(tmp_path)
         manifest = json.loads((pack_dir / "pack_manifest.json").read_text())
         fp = manifest["signer_pubkey_sha256"]
-        result = runner.invoke(assay_app, [
-            "verify-signer", str(pack_dir), "--fingerprint", fp[:16],
-        ])
+        result = runner.invoke(
+            assay_app,
+            [
+                "verify-signer",
+                str(pack_dir),
+                "--fingerprint",
+                fp[:16],
+            ],
+        )
         assert result.exit_code == 0
 
     def test_fingerprint_mismatch(self, tmp_path):
         pack_dir, _ks = _build_pack(tmp_path)
-        result = runner.invoke(assay_app, [
-            "verify-signer", str(pack_dir), "--fingerprint", "deadbeef00000000",
-        ])
+        result = runner.invoke(
+            assay_app,
+            [
+                "verify-signer",
+                str(pack_dir),
+                "--fingerprint",
+                "deadbeef00000000",
+            ],
+        )
         assert result.exit_code == 1
 
     def test_bad_input_not_a_directory(self, tmp_path):
-        result = runner.invoke(assay_app, ["verify-signer", str(tmp_path / "nonexistent")])
+        result = runner.invoke(
+            assay_app, ["verify-signer", str(tmp_path / "nonexistent")]
+        )
         assert result.exit_code == 3
 
     def test_bad_input_no_manifest(self, tmp_path):
         (tmp_path / "empty_pack").mkdir()
-        result = runner.invoke(assay_app, ["verify-signer", str(tmp_path / "empty_pack")])
+        result = runner.invoke(
+            assay_app, ["verify-signer", str(tmp_path / "empty_pack")]
+        )
         assert result.exit_code == 3
 
     def test_key_in_local_keystore_field(self, tmp_path):
@@ -232,9 +324,11 @@ class TestVerifySigner:
 # flow audit integration tests
 # ---------------------------------------------------------------------------
 
+
 class TestFlowAuditUpdated:
     def test_step_3_is_executable(self):
         from assay.flow import build_flow_audit
+
         flow = build_flow_audit()
         step3 = flow.steps[2]
         assert step3.print_only is False
@@ -242,6 +336,7 @@ class TestFlowAuditUpdated:
 
     def test_step_4_is_signer_info(self):
         from assay.flow import build_flow_audit
+
         flow = build_flow_audit()
         assert len(flow.steps) == 4
         step4 = flow.steps[3]

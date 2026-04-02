@@ -14,12 +14,14 @@ Signing workflow (per spec):
   3. Attach signature to manifest -> pack_manifest.json
   4. Write detached pack_signature.sig with same bytes
 """
+
 from __future__ import annotations
 
 import base64
 import hashlib
 import json
 import os
+import re
 import shutil
 import tempfile
 import uuid
@@ -28,11 +30,18 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from assay.claim_verifier import ClaimSetResult, ClaimSpec, verify_claims
-from assay.integrity import VerifyResult, verify_receipt_pack
-from assay.keystore import AssayKeyStore, DEFAULT_SIGNER_ID, get_default_keystore
 from assay._receipts.canonicalize import prepare_receipt_for_hashing
 from assay._receipts.jcs import canonicalize as jcs_canonicalize
+from assay.claim_verifier import ClaimSetResult, ClaimSpec, verify_claims
+from assay.integrity import (
+    E_MANIFEST_TAMPER,
+    E_SCHEMA_UNKNOWN,
+    VerifyError,
+    VerifyResult,
+    verify_pack_manifest,
+    verify_receipt_pack,
+)
+from assay.keystore import DEFAULT_SIGNER_ID, AssayKeyStore, get_default_keystore
 
 try:
     from assay import __version__ as _assay_version
@@ -44,18 +53,35 @@ except Exception:
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _sha256_hex(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
 _UNSIGNED_SIDECAR_DIR = "_unsigned"
 
-# Proof packs intentionally accept a narrow receipt vocabulary.  This is a
-# proof-pack policy, not a repo-wide receipt law.
-PROOF_PACK_ALLOWED_RECEIPT_TYPES = frozenset({
-    "model_call",
-    "guardian_verdict",
-})
+# Proof packs intentionally accept a narrow receipt vocabulary. Namespaced
+# dotted receipt types are allowed, along with a compatibility set of flat
+# legacy types used by current Assay proof-pack producers.
+PROOF_PACK_ALLOWED_RECEIPT_TYPES = frozenset(
+    {
+        "ai_workflow",
+        "capability_use",
+        "challenge",
+        "decision_v1",
+        "governance_posture_snapshot",
+        "grace_check",
+        "guardian_check",
+        "guardian_verdict",
+        "mcp_tool_call",
+        "model_call",
+        "refusal",
+        "revocation",
+        "session_metadata",
+        "supersession",
+    }
+)
+_PROOF_PACK_NAMESPACED_TYPE_RE = re.compile(r"^[a-z0-9_]+(?:\.[a-z0-9_]+)+$")
 
 
 def _generate_pack_id(*, deterministic_seed: Optional[str] = None) -> str:
@@ -157,12 +183,14 @@ def detect_ci_binding() -> Optional[Dict[str, Any]]:
 
 def _sort_receipts(entries: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Sort receipts by (run_id, seq, receipt_id) for deterministic ordering."""
+
     def sort_key(r: Dict[str, Any]):
         return (
             r.get("_trace_id", r.get("run_id", "")),
             r.get("seq", 0),
             r.get("receipt_id", ""),
         )
+
     return sorted(entries, key=sort_key)
 
 
@@ -183,7 +211,9 @@ def _receipt_run_id(entry: Dict[str, Any]) -> Optional[str]:
     return None
 
 
-def _assert_receipt_run_ids(entries: List[Dict[str, Any]], expected_run_id: str) -> None:
+def _assert_receipt_run_ids(
+    entries: List[Dict[str, Any]], expected_run_id: str
+) -> None:
     """Fail closed if a pack mixes receipts from multiple runs."""
     for entry in entries:
         entry_run_id = _receipt_run_id(entry)
@@ -195,19 +225,45 @@ def _assert_receipt_run_ids(entries: List[Dict[str, Any]], expected_run_id: str)
             )
 
 
-def _assert_allowed_receipt_types(entries: List[Dict[str, Any]]) -> None:
-    """Fail closed on proof-pack receipt types outside the local allowlist."""
-    unknown: List[str] = []
+def _find_disallowed_receipt_types(
+    entries: List[Dict[str, Any]],
+    allowed_types: frozenset[str],
+) -> List[tuple[int, str, str]]:
+    """Return proof-pack receipt types that are outside the local allowlist."""
+    unknown: List[tuple[int, str, str]] = []
     for index, entry in enumerate(entries):
         receipt_type = str(entry.get("type") or entry.get("receipt_type") or "")
-        if receipt_type and receipt_type not in PROOF_PACK_ALLOWED_RECEIPT_TYPES:
-            receipt_id = entry.get("receipt_id", "<unknown>")
-            unknown.append(f"{receipt_id}@{index}={receipt_type!r}")
+        if receipt_type and not _is_allowed_proof_pack_receipt_type(
+            receipt_type, allowed_types
+        ):
+            receipt_id = str(entry.get("receipt_id", "<unknown>"))
+            unknown.append((index, receipt_id, receipt_type))
+    return unknown
+
+
+def _is_allowed_proof_pack_receipt_type(
+    receipt_type: str,
+    allowed_types: frozenset[str],
+) -> bool:
+    return receipt_type in allowed_types or bool(
+        _PROOF_PACK_NAMESPACED_TYPE_RE.match(receipt_type)
+    )
+
+
+def _assert_allowed_receipt_types(
+    entries: List[Dict[str, Any]],
+    allowed_types: frozenset[str],
+) -> None:
+    """Fail closed on proof-pack receipt types outside the local allowlist."""
+    unknown = _find_disallowed_receipt_types(entries, allowed_types)
     if unknown:
-        allowed = ", ".join(sorted(PROOF_PACK_ALLOWED_RECEIPT_TYPES))
+        allowed = ", ".join(sorted(allowed_types))
         raise ValueError(
             "Unsupported proof-pack receipt type(s): "
-            + ", ".join(unknown)
+            + ", ".join(
+                f"{receipt_id}@{index}={receipt_type!r}"
+                for index, receipt_id, receipt_type in unknown
+            )
             + f". Allowed types: {allowed}"
         )
 
@@ -225,7 +281,9 @@ def get_pack_summary_path(pack_dir: Path, *, legacy_fallback: bool = True) -> Pa
     return Path(pack_dir) / "PACK_SUMMARY.md"
 
 
-def get_decision_credential_path(pack_dir: Path, *, legacy_fallback: bool = True) -> Path:
+def get_decision_credential_path(
+    pack_dir: Path, *, legacy_fallback: bool = True
+) -> Path:
     """Return the preferred decision credential path, falling back to legacy root."""
     sidecar = get_unsigned_sidecar_dir(pack_dir) / "decision_credential.json"
     if sidecar.exists() or not legacy_fallback:
@@ -236,6 +294,7 @@ def get_decision_credential_path(pack_dir: Path, *, legacy_fallback: bool = True
 # ---------------------------------------------------------------------------
 # Transcript generator
 # ---------------------------------------------------------------------------
+
 
 def _generate_transcript(
     pack_id: str,
@@ -292,15 +351,15 @@ def _generate_transcript(
 | Field | Value |
 |-------|-------|
 | Pack ID | `{pack_id}` |
-| Run ID | `{attestation.get('run_id', 'N/A')}` |
-| Receipt Integrity | **{attestation.get('receipt_integrity', 'N/A')}** |
-| Claim Check | {attestation.get('claim_check', 'N/A')} |
-| Assurance Level | {attestation.get('assurance_level', 'N/A')} |
-| Mode | {attestation.get('mode', 'N/A')} |
-| Receipts | {attestation.get('n_receipts', 0)} |
-| Head Hash | `{attestation.get('head_hash', 'N/A')}` |
-| Policy Hash | `{attestation.get('policy_hash', 'N/A')}` |
-| Suite ID | `{attestation.get('suite_id', 'N/A')}` |
+| Run ID | `{attestation.get("run_id", "N/A")}` |
+| Receipt Integrity | **{attestation.get("receipt_integrity", "N/A")}** |
+| Claim Check | {attestation.get("claim_check", "N/A")} |
+| Assurance Level | {attestation.get("assurance_level", "N/A")} |
+| Mode | {attestation.get("mode", "N/A")} |
+| Receipts | {attestation.get("n_receipts", 0)} |
+| Head Hash | `{attestation.get("head_hash", "N/A")}` |
+| Policy Hash | `{attestation.get("policy_hash", "N/A")}` |
+| Suite ID | `{attestation.get("suite_id", "N/A")}` |
 | Time Range | {ts_start} to {ts_end} |
 
 ## Verification Errors
@@ -324,6 +383,7 @@ Verify: `assay verify-pack <pack_dir>`
 # ---------------------------------------------------------------------------
 # ProofPack builder
 # ---------------------------------------------------------------------------
+
 
 class ProofPack:
     """Builds the 5-file Proof Pack v0 kernel."""
@@ -385,6 +445,7 @@ class ProofPack:
         *,
         pack_id: Optional[str] = None,
         deterministic_ts: Optional[str] = None,
+        receipt_type_allowlist: Optional[frozenset[str]] = None,
     ) -> Path:
         """Build the 5-file Proof Pack to output_dir.
 
@@ -396,6 +457,9 @@ class ProofPack:
                               time-dependent fields.  Used by
                               conformance corpus generation to ensure
                               bit-identical rebuilds.
+            receipt_type_allowlist: Optional fail-closed type policy for
+                              proof-pack-aware callers. When provided,
+                              all receipts must use an allowed type.
 
         Returns output_dir on success.
         """
@@ -408,13 +472,20 @@ class ProofPack:
             )
         output_dir.parent.mkdir(parents=True, exist_ok=True)
         # Stage in a temp directory; publish atomically via rename.
-        staging_dir = Path(tempfile.mkdtemp(
-            dir=output_dir.parent, prefix=".assay_pack_staging_",
-        ))
+        staging_dir = Path(
+            tempfile.mkdtemp(
+                dir=output_dir.parent,
+                prefix=".assay_pack_staging_",
+            )
+        )
         try:
             return self._build_into(
-                staging_dir, output_dir, ks,
-                pack_id=pack_id, deterministic_ts=deterministic_ts,
+                staging_dir,
+                output_dir,
+                ks,
+                pack_id=pack_id,
+                deterministic_ts=deterministic_ts,
+                receipt_type_allowlist=receipt_type_allowlist,
             )
         except BaseException:
             shutil.rmtree(staging_dir, ignore_errors=True)
@@ -428,14 +499,18 @@ class ProofPack:
         *,
         pack_id: Optional[str],
         deterministic_ts: Optional[str],
+        receipt_type_allowlist: Optional[frozenset[str]],
     ) -> Path:
         """Build pack files into staging_dir, then publish to output_dir."""
         build_ts = deterministic_ts or datetime.now(timezone.utc).isoformat()
-        resolved_ci_binding = self.ci_binding if self.ci_binding is not None else detect_ci_binding()
+        resolved_ci_binding = (
+            self.ci_binding if self.ci_binding is not None else detect_ci_binding()
+        )
 
         sorted_entries = _sort_receipts(self.entries)
         _assert_receipt_run_ids(sorted_entries, self.run_id)
-        _assert_allowed_receipt_types(sorted_entries)
+        if receipt_type_allowlist is not None:
+            _assert_allowed_receipt_types(sorted_entries, receipt_type_allowlist)
 
         # 1. Write receipt_pack.jsonl (canonical, deterministic order).
         # JSONL invariant: one JCS-canonical JSON object per line, no blank
@@ -444,7 +519,9 @@ class ProofPack:
         # Verifier counts non-empty lines (line.strip()).
         receipt_lines = []
         for entry in sorted_entries:
-            canonical = jcs_canonicalize(prepare_receipt_for_hashing(entry)).decode("utf-8")
+            canonical = jcs_canonicalize(prepare_receipt_for_hashing(entry)).decode(
+                "utf-8"
+            )
             receipt_lines.append(canonical)
         receipt_pack_content = "\n".join(receipt_lines) + "\n" if receipt_lines else ""
         receipt_pack_bytes = receipt_pack_content.encode("utf-8")
@@ -475,8 +552,10 @@ class ProofPack:
         claim_result: Optional[ClaimSetResult] = None
         if self.claims:
             claim_result = verify_claims(
-                sorted_entries, self.claims,
-                policy_hash=self.policy_hash, suite_hash=self.suite_hash,
+                sorted_entries,
+                self.claims,
+                policy_hash=self.policy_hash,
+                suite_hash=self.suite_hash,
             )
 
         # 3. Build verify_report.json
@@ -517,12 +596,12 @@ class ProofPack:
             "claim_set_id": self.claim_set_id,
             "claim_set_hash": self.claim_set_hash,
             "receipt_integrity": "PASS" if verify_result.passed else "FAIL",
-            "claim_check": (
-                "PASS" if claim_result.passed else "FAIL"
-            ) if claim_result is not None else "N/A",
-            "discrepancy_fingerprint": (
-                claim_result.discrepancy_fingerprint
-            ) if claim_result is not None else None,
+            "claim_check": ("PASS" if claim_result.passed else "FAIL")
+            if claim_result is not None
+            else "N/A",
+            "discrepancy_fingerprint": (claim_result.discrepancy_fingerprint)
+            if claim_result is not None
+            else None,
             "assurance_level": "L0",
             "proof_tier": "signed-pack",
             "mode": self.mode,
@@ -667,12 +746,14 @@ class ProofPack:
             unsigned_dir.mkdir(parents=True, exist_ok=True)
             ns = self.claim_namespace
             if ns is None:
-                ns = f"assay:{self.suite_id}" if self.suite_id != "manual" else "assay:pack:v0.1"
+                ns = (
+                    f"assay:{self.suite_id}"
+                    if self.suite_id != "manual"
+                    else "assay:pack:v0.1"
+                )
 
             cids = (
-                [c.claim_id for c in self.claims]
-                if self.claims
-                else ["pack_integrity"]
+                [c.claim_id for c in self.claims] if self.claims else ["pack_integrity"]
             )
 
             adc = build_adc(
@@ -697,7 +778,9 @@ class ProofPack:
                 sign_fn=lambda data: ks.sign_b64(data, self.signer_id),
             )
             adc_bytes = json.dumps(adc, indent=2).encode("utf-8")
-            get_decision_credential_path(staging_dir, legacy_fallback=False).write_bytes(adc_bytes)
+            get_decision_credential_path(
+                staging_dir, legacy_fallback=False
+            ).write_bytes(adc_bytes)
 
         # 10. Write PACK_SUMMARY.md (presentation layer, not part of
         # the 5-file verification kernel). Safe to import here since
@@ -709,7 +792,9 @@ class ProofPack:
             unsigned_dir.mkdir(parents=True, exist_ok=True)
             info = explain_pack(staging_dir)
             summary = render_md(info)
-            get_pack_summary_path(staging_dir, legacy_fallback=False).write_text(summary, encoding="utf-8")
+            get_pack_summary_path(staging_dir, legacy_fallback=False).write_text(
+                summary, encoding="utf-8"
+            )
         except Exception as exc:
             warnings.warn(f"PACK_SUMMARY generation failed: {exc}", stacklevel=2)
 
@@ -764,6 +849,101 @@ def build_proof_pack(
     return pack.build(output_dir, keystore=keystore)
 
 
+def verify_proof_pack(
+    manifest: Dict[str, Any],
+    pack_dir: Path,
+    keystore: Optional[AssayKeyStore] = None,
+    *,
+    max_age_hours: Optional[float] = None,
+    max_future_hours: float = 24.0,
+    now: Optional[datetime] = None,
+    require_ci_binding: bool = False,
+    expected_commit_sha: Optional[str] = None,
+) -> VerifyResult:
+    """Verify a proof pack with the generic verifier plus proof-pack policy."""
+    result = verify_pack_manifest(
+        manifest,
+        pack_dir,
+        keystore,
+        max_age_hours=max_age_hours,
+        max_future_hours=max_future_hours,
+        now=now,
+        require_ci_binding=require_ci_binding,
+        expected_commit_sha=expected_commit_sha,
+    )
+    if not result.passed:
+        return result
+
+    receipt_pack_path = Path(pack_dir) / "receipt_pack.jsonl"
+    try:
+        lines = receipt_pack_path.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeDecodeError) as exc:
+        return VerifyResult(
+            passed=False,
+            errors=[
+                VerifyError(
+                    code=E_MANIFEST_TAMPER,
+                    message=f"Cannot read receipt_pack.jsonl for proof-pack policy check: {exc}",
+                    field="receipt_pack.jsonl",
+                ),
+            ],
+            warnings=result.warnings,
+            receipt_count=result.receipt_count,
+            head_hash=result.head_hash,
+            stages=result.stages,
+        )
+
+    parsed: List[Dict[str, Any]] = []
+    for line_no, line in enumerate(lines, start=1):
+        if not line.strip():
+            continue
+        try:
+            parsed.append(json.loads(line))
+        except json.JSONDecodeError as exc:
+            return VerifyResult(
+                passed=False,
+                errors=[
+                    VerifyError(
+                        code=E_MANIFEST_TAMPER,
+                        message=f"Invalid JSON in receipt_pack.jsonl at line {line_no}: {exc.msg}",
+                        field="receipt_pack.jsonl",
+                    ),
+                ],
+                warnings=result.warnings,
+                receipt_count=result.receipt_count,
+                head_hash=result.head_hash,
+                stages=result.stages,
+            )
+
+    disallowed = _find_disallowed_receipt_types(
+        parsed, PROOF_PACK_ALLOWED_RECEIPT_TYPES
+    )
+    if not disallowed:
+        return result
+
+    allowed = ", ".join(sorted(PROOF_PACK_ALLOWED_RECEIPT_TYPES))
+    policy_errors = [
+        VerifyError(
+            code=E_SCHEMA_UNKNOWN,
+            message=(
+                f"Unsupported proof-pack receipt type {receipt_type!r} "
+                f"for receipt {receipt_id}; allowed types: {allowed}"
+            ),
+            receipt_index=index,
+            field="type",
+        )
+        for index, receipt_id, receipt_type in disallowed
+    ]
+    return VerifyResult(
+        passed=False,
+        errors=[*result.errors, *policy_errors],
+        warnings=result.warnings,
+        receipt_count=result.receipt_count,
+        head_hash=result.head_hash,
+        stages=result.stages,
+    )
+
+
 __all__ = [
     "ProofPack",
     "build_proof_pack",
@@ -771,4 +951,5 @@ __all__ = [
     "get_decision_credential_path",
     "get_pack_summary_path",
     "get_unsigned_sidecar_dir",
+    "verify_proof_pack",
 ]

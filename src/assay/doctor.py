@@ -12,18 +12,18 @@ Architecture:
 - Runner orchestrates checks by profile
 - CLI layer handles formatting and exit codes
 """
+
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
-
+from typing import Any, Dict, List, Optional
 
 # ---------------------------------------------------------------------------
 # Data models
 # ---------------------------------------------------------------------------
+
 
 class CheckStatus(str, Enum):
     PASS = "pass"
@@ -50,6 +50,7 @@ class Profile(str, Enum):
 @dataclass
 class DoctorCheckResult:
     """Result of a single doctor check."""
+
     id: str
     status: CheckStatus
     severity: Severity
@@ -74,6 +75,7 @@ class DoctorCheckResult:
 @dataclass
 class DoctorReport:
     """Aggregated doctor report."""
+
     profile: Profile
     version: str
     checks: List[DoctorCheckResult] = field(default_factory=list)
@@ -181,10 +183,12 @@ _PROFILE_CHECKS: Dict[Profile, List[str]] = {
 # Individual checks (pure functions)
 # ---------------------------------------------------------------------------
 
+
 def _check_core_001() -> DoctorCheckResult:
     """Assay CLI/import/version available."""
     try:
         from assay import __version__
+
         return DoctorCheckResult(
             id="DOCTOR_CORE_001",
             status=CheckStatus.PASS,
@@ -206,6 +210,7 @@ def _check_core_001() -> DoctorCheckResult:
 def _check_fs_001() -> DoctorCheckResult:
     """Writable Assay home path."""
     from assay.store import assay_home
+
     home = assay_home()
     if home.exists():
         # Check writable
@@ -255,17 +260,22 @@ def _check_key_001() -> DoctorCheckResult:
     """Signing key exists or can be generated."""
     try:
         from assay.keystore import DEFAULT_SIGNER_ID, get_default_keystore
+
         ks = get_default_keystore()
         try:
             vk = ks.get_verify_key(DEFAULT_SIGNER_ID)
             from assay.proof_pack import _sha256_hex
+
             fp = _sha256_hex(vk.encode())
             return DoctorCheckResult(
                 id="DOCTOR_KEY_001",
                 status=CheckStatus.PASS,
                 severity=Severity.INFO,
                 message=f"Signer key present ({DEFAULT_SIGNER_ID})",
-                evidence={"signer_id": DEFAULT_SIGNER_ID, "fingerprint": fp[:16] + "..."},
+                evidence={
+                    "signer_id": DEFAULT_SIGNER_ID,
+                    "fingerprint": fp[:16] + "...",
+                },
             )
         except Exception:
             return DoctorCheckResult(
@@ -274,7 +284,7 @@ def _check_key_001() -> DoctorCheckResult:
                 severity=Severity.MEDIUM,
                 message="No signing key found (will be generated on first use)",
                 evidence={"signer_id": DEFAULT_SIGNER_ID, "keys_dir": str(ks.keys_dir)},
-                fix=f"assay demo-pack  # generates key automatically",
+                fix="assay demo-pack  # generates key automatically",
             )
     except ImportError:
         return DoctorCheckResult(
@@ -289,6 +299,7 @@ def _check_card_001() -> DoctorCheckResult:
     """Requested RunCards exist and hashes resolve."""
     try:
         from assay.run_cards import BUILTIN_CARDS
+
         card_ids = list(BUILTIN_CARDS.keys())
         return DoctorCheckResult(
             id="DOCTOR_CARD_001",
@@ -323,6 +334,7 @@ def _check_lock_001(lock_path: Optional[Path] = None) -> DoctorCheckResult:
 
     try:
         from assay.lockfile import load_lockfile
+
         lock = load_lockfile(lock_path)
         return DoctorCheckResult(
             id="DOCTOR_LOCK_001",
@@ -361,6 +373,7 @@ def _check_lock_002(lock_path: Optional[Path] = None) -> DoctorCheckResult:
 
     try:
         from assay.lockfile import check_lockfile
+
         errors = check_lockfile(lock_path)
         if errors:
             return DoctorCheckResult(
@@ -402,6 +415,7 @@ def _check_lock_003(lock_path: Optional[Path] = None) -> DoctorCheckResult:
 
     try:
         import json
+
         lock = json.loads(lock_path.read_text())
         policy = lock.get("signer_policy", {})
         allowed = policy.get("allowed_fingerprints", [])
@@ -440,6 +454,7 @@ def _check_pack_001(pack_dir: Optional[Path] = None) -> DoctorCheckResult:
     if pack_dir is None:
         # Try to find a pack in current directory
         import glob
+
         candidates = glob.glob("proof_pack_*/pack_manifest.json")
         if not candidates:
             return DoctorCheckResult(
@@ -466,7 +481,7 @@ def _check_pack_001(pack_dir: Optional[Path] = None) -> DoctorCheckResult:
             severity=Severity.HIGH,
             message=f"Pack missing files: {', '.join(missing)}",
             evidence={"pack_dir": str(pack_dir), "missing": missing},
-            fix=f"assay proof-pack  # rebuild the pack",
+            fix="assay proof-pack  # rebuild the pack",
         )
 
     return DoctorCheckResult(
@@ -482,6 +497,7 @@ def _check_pack_002(pack_dir: Optional[Path] = None) -> DoctorCheckResult:
     """Schema + signature + D12 integrity check passes."""
     if pack_dir is None:
         import glob
+
         candidates = glob.glob("proof_pack_*/pack_manifest.json")
         if not candidates:
             return DoctorCheckResult(
@@ -503,12 +519,13 @@ def _check_pack_002(pack_dir: Optional[Path] = None) -> DoctorCheckResult:
 
     try:
         import json
-        from assay.integrity import verify_pack_manifest
+
         from assay.keystore import get_default_keystore
+        from assay.proof_pack import verify_proof_pack
 
         manifest = json.loads(manifest_path.read_text())
         ks = get_default_keystore()
-        result = verify_pack_manifest(manifest, pack_dir, ks)
+        result = verify_proof_pack(manifest, pack_dir, ks)
 
         if result.passed:
             return DoctorCheckResult(
@@ -527,7 +544,10 @@ def _check_pack_002(pack_dir: Optional[Path] = None) -> DoctorCheckResult:
                 status=CheckStatus.FAIL,
                 severity=Severity.CRITICAL,
                 message=f"Pack integrity failed: {result.errors[0].message if result.errors else 'unknown'}",
-                evidence={"pack_dir": str(pack_dir), "errors": [e.message for e in result.errors]},
+                evidence={
+                    "pack_dir": str(pack_dir),
+                    "errors": [e.message for e in result.errors],
+                },
                 fix=f"assay verify-pack {pack_dir}  # see full report",
             )
     except Exception as e:
@@ -544,12 +564,20 @@ def _check_exit_001() -> DoctorCheckResult:
     """verify-pack exit code mapping contract visible."""
     try:
         from assay.integrity import verify_pack_manifest
+
         return DoctorCheckResult(
             id="DOCTOR_EXIT_001",
             status=CheckStatus.PASS,
             severity=Severity.INFO,
             message="Exit code contract: 0=pass, 1=claim-fail, 2=integrity-fail, 3=bad-input",
-            evidence={"exit_codes": {"0": "pass", "1": "claim_fail", "2": "integrity_fail", "3": "bad_input"}},
+            evidence={
+                "exit_codes": {
+                    "0": "pass",
+                    "1": "claim_fail",
+                    "2": "integrity_fail",
+                    "3": "bad_input",
+                }
+            },
         )
     except ImportError:
         return DoctorCheckResult(
@@ -578,7 +606,9 @@ def _check_ci_001() -> DoctorCheckResult:
     for yml in workflow_dir.glob("*.yml"):
         try:
             content = yml.read_text()
-            if "assay" in content.lower() and ("verify-pack" in content or "assay-verify-action" in content):
+            if "assay" in content.lower() and (
+                "verify-pack" in content or "assay-verify-action" in content
+            ):
                 found = True
                 matching_files.append(yml.name)
         except OSError:
@@ -588,7 +618,9 @@ def _check_ci_001() -> DoctorCheckResult:
     for yml in workflow_dir.glob("*.yaml"):
         try:
             content = yml.read_text()
-            if "assay" in content.lower() and ("verify-pack" in content or "assay-verify-action" in content):
+            if "assay" in content.lower() and (
+                "verify-pack" in content or "assay-verify-action" in content
+            ):
                 found = True
                 matching_files.append(yml.name)
         except OSError:
@@ -625,6 +657,7 @@ def _check_ci_002(lock_path: Optional[Path] = None) -> DoctorCheckResult:
         )
     try:
         import json as _json
+
         lock = _json.loads(lp.read_text())
         contract = lock.get("exit_contract", {})
         missing = [c for c in ("0", "1", "2") if c not in contract]
@@ -693,9 +726,11 @@ def _check_ledger_001() -> DoctorCheckResult:
     """Required submission fields resolvable for witnessed path."""
     try:
         from assay.keystore import DEFAULT_SIGNER_ID, get_default_keystore
+
         ks = get_default_keystore()
         vk = ks.get_verify_key(DEFAULT_SIGNER_ID)
         from assay.proof_pack import _sha256_hex
+
         fp = _sha256_hex(vk.encode())
 
         return DoctorCheckResult(
@@ -753,6 +788,7 @@ def _check_orphan_001(store: Any = None) -> DoctorCheckResult:
     try:
         from assay.orphan_detector import detect_orphaned_episodes
         from assay.store import get_default_store
+
         s = store if store is not None else get_default_store()
         result = detect_orphaned_episodes(s)
         if result.clean:
@@ -801,6 +837,7 @@ def _check_contradiction_001(store: Any = None) -> DoctorCheckResult:
     try:
         from assay.contradiction_detector import detect_open_contradictions
         from assay.store import get_default_store
+
         s = store if store is not None else get_default_store()
         result = detect_open_contradictions(s)
         if result.clean:
@@ -828,7 +865,9 @@ def _check_contradiction_001(store: Any = None) -> DoctorCheckResult:
             evidence={
                 "total_open": result.total_open_found,
                 "total_registered": result.total_registered_found,
-                "open_contradictions": [c.to_dict() for c in result.open_contradictions],
+                "open_contradictions": [
+                    c.to_dict() for c in result.open_contradictions
+                ],
             },
             fix="# Resolve each open contradiction via emit_contradiction_resolution()",
         )
@@ -854,9 +893,9 @@ def _check_obligation_001(store: Any = None) -> DoctorCheckResult:
     that obligation data flows beyond the `assay why` interrogation surface.
     """
     try:
-        from assay.obligation import ObligationStore
-        from assay.store import assay_home
         from datetime import datetime, timezone
+
+        from assay.obligation import ObligationStore
 
         ob_store = ObligationStore()
         pending = ob_store.list_pending()
@@ -910,9 +949,7 @@ def _check_obligation_001(store: Any = None) -> DoctorCheckResult:
             id="DOCTOR_OBLIGATION_001",
             status=CheckStatus.WARN,
             severity=Severity.MEDIUM,
-            message=(
-                f"{len(pending)} open override obligation(s), none overdue yet"
-            ),
+            message=(f"{len(pending)} open override obligation(s), none overdue yet"),
             evidence={
                 "open_count": len(pending),
                 "overdue_count": 0,
@@ -972,10 +1009,11 @@ def _check_anchor_001(pack_dir: Optional[Path] = None) -> DoctorCheckResult:
 
     try:
         import json as _json
+
         from assay.decision_receipt import (
-            validate_governance_anchors,
             _GOVERNANCE_AUTHORITY_CLASSES,
             _parse_version,
+            validate_governance_anchors,
         )
 
         # Build receipt index from all JSON files in pack
@@ -999,7 +1037,8 @@ def _check_anchor_001(pack_dir: Optional[Path] = None) -> DoctorCheckResult:
 
         # Find governance-class decision receipts at v0.2.0+
         governance_receipts = [
-            r for r in receipt_index.values()
+            r
+            for r in receipt_index.values()
             if r.get("receipt_type") == "decision_v1"
             and r.get("authority_class") in _GOVERNANCE_AUTHORITY_CLASSES
             and _parse_version(r.get("receipt_version", "0.1.0")) >= (0, 2, 0)
@@ -1026,12 +1065,14 @@ def _check_anchor_001(pack_dir: Optional[Path] = None) -> DoctorCheckResult:
             result = validate_governance_anchors(receipt, receipt_index)
             if not result.valid:
                 for err in result.errors:
-                    all_errors.append({
-                        "receipt_id": receipt.get("receipt_id"),
-                        "rule": err.rule,
-                        "field": err.field,
-                        "message": err.message,
-                    })
+                    all_errors.append(
+                        {
+                            "receipt_id": receipt.get("receipt_id"),
+                            "rule": err.rule,
+                            "field": err.field,
+                            "message": err.message,
+                        }
+                    )
 
         if all_errors:
             return DoctorCheckResult(
@@ -1117,6 +1158,7 @@ _CHECK_FUNCTIONS = {
 # Runner
 # ---------------------------------------------------------------------------
 
+
 def _determine_next_command(report: DoctorReport) -> Optional[str]:
     """Determine the single best next command based on check results."""
     # Priority: first failing check with a fix command
@@ -1163,7 +1205,9 @@ def run_doctor(
     from assay import __version__
 
     report = DoctorReport(profile=profile, version=__version__)
-    check_ids: List[str] = list(_PROFILE_CHECKS.get(profile, _PROFILE_CHECKS[Profile.LOCAL]))
+    check_ids: List[str] = list(
+        _PROFILE_CHECKS.get(profile, _PROFILE_CHECKS[Profile.LOCAL])
+    )
 
     if check_orphans:
         if "DOCTOR_ORPHAN_001" not in check_ids:
@@ -1185,24 +1229,28 @@ def run_doctor(
     for check_id in check_ids:
         fn = _CHECK_FUNCTIONS.get(check_id)
         if fn is None:
-            report.checks.append(DoctorCheckResult(
-                id=check_id,
-                status=CheckStatus.SKIP,
-                severity=Severity.INFO,
-                message=f"Check not implemented: {check_id}",
-            ))
+            report.checks.append(
+                DoctorCheckResult(
+                    id=check_id,
+                    status=CheckStatus.SKIP,
+                    severity=Severity.INFO,
+                    message=f"Check not implemented: {check_id}",
+                )
+            )
             continue
         try:
             result = fn(**kwargs)
             report.checks.append(result)
         except Exception as e:
-            report.checks.append(DoctorCheckResult(
-                id=check_id,
-                status=CheckStatus.FAIL,
-                severity=Severity.HIGH,
-                message=f"Check raised exception: {e}",
-                evidence={"error": str(e)},
-            ))
+            report.checks.append(
+                DoctorCheckResult(
+                    id=check_id,
+                    status=CheckStatus.FAIL,
+                    severity=Severity.HIGH,
+                    message=f"Check raised exception: {e}",
+                    evidence={"error": str(e)},
+                )
+            )
 
     report.next_command = _determine_next_command(report)
     return report

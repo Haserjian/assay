@@ -18,7 +18,8 @@ from assay.checkpoint_reviewer_packet import (
     derive_checkpoint_reviewer_packet,
     load_packaged_decision_receipts,
 )
-from assay.integrity import VerifyResult, verify_pack_manifest
+from assay.integrity import VerifyResult
+from assay.proof_pack import verify_proof_pack
 from assay.keystore import get_default_keystore
 from assay.reviewer_packet_compile import (
     _PACKET_INPUTS_FILE,
@@ -449,7 +450,7 @@ def _verify_checkpoint_profile_packet(
     proof_pack_manifest = _load_json(manifest_path)
     actual_manifest_sha256 = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
 
-    proof_pack_result: VerifyResult = verify_pack_manifest(
+    proof_pack_result: VerifyResult = verify_proof_pack(
         proof_pack_manifest,
         proof_pack_dir,
         keystore or get_default_keystore(),
@@ -730,7 +731,7 @@ def verify_reviewer_packet(
     proof_pack_manifest = _load_json(manifest_path)
     actual_manifest_sha256 = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
 
-    proof_pack_result: VerifyResult = verify_pack_manifest(
+    proof_pack_result: VerifyResult = verify_proof_pack(
         proof_pack_manifest,
         proof_pack_dir,
         keystore or get_default_keystore(),

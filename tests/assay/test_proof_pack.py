@@ -3,8 +3,10 @@ Tests for Proof Pack v0: builder, integrity verifier, keystore.
 
 Covers the 5-file kernel and end-to-end verification.
 """
+
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import uuid
@@ -12,6 +14,8 @@ from datetime import datetime, timezone
 
 import pytest
 
+from assay._receipts.canonicalize import prepare_receipt_for_hashing
+from assay._receipts.jcs import canonicalize as jcs_canonicalize
 from assay.claim_verifier import (
     ClaimSpec,
     check_field_value_matches,
@@ -35,9 +39,11 @@ from assay.integrity import (
 )
 from assay.keystore import AssayKeyStore
 from assay.proof_pack import (
+    PROOF_PACK_ALLOWED_RECEIPT_TYPES,
     ProofPack,
     get_pack_summary_path,
     get_unsigned_sidecar_dir,
+    verify_proof_pack,
 )
 from assay.run_cards import (
     BUILTIN_CARDS,
@@ -47,12 +53,11 @@ from assay.run_cards import (
     get_builtin_card,
     load_run_card,
 )
-from assay._receipts.jcs import canonicalize as jcs_canonicalize
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 def _make_receipt(**overrides):
     """Create a minimal valid receipt dict."""
@@ -64,6 +69,74 @@ def _make_receipt(**overrides):
     }
     base.update(overrides)
     return base
+
+
+def _make_external_pack_with_unknown_type(tmp_path, tmp_keys):
+    """Build a valid pack, then re-sign it as an external pack with an unknown type."""
+    receipts = [
+        _make_receipt(
+            receipt_id="r_type_001",
+            run_id="external-proof-pack",
+            seq=0,
+            type="model_call",
+        ),
+        _make_receipt(
+            receipt_id="r_type_002",
+            run_id="external-proof-pack",
+            seq=1,
+            type="guardian_verdict",
+            verdict="ALLOW",
+            rule="safety-check-v1",
+        ),
+    ]
+    pack = ProofPack(
+        run_id="external-proof-pack",
+        entries=receipts,
+        signer_id="test-signer",
+    )
+    out = pack.build(tmp_path / "pack", keystore=tmp_keys)
+
+    receipt_path = out / "receipt_pack.jsonl"
+    parsed = [
+        json.loads(line)
+        for line in receipt_path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    parsed[1]["type"] = "experimental_verdict"
+
+    receipt_lines = [
+        jcs_canonicalize(prepare_receipt_for_hashing(entry)).decode("utf-8")
+        for entry in parsed
+    ]
+    receipt_bytes = ("\n".join(receipt_lines) + "\n").encode("utf-8")
+    receipt_path.write_bytes(receipt_bytes)
+
+    manifest_path = out / "pack_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    receipt_entry = next(
+        entry for entry in manifest["files"] if entry["path"] == "receipt_pack.jsonl"
+    )
+    receipt_entry["sha256"] = hashlib.sha256(receipt_bytes).hexdigest()
+    receipt_entry["bytes"] = len(receipt_bytes)
+
+    attestation = manifest["attestation"]
+    attestation["head_hash"] = hashlib.sha256(
+        jcs_canonicalize(prepare_receipt_for_hashing(parsed[-1]))
+    ).hexdigest()
+    attestation_sha256 = hashlib.sha256(jcs_canonicalize(attestation)).hexdigest()
+    manifest["attestation_sha256"] = attestation_sha256
+    manifest["pack_root_sha256"] = attestation_sha256
+    unsigned_manifest = {
+        k: v for k, v in manifest.items() if k not in ("signature", "pack_root_sha256")
+    }
+    signature_b64 = tmp_keys.sign_b64(
+        jcs_canonicalize(unsigned_manifest), "test-signer"
+    )
+    manifest["signature"] = signature_b64
+
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    (out / "pack_signature.sig").write_bytes(base64.b64decode(signature_b64))
+    return out, manifest
 
 
 @pytest.fixture
@@ -83,6 +156,7 @@ def sample_receipts():
 # ---------------------------------------------------------------------------
 # Keystore tests
 # ---------------------------------------------------------------------------
+
 
 class TestKeyStore:
     def test_generate_and_verify(self, tmp_path):
@@ -118,6 +192,7 @@ class TestKeyStore:
 # ---------------------------------------------------------------------------
 # JCS canonicalization tests
 # ---------------------------------------------------------------------------
+
 
 class TestCanonicalisation:
     def test_jcs_stability(self):
@@ -161,6 +236,7 @@ class TestCanonicalisation:
 # Receipt-level verification
 # ---------------------------------------------------------------------------
 
+
 class TestVerifyReceipt:
     def test_valid_receipt(self):
         r = _make_receipt()
@@ -171,7 +247,9 @@ class TestVerifyReceipt:
         r = _make_receipt()
         del r["receipt_id"]
         errors = verify_receipt(r, index=0)
-        assert any(e.code == E_SCHEMA_UNKNOWN and e.field == "receipt_id" for e in errors)
+        assert any(
+            e.code == E_SCHEMA_UNKNOWN and e.field == "receipt_id" for e in errors
+        )
 
     def test_missing_type(self):
         r = _make_receipt()
@@ -183,7 +261,9 @@ class TestVerifyReceipt:
         r = _make_receipt()
         del r["timestamp"]
         errors = verify_receipt(r, index=0)
-        assert any(e.code == E_SCHEMA_UNKNOWN and e.field == "timestamp" for e in errors)
+        assert any(
+            e.code == E_SCHEMA_UNKNOWN and e.field == "timestamp" for e in errors
+        )
 
     def test_invalid_timestamp(self):
         r = _make_receipt(timestamp="not-a-date")
@@ -194,6 +274,7 @@ class TestVerifyReceipt:
 # ---------------------------------------------------------------------------
 # Receipt pack verification
 # ---------------------------------------------------------------------------
+
 
 class TestVerifyReceiptPack:
     def test_valid_pack(self, sample_receipts):
@@ -216,6 +297,7 @@ class TestVerifyReceiptPack:
 # ---------------------------------------------------------------------------
 # Proof Pack builder
 # ---------------------------------------------------------------------------
+
 
 class TestProofPackBuilder:
     def test_5_files_present(self, tmp_path, tmp_keys, sample_receipts):
@@ -274,40 +356,73 @@ class TestProofPackBuilder:
             )
         ]
         ts = "2026-03-11T12:00:00+00:00"
-        pack_a = ProofPack(run_id="deterministic-run", entries=receipts, signer_id="test-signer")
-        pack_b = ProofPack(run_id="deterministic-run", entries=receipts, signer_id="test-signer")
+        pack_a = ProofPack(
+            run_id="deterministic-run", entries=receipts, signer_id="test-signer"
+        )
+        pack_b = ProofPack(
+            run_id="deterministic-run", entries=receipts, signer_id="test-signer"
+        )
 
-        out_a = pack_a.build(tmp_path / "pack_a", keystore=tmp_keys, deterministic_ts=ts)
-        out_b = pack_b.build(tmp_path / "pack_b", keystore=tmp_keys, deterministic_ts=ts)
+        out_a = pack_a.build(
+            tmp_path / "pack_a", keystore=tmp_keys, deterministic_ts=ts
+        )
+        out_b = pack_b.build(
+            tmp_path / "pack_b", keystore=tmp_keys, deterministic_ts=ts
+        )
 
         manifest_a = json.loads((out_a / "pack_manifest.json").read_text())
         manifest_b = json.loads((out_b / "pack_manifest.json").read_text())
         assert manifest_a["pack_id"] == manifest_b["pack_id"]
 
-    def test_deterministic_pack_id_changes_when_content_changes(self, tmp_path, tmp_keys):
+    def test_deterministic_pack_id_changes_when_content_changes(
+        self, tmp_path, tmp_keys
+    ):
         ts = "2026-03-11T12:00:00+00:00"
         pack_a = ProofPack(
             run_id="deterministic-run",
-            entries=[_make_receipt(receipt_id="r_det_a", timestamp=ts, seq=0, run_id="deterministic-run")],
+            entries=[
+                _make_receipt(
+                    receipt_id="r_det_a",
+                    timestamp=ts,
+                    seq=0,
+                    run_id="deterministic-run",
+                )
+            ],
             signer_id="test-signer",
         )
         pack_b = ProofPack(
             run_id="deterministic-run",
             entries=[
-                _make_receipt(receipt_id="r_det_b1", timestamp=ts, seq=0, run_id="deterministic-run"),
-                _make_receipt(receipt_id="r_det_b2", timestamp=ts, seq=1, run_id="deterministic-run"),
+                _make_receipt(
+                    receipt_id="r_det_b1",
+                    timestamp=ts,
+                    seq=0,
+                    run_id="deterministic-run",
+                ),
+                _make_receipt(
+                    receipt_id="r_det_b2",
+                    timestamp=ts,
+                    seq=1,
+                    run_id="deterministic-run",
+                ),
             ],
             signer_id="test-signer",
         )
 
-        out_a = pack_a.build(tmp_path / "pack_a", keystore=tmp_keys, deterministic_ts=ts)
-        out_b = pack_b.build(tmp_path / "pack_b", keystore=tmp_keys, deterministic_ts=ts)
+        out_a = pack_a.build(
+            tmp_path / "pack_a", keystore=tmp_keys, deterministic_ts=ts
+        )
+        out_b = pack_b.build(
+            tmp_path / "pack_b", keystore=tmp_keys, deterministic_ts=ts
+        )
 
         manifest_a = json.loads((out_a / "pack_manifest.json").read_text())
         manifest_b = json.loads((out_b / "pack_manifest.json").read_text())
         assert manifest_a["pack_id"] != manifest_b["pack_id"]
 
-    def test_attestation_time_range_uses_true_min_max_timestamps(self, tmp_path, tmp_keys):
+    def test_attestation_time_range_uses_true_min_max_timestamps(
+        self, tmp_path, tmp_keys
+    ):
         receipts = [
             _make_receipt(
                 receipt_id="r_time_1",
@@ -322,7 +437,9 @@ class TestProofPackBuilder:
                 run_id="time-range-run",
             ),
         ]
-        pack = ProofPack(run_id="time-range-run", entries=receipts, signer_id="test-signer")
+        pack = ProofPack(
+            run_id="time-range-run", entries=receipts, signer_id="test-signer"
+        )
 
         out = pack.build(tmp_path / "pack", keystore=tmp_keys)
         manifest = json.loads((out / "pack_manifest.json").read_text())
@@ -354,7 +471,9 @@ class TestProofPackBuilder:
         result = verify_pack_manifest(manifest, out, tmp_keys)
         assert result.passed, f"Errors: {[e.to_dict() for e in result.errors]}"
 
-    def test_end_to_end_verify_without_local_key(self, tmp_path, tmp_keys, sample_receipts):
+    def test_end_to_end_verify_without_local_key(
+        self, tmp_path, tmp_keys, sample_receipts
+    ):
         """Verifier should pass using embedded signer_pubkey even without local keys."""
         pack = ProofPack(
             trace_id="test_trace_005b",
@@ -366,6 +485,59 @@ class TestProofPackBuilder:
 
         empty_keystore = AssayKeyStore(keys_dir=tmp_path / "empty_keys")
         result = verify_pack_manifest(manifest, out, empty_keystore)
+        assert result.passed, f"Errors: {[e.to_dict() for e in result.errors]}"
+
+    def test_verify_proof_pack_passes_known_receipt_types(self, tmp_path, tmp_keys):
+        """Proof-pack verification accepts the current allowed receipt types."""
+        receipts = [
+            _make_receipt(
+                receipt_id="r_type_001",
+                run_id="allowed-proof-pack-types",
+                seq=0,
+                type="model_call",
+            ),
+            _make_receipt(
+                receipt_id="r_type_002",
+                run_id="allowed-proof-pack-types",
+                seq=1,
+                type="guardian_verdict",
+                verdict="ALLOW",
+                rule="safety-check-v1",
+            ),
+        ]
+        pack = ProofPack(
+            run_id="allowed-proof-pack-types",
+            entries=receipts,
+            signer_id="test-signer",
+        )
+        out = pack.build(
+            tmp_path / "pack",
+            keystore=tmp_keys,
+            receipt_type_allowlist=PROOF_PACK_ALLOWED_RECEIPT_TYPES,
+        )
+        manifest = json.loads((out / "pack_manifest.json").read_text())
+
+        result = verify_proof_pack(manifest, out, tmp_keys)
+        assert result.passed, f"Errors: {[e.to_dict() for e in result.errors]}"
+
+    def test_verify_proof_pack_rejects_unknown_receipt_type(self, tmp_path, tmp_keys):
+        """Proof-pack verification fails closed on unknown receipt types."""
+        out, manifest = _make_external_pack_with_unknown_type(tmp_path, tmp_keys)
+
+        result = verify_proof_pack(manifest, out, tmp_keys)
+        assert not result.passed
+        assert any(
+            e.code == E_SCHEMA_UNKNOWN and e.field == "type" for e in result.errors
+        )
+        assert any("experimental_verdict" in e.message for e in result.errors)
+
+    def test_generic_verify_pack_manifest_still_accepts_unknown_type(
+        self, tmp_path, tmp_keys
+    ):
+        """The generic verifier remains unchanged for non-proof-pack callers."""
+        out, manifest = _make_external_pack_with_unknown_type(tmp_path, tmp_keys)
+
+        result = verify_pack_manifest(manifest, out, tmp_keys)
         assert result.passed, f"Errors: {[e.to_dict() for e in result.errors]}"
 
     def test_allowed_proof_pack_receipt_types_build_and_verify(
@@ -399,9 +571,7 @@ class TestProofPackBuilder:
         result = verify_pack_manifest(manifest, out, tmp_keys)
         assert result.passed, f"Errors: {[e.to_dict() for e in result.errors]}"
 
-    def test_unknown_proof_pack_receipt_type_rejected(
-        self, tmp_path, tmp_keys
-    ):
+    def test_unknown_proof_pack_receipt_type_rejected(self, tmp_path, tmp_keys):
         """Unknown proof-pack receipt types fail closed before publication."""
         receipts = [
             _make_receipt(
@@ -424,7 +594,11 @@ class TestProofPackBuilder:
         )
 
         with pytest.raises(ValueError, match="Unsupported proof-pack receipt type"):
-            pack.build(tmp_path / "pack", keystore=tmp_keys)
+            pack.build(
+                tmp_path / "pack",
+                keystore=tmp_keys,
+                receipt_type_allowlist=PROOF_PACK_ALLOWED_RECEIPT_TYPES,
+            )
 
     def test_verify_prefers_embedded_pubkey_over_wrong_local_key(
         self, tmp_path, tmp_keys, sample_receipts
@@ -442,9 +616,7 @@ class TestProofPackBuilder:
         wrong_keystore.generate_key("test-signer")
         result = verify_pack_manifest(manifest, out, wrong_keystore)
         assert result.passed, f"Errors: {[e.to_dict() for e in result.errors]}"
-        assert any(
-            "fingerprint differs" in w for w in result.warnings
-        )
+        assert any("fingerprint differs" in w for w in result.warnings)
 
     def test_manifest_tamper_detection(self, tmp_path, tmp_keys, sample_receipts):
         """Modify a file after packing — verification should fail."""
@@ -480,7 +652,9 @@ class TestProofPackBuilder:
         assert not result.passed
         assert any(e.code == E_PACK_SIG_INVALID for e in result.errors)
 
-    def test_detached_signature_mismatch_detection(self, tmp_path, tmp_keys, sample_receipts):
+    def test_detached_signature_mismatch_detection(
+        self, tmp_path, tmp_keys, sample_receipts
+    ):
         """Detached pack_signature.sig must match manifest signature bytes."""
         pack = ProofPack(
             trace_id="test_trace_007b",
@@ -595,7 +769,9 @@ class TestProofPackBuilder:
         codes = {e.code for e in result.errors}
         assert E_PACK_SIG_INVALID in codes or E_MANIFEST_TAMPER in codes
 
-    def test_verify_fails_closed_on_manifest_schema_error(self, tmp_path, tmp_keys, sample_receipts):
+    def test_verify_fails_closed_on_manifest_schema_error(
+        self, tmp_path, tmp_keys, sample_receipts
+    ):
         pack = ProofPack(
             trace_id="test_trace_schema_fail_closed",
             entries=sample_receipts,
@@ -608,9 +784,13 @@ class TestProofPackBuilder:
 
         result = verify_pack_manifest(manifest, out, tmp_keys)
         assert not result.passed
-        assert any("Manifest schema validation failed" in e.message for e in result.errors)
+        assert any(
+            "Manifest schema validation failed" in e.message for e in result.errors
+        )
 
-    def test_verify_allows_unsigned_sidecar_namespace(self, tmp_path, tmp_keys, sample_receipts):
+    def test_verify_allows_unsigned_sidecar_namespace(
+        self, tmp_path, tmp_keys, sample_receipts
+    ):
         pack = ProofPack(
             trace_id="test_trace_unsigned_namespace",
             entries=sample_receipts,
@@ -625,9 +805,13 @@ class TestProofPackBuilder:
 
         result = verify_pack_manifest(manifest, out, tmp_keys)
         assert result.passed, f"Errors: {[e.to_dict() for e in result.errors]}"
-        assert not any("Unexpected top-level pack entry" in warning for warning in result.warnings)
+        assert not any(
+            "Unexpected top-level pack entry" in warning for warning in result.warnings
+        )
 
-    def test_verify_warns_on_unexpected_top_level_entry(self, tmp_path, tmp_keys, sample_receipts):
+    def test_verify_warns_on_unexpected_top_level_entry(
+        self, tmp_path, tmp_keys, sample_receipts
+    ):
         pack = ProofPack(
             trace_id="test_trace_unexpected_entry",
             entries=sample_receipts,
@@ -649,6 +833,7 @@ class TestProofPackBuilder:
 # ---------------------------------------------------------------------------
 # Strict mode verification
 # ---------------------------------------------------------------------------
+
 
 class TestStrictMode:
     def test_permissive_passes_minimal_receipt(self):
@@ -711,8 +896,7 @@ class TestStrictMode:
         del r["schema_version"]
         errors = verify_receipt(r, strict=True)
         assert any(
-            e.code == E_SCHEMA_UNKNOWN and e.field == "schema_version"
-            for e in errors
+            e.code == E_SCHEMA_UNKNOWN and e.field == "schema_version" for e in errors
         )
 
     def test_strict_pack_level(self):
@@ -731,6 +915,7 @@ class TestStrictMode:
 # ---------------------------------------------------------------------------
 # Audit-hardening fields (proof_tier, pubkey, pack_root, metadata)
 # ---------------------------------------------------------------------------
+
 
 class TestAuditHardeningFields:
     def test_proof_tier_in_attestation(self, tmp_path, tmp_keys, sample_receipts):
@@ -755,7 +940,9 @@ class TestAuditHardeningFields:
         manifest = json.loads((out / "pack_manifest.json").read_text())
         assert manifest["attestation"]["time_authority"] == "local_clock"
 
-    def test_pack_summary_written_to_unsigned_sidecar(self, tmp_path, tmp_keys, sample_receipts):
+    def test_pack_summary_written_to_unsigned_sidecar(
+        self, tmp_path, tmp_keys, sample_receipts
+    ):
         pack = ProofPack(
             run_id="test_summary_sidecar",
             entries=sample_receipts,
@@ -776,7 +963,9 @@ class TestAuditHardeningFields:
         )
         out = pack.build(tmp_path / "pack", keystore=tmp_keys)
         manifest = json.loads((out / "pack_manifest.json").read_text())
-        assert manifest["attestation"]["head_hash_algorithm"] == "last-receipt-digest-v0"
+        assert (
+            manifest["attestation"]["head_hash_algorithm"] == "last-receipt-digest-v0"
+        )
 
     def test_canon_impl_fields(self, tmp_path, tmp_keys, sample_receipts):
         """Attestation records canon_impl and canon_impl_version."""
@@ -806,6 +995,7 @@ class TestAuditHardeningFields:
 
         # Verify fingerprint matches actual key
         import base64
+
         pubkey_bytes = base64.b64decode(manifest["signer_pubkey"])
         expected_fp = hashlib.sha256(pubkey_bytes).hexdigest()
         assert manifest["signer_pubkey_sha256"] == expected_fp
@@ -821,6 +1011,7 @@ class TestAuditHardeningFields:
         manifest = json.loads((out / "pack_manifest.json").read_text())
 
         import base64
+
         embedded_key = base64.b64decode(manifest["signer_pubkey"])
         keystore_key = tmp_keys.get_verify_key("test-signer").encode()
         assert embedded_key == keystore_key
@@ -896,6 +1087,7 @@ class TestAuditHardeningFields:
 # Claim verifier tests
 # ---------------------------------------------------------------------------
 
+
 class TestCheckFunctions:
     """Test each built-in check function individually."""
 
@@ -934,16 +1126,12 @@ class TestCheckFunctions:
 
     def test_receipt_count_ge_pass(self):
         receipts = [{"receipt_id": f"r{i}"} for i in range(5)]
-        result = check_receipt_count_ge(
-            receipts, claim_id="test", min_count=3
-        )
+        result = check_receipt_count_ge(receipts, claim_id="test", min_count=3)
         assert result.passed
 
     def test_receipt_count_ge_fail(self):
         receipts = [{"receipt_id": "r1"}]
-        result = check_receipt_count_ge(
-            receipts, claim_id="test", min_count=5
-        )
+        result = check_receipt_count_ge(receipts, claim_id="test", min_count=5)
         assert not result.passed
 
     def test_timestamps_monotonic_pass(self):
@@ -1020,8 +1208,11 @@ class TestVerifyClaims:
 
     def test_all_pass(self):
         receipts = [
-            {"type": "model_call", "receipt_id": "r1",
-             "timestamp": "2026-01-01T00:00:00Z"},
+            {
+                "type": "model_call",
+                "receipt_id": "r1",
+                "timestamp": "2026-01-01T00:00:00Z",
+            },
         ]
         claims = [
             ClaimSpec(
@@ -1210,6 +1401,7 @@ class TestVerifyClaims:
 # RunCard tests
 # ---------------------------------------------------------------------------
 
+
 class TestRunCards:
     def test_builtin_cards_count(self):
         assert len(BUILTIN_CARDS) == 6
@@ -1294,6 +1486,7 @@ class TestRunCards:
 # ---------------------------------------------------------------------------
 # Claim verification wiring into ProofPack
 # ---------------------------------------------------------------------------
+
 
 class TestClaimWiring:
     """Test that claim_check is wired into the ProofPack builder."""
@@ -1647,30 +1840,32 @@ class TestSchemaEnforcement:
         from assay.manifest_schema import validate_attestation
 
         # attestation_sha256 with wrong length
-        errors = validate_attestation({
-            "pack_id": "test",
-            "run_id": "test",
-            "suite_id": "test",
-            "suite_hash": "not-a-valid-hash",  # should be 64 hex chars
-            "verifier_version": "0.1.0",
-            "canon_version": "jcs-rfc8785",
-            "canon_impl": "receipts.jcs",
-            "canon_impl_version": "0.1.0",
-            "policy_hash": "a" * 64,
-            "claim_set_id": "none",
-            "claim_set_hash": "b" * 64,
-            "receipt_integrity": "PASS",
-            "claim_check": "N/A",
-            "assurance_level": "L0",
-            "proof_tier": "signed-pack",
-            "mode": "shadow",
-            "head_hash": "c" * 64,
-            "head_hash_algorithm": "last-receipt-digest-v0",
-            "time_authority": "local_clock",
-            "n_receipts": 0,
-            "timestamp_start": "2026-01-01T00:00:00+00:00",
-            "timestamp_end": "2026-01-01T00:00:00+00:00",
-        })
+        errors = validate_attestation(
+            {
+                "pack_id": "test",
+                "run_id": "test",
+                "suite_id": "test",
+                "suite_hash": "not-a-valid-hash",  # should be 64 hex chars
+                "verifier_version": "0.1.0",
+                "canon_version": "jcs-rfc8785",
+                "canon_impl": "receipts.jcs",
+                "canon_impl_version": "0.1.0",
+                "policy_hash": "a" * 64,
+                "claim_set_id": "none",
+                "claim_set_hash": "b" * 64,
+                "receipt_integrity": "PASS",
+                "claim_check": "N/A",
+                "assurance_level": "L0",
+                "proof_tier": "signed-pack",
+                "mode": "shadow",
+                "head_hash": "c" * 64,
+                "head_hash_algorithm": "last-receipt-digest-v0",
+                "time_authority": "local_clock",
+                "n_receipts": 0,
+                "timestamp_start": "2026-01-01T00:00:00+00:00",
+                "timestamp_end": "2026-01-01T00:00:00+00:00",
+            }
+        )
         assert len(errors) > 0
         assert any("suite_hash" in e for e in errors)
 
@@ -1678,38 +1873,41 @@ class TestSchemaEnforcement:
         """Invalid enum value (e.g., mode='invalid') is detected."""
         from assay.manifest_schema import validate_attestation
 
-        errors = validate_attestation({
-            "pack_id": "test",
-            "run_id": "test",
-            "suite_id": "test",
-            "suite_hash": "a" * 64,
-            "verifier_version": "0.1.0",
-            "canon_version": "jcs-rfc8785",
-            "canon_impl": "receipts.jcs",
-            "canon_impl_version": "0.1.0",
-            "policy_hash": "a" * 64,
-            "claim_set_id": "none",
-            "claim_set_hash": "b" * 64,
-            "receipt_integrity": "PASS",
-            "claim_check": "MAYBE",  # invalid enum
-            "assurance_level": "L0",
-            "proof_tier": "signed-pack",
-            "mode": "yolo",  # invalid enum
-            "head_hash": "c" * 64,
-            "head_hash_algorithm": "last-receipt-digest-v0",
-            "time_authority": "local_clock",
-            "n_receipts": 0,
-            "timestamp_start": "2026-01-01T00:00:00+00:00",
-            "timestamp_end": "2026-01-01T00:00:00+00:00",
-        })
+        errors = validate_attestation(
+            {
+                "pack_id": "test",
+                "run_id": "test",
+                "suite_id": "test",
+                "suite_hash": "a" * 64,
+                "verifier_version": "0.1.0",
+                "canon_version": "jcs-rfc8785",
+                "canon_impl": "receipts.jcs",
+                "canon_impl_version": "0.1.0",
+                "policy_hash": "a" * 64,
+                "claim_set_id": "none",
+                "claim_set_hash": "b" * 64,
+                "receipt_integrity": "PASS",
+                "claim_check": "MAYBE",  # invalid enum
+                "assurance_level": "L0",
+                "proof_tier": "signed-pack",
+                "mode": "yolo",  # invalid enum
+                "head_hash": "c" * 64,
+                "head_hash_algorithm": "last-receipt-digest-v0",
+                "time_authority": "local_clock",
+                "n_receipts": 0,
+                "timestamp_start": "2026-01-01T00:00:00+00:00",
+                "timestamp_end": "2026-01-01T00:00:00+00:00",
+            }
+        )
         assert len(errors) >= 2
         assert any("claim_check" in e for e in errors)
         assert any("mode" in e for e in errors)
 
     def test_missing_schemas_raises(self, monkeypatch):
         """Validation fails closed when schema files are missing."""
-        import assay.manifest_schema as ms
         from pathlib import Path
+
+        import assay.manifest_schema as ms
 
         # Point to a nonexistent directory
         monkeypatch.setattr(ms, "_SCHEMA_DIR", Path("/nonexistent/schemas"))
@@ -1718,6 +1916,7 @@ class TestSchemaEnforcement:
         monkeypatch.setattr(ms, "_attestation_validator", None)
 
         import pytest
+
         with pytest.raises(FileNotFoundError, match="Schema files not found"):
             ms.validate_manifest({"pack_id": "test"})
 
@@ -1728,6 +1927,7 @@ class TestSchemaEnforcement:
 # ---------------------------------------------------------------------------
 # Atomic pack publication (Phase 2 hardening)
 # ---------------------------------------------------------------------------
+
 
 class TestAtomicPackPublication:
     """Pack build must not leave partial directories on failure."""
@@ -1747,8 +1947,10 @@ class TestAtomicPackPublication:
         # Sabotage: make ensure_key succeed but sign_b64 fail
         ks.ensure_key("atomic-tester")
         original_sign = ks.sign_b64
+
         def broken_sign(data, signer_id="assay-local"):
             raise RuntimeError("simulated signing failure")
+
         ks.sign_b64 = broken_sign
 
         with pytest.raises(RuntimeError, match="simulated signing failure"):
@@ -1785,7 +1987,11 @@ class TestAtomicPackPublication:
         )
         output_dir = pack.build(tmp_path / "pack", keystore=ks)
         assert output_dir.exists()
-        for name in ["receipt_pack.jsonl", "verify_report.json",
-                     "verify_transcript.md", "pack_manifest.json",
-                     "pack_signature.sig"]:
+        for name in [
+            "receipt_pack.jsonl",
+            "verify_report.json",
+            "verify_transcript.md",
+            "pack_manifest.json",
+            "pack_signature.sig",
+        ]:
             assert (output_dir / name).exists(), f"missing {name}"

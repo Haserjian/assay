@@ -1,11 +1,11 @@
 """Tests for assay lock init command."""
+
 from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-import pytest
 from typer.testing import CliRunner
 
 from assay.commands import assay_app
@@ -36,6 +36,40 @@ def _build_valid_pack(tmp_path: Path) -> Path:
         mode="shadow",
     )
     return pack.build(tmp_path / "proof_pack_from_pack", keystore=ks)
+
+
+def _build_external_pack_with_unknown_type(tmp_path: Path, monkeypatch) -> Path:
+    """Build a cryptographically valid pack that violates the proof-pack type policy."""
+    ks = AssayKeyStore(keys_dir=tmp_path / "keys")
+    ks.generate_key("test-signer")
+    entries = [
+        {
+            "receipt_id": "r_lock_init_1",
+            "type": "model_call",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "schema_version": "3.0",
+            "seq": 0,
+        },
+        {
+            "receipt_id": "r_lock_init_2",
+            "type": "experimental_verdict",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "schema_version": "3.0",
+            "seq": 1,
+        },
+    ]
+    with monkeypatch.context() as context:
+        context.setattr(
+            "assay.proof_pack._assert_allowed_receipt_types", lambda entries: None
+        )
+        pack = ProofPack(
+            run_id="lock-init-foreign-pack",
+            entries=entries,
+            signer_id="test-signer",
+            claims=[],
+            mode="shadow",
+        )
+        return pack.build(tmp_path / "proof_pack_foreign", keystore=ks)
 
 
 class TestLockInit:
@@ -119,9 +153,38 @@ class TestLockInit:
 
         result = runner.invoke(
             assay_app,
-            ["lock", "init", "--from-pack", str(pack_dir), "-o", "should_not_exist.lock"],
+            [
+                "lock",
+                "init",
+                "--from-pack",
+                str(pack_dir),
+                "-o",
+                "should_not_exist.lock",
+            ],
         )
 
         assert result.exit_code == 1
         assert "Cannot import claim_set_hash from unverified pack" in result.output
+        assert not (tmp_path / "should_not_exist.lock").exists()
+
+    def test_from_pack_rejects_unknown_receipt_type(self, tmp_path, monkeypatch):
+        """--from-pack must apply the proof-pack-local receipt type policy."""
+        monkeypatch.chdir(tmp_path)
+        pack_dir = _build_external_pack_with_unknown_type(tmp_path, monkeypatch)
+
+        result = runner.invoke(
+            assay_app,
+            [
+                "lock",
+                "init",
+                "--from-pack",
+                str(pack_dir),
+                "-o",
+                "should_not_exist.lock",
+            ],
+        )
+
+        assert result.exit_code == 1
+        assert "Cannot import claim_set_hash from unverified pack" in result.output
+        assert "experimental_verdict" in result.output
         assert not (tmp_path / "should_not_exist.lock").exists()
