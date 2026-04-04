@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "assay-ai"
-version = "1.20.0"
+version = "1.20.1"
 description = "AI evidence that's harder to fake and easier to verify"
 authors = [
     { name = "Tim Bhaserjian", email = "tim2208@gmail.com" }
