@@ -11,17 +11,24 @@ beyond what proof_pack.py already imports.
 
 Spec: schemas/adc_v0.1.schema.json
 """
+
 from __future__ import annotations
 
 import hashlib
 from typing import Any, Callable, Dict, List, Optional
 
+from assay._receipts.canonicalize import validate_ascii_object_member_names
 from assay._receipts.jcs import canonicalize as jcs_canonicalize
 from assay.claim_verifier import ClaimSetResult
 
 
 def _sha256_hex(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def _canonicalize_adc_body(body: Dict[str, Any]) -> bytes:
+    validate_ascii_object_member_names(body)
+    return jcs_canonicalize(body)
 
 
 def _derive_overall_result(
@@ -54,7 +61,11 @@ def _derive_claim_results(
             "result": "PASS" if cr.passed else "FAIL",
         }
         if not cr.passed:
-            sev = cr.severity if cr.severity in ("info", "warning", "error", "critical") else "error"
+            sev = (
+                cr.severity
+                if cr.severity in ("info", "warning", "error", "critical")
+                else "error"
+            )
             entry["severity"] = sev
         results.append(entry)
     return results
@@ -80,10 +91,10 @@ def refresh_adc_witness_state(
     body["time_authority"] = time_authority
     body["witness_status"] = witness_status
 
-    credential_id = _sha256_hex(jcs_canonicalize(body))
+    credential_id = _sha256_hex(_canonicalize_adc_body(body))
     body["credential_id"] = credential_id
 
-    canonical_for_signing = jcs_canonicalize(body)
+    canonical_for_signing = _canonicalize_adc_body(body)
     body["signature"] = sign_fn(canonical_for_signing)
     return body
 
@@ -181,7 +192,8 @@ def build_adc(
         body["evidence_observed_at"] = evidence_observed_at
     if authority_snapshot is not None:
         # Opaque provenance payload supplied by the caller. Assay records it
-        # but does not derive, normalize, or enrich its contents.
+        # without semantic normalization, but the shared ASCII-only field-name
+        # policy still applies before canonicalization and signing.
         body["authority_snapshot"] = authority_snapshot
 
     # Time semantics
@@ -202,11 +214,11 @@ def build_adc(
     body["transparency_log_id"] = None
 
     # Step 2: credential_id = SHA-256(JCS(body))
-    credential_id = _sha256_hex(jcs_canonicalize(body))
+    credential_id = _sha256_hex(_canonicalize_adc_body(body))
     body["credential_id"] = credential_id
 
     # Step 3: signature = Sign(JCS(body + credential_id))
-    canonical_for_signing = jcs_canonicalize(body)
+    canonical_for_signing = _canonicalize_adc_body(body)
     signature_b64 = sign_fn(canonical_for_signing)
     body["signature"] = signature_b64
 

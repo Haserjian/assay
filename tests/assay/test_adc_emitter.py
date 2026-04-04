@@ -1,4 +1,5 @@
 """Tests for ADC v0.1 emitter."""
+
 from __future__ import annotations
 
 import base64
@@ -21,10 +22,13 @@ from assay.claim_verifier import ClaimResult, ClaimSetResult
 from assay.keystore import AssayKeyStore
 from assay.proof_pack import ProofPack, get_decision_credential_path
 
+CYRILLIC_I = "\u0456"
+
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _sha256_hex(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
@@ -66,7 +70,9 @@ def _authority_snapshot() -> dict:
     }
 
 
-def _minimal_adc_kwargs(ks: AssayKeyStore, *, authority_snapshot: dict | None = None) -> dict:
+def _minimal_adc_kwargs(
+    ks: AssayKeyStore, *, authority_snapshot: dict | None = None
+) -> dict:
     """Minimal valid kwargs for build_adc()."""
     vk = ks.get_verify_key("test-signer")
     pubkey_bytes = vk.encode()
@@ -93,8 +99,8 @@ def _minimal_adc_kwargs(ks: AssayKeyStore, *, authority_snapshot: dict | None = 
 # _derive_overall_result
 # ---------------------------------------------------------------------------
 
-class TestDeriveOverallResult:
 
+class TestDeriveOverallResult:
     def test_tampered_when_integrity_fails(self):
         assert _derive_overall_result(False, None) == "TAMPERED"
 
@@ -118,8 +124,8 @@ class TestDeriveOverallResult:
 # _derive_claim_results
 # ---------------------------------------------------------------------------
 
-class TestDeriveClaimResults:
 
+class TestDeriveClaimResults:
     def test_none_when_no_claims(self):
         assert _derive_claim_results(None) is None
 
@@ -127,8 +133,20 @@ class TestDeriveClaimResults:
         csr = ClaimSetResult(
             passed=False,
             results=[
-                ClaimResult(claim_id="c1", passed=True, expected="x", actual="x", severity="critical"),
-                ClaimResult(claim_id="c2", passed=False, expected="y", actual="z", severity="warning"),
+                ClaimResult(
+                    claim_id="c1",
+                    passed=True,
+                    expected="x",
+                    actual="x",
+                    severity="critical",
+                ),
+                ClaimResult(
+                    claim_id="c2",
+                    passed=False,
+                    expected="y",
+                    actual="z",
+                    severity="warning",
+                ),
             ],
             n_claims=2,
             n_passed=1,
@@ -143,7 +161,13 @@ class TestDeriveClaimResults:
         csr = ClaimSetResult(
             passed=False,
             results=[
-                ClaimResult(claim_id="c1", passed=False, expected="a", actual="b", severity="bogus"),
+                ClaimResult(
+                    claim_id="c1",
+                    passed=False,
+                    expected="a",
+                    actual="b",
+                    severity="bogus",
+                ),
             ],
             n_claims=1,
             n_passed=0,
@@ -157,18 +181,30 @@ class TestDeriveClaimResults:
 # build_adc
 # ---------------------------------------------------------------------------
 
-class TestBuildAdc:
 
+class TestBuildAdc:
     def test_required_fields_present(self, tmp_path):
         ks = _make_keystore(tmp_path)
         adc = build_adc(**_minimal_adc_kwargs(ks))
 
         required = [
-            "credential_id", "credential_version", "credential_type",
-            "issued_at", "issuer_id", "signer_pubkey", "signer_pubkey_sha256",
-            "claim_namespace", "claim_ids", "evidence_manifest_sha256",
-            "evidence_pack_id", "integrity_result", "overall_result",
-            "evaluated_at", "signature", "signature_scope", "canon_version",
+            "credential_id",
+            "credential_version",
+            "credential_type",
+            "issued_at",
+            "issuer_id",
+            "signer_pubkey",
+            "signer_pubkey_sha256",
+            "claim_namespace",
+            "claim_ids",
+            "evidence_manifest_sha256",
+            "evidence_pack_id",
+            "integrity_result",
+            "overall_result",
+            "evaluated_at",
+            "signature",
+            "signature_scope",
+            "canon_version",
         ]
         for field in required:
             assert field in adc, f"Missing required field: {field}"
@@ -224,9 +260,17 @@ class TestBuildAdc:
         kwargs["claim_result"] = ClaimSetResult(
             passed=False,
             results=[
-                ClaimResult(claim_id="c1", passed=False, expected="x", actual="y", severity="critical"),
+                ClaimResult(
+                    claim_id="c1",
+                    passed=False,
+                    expected="x",
+                    actual="y",
+                    severity="critical",
+                ),
             ],
-            n_claims=1, n_passed=0, n_failed=1,
+            n_claims=1,
+            n_passed=0,
+            n_failed=1,
         )
         kwargs["claim_ids"] = ["c1"]
         adc = build_adc(**kwargs)
@@ -275,11 +319,33 @@ class TestBuildAdc:
 
         vk = ks.get_verify_key("test-signer")
         sig_bytes = base64.b64decode(adc["signature"])
-        vk.verify(jcs_canonicalize({k: v for k, v in adc.items() if k != "signature"}), sig_bytes)
+        vk.verify(
+            jcs_canonicalize({k: v for k, v in adc.items() if k != "signature"}),
+            sig_bytes,
+        )
 
-        schema_path = Path(__file__).resolve().parent.parent.parent / "src" / "assay" / "schemas" / "adc_v0.1.schema.json"
+        schema_path = (
+            Path(__file__).resolve().parent.parent.parent
+            / "src"
+            / "assay"
+            / "schemas"
+            / "adc_v0.1.schema.json"
+        )
         schema = json.loads(schema_path.read_text())
         jsonschema.validate(adc, schema)
+
+    def test_rejects_non_ascii_field_names_in_authority_snapshot(self, tmp_path):
+        ks = _make_keystore(tmp_path)
+        kwargs = _minimal_adc_kwargs(
+            ks,
+            authority_snapshot={
+                "source_system": "ccio",
+                f"semantic_author{CYRILLIC_I}ty_version": "0.1.0",
+            },
+        )
+
+        with pytest.raises(ValueError, match="ASCII-only"):
+            build_adc(**kwargs)
 
     def test_nullable_fields_default_to_none(self, tmp_path):
         ks = _make_keystore(tmp_path)
@@ -319,17 +385,45 @@ class TestBuildAdc:
         assert refreshed["witness_status"] == "witnessed"
         assert refreshed["authority_snapshot"] == snapshot
 
-        body = {k: v for k, v in refreshed.items() if k not in ("credential_id", "signature")}
+        body = {
+            k: v
+            for k, v in refreshed.items()
+            if k not in ("credential_id", "signature")
+        }
         expected_id = _sha256_hex(jcs_canonicalize(body))
         assert refreshed["credential_id"] == expected_id
 
         vk = ks.get_verify_key("test-signer")
         sig_bytes = base64.b64decode(refreshed["signature"])
-        vk.verify(jcs_canonicalize({k: v for k, v in refreshed.items() if k != "signature"}), sig_bytes)
+        vk.verify(
+            jcs_canonicalize({k: v for k, v in refreshed.items() if k != "signature"}),
+            sig_bytes,
+        )
 
-        schema_path = Path(__file__).resolve().parent.parent.parent / "src" / "assay" / "schemas" / "adc_v0.1.schema.json"
+        schema_path = (
+            Path(__file__).resolve().parent.parent.parent
+            / "src"
+            / "assay"
+            / "schemas"
+            / "adc_v0.1.schema.json"
+        )
         schema = json.loads(schema_path.read_text())
         jsonschema.validate(refreshed, schema)
+
+    def test_refresh_witness_state_rejects_non_ascii_field_names(self, tmp_path):
+        ks = _make_keystore(tmp_path)
+        adc = build_adc(
+            **_minimal_adc_kwargs(ks, authority_snapshot=_authority_snapshot())
+        )
+        adc["authority_snapshot"][f"w{CYRILLIC_I}tness"] = "bad"
+
+        with pytest.raises(ValueError, match="ASCII-only"):
+            refresh_adc_witness_state(
+                adc,
+                time_authority="tsa_anchored",
+                witness_status="witnessed",
+                sign_fn=_make_sign_fn(ks),
+            )
 
     def test_deterministic_same_input_same_id(self, tmp_path):
         """Same inputs produce same credential_id (content-addressable)."""
@@ -352,7 +446,13 @@ class TestBuildAdc:
         ks = _make_keystore(tmp_path)
         adc = build_adc(**_minimal_adc_kwargs(ks))
 
-        schema_path = Path(__file__).resolve().parent.parent.parent / "src" / "assay" / "schemas" / "adc_v0.1.schema.json"
+        schema_path = (
+            Path(__file__).resolve().parent.parent.parent
+            / "src"
+            / "assay"
+            / "schemas"
+            / "adc_v0.1.schema.json"
+        )
         if not schema_path.exists():
             pytest.skip(f"Schema not found at {schema_path}")
         schema = json.loads(schema_path.read_text())
@@ -371,8 +471,8 @@ class TestBuildAdc:
 # ProofPack integration
 # ---------------------------------------------------------------------------
 
-class TestProofPackIntegration:
 
+class TestProofPackIntegration:
     def test_emit_adc_false_by_default(self, tmp_path):
         """Default build does not emit decision_credential.json."""
         ks = _make_keystore(tmp_path)
@@ -421,6 +521,24 @@ class TestProofPackIntegration:
         adc = json.loads(cred_path.read_text())
         assert adc["authority_snapshot"] == snapshot
 
+    def test_emit_adc_rejects_non_ascii_field_names_in_authority_snapshot(
+        self, tmp_path
+    ):
+        ks = _make_keystore(tmp_path)
+        pack = ProofPack(
+            run_id="run-002-bad-snapshot",
+            entries=[_make_receipt()],
+            emit_adc=True,
+            signer_id="test-signer",
+            authority_snapshot={
+                "source_system": "ccio",
+                f"semantic_author{CYRILLIC_I}ty_version": "0.1.0",
+            },
+        )
+
+        with pytest.raises(ValueError, match="ASCII-only"):
+            pack.build(tmp_path / "pack_bad_snapshot", keystore=ks)
+
     def test_emit_adc_with_deterministic_ts(self, tmp_path):
         """Deterministic timestamp flows through to ADC."""
         ks = _make_keystore(tmp_path)
@@ -432,7 +550,9 @@ class TestProofPackIntegration:
             signer_id="test-signer",
         )
         out = pack.build(tmp_path / "pack", keystore=ks, deterministic_ts=ts)
-        adc = json.loads(get_decision_credential_path(out, legacy_fallback=False).read_text())
+        adc = json.loads(
+            get_decision_credential_path(out, legacy_fallback=False).read_text()
+        )
         assert adc["issued_at"] == ts
         assert adc["evaluated_at"] == ts
 
@@ -447,7 +567,9 @@ class TestProofPackIntegration:
             signer_id="test-signer",
         )
         out = pack.build(tmp_path / "pack", keystore=ks)
-        adc = json.loads(get_decision_credential_path(out, legacy_fallback=False).read_text())
+        adc = json.loads(
+            get_decision_credential_path(out, legacy_fallback=False).read_text()
+        )
         assert adc["claim_namespace"] == "assay:vendorq_v1"
 
     def test_emit_adc_manual_namespace_fallback(self, tmp_path):
@@ -460,7 +582,9 @@ class TestProofPackIntegration:
             signer_id="test-signer",
         )
         out = pack.build(tmp_path / "pack", keystore=ks)
-        adc = json.loads(get_decision_credential_path(out, legacy_fallback=False).read_text())
+        adc = json.loads(
+            get_decision_credential_path(out, legacy_fallback=False).read_text()
+        )
         assert adc["claim_namespace"] == "assay:pack:v0.1"
 
     def test_emit_adc_explicit_namespace(self, tmp_path):
@@ -474,7 +598,9 @@ class TestProofPackIntegration:
             signer_id="test-signer",
         )
         out = pack.build(tmp_path / "pack", keystore=ks)
-        adc = json.loads(get_decision_credential_path(out, legacy_fallback=False).read_text())
+        adc = json.loads(
+            get_decision_credential_path(out, legacy_fallback=False).read_text()
+        )
         assert adc["claim_namespace"] == "org:fintech:loan:v1"
 
     def test_emit_adc_signature_verifies(self, tmp_path):
@@ -487,7 +613,9 @@ class TestProofPackIntegration:
             signer_id="test-signer",
         )
         out = pack.build(tmp_path / "pack", keystore=ks)
-        adc = json.loads(get_decision_credential_path(out, legacy_fallback=False).read_text())
+        adc = json.loads(
+            get_decision_credential_path(out, legacy_fallback=False).read_text()
+        )
 
         without_sig = {k: v for k, v in adc.items() if k != "signature"}
         canonical = jcs_canonicalize(without_sig)
@@ -507,5 +635,7 @@ class TestProofPackIntegration:
         out = pack.build(tmp_path / "pack", keystore=ks)
 
         manifest = json.loads((out / "pack_manifest.json").read_text())
-        adc = json.loads(get_decision_credential_path(out, legacy_fallback=False).read_text())
+        adc = json.loads(
+            get_decision_credential_path(out, legacy_fallback=False).read_text()
+        )
         assert adc["evidence_manifest_sha256"] == manifest["pack_root_sha256"]
