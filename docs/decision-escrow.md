@@ -1,149 +1,38 @@
 # Decision Escrow
 
-> **Current trust tier: T0 (self-signed)** | Next: T1 (time-anchored)
+Prefer the styled public page: [decision-escrow.html](decision-escrow.html).
 
-> **Boundary note:** this is an advanced/bridge document. The primary
-> public story for Assay today is the evidence-compiler flow in
-> [README](../README.md) and
-> [WHAT_ASSAY_DOES_TODAY.md](WHAT_ASSAY_DOES_TODAY.md). Decision Escrow
-> describes the protocol model and the path toward consequence gating.
+This document describes the protocol model underlying Assay. For the public product overview and the getting-started workflow shipping today, start with [the main page](index.html).
+
+> **Current trust tier: T0 (self-signed)** | Next: T1 (time-anchored)
 
 **Agent actions don't settle until they're verified.**
 
-Decision Escrow is the protocol model behind Assay. It treats every AI
-agent action as a transaction that moves through four phases before it
-settles. The evidence produced at each phase is cryptographically signed,
-portable, and independently verifiable.
+Decision Escrow is the protocol model behind Assay. It treats every consequential AI action as a transaction that moves through four phases before it settles: authorization, execution, verification, and downstream trust update.
 
-## The Problem
+## The four phases
 
-An AI agent calls a tool, sends an email, modifies a database, or makes
-a trade. Did the action match its authorization? Was the output within
-constraints? Was the evidence complete?
+1. **Preflight permit** — authorize the action before execution.
+2. **Execution with evidence** — emit receipts while the action runs.
+3. **Settlement** — verify integrity, claims, and completeness.
+4. **Reputation update** — feed verified outcomes back into trust state.
 
-Today, the answer is "check the logs." But logs are mutable, incomplete,
-and require trust in the operator. There is no settlement step. The
-action just happens.
+## What exists today
 
-## The Protocol
+Assay ships the execution-evidence and settlement layers today:
 
-```
-1. PREFLIGHT PERMIT
-   Agent requests action -> policy gate checks constraints -> issues permit
-   Evidence: permit receipt (policy hash, constraints, expiry)
+- `assay patch` + `assay run` emit signed receipts for supported LLM calls.
+- `assay verify-pack` checks integrity and claims.
+- `assay diff --gate` enforces regression and budget thresholds.
 
-2. EXECUTION WITH EVIDENCE
-   Agent executes action -> runtime emits receipts for every operation
-   Evidence: execution receipts (inputs, outputs, model, timing, hashes)
+## What Assay proves
 
-3. SETTLEMENT
-   Verifier checks: permit valid? execution within constraints? evidence complete?
-   Evidence: verification report (integrity check, claim results, coverage)
+- Evidence was not altered after creation
+- Contracted call sites emitted receipts under a completeness contract
+- Declared checks passed or failed honestly against authentic evidence
 
-4. REPUTATION UPDATE
-   Outcome feeds back into agent trust scoring
-   Evidence: reputation receipt (delta, new score, basis)
-```
+## What it does not prove by itself
 
-Each phase produces a signed receipt. The receipts bundle into a proof
-pack. The pack verifies offline. No server access. No trust relationship.
-
-## What Exists Today (Assay v1.6.0)
-
-Assay implements phases 2 and 3 of Decision Escrow:
-
-| Phase | Status | How |
-|-------|--------|-----|
-| Preflight Permit | Future | Requires Guardian policy gate (private stack) |
-| **Execution with Evidence** | **Shipping** | `assay patch` + `assay run` emit signed receipts for every LLM call. Schema v3.0 with `parent_receipt_id` for causal chains. |
-| **Settlement** | **Shipping** | `assay verify-pack` checks integrity + claims; `assay diff --gate` enforces budget thresholds; `--against-previous --why` traces regressions to root cause. Key rotation via `assay key rotate`. |
-| Reputation Update | Future | Requires trust scoring infrastructure |
-
-The core loop a developer uses today:
-
-```bash
-assay quickstart              # see it work
-assay patch                   # instrument your SDK calls
-assay run -c receipt_completeness -- python my_app.py
-assay verify-pack ./proof_pack_*/
-assay diff ./baseline_pack/ ./proof_pack_*/ --gate-cost-pct 25 --gate-errors 0 --gate-strict
-```
-
-This produces a portable proof pack that any third party can verify
-offline with `python3 -m pip install assay-ai && assay verify-pack ./proof_pack_*/`.
-
-The public first-contact truth remains simple: Assay instruments existing
-AI workflows and proves what happened in a real run. Episode/checkpoint
-APIs are part of the bridge toward settlement membranes, but they are
-not the first-contact product story in this charter.
-
-## What Assay Proves
-
-- **Integrity**: evidence was not altered after creation (Ed25519 + SHA-256)
-- **Completeness**: all instrumented call sites emitted receipts (coverage contract)
-- **Claim compliance**: declared governance checks passed or failed honestly
-- **Budget enforcement**: cost, latency, and error thresholds can be gated in CI/settlement workflows
-
-## What Assay Does Not Prove
-
-- That the receipts describe reality (a dishonest operator can fabricate a run)
-- That all call sites were instrumented (scanner detects gaps, but can't force instrumentation)
-- That timestamps are accurate (without external anchoring)
-- That the model behaved correctly (Assay proves what happened, not whether it was right)
-
-## How to Strengthen Guarantees
-
-| Trust Tier | What it adds | Status |
-|------------|-------------|--------|
-| **T0: Self-signed** | Ed25519 keypair, local signing | Shipping |
-| T1: Time-anchored | RFC 3161 TSA or Sigstore timestamp | Planned |
-| T2: Independent witness | Transparency log (assay-ledger) or Rekor | Planned |
-| T3: Runtime attestation | Hardware-backed signing (TPM/SGX) | Future |
-
-Each tier makes fabrication harder. At T0, the operator controls the key.
-At T2, a third party independently witnesses the evidence. At T3, the
-hardware itself attests to execution.
-
-**The cost of cheating scales with the complexity of the lie.** Assay
-doesn't make fraud impossible. It makes fraud expensive.
-
-## For Procurement Teams
-
-When evaluating an AI vendor:
-
-1. Ask for a proof pack from a recent run.
-2. Install Assay: `python3 -m pip install assay-ai`
-3. Verify: `assay verify-pack ./their_pack/`
-4. Read the summary: `assay explain ./their_pack/`
-
-If they can't produce a pack, they have no evidence infrastructure.
-If the pack fails integrity, the evidence was altered.
-If the pack fails claims, controls were violated -- but the failure
-itself is authentic evidence.
-
-## For Agent Platform Builders
-
-If you build agent orchestration (MCP servers, tool-use frameworks,
-multi-agent systems), Decision Escrow gives you a settlement layer:
-
-- Every tool call produces a receipt
-- Every agent action has verifiable evidence
-- Every session bundles into a portable proof pack
-- CI gates enforce budget and regression thresholds
-
-The receipt is the atomic unit. The proof pack is the artifact.
-The verifier is the judge. The gate is the enforcer.
-
-## Relationship to Standards
-
-| Standard | What Assay provides |
-|----------|-------------------|
-| SOC 2 (CC7.2) | Tamper-evident audit trail with integrity verification |
-| ISO 42001 | Evidence artifacts for AI management system audits |
-| EU AI Act (Articles 12, 19) | Logging and documentation for high-risk AI systems |
-| NIST AI RMF | Evidence of governance controls and monitoring |
-| Colorado AI Act | Documentation of algorithmic decision-making |
-
-Assay is one building block toward compliance, not full compliance
-by itself. It provides the evidence layer; policy and process are
-the organization's responsibility.
+- That a dishonest operator could never fabricate a run
+- That every possible call site was instrumented
+- That local timestamps are externally anchored

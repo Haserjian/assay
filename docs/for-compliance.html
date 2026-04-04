@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Assay for Compliance Teams</title>
+<meta name="description" content="Portable, independently verifiable evidence for AI system runs: what Assay produces, what a reviewer can verify offline, and where the trust boundaries remain.">
+<link rel="canonical" href="https://haserjian.github.io/assay/for-compliance.html">
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg2: #161b22;
+    --bg3: #1c2128;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text2: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --red: #f85149;
+    --yellow: #d29922;
+    --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+  }
+  .container { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+  .article { max-width: 780px; margin: 0 auto; }
+  nav {
+    border-bottom: 1px solid var(--border);
+    padding: 16px 0;
+    position: sticky;
+    top: 0;
+    background: rgba(13, 17, 23, 0.96);
+    backdrop-filter: blur(6px);
+    z-index: 100;
+  }
+  nav .container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .logo {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+    text-decoration: none;
+    font-family: var(--mono);
+  }
+  .links {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .links a {
+    color: var(--text2);
+    text-decoration: none;
+    font-size: 14px;
+  }
+  .links a:hover { color: var(--text); }
+  .links .cta {
+    background: var(--accent);
+    color: var(--bg);
+    padding: 7px 14px;
+    border-radius: 6px;
+    font-weight: 600;
+  }
+  .hero {
+    padding: 72px 0 36px;
+  }
+  .eyebrow {
+    color: var(--accent);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+    margin-bottom: 14px;
+  }
+  h1 {
+    font-size: 42px;
+    line-height: 1.12;
+    letter-spacing: -0.02em;
+    margin-bottom: 16px;
+  }
+  .lede {
+    color: var(--text);
+    font-size: 19px;
+    max-width: 720px;
+    margin-bottom: 24px;
+  }
+  .hero-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+    gap: 24px;
+    align-items: start;
+  }
+  .banner {
+    background: rgba(210,153,34,0.12);
+    border: 1px solid rgba(210,153,34,0.35);
+    border-radius: 10px;
+    padding: 16px 18px;
+    color: var(--text2);
+    font-size: 15px;
+  }
+  .banner strong { color: var(--text); }
+  .summary-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+  }
+  .summary-card h3 {
+    font-size: 17px;
+    margin-bottom: 10px;
+  }
+  .summary-card ul { margin: 0 0 0 18px; }
+  .summary-card li {
+    color: var(--text2);
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+  article { padding: 18px 0 40px; }
+  article h2 {
+    font-size: 26px;
+    margin-top: 46px;
+    margin-bottom: 14px;
+    letter-spacing: -0.01em;
+  }
+  article p, article li {
+    color: var(--text2);
+    font-size: 16px;
+  }
+  article p { margin-bottom: 16px; }
+  article strong { color: var(--text); }
+  article ul, article ol { margin: 0 0 18px 22px; }
+  article li { margin-bottom: 8px; }
+  article a, footer a, .cta-band a { color: var(--accent); text-decoration: none; }
+  article a:hover, footer a:hover, .cta-band a:hover { text-decoration: underline; }
+  article code {
+    font-family: var(--mono);
+    background: var(--bg2);
+    color: var(--green);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 14px;
+  }
+  pre {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--text);
+    margin: 18px 0 24px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 18px 0 24px;
+    font-size: 15px;
+  }
+  th {
+    text-align: left;
+    padding: 12px 14px;
+    color: var(--text2);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 2px solid var(--border);
+  }
+  td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text2);
+    vertical-align: top;
+  }
+  td strong { color: var(--text); }
+  .badge {
+    display: inline-block;
+    border-radius: 999px;
+    padding: 2px 10px;
+    font-size: 12px;
+    font-family: var(--mono);
+    font-weight: 700;
+  }
+  .pass { background: rgba(63,185,80,0.16); color: var(--green); }
+  .warn { background: rgba(210,153,34,0.16); color: var(--yellow); }
+  .fail { background: rgba(248,81,73,0.16); color: var(--red); }
+  .grid-2 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 18px;
+    margin: 22px 0 26px;
+  }
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+  }
+  .card h3 {
+    font-size: 18px;
+    margin-bottom: 10px;
+  }
+  .card ul { margin: 0 0 0 18px; }
+  .card li { font-size: 15px; }
+  .cta-band {
+    margin: 42px 0 10px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+  }
+  .cta-band h2 { margin-top: 0; }
+  .cta-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 18px;
+  }
+  .btn {
+    display: inline-block;
+    text-decoration: none;
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .btn-primary { background: var(--accent); color: var(--bg) !important; }
+  .btn-secondary {
+    border: 1px solid var(--border);
+    color: var(--text) !important;
+    background: transparent;
+  }
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 30px 0 40px;
+    text-align: center;
+    color: var(--text2);
+    font-size: 13px;
+    margin-top: 18px;
+  }
+  @media (max-width: 840px) {
+    .hero-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 720px) {
+    h1 { font-size: 32px; }
+    .lede { font-size: 17px; }
+    .links { gap: 14px; }
+  }
+  @media (max-width: 560px) {
+    nav .container { flex-direction: column; align-items: flex-start; }
+    .links { justify-content: flex-start; }
+  }
+</style>
+</head>
+<body>
+<nav>
+  <div class="container">
+    <a class="logo" href="./">assay</a>
+    <div class="links">
+      <a href="./">Product</a>
+      <a href="decision-escrow.html">Decision Escrow</a>
+      <a href="evidence-readiness.html">Evidence Readiness</a>
+      <a href="https://haserjian.github.io/assay-proof-gallery/" target="_blank">Proof Gallery</a>
+      <a href="https://github.com/Haserjian/assay" target="_blank">GitHub</a>
+      <a class="cta" href="https://github.com/Haserjian/assay/issues/new?template=pilot-inquiry.md" target="_blank">Get a Pilot</a>
+    </div>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="container hero-grid">
+    <div class="article" style="max-width: none; margin: 0;">
+      <div class="eyebrow">Compliance &amp; audit handoff</div>
+      <h1>Portable evidence for what an AI system actually did.</h1>
+      <p class="lede">
+        When someone asks “show me evidence of what your AI system did,” Assay produces a proof pack a reviewer can inspect independently. No server access required.
+      </p>
+      <div class="banner">
+        <strong>Regulatory timing:</strong> EU AI Act obligations for Article 12 logging on high-risk systems apply from <strong>August 2, 2026</strong>. Assay helps with tamper-evident checkpoint evidence and traceability, but it supplements operational logging rather than replacing it.
+      </div>
+    </div>
+    <aside class="summary-card">
+      <h3>What a reviewer can do</h3>
+      <ul>
+        <li>Receive a proof pack from engineering or a vendor</li>
+        <li>Run <code>assay verify-pack</code> offline</li>
+        <li>Run <code>assay explain</code> for a plain-English summary</li>
+        <li>Distinguish authentic control failure from tampering</li>
+      </ul>
+    </aside>
+  </div>
+</section>
+
+<article>
+  <div class="container article">
+    <h2>What Assay produces</h2>
+    <p>
+      A <strong>proof pack</strong> is a self-contained evidence bundle for a single AI system run. Five files. One Ed25519 signature. Independently verifiable.
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>File</th>
+          <th>What it contains</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>receipt_pack.jsonl</code></td>
+          <td>Structured evidence records, usually one per LLM call or governance event.</td>
+        </tr>
+        <tr>
+          <td><code>pack_manifest.json</code></td>
+          <td>SHA-256 hashes of every file included in the pack.</td>
+        </tr>
+        <tr>
+          <td><code>pack_signature.sig</code></td>
+          <td>Ed25519 signature over the manifest.</td>
+        </tr>
+        <tr>
+          <td><code>verify_report.json</code></td>
+          <td>Machine-readable verification result.</td>
+        </tr>
+        <tr>
+          <td><code>verify_transcript.md</code></td>
+          <td>Human-readable verification narrative.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>What receipts record</h2>
+    <p>
+      <strong>Included by default:</strong> model name, provider, timestamp, prompt hash, response hash, token counts, and call site identifier.
+    </p>
+    <p>
+      <strong>Not included by default:</strong> prompt text, response text, API keys, or PII. Full content capture is opt-in and off by default.
+    </p>
+
+    <h2>What verification checks</h2>
+    <p>
+      Running <code>assay verify-pack ./proof_pack_*/</code> answers two different questions: whether the evidence was tampered with, and whether the declared governance checks passed.
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>Result</th>
+          <th>Exit code</th>
+          <th>Meaning</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="badge pass">Integrity PASS / Claims PASS</span></td>
+          <td><code>0</code></td>
+          <td>Evidence is authentic and behavior meets declared standards.</td>
+        </tr>
+        <tr>
+          <td><span class="badge warn">Integrity PASS / Claims FAIL</span></td>
+          <td><code>1</code></td>
+          <td>Evidence is authentic but standards were violated. This is honest failure, not tampering.</td>
+        </tr>
+        <tr>
+          <td><span class="badge fail">Integrity FAIL</span></td>
+          <td><code>2</code></td>
+          <td>Evidence changed after signing or the pack is structurally broken.</td>
+        </tr>
+        <tr>
+          <td><span class="badge warn">Bad input</span></td>
+          <td><code>3</code></td>
+          <td>Invalid arguments or missing files. This is not a trust verdict.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>
+      <strong>Why the split matters:</strong> a system that can prove it failed honestly is more trustworthy than a system that only ever claims to pass.
+    </p>
+
+    <h2>What an auditor review looks like</h2>
+<pre>python3 -m pip install assay-ai
+assay verify-pack ./proof_pack_*/
+assay explain ./proof_pack_*/</pre>
+    <p>
+      The reviewer does not need access to the original server, database, or API keys. The pack is designed to travel.
+    </p>
+    <p>
+      <code>assay explain</code> summarizes what happened, the integrity result, claim results, what the pack proves, and the current trust boundaries.
+    </p>
+
+    <h2>What Assay proves — and what it does not</h2>
+    <div class="grid-2">
+      <div class="card">
+        <h3>What it proves</h3>
+        <ul>
+          <li>Evidence files have not been modified since signing</li>
+          <li>Declared call sites emitted receipts under a completeness contract</li>
+          <li>Declared governance checks passed or failed against authentic evidence</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>What it does not prove</h3>
+        <ul>
+          <li>That receipts perfectly represent runtime reality if the operator fabricates a run</li>
+          <li>That every possible action was captured outside the instrumented or contracted surface</li>
+          <li>That timestamps correspond to real-world time without an external anchor</li>
+          <li>That signer authority is established beyond structural cryptographic validity at the base tier</li>
+        </ul>
+      </div>
+    </div>
+
+    <h2>How to strengthen guarantees</h2>
+    <div class="grid-2">
+      <div class="card">
+        <h3>Raise the trust tier</h3>
+        <ul>
+          <li><strong>Transparency log:</strong> external append-only witness such as <a href="https://github.com/Haserjian/assay-ledger" target="_blank">assay-ledger</a></li>
+          <li><strong>CI-held org keys:</strong> separates the signing key from the individual developer</li>
+          <li><strong>External timestamping:</strong> third-party proof of “before this date”</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Operational boundary</h3>
+        <ul>
+          <li>Assay is a <strong>checkpoint governance evidence tool</strong></li>
+          <li>It produces tamper-detectable signed evidence at discrete evaluation or run boundaries</li>
+          <li>It supplements continuous operational logging; it does not replace it</li>
+        </ul>
+      </div>
+    </div>
+
+    <h2>Framework alignment</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Framework</th>
+          <th>How Assay helps</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>SOC 2 (CC7.2)</strong></td>
+          <td>Supports monitoring and anomaly review with portable, tamper-evident evidence artifacts.</td>
+        </tr>
+        <tr>
+          <td><strong>ISO 42001</strong></td>
+          <td>Supports AI management system documentation and audit evidence conversations.</td>
+        </tr>
+        <tr>
+          <td><strong>EU AI Act (Articles 12 &amp; 19)</strong></td>
+          <td>Supports traceability and evidence handoff; does not replace operational lifetime logging.</td>
+        </tr>
+        <tr>
+          <td><strong>NIST AI RMF</strong></td>
+          <td>Supports governance, accountability, and documentation practices with independently reviewable artifacts.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>CI integration</h2>
+<pre># 1) Generate pack during test run
+assay run -c receipt_completeness -- python test_app.py
+
+# 2) Verify integrity + claims against locked policy
+assay verify-pack ./proof_pack_*/ --lock assay.lock --require-claim-pass
+
+# 3) Enforce operational gates
+assay diff ./baseline_pack/ ./proof_pack_*/ --gate-cost-pct 25 --gate-errors 0 --gate-strict</pre>
+    <p>
+      Exit code <code>0</code> means merge allowed. Exit code <code>1</code> means claims or gates failed honestly. Exit code <code>2</code> signals tampering or lock drift. Exit code <code>3</code> is bad input.
+    </p>
+
+    <h2>Engineering handoff checklist</h2>
+<pre>assay scan .
+assay scan . --report
+assay run -- python app.py
+assay doctor</pre>
+    <p>
+      This runbook distinguishes “no supported call sites,” “not instrumented,” and “run command wiring issue” including the required <code>--</code> separator.
+    </p>
+
+    <div class="cta-band">
+      <h2>Need the protocol view behind this page?</h2>
+      <p>
+        Read <a href="decision-escrow.html">Decision Escrow</a> for the larger settlement model, trust-tier ladder, and the path from runtime evidence toward consequence gating.
+      </p>
+      <div class="cta-actions">
+        <a class="btn btn-primary" href="decision-escrow.html">Read Decision Escrow</a>
+        <a class="btn btn-secondary" href="./">Back to the main page</a>
+      </div>
+    </div>
+  </div>
+</article>
+
+<footer>
+  <div class="container">
+    <p>
+      <a href="./">Assay</a> &middot;
+      <a href="decision-escrow.html">Decision Escrow</a> &middot;
+      <a href="evidence-readiness.html">Evidence Readiness</a> &middot;
+      <a href="https://haserjian.github.io/assay-proof-gallery/">Proof Gallery</a>
+    </p>
+    <p style="margin-top: 8px;">Open source under Apache-2.0. Available on <a href="https://pypi.org/project/assay-ai/" target="_blank">PyPI</a>.</p>
+  </div>
+</footer>
+</body>
+</html>
