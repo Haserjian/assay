@@ -6,19 +6,29 @@ Microsoft enforces runtime policy. Assay proves what happened.
 
 ![assay demo-challenge](demo.gif)
 
-```bash
-pip install assay-ai
-assay demo-challenge       # tamper detection demo (shown above)
-assay try-mcp              # MCP tool calls, receipted and signed (30 seconds)
-```
-
 One byte changed. Verification fails. No server call. Just math.
 
-Assay turns AI runs into signed proof packs another team can verify offline — no vendor server required. It makes post-run tampering visible, preserves honest failures, and lets verification happen without trusting the operator.
+### Install
 
-**[Verify a packet in your browser](https://haserjian.github.io/assay-proof-gallery/verify.html)** — no install, no account. Drag in a proof pack, see the result.
+```bash
+pip install assay-ai
+```
 
-**[See the before/after specimen](https://github.com/Haserjian/assay-proof-gallery/tree/main/gallery/07-contested-decision)** — when a decision is disputed, the difference between reconstruction and verification.
+### Start here
+
+**Best first run:**
+
+```bash
+assay demo-challenge
+```
+
+**Or choose another path:**
+
+- **[Verify a proof pack in your browser](https://haserjian.github.io/assay-proof-gallery/verify.html)** — no install, no account
+- **MCP demo:** `assay try-mcp` — MCP tool calls with signed receipts (30 seconds)
+- **[See the before/after specimen](https://github.com/Haserjian/assay-proof-gallery/tree/main/gallery/07-contested-decision)** — contested decision, reconstruction vs verification
+
+Assay turns AI runs into signed proof packs another team can verify offline. It makes tampering visible and preserves honest failure.
 
 ---
 
