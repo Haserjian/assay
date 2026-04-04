@@ -1841,6 +1841,7 @@ def try_cmd(
     from pathlib import Path
 
     from assay.claim_verifier import ClaimSpec
+    from assay.integrity import verify_pack_manifest
     from assay.keystore import AssayKeyStore
     from assay.proof_pack import ProofPack
 
