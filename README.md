@@ -8,18 +8,13 @@ Microsoft enforces runtime policy. Assay proves what happened.
 
 ```bash
 pip install assay-ai
-assay demo-challenge
+assay demo-challenge       # tamper detection demo (shown above)
+assay try-mcp              # MCP tool calls, receipted and signed (30 seconds)
 ```
 
 One byte changed. Verification fails. No server call. Just math.
 
 Assay turns AI runs into signed proof packs another team can verify offline — no vendor server required. It makes post-run tampering visible, preserves honest failures, and lets verification happen without trusting the operator.
-
-```bash
-assay try-mcp
-```
-
-Three MCP tool calls. Receipted. Signed. Verified. 30 seconds. No API key.
 
 **[Verify a packet in your browser](https://haserjian.github.io/assay-proof-gallery/verify.html)** — no install, no account. Drag in a proof pack, see the result.
 
