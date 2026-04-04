@@ -41,6 +41,10 @@ jobs:
           cache: npm
           cache-dependency-path: assay-verify-ts/package-lock.json
 
+      - name: Install TypeScript verifier dependencies
+        working-directory: assay-verify-ts
+        run: npm ci
+
       - name: Run TypeScript shared receipt corpus regression
         working-directory: assay-verify-ts
         env:
