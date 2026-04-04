@@ -141,12 +141,15 @@ invariants:
     release_gate: none
     enforced_by:
       - src/assay/_receipts/canonicalize.py
+      - src/assay/evidence_pack.py
       - tests/contracts/parity/test_invariants.py::TestInv07AsciiFieldNameValidation
+      - tests/assay/test_evidence_pack.py::TestMerkleRoot::test_get_merkle_root_rejects_non_ascii_field_names
       - tests/contracts/vectors/regression/homoglyph_field_bypass_spec.json
     break_signal: >
       A non-ASCII object member name is accepted into prepare_receipt_for_hashing()
-      or canonical_projection(), OR public language implies broader TR39-style
-      confusable screening than the current ASCII-only implementation provides.
+      or canonical_projection(), or evidence_pack trace hashing/export paths,
+      OR public language implies broader TR39-style confusable screening than
+      the current ASCII-only implementation provides.
     claim_refs: [C-12]
     note: >
       This is a higher-layer identifier policy above JCS. It blocks non-ASCII

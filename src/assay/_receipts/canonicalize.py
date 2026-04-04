@@ -230,7 +230,7 @@ def prepare_receipt_for_hashing(receipt: Any, *, version: str = "v0") -> dict:
         raise TypeError(f"Cannot convert {type(receipt).__name__} to dict for hashing")
 
     data = unwrap_frozen(data)
-    _validate_ascii_object_member_names(data)
+    validate_ascii_object_member_names(data)
     return {k: v for k, v in data.items() if k not in exclusions}
 
 
@@ -359,17 +359,17 @@ def canonical_projection(receipt: Any, projection_id: str = "receipt-core-v2") -
         )
 
     data = unwrap_frozen(data)
-    _validate_ascii_object_member_names(data)
+    validate_ascii_object_member_names(data)
     return {k: v for k, v in data.items() if k not in exclusions}
 
 
-def _validate_ascii_object_member_names(value: Any, *, path: str = "$") -> None:
+def validate_ascii_object_member_names(value: Any, *, path: str = "$") -> None:
     """Reject non-ASCII object member names before projection/canonicalization.
 
     RFC 8785 preserves parsed string data as-is. Assay's spoof-resistance for
     receipt field names therefore lives above JCS as a schema/identifier policy.
     This helper enforces the current narrow policy: all object member names in
-    attestation input must be ASCII-only.
+    receipt-derived attestation input must be ASCII-only.
 
     Args:
         value: Arbitrary JSON-like structure.
@@ -392,12 +392,12 @@ def _validate_ascii_object_member_names(value: Any, *, path: str = "$") -> None:
                     "characters. Assay's field-name policy requires ASCII-only names "
                     "before projection and canonicalization."
                 )
-            _validate_ascii_object_member_names(nested_value, path=f"{path}.{key}")
+            validate_ascii_object_member_names(nested_value, path=f"{path}.{key}")
         return
 
     if isinstance(value, list):
         for index, item in enumerate(value):
-            _validate_ascii_object_member_names(item, path=f"{path}[{index}]")
+            validate_ascii_object_member_names(item, path=f"{path}[{index}]")
 
 
 def compute_bundle_digest(
@@ -469,6 +469,7 @@ __all__ = [
     "parse_ijson_receipt",
     "canonical_projection",
     "compute_bundle_digest",
+    "validate_ascii_object_member_names",
     # v2 doctrine
     "PROJECTION_DOCTRINE",
     "PROJECTION_EXCLUSIONS",

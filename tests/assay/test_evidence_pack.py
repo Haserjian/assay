@@ -1,8 +1,9 @@
 """
 Tests for Evidence Pack generator.
 """
-import json
+
 import hashlib
+import json
 import tempfile
 import zipfile
 from pathlib import Path
@@ -12,6 +13,8 @@ import pytest
 
 class TestMerkleRoot:
     """Tests for Merkle root generation."""
+
+    CYRILLIC_I = "\u0456"
 
     def test_get_merkle_root_empty(self):
         """Empty entries return null root."""
@@ -25,9 +28,9 @@ class TestMerkleRoot:
 
     def test_get_merkle_root_with_entries(self):
         """Entries produce valid merkle root."""
-        from assay.evidence_pack import get_merkle_root
         from assay._receipts.jcs import canonicalize as jcs_canonicalize
         from assay._receipts.merkle import compute_merkle_root
+        from assay.evidence_pack import get_merkle_root
 
         entries = [
             {"type": "test", "value": 1},
@@ -36,8 +39,7 @@ class TestMerkleRoot:
         result = get_merkle_root(entries)
 
         leaf_hashes = [
-            hashlib.sha256(jcs_canonicalize(entry)).hexdigest()
-            for entry in entries
+            hashlib.sha256(jcs_canonicalize(entry)).hexdigest() for entry in entries
         ]
         expected_root = compute_merkle_root(leaf_hashes)
 
@@ -47,6 +49,21 @@ class TestMerkleRoot:
         assert result["hash_algorithm"] == "sha256"
         assert result["canonicalization"] == "jcs-rfc8785"
         assert "computed_at" in result
+
+    def test_get_merkle_root_rejects_non_ascii_field_names(self):
+        """Receipt-like trace entries inherit the ASCII-only field-name policy."""
+        from assay.evidence_pack import get_merkle_root
+
+        entries = [
+            {
+                "receipt_id": "r1",
+                "type": "test",
+                f"s{self.CYRILLIC_I}gnatures": [{"value": "bad"}],
+            }
+        ]
+
+        with pytest.raises(ValueError, match="ASCII-only"):
+            get_merkle_root(entries)
 
 
 class TestClaimMap:
@@ -120,7 +137,10 @@ class TestGenerateReadme:
             entry_count=5,
             merkle_root="abc123",
             verify_passed=True,
-            build_meta={"generated_at": "2025-02-05T12:00:00Z", "assay_version": "0.1.0"},
+            build_meta={
+                "generated_at": "2025-02-05T12:00:00Z",
+                "assay_version": "0.1.0",
+            },
         )
 
         assert "trace_test123" in readme
@@ -138,7 +158,10 @@ class TestGenerateReadme:
             entry_count=3,
             merkle_root="xyz789",
             verify_passed=False,
-            build_meta={"generated_at": "2025-02-05T12:00:00Z", "assay_version": "0.1.0"},
+            build_meta={
+                "generated_at": "2025-02-05T12:00:00Z",
+                "assay_version": "0.1.0",
+            },
         )
 
         assert "**FAILED**" in readme
@@ -214,7 +237,11 @@ class TestEvidencePack:
         pack = EvidencePack(trace_id="trace_test")
         pack.entries = [
             {"type": "test", "receipt_id": "r1", "_stored_at": "2025-02-05T12:00:01Z"},
-            {"type": "test", "receipt_id": "r2", "_stored_at": "2025-02-05T12:00:00Z"},  # Goes backwards
+            {
+                "type": "test",
+                "receipt_id": "r2",
+                "_stored_at": "2025-02-05T12:00:00Z",
+            },  # Goes backwards
         ]
 
         passed = pack.verify()
@@ -228,9 +255,21 @@ class TestEvidencePack:
         pack = EvidencePack(trace_id="trace_test")
         # These are the same instant, just different representations
         pack.entries = [
-            {"type": "test", "receipt_id": "r1", "_stored_at": "2025-02-05T12:00:00+00:00"},
-            {"type": "test", "receipt_id": "r2", "_stored_at": "2025-02-05T13:00:00+01:00"},  # Same instant as above
-            {"type": "test", "receipt_id": "r3", "_stored_at": "2025-02-05T14:00:00+00:00"},  # Later
+            {
+                "type": "test",
+                "receipt_id": "r1",
+                "_stored_at": "2025-02-05T12:00:00+00:00",
+            },
+            {
+                "type": "test",
+                "receipt_id": "r2",
+                "_stored_at": "2025-02-05T13:00:00+01:00",
+            },  # Same instant as above
+            {
+                "type": "test",
+                "receipt_id": "r3",
+                "_stored_at": "2025-02-05T14:00:00+00:00",
+            },  # Later
         ]
 
         passed = pack.verify()
@@ -396,6 +435,24 @@ class TestEvidencePack:
                 # Metadata should indicate non-forensic mode
                 build_meta = json.loads(zf.read("build_metadata.json"))
                 assert build_meta["forensic_mode"] is False
+
+    def test_export_zip_rejects_non_ascii_field_names(self):
+        """Canonicalized export must reject non-ASCII object member names."""
+        from assay.evidence_pack import EvidencePack
+
+        pack = EvidencePack(trace_id="trace_test")
+        pack.entries = [
+            {
+                "receipt_id": "r1",
+                "type": "test",
+                f"s{TestMerkleRoot.CYRILLIC_I}gnatures": [{"value": "bad"}],
+            }
+        ]
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = Path(tmpdir) / "test_non_ascii_pack.zip"
+            with pytest.raises(ValueError, match="ASCII-only"):
+                pack.export_zip(output_path)
 
 
 class TestCreateEvidencePack:

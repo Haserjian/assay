@@ -13,6 +13,7 @@ Usage:
     assay pack <trace_id> -o evidence_pack.zip
     assay pack <trace_id> --include-source  # Include relevant source files
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -25,8 +26,15 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from assay import __version__ as assay_version
+from assay._receipts.canonicalize import validate_ascii_object_member_names
 from assay._receipts.jcs import canonicalize as jcs_canonicalize
 from assay._receipts.merkle import compute_merkle_root
+
+
+def _canonicalize_trace_entry(entry: Dict[str, Any]) -> bytes:
+    """Apply Assay's receipt field-name policy before JCS serialization."""
+    validate_ascii_object_member_names(entry)
+    return jcs_canonicalize(entry)
 
 
 def get_merkle_root(entries: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -42,7 +50,7 @@ def get_merkle_root(entries: List[Dict[str, Any]]) -> Dict[str, Any]:
 
     leaf_hashes: List[str] = []
     for entry in entries:
-        canonical_bytes = jcs_canonicalize(entry)
+        canonical_bytes = _canonicalize_trace_entry(entry)
         leaf_hashes.append(hashlib.sha256(canonical_bytes).hexdigest())
 
     root = compute_merkle_root(leaf_hashes)
@@ -66,7 +74,13 @@ CLAIM_MAP = {
             {
                 "file": "src/receipts/domains/model_call.py",
                 "class": "ModelCallReceipt",
-                "fields": ["model_id", "input_tokens", "output_tokens", "latency_ms", "finish_reason"],
+                "fields": [
+                    "model_id",
+                    "input_tokens",
+                    "output_tokens",
+                    "latency_ms",
+                    "finish_reason",
+                ],
             }
         ],
         "tests": ["tests/receipts/test_patent_receipts.py::TestModelCallReceipt"],
@@ -79,11 +93,21 @@ CLAIM_MAP = {
             {
                 "file": "src/receipts/domains/dignity_budget.py",
                 "class": "DignityBudgetRefusalReceipt",
-                "fields": ["budget_before", "budget_projected", "budget_floor", "budget_deficit"],
+                "fields": [
+                    "budget_before",
+                    "budget_projected",
+                    "budget_floor",
+                    "budget_deficit",
+                ],
             }
         ],
-        "tests": ["tests/receipts/test_patent_receipts.py::TestDignityBudgetRefusalReceipt"],
-        "invariants": ["budget_projected < budget_floor", "budget_deficit == budget_floor - budget_projected"],
+        "tests": [
+            "tests/receipts/test_patent_receipts.py::TestDignityBudgetRefusalReceipt"
+        ],
+        "invariants": [
+            "budget_projected < budget_floor",
+            "budget_deficit == budget_floor - budget_projected",
+        ],
     },
     "claim_15": {
         "title": "Guardian verdict with dignity facets",
@@ -92,7 +116,12 @@ CLAIM_MAP = {
             {
                 "file": "src/receipts/domains/guardian_verdict.py",
                 "class": "GuardianVerdictReceipt",
-                "fields": ["verdict", "dignity_composite", "dignity_facet_scores", "matched_policies"],
+                "fields": [
+                    "verdict",
+                    "dignity_composite",
+                    "dignity_facet_scores",
+                    "matched_policies",
+                ],
             },
             {
                 "file": "src/receipts/domains/guardian_verdict.py",
@@ -101,7 +130,10 @@ CLAIM_MAP = {
             },
         ],
         "tests": ["tests/receipts/test_patent_receipts.py::TestGuardianVerdictReceipt"],
-        "invariants": ["DEFER requires escalation_path", "Cannot ALLOW when dignity_floor_violated"],
+        "invariants": [
+            "DEFER requires escalation_path",
+            "Cannot ALLOW when dignity_floor_violated",
+        ],
     },
     "claim_17": {
         "title": "Capability max_calls tracking",
@@ -110,7 +142,12 @@ CLAIM_MAP = {
             {
                 "file": "src/receipts/domains/capability_use.py",
                 "class": "CapabilityUseReceipt",
-                "fields": ["max_calls_original", "calls_before", "calls_after", "calls_remaining"],
+                "fields": [
+                    "max_calls_original",
+                    "calls_before",
+                    "calls_after",
+                    "calls_remaining",
+                ],
             }
         ],
         "tests": ["tests/receipts/test_patent_receipts.py::TestCapabilityUseReceipt"],
@@ -152,8 +189,8 @@ def generate_readme(
     forensic_note = "enabled" if forensic_mode else "disabled"
     return f"""# Evidence Pack: {trace_id}
 
-Generated: {build_meta['generated_at']}
-Generator: Assay {build_meta['assay_version']}
+Generated: {build_meta["generated_at"]}
+Generator: Assay {build_meta["assay_version"]}
 Canonicalization: {canonicalization}
 Hash algorithm: {hash_algorithm}
 Forensic mode: {forensic_note}
@@ -269,7 +306,9 @@ class EvidencePack:
             receipt_id = entry.get("receipt_id")
             if receipt_id:
                 if receipt_id in seen_ids:
-                    self.verify_errors.append(f"Entry {entry_num}: duplicate receipt_id")
+                    self.verify_errors.append(
+                        f"Entry {entry_num}: duplicate receipt_id"
+                    )
                 seen_ids.add(receipt_id)
             else:
                 # Missing receipt_id - error or warning based on config
@@ -284,12 +323,18 @@ class EvidencePack:
             if timestamp_str:
                 try:
                     # Parse ISO format timestamp
-                    timestamp = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
+                    timestamp = datetime.fromisoformat(
+                        timestamp_str.replace("Z", "+00:00")
+                    )
                     if prev_timestamp and timestamp < prev_timestamp:
-                        self.verify_errors.append(f"Entry {entry_num}: temporal ordering violation")
+                        self.verify_errors.append(
+                            f"Entry {entry_num}: temporal ordering violation"
+                        )
                     prev_timestamp = timestamp
                 except (ValueError, TypeError):
-                    self.verify_warnings.append(f"Entry {entry_num}: invalid timestamp format")
+                    self.verify_warnings.append(
+                        f"Entry {entry_num}: invalid timestamp format"
+                    )
 
         return len(self.verify_errors) == 0
 
@@ -338,7 +383,8 @@ class EvidencePack:
             else:
                 # Canonicalized (JCS) trace for deterministic replay
                 trace_content = "\n".join(
-                    jcs_canonicalize(entry).decode("utf-8") for entry in self.entries
+                    _canonicalize_trace_entry(entry).decode("utf-8")
+                    for entry in self.entries
                 )
                 zf.writestr("trace.jsonl", trace_content)
 
