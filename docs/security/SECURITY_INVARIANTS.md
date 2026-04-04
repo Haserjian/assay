@@ -100,17 +100,18 @@ Each invariant has:
 
 ---
 
-## INV-07: Confusable Hardening Is Not Active Yet
+## INV-07: ASCII-Only Field-Name Validation Is Active Before Projection
 
-**Claim**: Assay does not currently advertise ASCII-only or confusable-aware field-name filtering above JCS. That remains an optional hardening step, not a current guarantee.
+**Claim**: Assay rejects non-ASCII object member names before projection and other attestation input formation. This is a higher-layer identifier policy above JCS.
 
-**Status**: OPEN
+**Status**: ENFORCED
 
 **Control**:
-- [`SECURITY_AUDIT_ADJUDICATION_2026-04-03.md`](SECURITY_AUDIT_ADJUDICATION_2026-04-03.md)
-- [`CLAIM_LEDGER.md`](CLAIM_LEDGER.md)
+- `src/assay/_receipts/canonicalize.py`
+- `tests/contracts/parity/test_invariants.py`
+- `tests/contracts/vectors/regression/homoglyph_field_bypass_spec.json`
 
-**Break signal**: Public language implies spoof-resistant field-name filtering before an actual validation policy is implemented.
+**Break signal**: A non-ASCII object member name is accepted into `prepare_receipt_for_hashing()` or `canonical_projection()`, or public language overclaims broader TR39-style confusable screening than the current ASCII-only implementation provides.
 
 ---
 
@@ -139,10 +140,10 @@ Each invariant has:
 | INV-04 | Unsupported PQ posture | PARTIAL |
 | INV-05 | Ledger witness scope honesty | PARTIAL |
 | INV-06 | JCS normalization boundary | ENFORCED |
-| INV-07 | Confusable hardening not active | OPEN |
+| INV-07 | ASCII-only field-name validation | ENFORCED |
 | INV-08 | Signer bootstrap default is explicit | PARTIAL |
 
-This is the live posture after adjudication: one retired phantom, several clarified current truths, and one optional hardening lane rather than an all-surfaces panic state.
+This is the live posture after adjudication: one retired phantom, several clarified current truths, and a landed higher-layer field-name policy rather than an all-surfaces panic state.
 
 ---
 

@@ -134,23 +134,25 @@ invariants:
     note: RFC 8785 preserves parsed string data as-is. This is correct behavior.
 
   - id: INV-07
-    title: Confusable Field-Name Hardening Is Not Yet Active
-    status: OPEN
+    title: ASCII-Only Field-Name Validation Is Active Before Projection
+    status: ENFORCED
     severity: medium
     owner: timmybhaserjian
     release_gate: none
-    enforced_by: null
+    enforced_by:
+      - src/assay/_receipts/canonicalize.py
+      - tests/contracts/parity/test_invariants.py::TestInv07AsciiFieldNameValidation
+      - tests/contracts/vectors/regression/homoglyph_field_bypass_spec.json
     break_signal: >
-      Public language implies spoof-resistant or ASCII-only field-name filtering
-      before an actual validation policy is implemented and tested.
+      A non-ASCII object member name is accepted into prepare_receipt_for_hashing()
+      or canonical_projection(), OR public language implies broader TR39-style
+      confusable screening than the current ASCII-only implementation provides.
     claim_refs: [C-12]
-    hardening_candidate: true
-    hardening_note: >
-      Adding ASCII field name validation in canonical_projection() is a valid
-      future hardening step. When implemented, it becomes a testable invariant.
-      The regression fixture tests/contracts/vectors/regression/homoglyph_field_bypass_spec.json
-      documents the attack pattern for when this hardening is added.
-    last_reviewed: "2026-04-03"
+    note: >
+      This is a higher-layer identifier policy above JCS. It blocks non-ASCII
+      field names before attestation input is formed. Broader TR39-style
+      confusable or mixed-script screening remains optional future hardening.
+    last_reviewed: "2026-04-04"
     exception_policy: null
 
   - id: INV-08
@@ -203,9 +205,9 @@ health:
   last_audit: "2026-04-03"
   audit_method: multi-agent-swarm-8-agents
   adjudicated: "2026-04-03"
-  enforced: [INV-06]
+  enforced: [INV-06, INV-07]
   partial: [INV-01, INV-02, INV-03, INV-04, INV-05, INV-08]
-  open: [INV-07]
+  open: []
   release_gate_hard: [INV-02, INV-04]
   release_gate_soft: [INV-01, INV-03, INV-05, INV-08]
   marketing_blockers: [INV-02, INV-04]

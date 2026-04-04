@@ -75,14 +75,14 @@ Runs on a schedule or before a customer demo, audit handoff, or major announceme
 **Focus lanes:**
 1. Signer bootstrap drift
 2. Ledger scope drift
-3. Confusable-field hardening decision
+3. Broader identifier-hardening decision beyond the current ASCII-only key policy
 4. New mixed-contract claims
 
 **Output format:**
 ```
 WEEK OF YYYY-MM-DD
 Changed: [file list]
-Lane touched: [signer | ledger | confusable | contract-boundary]
+Lane touched: [signer | ledger | identifier-policy | contract-boundary]
 Drift found: [list or "none"]
 Action required: [yes/no + what]
 ```
@@ -118,7 +118,7 @@ When a new concern appears:
 
 ## Current Short Queue
 
-1. Optional confusable or ASCII prevalidation above JCS.
+1. Optional broader TR39-style screening above the current ASCII-only field-name policy.
 2. Stronger signer policy only if intentionally chosen and implemented.
 3. Stronger ledger scope only if the full-pack protocol upgrade is intentionally chosen and implemented.
 

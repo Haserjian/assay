@@ -1,0 +1,32 @@
+{
+  "format_version": "0.1.0",
+  "specimen": "homoglyph_field_bypass",
+  "invariant": "INV-07",
+  "description": "A receipt containing a field named with a Cyrillic lookalike to 'signatures' (U+0456 CYRILLIC SMALL LETTER BYELORUSSIAN-UKRAINIAN I instead of U+0069 LATIN SMALL LETTER I). A conforming canonicalization boundary must reject non-ASCII object member names before projection so spoof-like field names cannot enter attestation input.",
+  "receipt": {
+    "receipt_id": "regression-inv07-homoglyph",
+    "type": "test",
+    "timestamp": "2026-04-03T00:00:00Z",
+    "ts": "2026-04-03T00:00:00Z",
+    "payload": {
+      "action": "regression-test"
+    },
+    "s\u0456gnatures": [
+      {
+        "note": "This field name uses Cyrillic i (U+0456) not Latin i (U+0069). It looks like 'signatures' but is not in the exclusion set. It should be rejected or sanitized before projection."
+      }
+    ]
+  },
+  "homoglyph_details": {
+    "field_name_bytes_latin": "s-i-g-n-a-t-u-r-e-s (U+0073 U+0069 U+0067 U+006E U+0061 U+0074 U+0075 U+0072 U+0065 U+0073)",
+    "field_name_bytes_cyrillic": "s-\u0456-g-n-a-t-u-r-e-s (U+0073 U+0456 U+0067 U+006E U+0061 U+0074 U+0075 U+0072 U+0065 U+0073)",
+    "in_exclusion_set": false,
+    "rejected_before_projection": true
+  },
+  "expected_behavior": {
+    "correct": "Field-name validation rejects the receipt before projection or other attestation input formation because object member names must be ASCII-only.",
+    "historical_broken_behavior": "Field passed through to canonical projection, entered bundle_digest, and allowed injected signed content through a non-excluded lookalike field name."
+  },
+  "conformance_requirement": "A conforming canonicalization boundary MUST reject non-ASCII object member names before computing canonical projection or other attestation input. Unicode homoglyphs of excluded field names must not reach the projection layer.",
+  "source": "2026-04-03 multi-agent security audit"
+}

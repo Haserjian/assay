@@ -43,6 +43,20 @@ It is not:
 
 The proof-pack contract is its own surface and must be judged against [`docs/contracts/PACK_CONTRACT.md`](../contracts/PACK_CONTRACT.md).
 
+## Field-Name Policy Today
+
+Assay now rejects non-ASCII object member names before projection and other attestation input is formed.
+
+That means:
+- spoof-like non-ASCII field names do not reach `canonical_projection`
+- the same ASCII-only rule also applies to the historical receipt hashing path before JCS is invoked
+
+This is intentionally a higher-layer identifier policy above JCS.
+
+It is not:
+- a change to RFC 8785 behavior
+- a claim that Assay performs full Unicode TR39-style confusable or mixed-script screening beyond the current ASCII-only field-name rule
+
 ## Trusted Signer Posture Today
 
 At the low-level ReceiptV2 verifier layer, `trusted_signer` is narrower than full signer authorization.
@@ -101,7 +115,7 @@ Two operating decisions are now explicit:
 
 The remaining short queue is:
 
-3. Decide whether to add ASCII-only or confusable-aware field-name validation above JCS as a hardening step.
+3. If desired later, add broader TR39-style confusable or mixed-script screening above the current ASCII-only field-name policy.
 4. If product strategy changes later, implement stronger signer policy and/or stronger ledger verification first, then widen the claim surface after the code and workflow land.
 
 The main mixed-contract panic has already been retired.

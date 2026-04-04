@@ -30,14 +30,14 @@
 | C7 | The public ledger independently re-verifies the whole proof pack, or at least provides stronger assurance than the workflow actually delivers. | **Real and still open.** The real issue was scope. The ledger witnesses the manifest and attestation layer, not the full pack tree. README, charter, and workflow wording now say that honestly. Stronger full-pack independent re-verification is still a protocol gap if that stronger claim is desired. | Transparency log witness scope and protocol design | Docs corrected; stronger protocol still open | If stronger claims are required, extend submission so the ledger can fetch or receive full pack contents and recompute receipt/file hashes before append. |
 | H4 | AgentMesh CI and README language imply cryptographic enforcement is guaranteed by default because `assay-gate` exists in CI. | **Real but docs-only.** The problem was naming and assurance language, not a missing cryptographic verification step. `assay-gate` is baseline evidence-readiness scoring; `assay-verify` is the cryptographic proof-pack verification step; GitHub branch protection must be configured explicitly. | CI semantics and branch-protection policy | Closed via README correction | Optionally add branch-protection bootstrap or CI linting if the repo wants enforcement-by-construction instead of documentation-only guidance. |
 | M1 | JCS is wrong or unsafe because it does not normalize Unicode before canonicalization. | **False / overstated.** RFC 8785 explicitly preserves parsed string data as-is and does not perform Unicode normalization. This is not a standards bug in JCS. Any ASCII-only or confusable rule belongs to higher-level schema or identifier policy. | Standards interpretation: JCS vs application policy | Retired | No code change at the JCS layer. Only add higher-layer field-name policy if the product wants that posture. |
-| Homoglyph issue | Unicode lookalikes can create spoof-like field-name confusion, including around excluded or special field names. | **Real and still open, but at the correct layer.** This is not a JCS bug. It is a schema and identifier hardening question. Pre-projection ASCII-only validation or TR39-style confusable screening would address the spoof-like edge if that surface matters to the project. | Field-name policy and canonical projection hardening | Open hardening candidate | Decide between ASCII-only field names and confusable-aware screening, then implement it before projection or receipt validation if desired. |
+| Homoglyph issue | Unicode lookalikes can create spoof-like field-name confusion, including around excluded or special field names. | **Real and fixed at the current shipping layer.** This was never a JCS bug; it was a schema and identifier hardening question. Assay now rejects non-ASCII object member names before projection and other attestation input is formed. | Field-name policy and canonical projection hardening | Closed by 2026-04-04 ASCII-only validation | Treat any future TR39-style confusable or mixed-script screening as additional hardening above the current ASCII-only policy, not as a JCS correction. |
 
 ## Settlement Notes
 
 1. The most important retired phantom is the C2/C3 proof-pack verifier contradiction. That claim depended on mixing two different contracts.
 2. The most important still-open architectural question is C7: whether the ledger should evolve from manifest/attestation witnessing to full-pack independent re-verification.
 3. C4 remains a real trust-surface question, but it is now narrowed correctly: the unresolved issue is bootstrap and policy activation, not the total absence of trust evaluation.
-4. M1 and the homoglyph issue must stay separated. JCS is behaving according to spec; any spoof-resistance rule lives above JCS.
+4. M1 and the homoglyph issue must stay separated. JCS is behaving according to spec; the shipping spoof-resistance rule now lives above JCS as an ASCII-only field-name policy.
 
 ## Current Constitutional Reading
 
@@ -47,5 +47,6 @@ The 2026-04-03 investigation reduced the original fog into four stable conclusio
 - One real semantic cleanup landed around `trusted_signer`, but bootstrap policy still needs a deliberate decision.
 - One real capability-signaling issue landed cleanly around unsupported PQ posture.
 - One real architectural question remains open around how much the public ledger should independently prove.
+- One higher-layer field-name hardening slice has now landed without changing JCS behavior.
 
 That is the canonical settlement as of this memo.

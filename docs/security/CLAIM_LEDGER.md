@@ -20,7 +20,7 @@ Format:
 |---|-------|-------|--------|--------|
 | C-01 | "Assay cryptographically signs proof-pack receipts using Ed25519." | `tests/assay/test_v2_sign.py`, `tests/assay/test_v2_verify.py` | PROVEN | — |
 | C-02 | "Assay detects tampering with attested receipt fields." | `tests/assay/test_v2_sign.py`, `tests/assay/test_v2_verify.py`, `tests/contracts/vectors/pack/tampered_receipt_content/` | PROVEN | This covers attested fields only. Fields intentionally excluded from the projection are outside that guarantee. |
-| C-03 | "Assay uses RFC 8785 JCS canonicalization before signing." | `tests/contracts/vectors/jcs_vectors.json`, `docs/contracts/PACK_CONTRACT.md` | PROVEN | JCS preserves parsed string data as-is. Do not market ASCII-only or confusable filtering unless a higher-level field-name policy is added. |
+| C-03 | "Assay uses RFC 8785 JCS canonicalization before signing." | `tests/contracts/vectors/jcs_vectors.json`, `docs/contracts/PACK_CONTRACT.md` | PROVEN | JCS preserves parsed string data as-is. Assay's current field-name hardening is a higher-level ASCII-only policy above JCS, not a JCS extension. |
 | C-04 | "Assay currently supports post-quantum receipt verification." | — | UNPROVEN | **Do not use this language.** Current builds recognize PQ algorithm identifiers but report them as unsupported, and do not emit or verify PQ signatures end-to-end. |
 
 ---
@@ -50,19 +50,19 @@ Format:
 
 | # | Claim | Proof | Status | Caveat |
 |---|-------|-------|--------|--------|
-| C-12 | "Assay rejects Unicode confusable or non-ASCII field names before projection." | — | UNPROVEN | **Do not use this language.** Confusable-aware or ASCII-only field-name validation is a still-open hardening option above JCS, not a current guarantee. |
+| C-12 | "Assay rejects non-ASCII field names before projection and attestation input formation." | `src/assay/_receipts/canonicalize.py`, `tests/contracts/parity/test_invariants.py`, `tests/contracts/vectors/regression/homoglyph_field_bypass_spec.json` | PROVEN | This is an ASCII-only field-name policy. Do not market broader Unicode TR39-style confusable or mixed-script screening unless that additional logic is implemented. |
 
 ---
 
-## Claim Ledger Health Summary (2026-04-03)
+## Claim Ledger Health Summary (2026-04-04)
 
 | Status | Count | Claims |
 |--------|-------|--------|
-| PROVEN | 5 | C-01, C-02, C-03, C-05, C-09 |
+| PROVEN | 6 | C-01, C-02, C-03, C-05, C-09, C-12 |
 | QUALIFIED | 2 | C-07, C-10 |
-| UNPROVEN | 5 | C-04, C-06, C-08, C-11, C-12 |
+| UNPROVEN | 4 | C-04, C-06, C-08, C-11 |
 
-**Do not use C-04, C-06, C-08, C-11, or C-12 in public-facing material until the posture changes and the corresponding proof is added here.**
+**Do not use C-04, C-06, C-08, or C-11 in public-facing material until the posture changes and the corresponding proof is added here.**
 
 ---
 

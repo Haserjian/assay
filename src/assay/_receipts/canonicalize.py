@@ -43,10 +43,10 @@ import hashlib
 import json
 from typing import Any
 
-from .merkle import compute_merkle_root
-from assay._receipts.jcs import canonicalize as _jcs_canonicalize
 from assay._receipts.compat.pyd import unwrap_frozen
+from assay._receipts.jcs import canonicalize as _jcs_canonicalize
 
+from .merkle import compute_merkle_root
 
 # ---------------------------------------------------------------------------
 # Layer 2: Explicit receipt projection for hashing/signing
@@ -57,13 +57,15 @@ from assay._receipts.compat.pyd import unwrap_frozen
 # nested structures are payload, not signature-bearing.  v0 matches the
 # historical strip_signatures() behaviour in compat/pyd.py.
 _SIGNATURE_FIELD_SETS: dict[str, frozenset[str]] = {
-    "v0": frozenset({
-        "signatures",
-        "signature",
-        "cose_signature",
-        "receipt_hash",
-        "anchor",
-    }),
+    "v0": frozenset(
+        {
+            "signatures",
+            "signature",
+            "cose_signature",
+            "receipt_hash",
+            "anchor",
+        }
+    ),
 }
 
 # ---------------------------------------------------------------------------
@@ -78,19 +80,21 @@ _SIGNATURE_FIELD_SETS: dict[str, frozenset[str]] = {
 #   trust_anchors        — resolution metadata, not part of attested content
 #   signature / signer_id / signer_pubkey_sha256  — deprecated v1 root fields
 #   cose_signature / receipt_hash / anchor        — legacy carry-forward
-_V2_PROJECTION_EXCLUSIONS = frozenset({
-    "verification_bundle",
-    "signatures",
-    "trust_anchors",
-    # deprecated v1 root signature fields (signer info moves to signatures[])
-    "signature",
-    "signer_id",
-    "signer_pubkey_sha256",
-    # legacy (carry-forward from v0)
-    "cose_signature",
-    "receipt_hash",
-    "anchor",
-})
+_V2_PROJECTION_EXCLUSIONS = frozenset(
+    {
+        "verification_bundle",
+        "signatures",
+        "trust_anchors",
+        # deprecated v1 root signature fields (signer info moves to signatures[])
+        "signature",
+        "signer_id",
+        "signer_pubkey_sha256",
+        # legacy (carry-forward from v0)
+        "cose_signature",
+        "receipt_hash",
+        "anchor",
+    }
+)
 
 _PROJECTION_EXCLUSIONS: dict[str, frozenset[str]] = {
     "receipt-core-v2": _V2_PROJECTION_EXCLUSIONS,
@@ -150,15 +154,15 @@ PROJECTION_DOCTRINE: dict = {
             "MUST equal PROJECTION_EXCLUSIONS['receipt-core-v2'] exactly."
         ),
         "fields": [
-            "verification_bundle",   # digest descriptor; not self-attesting
-            "signatures",            # witnesses over the digest, not the content
-            "trust_anchors",         # resolution metadata
-            "signature",             # deprecated v1 root field
-            "signer_id",             # deprecated v1 root field (moves to signatures[])
+            "verification_bundle",  # digest descriptor; not self-attesting
+            "signatures",  # witnesses over the digest, not the content
+            "trust_anchors",  # resolution metadata
+            "signature",  # deprecated v1 root field
+            "signer_id",  # deprecated v1 root field (moves to signatures[])
             "signer_pubkey_sha256",  # deprecated v1 root field
-            "cose_signature",        # legacy carry-forward
-            "receipt_hash",          # legacy carry-forward
-            "anchor",                # legacy carry-forward
+            "cose_signature",  # legacy carry-forward
+            "receipt_hash",  # legacy carry-forward
+            "anchor",  # legacy carry-forward
         ],
     },
     "covers_order": (
@@ -174,7 +178,7 @@ PROJECTION_DOCTRINE: dict = {
     ],
     "helper_status": {
         "build_v2_base_receipt": "ERGONOMIC ONLY — not normative. emit_v2_receipt() is the center.",
-        "default_v2_policy":     "ERGONOMIC ONLY — standard cases. Custom policy dicts are valid.",
+        "default_v2_policy": "ERGONOMIC ONLY — standard cases. Custom policy dicts are valid.",
     },
     "amendment_rule": (
         "emit_v2_receipt() MINTS only. "
@@ -190,7 +194,8 @@ def prepare_receipt_for_hashing(receipt: Any, *, version: str = "v0") -> dict:
 
     1. Converts Pydantic models to plain dicts (``model_dump`` / ``.dict()``).
     2. Recursively unwraps frozen containers.
-    3. Strips top-level signature-related fields per the versioned exclusion
+    3. Rejects non-ASCII object member names before attestation input is formed.
+    4. Strips top-level signature-related fields per the versioned exclusion
        set.  Root-level only — nested structures are payload.
 
     No legacy normalization is performed (Layer 3 is vestigial).
@@ -222,11 +227,10 @@ def prepare_receipt_for_hashing(receipt: Any, *, version: str = "v0") -> dict:
     elif isinstance(receipt, dict):
         data = receipt
     else:
-        raise TypeError(
-            f"Cannot convert {type(receipt).__name__} to dict for hashing"
-        )
+        raise TypeError(f"Cannot convert {type(receipt).__name__} to dict for hashing")
 
     data = unwrap_frozen(data)
+    _validate_ascii_object_member_names(data)
     return {k: v for k, v in data.items() if k not in exclusions}
 
 
@@ -312,7 +316,11 @@ def canonical_projection(receipt: Any, projection_id: str = "receipt-core-v2") -
 
     Pre-condition: receipt must be valid I-JSON (no duplicate object member
     names; numbers within IEEE 754 double range). Callers MUST validate
-    before calling — this function does not re-validate.
+    before calling — this function does not re-validate duplicate-key state.
+
+    This function does enforce Assay's higher-layer field-name policy before
+    projection: object member names must be ASCII-only. This is an identifier
+    policy above JCS, not a change to JCS behavior.
 
     The projection works by exclusion. Fields NOT in the exclusion set for
     projection_id are included. covers in VerificationBundle is explanatory
@@ -351,7 +359,45 @@ def canonical_projection(receipt: Any, projection_id: str = "receipt-core-v2") -
         )
 
     data = unwrap_frozen(data)
+    _validate_ascii_object_member_names(data)
     return {k: v for k, v in data.items() if k not in exclusions}
+
+
+def _validate_ascii_object_member_names(value: Any, *, path: str = "$") -> None:
+    """Reject non-ASCII object member names before projection/canonicalization.
+
+    RFC 8785 preserves parsed string data as-is. Assay's spoof-resistance for
+    receipt field names therefore lives above JCS as a schema/identifier policy.
+    This helper enforces the current narrow policy: all object member names in
+    attestation input must be ASCII-only.
+
+    Args:
+        value: Arbitrary JSON-like structure.
+        path: JSON-style path used for error reporting.
+
+    Raises:
+        TypeError: If an object member name is not a string.
+        ValueError: If an object member name contains non-ASCII characters.
+    """
+    if isinstance(value, dict):
+        for key, nested_value in value.items():
+            if not isinstance(key, str):
+                raise TypeError(
+                    f"Receipt object member names must be strings for canonicalization; "
+                    f"found {type(key).__name__} at {path}"
+                )
+            if not key.isascii():
+                raise ValueError(
+                    f"Receipt object member name {key!r} at {path} contains non-ASCII "
+                    "characters. Assay's field-name policy requires ASCII-only names "
+                    "before projection and canonicalization."
+                )
+            _validate_ascii_object_member_names(nested_value, path=f"{path}.{key}")
+        return
+
+    if isinstance(value, list):
+        for index, item in enumerate(value):
+            _validate_ascii_object_member_names(item, path=f"{path}[{index}]")
 
 
 def compute_bundle_digest(
