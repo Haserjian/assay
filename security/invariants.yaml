@@ -1,0 +1,211 @@
+# Assay Security Invariants — Machine-Readable Source
+# Authority: security/invariants.yaml is the structured source.
+#            docs/security/SECURITY_INVARIANTS.md is the human-readable presentation.
+#            When they conflict, the adjudication memo controls:
+#            docs/security/SECURITY_AUDIT_ADJUDICATION_2026-04-03.md
+#
+# Adjudicated: 2026-04-03
+# Audit method: multi-agent-swarm-8-agents
+# Adjudicator: timmybhaserjian
+
+invariants:
+  - id: INV-01
+    title: Proof-Pack Contract Separation
+    status: PARTIAL
+    severity: medium
+    owner: timmybhaserjian
+    release_gate: soft
+    enforced_by:
+      - docs/contracts/PACK_CONTRACT.md
+      - docs/security/SECURITY_AUDIT_ADJUDICATION_2026-04-03.md
+    break_signal: >
+      A doc, test, or audit again treats proof-pack verification as broken by
+      comparing it to a different receipt contract surface (e.g., gateway receipt schema).
+    claim_refs: [C-05, C-07]
+    last_reviewed: "2026-04-03"
+    exception_policy: null
+    note: >
+      Adjudication settled: audit findings that compared TS verifier against gateway
+      receipt schema were a mixed-contract error. The TS verifier and Python MCP
+      gateway validator test different surfaces.
+
+  - id: INV-02
+    title: Gate Versus Verify Split
+    status: PARTIAL
+    severity: high
+    owner: timmybhaserjian
+    release_gate: hard
+    enforced_by:
+      - src/assay/score.py
+      - docs/security/SECURITY_POSTURE_TODAY.md
+    break_signal: >
+      Public materials or CI guidance claim that `assay gate check` validates
+      signatures, digests, or full proof-pack integrity.
+      OR: AgentMesh CI gate job passes green when assay gate check exits non-zero.
+    claim_refs: [C-06]
+    fix_target:
+      files:
+        - agentmesh/.github/workflows/ci.yml:169-173
+      action: >
+        Add set -euo pipefail or explicit error handling to the gate check step.
+        Alternatively rename the job from 'assay-gate' to 'assay-evidence-score'
+        to remove the misleading gate label.
+    last_reviewed: "2026-04-03"
+    exception_policy: null
+
+  - id: INV-03
+    title: Trusted Signer Semantics Are Narrower Than Full Authorization
+    status: PARTIAL
+    severity: medium
+    owner: timmybhaserjian
+    release_gate: soft
+    enforced_by:
+      - src/assay/_receipts/v2_verify.py
+      - docs/security/SECURITY_AUDIT_ADJUDICATION_2026-04-03.md
+    break_signal: >
+      Docs or release materials describe `trusted_signer` as if it were a complete
+      default authorization verdict, or imply a non-empty signer policy is active
+      by default when it is not.
+    claim_refs: [C-08]
+    last_reviewed: "2026-04-03"
+    exception_policy: null
+
+  - id: INV-04
+    title: Unsupported PQ Algorithms Must Stay Explicit
+    status: PARTIAL
+    severity: high
+    owner: timmybhaserjian
+    release_gate: hard
+    enforced_by:
+      - src/assay/_receipts/v2_types.py
+      - src/assay/_receipts/v2_verify.py
+      - tests/contracts/parity/test_invariants.py::TestInv04PQAlgorithmPosture
+    break_signal: >
+      PQ algorithms described as currently verified or emitted end-to-end without a
+      real cryptographic implementation and passing conformance coverage.
+      OR: PQ algorithms present in OPERATIONAL_ALGORITHMS without being in
+      UNSUPPORTED_ALGORITHMS (ambiguous posture).
+    claim_refs: [C-04]
+    fix_target:
+      file: src/assay/_receipts/v2_types.py
+      lines: [128, 135]
+      action: >
+        Remove ml-dsa-44, ml-dsa-65, ml-dsa-87 from OPERATIONAL_ALGORITHMS.
+        They are already correctly present in UNSUPPORTED_ALGORITHMS.
+        Ambiguous membership in both sets is the problem — the early-exit guard
+        fires correctly, but the algorithm_acceptable flag incorrectly shows True
+        for a policy that requires an unimplemented algorithm.
+    last_reviewed: "2026-04-03"
+    exception_policy: null
+
+  - id: INV-05
+    title: Ledger Witness Scope Must Stay Honest
+    status: PARTIAL
+    severity: medium
+    owner: timmybhaserjian
+    release_gate: soft
+    enforced_by:
+      - assay-ledger/README.md
+      - assay-ledger/.github/workflows/accept-submission.yml
+      - docs/security/SECURITY_POSTURE_TODAY.md
+      - docs/security/LEDGER_SCOPE_DECISION.md
+    break_signal: >
+      Any current-state material claims full-pack independent re-verification
+      without a protocol and workflow change that actually performs it.
+    claim_refs: [C-11]
+    last_reviewed: "2026-04-03"
+    exception_policy: null
+
+  - id: INV-06
+    title: JCS Is Not the Place For Unicode Normalization Policy
+    status: ENFORCED
+    severity: low
+    owner: timmybhaserjian
+    release_gate: none
+    enforced_by:
+      - docs/contracts/PACK_CONTRACT.md
+      - docs/security/SECURITY_AUDIT_ADJUDICATION_2026-04-03.md
+    break_signal: >
+      A future audit or product surface re-frames JCS string preservation as a
+      verifier defect instead of a higher-layer policy choice.
+    claim_refs: [C-03]
+    last_reviewed: "2026-04-03"
+    exception_policy: null
+    note: RFC 8785 preserves parsed string data as-is. This is correct behavior.
+
+  - id: INV-07
+    title: Confusable Field-Name Hardening Is Not Yet Active
+    status: OPEN
+    severity: medium
+    owner: timmybhaserjian
+    release_gate: none
+    enforced_by: null
+    break_signal: >
+      Public language implies spoof-resistant or ASCII-only field-name filtering
+      before an actual validation policy is implemented and tested.
+    claim_refs: [C-12]
+    hardening_candidate: true
+    hardening_note: >
+      Adding ASCII field name validation in canonical_projection() is a valid
+      future hardening step. When implemented, it becomes a testable invariant.
+      The regression fixture tests/contracts/vectors/regression/homoglyph_field_bypass_spec.json
+      documents the attack pattern for when this hardening is added.
+    last_reviewed: "2026-04-03"
+    exception_policy: null
+
+  - id: INV-08
+    title: Stronger Signer Bootstrap Requires an Explicit Deployment Choice
+    status: PARTIAL
+    severity: medium
+    owner: timmybhaserjian
+    release_gate: soft
+    enforced_by:
+      - docs/security/SECURITY_POSTURE_TODAY.md
+      - docs/security/CLAIM_LEDGER.md
+      - docs/security/SIGNER_BOOTSTRAP_DECISION.md
+    break_signal: >
+      Public assurance language implies strong default signer authorization without
+      a corresponding active policy path or explicit deployment documentation.
+    claim_refs: [C-08]
+    note: >
+      Current operating decision keeps default signer posture loose/local until a
+      non-empty trusted signer policy is explicitly activated.
+    last_reviewed: "2026-04-03"
+    exception_policy: null
+
+# ---------------------------------------------------------------------------
+# Verification tier model (unchanged from audit — still the right frame)
+# ---------------------------------------------------------------------------
+verification_tiers:
+  cryptographically_verified:
+    meaning: Ed25519 signature bytes valid against the canonical projection
+    where: SigResult.cryptographically_valid
+
+  trusted_signer:
+    meaning: Key resolver returned pubkey bytes for the signer_id
+    where: SigResult.trusted_signer
+    caveat: Narrower than full authorization. See INV-03.
+
+  policy_satisfied:
+    meaning: Declared verification_policy is met (min signatures, algorithms)
+    where: VerifyResultV2.policy_satisfied
+
+  claim_eligible:
+    meaning: >
+      All three tiers above, plus signer is in authorized registry,
+      plus no active waivers for this receipt class.
+    where: not yet implemented as a single function
+
+# ---------------------------------------------------------------------------
+# Health snapshot
+# ---------------------------------------------------------------------------
+health:
+  last_audit: "2026-04-03"
+  audit_method: multi-agent-swarm-8-agents
+  adjudicated: "2026-04-03"
+  enforced: [INV-06]
+  partial: [INV-01, INV-02, INV-03, INV-04, INV-05, INV-08]
+  open: [INV-07]
+  release_gate_hard: [INV-02, INV-04]
+  release_gate_soft: [INV-01, INV-03, INV-05, INV-08]
+  marketing_blockers: [INV-02, INV-04]

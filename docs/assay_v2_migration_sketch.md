@@ -1,9 +1,14 @@
 # Assay v2 Migration Sketch
 
-**Date**: 2026-03-26
-**Status**: PLANNING SKETCH ONLY — not normative, not constitutional, not implementation-ready
+> Historical planning sketch only.
+>
+> Do not use this file for current security posture, public claim language, or the settled 2026-04-03 security surface.
+> The canonical current record is [`docs/security/SECURITY_AUDIT_ADJUDICATION_2026-04-03.md`](security/SECURITY_AUDIT_ADJUDICATION_2026-04-03.md), together with the current docs in `docs/security/`.
 
-> **Blocked.** Do not act on this document until both prerequisite findings are resolved.
+**Date**: 2026-03-26
+**Status**: Historical planning sketch only. Superseded for current posture by `docs/security/SECURITY_AUDIT_ADJUDICATION_2026-04-03.md` and the current docs in `docs/security/`.
+
+> **Historical blocker table.** This reflects the pre-adjudication state from 2026-03-26, not the current settled posture.
 >
 > | Finding | Classification | Status |
 > |---------|---------------|--------|
@@ -14,7 +19,7 @@
 > implemented until Finding 2 is patched in the TS verifier. Domain separation does
 > not fix unsigned trust — those are separate bugs that must land first.
 >
-> See `docs/assay_domain_audit_adjudication.md` for the full finding record.
+> See `docs/assay_domain_audit_adjudication.md` for the older audit record and `docs/security/SECURITY_AUDIT_ADJUDICATION_2026-04-03.md` for the canonical current settlement.
 
 ---
 

@@ -1,7 +1,12 @@
 # Assay Domain Audit Adjudication
 
+> Historical archive only.
+>
+> Do not use this file for current security posture, public claim language, or the settled 2026-04-03 security surface.
+> The canonical current record is [`docs/security/SECURITY_AUDIT_ADJUDICATION_2026-04-03.md`](security/SECURITY_AUDIT_ADJUDICATION_2026-04-03.md).
+
 **Date**: 2026-03-26
-**Status**: Adjudication memo (corrected from initial analysis)
+**Status**: Historical domain-specific adjudication memo. Superseded for current posture by `docs/security/SECURITY_AUDIT_ADJUDICATION_2026-04-03.md`.
 **Scope**: Hash/signature domain confusion and adjacent trust-surface findings
 
 This memo reclassifies every finding from the domain confusion analysis into
