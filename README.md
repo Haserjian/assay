@@ -2,12 +2,20 @@
 
 **Signed evidence for tool-using AI.**
 
-Assay is an evidence compiler for AI execution. It turns AI runs into signed proof packs another team can verify offline — no vendor server required. Its job is narrow: make post-run tampering visible, preserve honest failures, and let verification happen without trusting the operator.
+Microsoft enforces runtime policy. Assay proves what happened.
 
-Agents talk via MCP. Agents prove via Assay.
+![assay demo-challenge](demo.gif)
 
 ```bash
 pip install assay-ai
+assay demo-challenge
+```
+
+One byte changed. Verification fails. No server call. Just math.
+
+Assay turns AI runs into signed proof packs another team can verify offline — no vendor server required. It makes post-run tampering visible, preserves honest failures, and lets verification happen without trusting the operator.
+
+```bash
 assay try-mcp
 ```
 
