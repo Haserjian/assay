@@ -2332,6 +2332,18 @@ def show_version(
     console.print()
     console.print(f"Storage: {store.base_dir}")
 
+    # Non-blocking update hint — delegates to shared helper in _update.py
+    try:
+        from assay._update import check_for_update
+
+        update = check_for_update(timeout=2.0)
+        if update.available:
+            console.print()
+            console.print(f"[yellow]{update.message}[/]")
+            console.print(f"[dim]  {update.update_command}[/]")
+    except Exception:
+        pass
+
 
 @assay_app.command("status", hidden=True, rich_help_panel="Measure")
 def status_cmd(

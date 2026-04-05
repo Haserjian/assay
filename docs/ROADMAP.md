@@ -1,6 +1,6 @@
 # Assay Roadmap
 
-**As of**: v1.20.1 (April 2026)
+**As of**: v1.20.2 (April 2026)
 **Launch**: Feb 18, 2026
 
 ---

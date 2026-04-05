@@ -130,6 +130,7 @@ class DoctorReport:
 _PROFILE_CHECKS: Dict[Profile, List[str]] = {
     Profile.LOCAL: [
         "DOCTOR_CORE_001",
+        "DOCTOR_UPDATE_001",
         "DOCTOR_FS_001",
         "DOCTOR_KEY_001",
         "DOCTOR_CARD_001",
@@ -154,6 +155,7 @@ _PROFILE_CHECKS: Dict[Profile, List[str]] = {
     ],
     Profile.RELEASE: [
         "DOCTOR_CORE_001",
+        "DOCTOR_UPDATE_001",
         "DOCTOR_FS_001",
         "DOCTOR_KEY_001",
         "DOCTOR_CARD_001",
@@ -203,8 +205,33 @@ def _check_core_001() -> DoctorCheckResult:
             severity=Severity.CRITICAL,
             message="Assay not importable",
             evidence={"error": str(e)},
-            fix="python3 -m pip install assay-ai",
+            fix="pipx install assay-ai",
         )
+
+
+def _check_update_001() -> DoctorCheckResult:
+    """Check whether a newer version of assay-ai is available on PyPI."""
+    from assay._update import check_for_update
+
+    status = check_for_update(timeout=3.0)
+
+    if status.available:
+        return DoctorCheckResult(
+            id="DOCTOR_UPDATE_001",
+            status=CheckStatus.WARN,
+            severity=Severity.LOW,
+            message=status.message,
+            evidence={"installed": status.installed, "latest": status.latest},
+            fix=status.update_command,
+        )
+
+    return DoctorCheckResult(
+        id="DOCTOR_UPDATE_001",
+        status=CheckStatus.PASS if status.checked else CheckStatus.SKIP,
+        severity=Severity.INFO,
+        message=status.message,
+        evidence={"version": status.installed} if status.checked else {},
+    )
 
 
 def _check_fs_001() -> DoctorCheckResult:
@@ -1133,6 +1160,7 @@ def _check_anchor_001(pack_dir: Optional[Path] = None) -> DoctorCheckResult:
 
 _CHECK_FUNCTIONS = {
     "DOCTOR_CORE_001": lambda **kw: _check_core_001(),
+    "DOCTOR_UPDATE_001": lambda **kw: _check_update_001(),
     "DOCTOR_FS_001": lambda **kw: _check_fs_001(),
     "DOCTOR_KEY_001": lambda **kw: _check_key_001(),
     "DOCTOR_CARD_001": lambda **kw: _check_card_001(),
