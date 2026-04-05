@@ -11,8 +11,12 @@ One byte changed. Verification fails. No server call. Just math.
 ### Install
 
 ```bash
-pip install assay-ai
+pipx install assay-ai
 ```
+
+To update later: `pipx upgrade assay-ai`
+
+_(No pipx? `python3 -m pip install assay-ai` also works, or `brew install pipx && pipx install assay-ai`)_
 
 ### Start here
 
