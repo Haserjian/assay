@@ -3943,6 +3943,104 @@ def replay_judge_cmd(
     raise typer.Exit(result.exit_code)
 
 
+@assay_app.command("rce-verify", hidden=True)
+def rce_verify_cmd(
+    pack_dir: str = typer.Argument(
+        ..., help="Path to the original RCE proof pack directory"
+    ),
+    out_dir: str = typer.Option(
+        ...,
+        "--out-dir",
+        "-O",
+        help="Directory to write rce_replay_result.json and rce_replay_details.json",
+    ),
+    verifier_id: str = typer.Option(
+        "assay-rce-verify-py",
+        "--verifier-id",
+        help="Verifier implementation identifier recorded in the replay result receipt.",
+    ),
+    overwrite: bool = typer.Option(
+        False,
+        "--overwrite",
+        help="Overwrite output files when the output directory already exists.",
+    ),
+    pretty: bool = typer.Option(
+        False,
+        "--pretty",
+        help="Pretty-print written JSON artifacts.",
+    ),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Verify an RCE pack against recorded traces.
+
+    Exit codes:
+      0 = MATCH   1 = DIVERGE   2 = INTEGRITY_FAIL   3 = bad input
+    """
+    from pathlib import Path
+
+    from assay.rce_verify import write_rce_replay_result
+
+    pack_path = Path(pack_dir)
+    output_path = Path(out_dir)
+
+    if not pack_path.exists():
+        msg = f"Pack directory does not exist: {pack_path}"
+        if output_json:
+            _output_json(
+                {"command": "rce-verify", "status": "error", "error": msg},
+                exit_code=3,
+            )
+        console.print(f"[red]Error:[/] {msg}")
+        raise typer.Exit(3)
+
+    try:
+        result = write_rce_replay_result(
+            pack_dir=pack_path,
+            out_dir=output_path,
+            verifier_id=verifier_id,
+            overwrite=overwrite,
+            pretty=pretty,
+        )
+    except FileExistsError as exc:
+        msg = str(exc)
+        if output_json:
+            _output_json(
+                {"command": "rce-verify", "status": "error", "error": msg},
+                exit_code=3,
+            )
+        console.print(f"[red]Error:[/] {msg}")
+        raise typer.Exit(3)
+    except Exception as exc:
+        msg = f"Internal error: {exc}"
+        if output_json:
+            _output_json(
+                {"command": "rce-verify", "status": "error", "error": msg},
+                exit_code=3,
+            )
+        console.print(f"[red]Error:[/] {msg}")
+        raise typer.Exit(3)
+
+    if output_json:
+        _output_json(
+            {
+                "command": "rce-verify",
+                "status": "ok",
+                "verdict": result.verdict,
+                "receipt_path": str(result.receipt_path),
+                "details_path": str(result.details_path),
+                "exit_code": result.exit_code,
+            },
+            exit_code=result.exit_code,
+        )
+
+    console.print(f"\nrce verdict: [bold]{result.verdict}[/]")
+    console.print(f"wrote: {result.receipt_path}")
+    console.print(f"wrote: {result.details_path}")
+    console.print()
+
+    raise typer.Exit(result.exit_code)
+
+
 @assay_app.command("accept", hidden=True, rich_help_panel="Advanced")
 def accept_cmd(
     pack_dir: str = typer.Argument(..., help="Path to verified Proof Pack directory"),
