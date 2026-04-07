@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/Haserjian/assay/schemas/rce_episode_contract.schema.json",
+  "$id": "https://github.com/Haserjian/assay-protocol/schemas/rce_episode_contract.schema.json",
   "title": "RCE Episode Contract v0.1",
-  "description": "Schema for a Replay-Constrained Episode Contract. The replay-normative view determines episode_spec_hash.",
+  "description": "Implementation-local mirror of the Assay Protocol RCE Episode Contract schema. The replay-normative view determines episode_spec_hash.",
   "type": "object",
   "required": [
     "schema_version",

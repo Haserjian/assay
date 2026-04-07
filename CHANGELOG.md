@@ -6,6 +6,10 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- RCE authority split made explicit: `assay-protocol` is the normative home for the RCE profile and Episode Contract schema, while Assay keeps the verifier-facing schema as an implementation mirror.
+
 ## [1.20.1] - 2026-04-03
 
 ### Fixed

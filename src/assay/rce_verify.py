@@ -2,6 +2,9 @@
 
 This module implements the minimal v0 verifier described by the RCE profile:
 
+- normative profile home: Haserjian/assay-protocol
+- local contract schema: implementation mirror used by the verifier/runtime
+
 - Phase 1: script validation
 - Phase 2: proof-pack integrity
 - Phase 3: artifact and receipt completeness
