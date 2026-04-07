@@ -248,17 +248,31 @@ def _verifier_env_hash(verifier_id: str, verifier_version: str) -> str:
     return _canonical_sha256(verifier_env)
 
 
+def _safe_int(value: Any, field: str, errors: List[str]) -> int:
+    """Coerce *value* to int without raising; append to *errors* on failure."""
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        errors.append(f"{field}: expected integer, got {type(value).__name__} {value!r}")
+        return 0
+
+
 def validate_rce_replay_result(receipt: Mapping[str, Any]) -> List[str]:
-    """Validate an emitted replay-result receipt."""
+    """Validate an emitted replay-result receipt.
+
+    Always returns a (possibly empty) list of error strings.  Never raises on
+    malformed or untrusted input — callers must be able to treat the return
+    value as an exhaustive error surface.
+    """
 
     errors = _schema_errors(_replay_result_validator_instance(), receipt)
 
     verdict = receipt.get("verdict")
     claim_check = receipt.get("claim_check")
     receipt_integrity = receipt.get("receipt_integrity")
-    steps_replayed = int(receipt.get("steps_replayed", 0) or 0)
-    steps_matched = int(receipt.get("steps_matched", 0) or 0)
-    steps_diverged = int(receipt.get("steps_diverged", 0) or 0)
+    steps_replayed = _safe_int(receipt.get("steps_replayed"), "steps_replayed", errors)
+    steps_matched = _safe_int(receipt.get("steps_matched"), "steps_matched", errors)
+    steps_diverged = _safe_int(receipt.get("steps_diverged"), "steps_diverged", errors)
     divergent_step_ids = cast(List[str], receipt.get("divergent_step_ids") or [])
     dispute = receipt.get("dispute")
 
@@ -635,6 +649,22 @@ def _phase_three(
                 f"rce.episode_step/v0[{step_id}]: SKIPPED status requires a FAIL or SKIPPED dependency"
             )
 
+        # Phase 3 chain integrity: a non-SKIPPED step's declared input_hashes
+        # must match the output_hashes of its dependencies in the receipt graph.
+        # A mismatch is an internal receipt inconsistency (INTEGRITY_FAIL), not a
+        # replay comparison failure (DIVERGE).
+        if status != _STEP_STATUS_SKIPPED:
+            expected_chain = [
+                cast(str, step_payloads[dep].get("output_hash"))
+                for dep in cast(List[str], step.get("depends_on") or [])
+                if dep in step_payloads
+            ]
+            if cast(List[str], payload.get("input_hashes") or []) != expected_chain:
+                errors.append(
+                    f"rce.episode_step/v0[{step_id}]: input_hashes does not match"
+                    f" dependency output_hashes — chain integrity violation"
+                )
+
     computed_outputs_hash = _compute_outputs_hash(step_payloads)
     if close_payload:
         if _payload_string(close_payload, "episode_id") != episode_id:
@@ -801,14 +831,8 @@ def verify_rce_pack(
             continue
 
         steps_replayed += 1
-        expected_input_hashes = [
-            cast(str, step_payloads[dependency].get("output_hash"))
-            for dependency in cast(List[str], step.get("depends_on") or [])
-        ]
         observed_output_hash = _canonical_sha256(parsed_traces[step_id])
         reasons: List[str] = []
-        if cast(List[str], payload.get("input_hashes") or []) != expected_input_hashes:
-            reasons.append("input hash chain mismatch")
         if observed_output_hash != _payload_string(payload, "output_hash"):
             reasons.append("JCS output hash mismatch")
         if reasons:

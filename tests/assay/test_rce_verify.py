@@ -714,3 +714,191 @@ class TestRCEVerifyCLI:
         payload = json.loads(result.stdout)
         assert payload["command"] == "rce-verify"
         assert payload["verdict"] == "MATCH"
+
+
+def _build_chain_mismatch_pack(tmp_path: Path, ks: AssayKeyStore) -> Path:
+    """Pack where s02.input_hashes declares a wrong hash for s01's output.
+
+    The pack is validly signed; the inconsistency is a logical one between the
+    dependency chain declared in receipts.  Phase 3 must catch this and produce
+    INTEGRITY_FAIL — not DIVERGE.
+    """
+    episode_id = "ep_aabbccddeeff001122334455"
+    input_bytes = json.dumps({"x": 1}, separators=(",", ":")).encode("utf-8")
+    input_ref = {"ref": "input.json", "hash": _sha256_prefixed(input_bytes)}
+    environment = {
+        "provider": "synthetic",
+        "model_id": "chain-test-v0",
+        "tool_versions": {},
+        "container_digest": None,
+    }
+    environment["env_fingerprint_hash"] = _canonical_hash(environment)
+    environment["model_version_hint"] = None
+    environment["system_fingerprint"] = None
+    contract: Dict[str, Any] = {
+        "schema_version": "rce/0.1",
+        "episode_id": episode_id,
+        "inputs": [input_ref],
+        "replay_script": {
+            "schema_version": "replay_script/0.1",
+            "steps": [
+                {"step_id": "s01", "opcode": "LOAD_INPUT", "params": {"ref": "input.json"}, "depends_on": []},
+                {"step_id": "s02", "opcode": "APPLY_TRANSFORM", "params": {"transform": "id"}, "depends_on": ["s01"]},
+                {"step_id": "s03", "opcode": "EMIT_OUTPUT", "params": {"claim_type": "result", "output_ref": "s02"}, "depends_on": ["s02"]},
+            ],
+        },
+        "replay_policy": {"replay_basis": "recorded_trace", "comparator_tier": "A"},
+        "environment": environment,
+    }
+
+    load_output = {"x": 1}
+    transform_output = {"x": 1, "processed": True}
+    emit_output = {"claim_type": "result", "x": 1}
+
+    s01_hash = _canonical_hash(load_output)
+    s02_hash = _canonical_hash(transform_output)
+    s03_hash = _canonical_hash(emit_output)
+    wrong_hash = "sha256:" + ("cc" * 32)  # does not match s01_hash
+
+    spec_hash = _episode_spec_hash(contract)
+    inputs_hash = _canonical_hash(contract["inputs"])
+    script_hash = _canonical_hash(contract["replay_script"])
+    outputs_hash = _canonical_hash([{"step_id": "s03", "output_hash": s03_hash}])
+
+    open_r = _make_receipt(
+        receipt_id="r_cm_open_001", receipt_type="rce.episode_open/v0", seq=0,
+        parent_hashes=[],
+        payload={
+            "episode_id": episode_id, "episode_spec_hash": spec_hash,
+            "inputs_hash": inputs_hash, "script_hash": script_hash,
+            "env_fingerprint_hash": environment["env_fingerprint_hash"],
+            "replay_basis": "recorded_trace", "comparator_tier": "A", "n_steps": 3,
+        },
+    )
+    s1 = _make_receipt(
+        receipt_id="r_cm_step_001", receipt_type="rce.episode_step/v0", seq=1,
+        parent_hashes=[open_r["receipt_hash"]],
+        payload={
+            "episode_id": episode_id, "step_id": "s01", "opcode": "LOAD_INPUT",
+            "step_status": "PASS", "input_hashes": [], "output_hash": s01_hash,
+            "output_size_bytes": 8, "duration_ms": 1, "comparator_tier": "A",
+        },
+    )
+    # s02 declares wrong_hash as its input, but s01's output_hash is s01_hash
+    s2 = _make_receipt(
+        receipt_id="r_cm_step_002", receipt_type="rce.episode_step/v0", seq=2,
+        parent_hashes=[s1["receipt_hash"]],
+        payload={
+            "episode_id": episode_id, "step_id": "s02", "opcode": "APPLY_TRANSFORM",
+            "step_status": "PASS", "input_hashes": [wrong_hash], "output_hash": s02_hash,
+            "output_size_bytes": 24, "duration_ms": 1, "comparator_tier": "A",
+            "provider": "synthetic", "model_id": "chain-test-v0",
+        },
+    )
+    s3 = _make_receipt(
+        receipt_id="r_cm_step_003", receipt_type="rce.episode_step/v0", seq=3,
+        parent_hashes=[s2["receipt_hash"]],
+        payload={
+            "episode_id": episode_id, "step_id": "s03", "opcode": "EMIT_OUTPUT",
+            "step_status": "PASS", "input_hashes": [s02_hash], "output_hash": s03_hash,
+            "output_size_bytes": 28, "duration_ms": 1, "comparator_tier": "A",
+        },
+    )
+    close_r = _make_receipt(
+        receipt_id="r_cm_close_001", receipt_type="rce.episode_close/v0", seq=4,
+        parent_hashes=[s3["receipt_hash"]],
+        payload={
+            "episode_id": episode_id, "episode_spec_hash": spec_hash,
+            "outputs_hash": outputs_hash,
+            "n_steps_executed": 3, "n_steps_passed": 3, "all_steps_passed": True,
+            "replay_basis": "recorded_trace", "comparator_tier": "A",
+        },
+    )
+
+    pack_dir = ProofPack(
+        run_id="trace_rce_chain_mismatch",
+        entries=[open_r, s1, s2, s3, close_r],
+        signer_id="test-signer",
+    ).build(tmp_path / "chain_mismatch_pack", keystore=ks)
+
+    _write_json(pack_dir / "episode_contract.json", contract)
+    _write_json(pack_dir / "recorded_traces" / "s01.json", load_output)
+    _write_json(pack_dir / "recorded_traces" / "s02.json", transform_output)
+    _write_json(pack_dir / "recorded_traces" / "s03.json", emit_output)
+    (pack_dir / "inputs").mkdir(parents=True, exist_ok=True)
+    (pack_dir / "inputs" / "input.json").write_bytes(input_bytes)
+    return pack_dir
+
+
+class TestRCEVerifySemantics:
+    def test_input_hash_chain_mismatch_is_integrity_fail(self, tmp_path: Path) -> None:
+        """A dependency-chain hash mismatch in receipts is INTEGRITY_FAIL, not DIVERGE.
+
+        If step s02 declares input_hashes=[X] but step s01's output_hash=Y (X≠Y),
+        the receipt graph is internally inconsistent.  That is an integrity failure
+        in the evidence surface — not a replay-comparison disagreement.
+        """
+        ks = _make_keystore(tmp_path)
+        pack_dir = _build_chain_mismatch_pack(tmp_path, ks)
+
+        receipt, details, exit_code = verify_rce_pack(pack_dir, keystore=ks, issued_at=_TS)
+
+        assert exit_code == 2, f"Expected INTEGRITY_FAIL exit=2, got {exit_code}"
+        assert receipt["verdict"] == "INTEGRITY_FAIL"
+        assert receipt["claim_check"] is None
+        assert receipt["receipt_integrity"] == "FAIL"
+        assert details["phase"] == 3
+        assert any("chain integrity violation" in e for e in details["errors"])
+
+    def test_validate_replay_result_never_raises_on_malformed_input(self) -> None:
+        """validate_rce_replay_result must return errors, never raise.
+
+        Callers treat the return value as an exhaustive error surface.  Raising
+        on untrusted input (e.g. int("abc")) breaks that contract.
+        """
+        malformed_cases = [
+            # string where int expected
+            {"steps_replayed": "not-an-int"},
+            {"steps_matched": "bad"},
+            {"steps_diverged": []},
+            # all three wrong at once
+            {"steps_replayed": "x", "steps_matched": "y", "steps_diverged": "z"},
+            # completely empty
+            {},
+            # null values for int fields
+            {"steps_replayed": None, "steps_matched": None, "steps_diverged": None},
+        ]
+        for overrides in malformed_cases:
+            receipt: Dict[str, Any] = {
+                "receipt_id": "r_val_001",
+                "type": "rce.replay_result/v0",
+                "timestamp": _TS,
+                "schema_version": "3.0",
+                "proof_tier": "core",
+                "parent_hashes": [],
+                "episode_id": "ep_0123456789abcdef01234567",
+                "episode_spec_hash": "sha256:" + "a" * 64,
+                "original_pack_root_sha256": "sha256:" + "b" * 64,
+                "verdict": "MATCH",
+                "receipt_integrity": "PASS",
+                "claim_check": "PASS",
+                "replay_basis": "recorded_trace",
+                "comparator_tier": "A",
+                "script_hash": "sha256:" + "c" * 64,
+                "steps_replayed": 0,
+                "steps_matched": 0,
+                "steps_diverged": 0,
+                "divergent_step_ids": [],
+                "verifier_id": "test",
+                "verifier_version": "0.0.0",
+                "verifier_env_hash": "sha256:" + "d" * 64,
+                "dispute": None,
+                "receipt_hash": "sha256:" + "e" * 64,
+                **overrides,
+            }
+            # Must not raise — return type is always List[str]
+            result = validate_rce_replay_result(receipt)
+            assert isinstance(result, list), (
+                f"validate_rce_replay_result returned {type(result)}, expected list "
+                f"(overrides={overrides})"
+            )

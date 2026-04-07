@@ -136,7 +136,10 @@
               }
             },
             "replay_pack_root_sha256": {
-              "type": ["string", "null"]
+              "anyOf": [
+                {"type": "null"},
+                {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+              ]
             }
           },
           "additionalProperties": false
