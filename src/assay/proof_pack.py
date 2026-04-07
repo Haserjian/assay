@@ -81,7 +81,9 @@ PROOF_PACK_ALLOWED_RECEIPT_TYPES = frozenset(
         "supersession",
     }
 )
-_PROOF_PACK_NAMESPACED_TYPE_RE = re.compile(r"^[a-z0-9_]+(?:\.[a-z0-9_]+)+$")
+_PROOF_PACK_NAMESPACED_TYPE_RE = re.compile(
+    r"^[a-z0-9_]+(?:\.[a-z0-9_]+)+(?:/[a-z0-9_]+)?$"
+)
 
 
 def _generate_pack_id(*, deterministic_seed: Optional[str] = None) -> str:

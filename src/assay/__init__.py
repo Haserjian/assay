@@ -107,6 +107,17 @@ from .episode import (
     verify_checkpoint,
     verify_pack,
 )
+from .rce_verify import (
+    EPISODE_CONTRACT_FILENAME,
+    INPUTS_DIRNAME,
+    RECORDED_TRACES_DIRNAME,
+    RCEVerifyResult,
+    RCE_REPLAY_DETAILS_FILENAME,
+    RCE_REPLAY_RESULT_FILENAME,
+    validate_rce_replay_result,
+    verify_rce_pack,
+    write_rce_replay_result,
+)
 
 __all__ = [
     "__version__",
@@ -199,4 +210,13 @@ __all__ = [
     "settle_episode",
     "verify_checkpoint",
     "verify_pack",
+    "EPISODE_CONTRACT_FILENAME",
+    "INPUTS_DIRNAME",
+    "RECORDED_TRACES_DIRNAME",
+    "RCEVerifyResult",
+    "RCE_REPLAY_DETAILS_FILENAME",
+    "RCE_REPLAY_RESULT_FILENAME",
+    "validate_rce_replay_result",
+    "verify_rce_pack",
+    "write_rce_replay_result",
 ]

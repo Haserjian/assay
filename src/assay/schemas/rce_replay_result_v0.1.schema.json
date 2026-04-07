@@ -1,0 +1,188 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/Haserjian/assay/schemas/rce_replay_result_v0.1.schema.json",
+  "title": "RCE Replay Result v0.1",
+  "type": "object",
+  "required": [
+    "receipt_id",
+    "type",
+    "timestamp",
+    "schema_version",
+    "proof_tier",
+    "parent_hashes",
+    "episode_id",
+    "episode_spec_hash",
+    "original_pack_root_sha256",
+    "verdict",
+    "receipt_integrity",
+    "claim_check",
+    "replay_basis",
+    "comparator_tier",
+    "script_hash",
+    "steps_replayed",
+    "steps_matched",
+    "steps_diverged",
+    "divergent_step_ids",
+    "verifier_id",
+    "verifier_version",
+    "verifier_env_hash",
+    "dispute",
+    "receipt_hash"
+  ],
+  "properties": {
+    "receipt_id": {
+      "type": "string",
+      "pattern": "^r_[a-z0-9_]+$"
+    },
+    "type": {
+      "type": "string",
+      "const": "rce.replay_result/v0"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "schema_version": {
+      "type": "string",
+      "const": "3.0"
+    },
+    "proof_tier": {
+      "type": "string",
+      "const": "core"
+    },
+    "parent_hashes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      }
+    },
+    "episode_id": {
+      "type": "string",
+      "pattern": "^ep_[0-9a-f]{24}$"
+    },
+    "episode_spec_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "original_pack_root_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "verdict": {
+      "type": "string",
+      "enum": ["MATCH", "DIVERGE", "INTEGRITY_FAIL"]
+    },
+    "receipt_integrity": {
+      "type": "string",
+      "enum": ["PASS", "FAIL"]
+    },
+    "claim_check": {
+      "type": ["string", "null"],
+      "enum": ["PASS", "FAIL", null]
+    },
+    "replay_basis": {
+      "type": "string",
+      "const": "recorded_trace"
+    },
+    "comparator_tier": {
+      "type": "string",
+      "const": "A"
+    },
+    "script_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "steps_replayed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "steps_matched": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "steps_diverged": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "divergent_step_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "verifier_id": {
+      "type": "string"
+    },
+    "verifier_version": {
+      "type": "string"
+    },
+    "verifier_env_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "dispute": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "required": ["divergent_steps", "replay_pack_root_sha256"],
+          "properties": {
+            "divergent_steps": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/divergent_step"
+              }
+            },
+            "replay_pack_root_sha256": {
+              "anyOf": [
+                {"type": "null"},
+                {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+              ]
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "receipt_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "divergent_step": {
+      "type": "object",
+      "required": [
+        "step_id",
+        "expected_output_hash",
+        "observed_output_hash",
+        "comparator_tier",
+        "comparator_detail"
+      ],
+      "properties": {
+        "step_id": {
+          "type": "string"
+        },
+        "expected_output_hash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "observed_output_hash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "comparator_tier": {
+          "type": "string",
+          "const": "A"
+        },
+        "comparator_detail": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

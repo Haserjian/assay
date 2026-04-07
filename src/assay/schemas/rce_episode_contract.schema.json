@@ -1,0 +1,166 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/Haserjian/assay/schemas/rce_episode_contract.schema.json",
+  "title": "RCE Episode Contract v0.1",
+  "description": "Schema for a Replay-Constrained Episode Contract. The replay-normative view determines episode_spec_hash.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "episode_id",
+    "inputs",
+    "replay_script",
+    "replay_policy",
+    "environment"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "rce/0.1"
+    },
+    "episode_id": {
+      "type": "string",
+      "pattern": "^ep_[0-9a-f]{24}$"
+    },
+    "objective": {
+      "type": "string"
+    },
+    "inputs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/definitions/input_ref"
+      }
+    },
+    "replay_script": {
+      "$ref": "#/definitions/replay_script"
+    },
+    "replay_policy": {
+      "$ref": "#/definitions/replay_policy"
+    },
+    "environment": {
+      "$ref": "#/definitions/environment"
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "input_ref": {
+      "type": "object",
+      "required": ["ref", "hash"],
+      "properties": {
+        "ref": {
+          "type": "string"
+        },
+        "hash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "media_type": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "replay_script": {
+      "type": "object",
+      "required": ["schema_version", "steps"],
+      "properties": {
+        "schema_version": {
+          "type": "string",
+          "const": "replay_script/0.1"
+        },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/definitions/step"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "step": {
+      "type": "object",
+      "required": ["step_id", "opcode", "params", "depends_on"],
+      "properties": {
+        "step_id": {
+          "type": "string"
+        },
+        "opcode": {
+          "type": "string",
+          "enum": ["LOAD_INPUT", "ASSERT_HASH", "APPLY_TRANSFORM", "EMIT_OUTPUT"]
+        },
+        "params": {
+          "type": "object"
+        },
+        "depends_on": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "output_schema": {}
+      },
+      "additionalProperties": false
+    },
+    "replay_policy": {
+      "type": "object",
+      "required": ["replay_basis", "comparator_tier"],
+      "properties": {
+        "replay_basis": {
+          "type": "string",
+          "enum": ["recorded_trace"]
+        },
+        "comparator_tier": {
+          "type": "string",
+          "enum": ["A"]
+        },
+        "comparator_tiers_by_step": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "enum": ["A"]
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "environment": {
+      "type": "object",
+      "required": [
+        "env_fingerprint_hash",
+        "provider",
+        "model_id",
+        "tool_versions",
+        "container_digest"
+      ],
+      "properties": {
+        "env_fingerprint_hash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "provider": {
+          "type": "string"
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "model_version_hint": {
+          "type": ["string", "null"]
+        },
+        "system_fingerprint": {
+          "type": ["string", "null"]
+        },
+        "tool_versions": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "container_digest": {
+          "type": ["string", "null"]
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
