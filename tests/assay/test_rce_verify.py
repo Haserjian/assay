@@ -421,6 +421,182 @@ def _build_skipped_pack(tmp_path: Path, ks: AssayKeyStore) -> Path:
     return pack_dir
 
 
+def _build_failed_dependency_pack(tmp_path: Path, ks: AssayKeyStore) -> Path:
+    episode_id = "ep_fedcba987654321001234567"
+    input_bytes = json.dumps({"value": 21}, separators=(",", ":")).encode("utf-8")
+    input_ref = {
+        "ref": "input.json",
+        "hash": _sha256_prefixed(input_bytes),
+        "media_type": "application/json",
+    }
+    environment = {
+        "provider": "openai",
+        "model_id": "gpt-4o",
+        "tool_versions": {"assay": "1.20.2"},
+        "container_digest": None,
+    }
+    environment["env_fingerprint_hash"] = _canonical_hash(environment)
+    contract: Dict[str, Any] = {
+        "schema_version": "rce/0.1",
+        "episode_id": episode_id,
+        "inputs": [input_ref],
+        "replay_script": {
+            "schema_version": "replay_script/0.1",
+            "steps": [
+                {"step_id": "s01", "opcode": "LOAD_INPUT", "params": {"ref": "input.json"}, "depends_on": []},
+                {
+                    "step_id": "s02",
+                    "opcode": "ASSERT_HASH",
+                    "params": {"target": "s01", "expected_hash": "sha256:" + ("f" * 64)},
+                    "depends_on": ["s01"],
+                },
+                {"step_id": "s03", "opcode": "APPLY_TRANSFORM", "params": {"transform": "double"}, "depends_on": ["s02"]},
+                {
+                    "step_id": "s04",
+                    "opcode": "EMIT_OUTPUT",
+                    "params": {"claim_type": "demo", "output_ref": "s03"},
+                    "depends_on": ["s03"],
+                },
+            ],
+        },
+        "replay_policy": {"replay_basis": "recorded_trace", "comparator_tier": "A"},
+        "environment": environment,
+    }
+
+    load_output = {"value": 21}
+    assert_output = {"assertion_passed": False}
+    transform_output = {"value": 42}
+    final_output = {"claim_type": "demo", "value": 42}
+    s01_hash = _canonical_hash(load_output)
+    s02_hash = _canonical_hash(assert_output)
+    s03_hash = _canonical_hash(transform_output)
+    s04_hash = _canonical_hash(final_output)
+    spec_hash = _episode_spec_hash(contract)
+    inputs_hash = _canonical_hash(contract["inputs"])
+    script_hash = _canonical_hash(contract["replay_script"])
+    outputs_hash = _canonical_hash([{"step_id": "s04", "output_hash": s04_hash}])
+
+    open_receipt = _make_receipt(
+        receipt_id="r_block_open_001",
+        receipt_type="rce.episode_open/v0",
+        seq=0,
+        parent_hashes=[],
+        payload={
+            "episode_id": episode_id,
+            "episode_spec_hash": spec_hash,
+            "inputs_hash": inputs_hash,
+            "script_hash": script_hash,
+            "env_fingerprint_hash": environment["env_fingerprint_hash"],
+            "replay_basis": "recorded_trace",
+            "comparator_tier": "A",
+            "n_steps": 4,
+        },
+    )
+    step_one = _make_receipt(
+        receipt_id="r_block_step_001",
+        receipt_type="rce.episode_step/v0",
+        seq=1,
+        parent_hashes=[open_receipt["receipt_hash"]],
+        payload={
+            "episode_id": episode_id,
+            "step_id": "s01",
+            "opcode": "LOAD_INPUT",
+            "step_status": "PASS",
+            "input_hashes": [],
+            "output_hash": s01_hash,
+            "output_size_bytes": 12,
+            "duration_ms": 1,
+            "comparator_tier": "A",
+        },
+    )
+    step_two = _make_receipt(
+        receipt_id="r_block_step_002",
+        receipt_type="rce.episode_step/v0",
+        seq=2,
+        parent_hashes=[step_one["receipt_hash"]],
+        payload={
+            "episode_id": episode_id,
+            "step_id": "s02",
+            "opcode": "ASSERT_HASH",
+            "step_status": "FAIL",
+            "input_hashes": [s01_hash],
+            "output_hash": s02_hash,
+            "output_size_bytes": 27,
+            "duration_ms": 1,
+            "comparator_tier": "A",
+            "assertion_passed": False,
+        },
+    )
+    step_three = _make_receipt(
+        receipt_id="r_block_step_003",
+        receipt_type="rce.episode_step/v0",
+        seq=3,
+        parent_hashes=[step_two["receipt_hash"]],
+        payload={
+            "episode_id": episode_id,
+            "step_id": "s03",
+            "opcode": "APPLY_TRANSFORM",
+            "step_status": "PASS",
+            "input_hashes": [s02_hash],
+            "output_hash": s03_hash,
+            "output_size_bytes": 12,
+            "duration_ms": 1,
+            "comparator_tier": "A",
+            "provider": "openai",
+            "model_id": "gpt-4o",
+            "system_fingerprint": None,
+        },
+    )
+    step_four = _make_receipt(
+        receipt_id="r_block_step_004",
+        receipt_type="rce.episode_step/v0",
+        seq=4,
+        parent_hashes=[step_three["receipt_hash"]],
+        payload={
+            "episode_id": episode_id,
+            "step_id": "s04",
+            "opcode": "EMIT_OUTPUT",
+            "step_status": "PASS",
+            "input_hashes": [s03_hash],
+            "output_hash": s04_hash,
+            "output_size_bytes": 33,
+            "duration_ms": 1,
+            "comparator_tier": "A",
+        },
+    )
+    close_receipt = _make_receipt(
+        receipt_id="r_block_close_001",
+        receipt_type="rce.episode_close/v0",
+        seq=5,
+        parent_hashes=[step_four["receipt_hash"]],
+        payload={
+            "episode_id": episode_id,
+            "episode_spec_hash": spec_hash,
+            "outputs_hash": outputs_hash,
+            "n_steps_executed": 4,
+            "n_steps_passed": 3,
+            "all_steps_passed": False,
+            "replay_basis": "recorded_trace",
+            "comparator_tier": "A",
+        },
+    )
+
+    pack_dir = ProofPack(
+        run_id="trace_rce_failed_dependency",
+        entries=[open_receipt, step_one, step_two, step_three, step_four, close_receipt],
+        signer_id="test-signer",
+    ).build(tmp_path / "failed_dependency_pack", keystore=ks)
+
+    _write_json(pack_dir / "episode_contract.json", contract)
+    _write_json(pack_dir / "recorded_traces" / "s01.json", load_output)
+    _write_json(pack_dir / "recorded_traces" / "s02.json", assert_output)
+    _write_json(pack_dir / "recorded_traces" / "s03.json", transform_output)
+    _write_json(pack_dir / "recorded_traces" / "s04.json", final_output)
+    (pack_dir / "inputs").mkdir(parents=True, exist_ok=True)
+    (pack_dir / "inputs" / "input.json").write_bytes(input_bytes)
+    return pack_dir
+
+
 class TestRCEVerify:
     def test_match_for_valid_recorded_trace_pack(self, tmp_path: Path) -> None:
         ks = _make_keystore(tmp_path)
@@ -487,6 +663,18 @@ class TestRCEVerify:
         assert receipt["steps_matched"] == 2
         assert receipt["steps_diverged"] == 0
         assert details["errors"] == []
+
+    def test_failed_steps_must_block_dependents(self, tmp_path: Path) -> None:
+        ks = _make_keystore(tmp_path)
+        pack_dir = _build_failed_dependency_pack(tmp_path, ks)
+
+        receipt, details, exit_code = verify_rce_pack(pack_dir, keystore=ks, issued_at=_TS)
+
+        assert exit_code == 2
+        assert receipt["verdict"] == "INTEGRITY_FAIL"
+        assert receipt["claim_check"] is None
+        assert details["phase"] == 3
+        assert any("must be SKIPPED" in error for error in details["errors"])
 
     def test_writer_materializes_receipt_and_details(self, tmp_path: Path) -> None:
         ks = _make_keystore(tmp_path)

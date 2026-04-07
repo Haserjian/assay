@@ -609,6 +609,32 @@ def _phase_three(
         except json.JSONDecodeError as exc:
             errors.append(f"recorded_traces/{step_id}.json: invalid JSON ({exc.msg})")
 
+    for step in ordered_steps:
+        step_id = str(step.get("step_id") or "")
+        payload = step_payloads.get(step_id)
+        if payload is None:
+            continue
+
+        status = _payload_string(payload, "step_status")
+        dependency_statuses = [
+            _payload_string(step_payloads[dependency], "step_status")
+            for dependency in cast(List[str], step.get("depends_on") or [])
+            if dependency in step_payloads
+        ]
+        is_blocked = any(
+            dependency_status in {_STEP_STATUS_FAIL, _STEP_STATUS_SKIPPED}
+            for dependency_status in dependency_statuses
+        )
+
+        if is_blocked and status != _STEP_STATUS_SKIPPED:
+            errors.append(
+                f"rce.episode_step/v0[{step_id}]: steps depending on FAIL or SKIPPED ancestors must be SKIPPED"
+            )
+        if not is_blocked and status == _STEP_STATUS_SKIPPED:
+            errors.append(
+                f"rce.episode_step/v0[{step_id}]: SKIPPED status requires a FAIL or SKIPPED dependency"
+            )
+
     computed_outputs_hash = _compute_outputs_hash(step_payloads)
     if close_payload:
         if _payload_string(close_payload, "episode_id") != episode_id:
