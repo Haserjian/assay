@@ -64,7 +64,19 @@ from rich.table import Table
 
 console = Console()
 
-_DEFAULT_FEEDBACK_URL = "https://github.com/Haserjian/assay/discussions"
+# Pre-fills a structured GitHub Discussion in the General category with the
+# three signal-extraction questions from the build-public plan. The
+# `_feedback_url_for_source` helper appends `?src=<surface>` so we can attribute
+# which CLI surface (try, demo-challenge, etc.) sent the responder.
+_DEFAULT_FEEDBACK_URL = (
+    "https://github.com/Haserjian/assay/discussions/new"
+    "?category=general"
+    "&title=First-run+feedback"
+    "&body="
+    "How+did+you+find+Assay%3F%0A%0A"
+    "What+were+you+trying+to+prove+or+verify%3F%0A%0A"
+    "What+almost+made+you+bounce%3F%0A%0A"
+)
 _CI_FEEDBACK_SUPPRESSION_VARS = (
     "CI",
     "GITHUB_ACTIONS",
@@ -2017,6 +2029,12 @@ def try_cmd(
     console.print(
         "  [dim]Need a reviewer-ready artifact instead? See assay vendorq --help[/]"
     )
+    if _should_show_feedback_footer():
+        console.print()
+        console.print(
+            f"  [dim]Tell us what you tried:[/] {_feedback_url_for_source('try')}"
+        )
+    console.print()
 
 
 @assay_app.command("try-mcp", rich_help_panel=_TRY_PANEL)

@@ -7,11 +7,23 @@ import sys
 from assay.commands import _feedback_url_for_source, _should_show_feedback_footer
 
 
-def test_feedback_url_defaults_to_discussions_with_source(monkeypatch):
+def test_feedback_url_defaults_to_structured_discussion_with_source(monkeypatch):
     monkeypatch.delenv("ASSAY_FEEDBACK_URL", raising=False)
-    assert _feedback_url_for_source("demo-challenge") == (
-        "https://github.com/Haserjian/assay/discussions?src=demo-challenge"
-    )
+    url = _feedback_url_for_source("demo-challenge")
+    # Points at the "new discussion" form so responses land in a structured place,
+    # not just the bare Discussions list.
+    assert url.startswith("https://github.com/Haserjian/assay/discussions/new")
+    assert "category=general" in url
+    assert "title=First-run+feedback" in url
+    # Source attribution is preserved through the query rewrite.
+    assert "src=demo-challenge" in url
+
+
+def test_feedback_url_tags_try_source(monkeypatch):
+    monkeypatch.delenv("ASSAY_FEEDBACK_URL", raising=False)
+    url = _feedback_url_for_source("try")
+    assert url.startswith("https://github.com/Haserjian/assay/discussions/new")
+    assert "src=try" in url
 
 
 def test_feedback_url_respects_env_override(monkeypatch):
