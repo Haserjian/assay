@@ -1,0 +1,15 @@
+{
+  "canonical_repo": "Haserjian/assay-protocol",
+  "canonical_ref": "3ced8af47326e9a9ac3c8b08cbe0943e782145af",
+  "mirrors": [
+    {
+      "canonical_path": "schemas/rce_episode_contract.schema.json",
+      "mirror_path": "src/assay/schemas/rce_episode_contract.schema.json",
+      "transform": "rewrite_schema_id",
+      "transform_args": {
+        "from_url": "https://github.com/Haserjian/assay-protocol/schemas/rce_episode_contract.schema.json",
+        "to_url": "https://github.com/Haserjian/assay/schemas/rce_episode_contract.schema.json"
+      }
+    }
+  ]
+}

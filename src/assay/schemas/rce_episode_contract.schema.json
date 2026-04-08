@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://github.com/Haserjian/assay/schemas/rce_episode_contract.schema.json",
   "title": "RCE Episode Contract v0.1",
-  "description": "Schema for a Replay-Constrained Episode Contract. The replay-normative view determines episode_spec_hash.",
+  "description": "Schema for a Replay-Constrained Episode Contract. The replay-normative view (inputs, replay_script, replay_policy, identity-bearing environment subset) determines episode_spec_hash.",
   "type": "object",
   "required": [
     "schema_version",
@@ -15,30 +15,37 @@
   "properties": {
     "schema_version": {
       "type": "string",
-      "const": "rce/0.1"
+      "const": "rce/0.1",
+      "description": "Envelope version. Not part of replay-normative view."
     },
     "episode_id": {
       "type": "string",
-      "pattern": "^ep_[0-9a-f]{24}$"
+      "pattern": "^ep_[0-9a-f]{24}$",
+      "description": "AgentMesh-native time-sortable identifier. Not part of replay-normative view."
     },
     "objective": {
-      "type": "string"
+      "type": "string",
+      "description": "Human-readable episode objective. Descriptive only — MUST NOT affect episode_spec_hash or replay verification."
     },
     "inputs": {
       "type": "array",
       "minItems": 1,
       "items": {
         "$ref": "#/definitions/input_ref"
-      }
+      },
+      "description": "Immutable input references. Part of replay-normative view."
     },
     "replay_script": {
-      "$ref": "#/definitions/replay_script"
+      "$ref": "#/definitions/replay_script",
+      "description": "Typed step DAG. Part of replay-normative view."
     },
     "replay_policy": {
-      "$ref": "#/definitions/replay_policy"
+      "$ref": "#/definitions/replay_policy",
+      "description": "Comparator and replay basis configuration. Part of replay-normative view."
     },
     "environment": {
-      "$ref": "#/definitions/environment"
+      "$ref": "#/definitions/environment",
+      "description": "Execution environment. Identity-bearing subset (provider, model_id, tool_versions, container_digest) is part of replay-normative view."
     }
   },
   "additionalProperties": false,
@@ -48,14 +55,17 @@
       "required": ["ref", "hash"],
       "properties": {
         "ref": {
-          "type": "string"
+          "type": "string",
+          "description": "Logical input name"
         },
         "hash": {
           "type": "string",
-          "pattern": "^sha256:[0-9a-f]{64}$"
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "description": "SHA-256 of input bytes"
         },
         "media_type": {
-          "type": "string"
+          "type": "string",
+          "description": "MIME type of input"
         }
       },
       "additionalProperties": false
@@ -83,22 +93,117 @@
       "required": ["step_id", "opcode", "params", "depends_on"],
       "properties": {
         "step_id": {
-          "type": "string"
+          "type": "string",
+          "description": "Unique step identifier within this script. Verifier MUST enforce uniqueness across steps (JSON Schema cannot express cross-item field uniqueness)."
         },
         "opcode": {
           "type": "string",
           "enum": ["LOAD_INPUT", "ASSERT_HASH", "APPLY_TRANSFORM", "EMIT_OUTPUT"]
         },
         "params": {
-          "type": "object"
+          "type": "object",
+          "description": "Opcode-specific parameters. The machine-readable schema enforces per-opcode parameter shapes."
         },
         "depends_on": {
           "type": "array",
+          "uniqueItems": true,
           "items": {
             "type": "string"
-          }
+          },
+          "description": "Step IDs this step depends on. Empty array for root steps. No duplicate entries."
         },
-        "output_schema": {}
+        "output_schema": {
+          "type": "object",
+          "description": "Optional JSON Schema (draft-07) for step output validation. Must be a valid JSON Schema object if present."
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": { "properties": { "opcode": { "const": "LOAD_INPUT" } } },
+          "then": { "properties": { "params": { "$ref": "#/definitions/load_input_params" } } }
+        },
+        {
+          "if": { "properties": { "opcode": { "const": "ASSERT_HASH" } } },
+          "then": { "properties": { "params": { "$ref": "#/definitions/assert_hash_params" } } }
+        },
+        {
+          "if": { "properties": { "opcode": { "const": "APPLY_TRANSFORM" } } },
+          "then": { "properties": { "params": { "$ref": "#/definitions/apply_transform_params" } } }
+        },
+        {
+          "if": { "properties": { "opcode": { "const": "EMIT_OUTPUT" } } },
+          "then": { "properties": { "params": { "$ref": "#/definitions/emit_output_params" } } }
+        }
+      ]
+    },
+    "load_input_params": {
+      "type": "object",
+      "required": ["ref"],
+      "properties": {
+        "ref": {
+          "type": "string",
+          "description": "Logical input reference to load."
+        }
+      },
+      "additionalProperties": false
+    },
+    "assert_hash_params": {
+      "type": "object",
+      "required": ["target", "expected_hash"],
+      "properties": {
+        "target": {
+          "type": "string",
+          "description": "Upstream step identifier whose output hash is being asserted."
+        },
+        "expected_hash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "description": "Expected canonical output hash for the target step."
+        }
+      },
+      "additionalProperties": false
+    },
+    "apply_transform_params": {
+      "type": "object",
+      "required": ["transform"],
+      "properties": {
+        "transform": {
+          "type": "string",
+          "description": "Named recorded-trace transform to apply."
+        },
+        "provider": {
+          "type": "string",
+          "description": "Optional provider metadata for the transform."
+        },
+        "model_id": {
+          "type": "string",
+          "description": "Optional model identifier metadata for the transform."
+        },
+        "config_hash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "description": "Optional opaque transform configuration hash."
+        },
+        "system_fingerprint": {
+          "type": ["string", "null"],
+          "description": "Optional runtime-reported fingerprint metadata."
+        }
+      },
+      "additionalProperties": false
+    },
+    "emit_output_params": {
+      "type": "object",
+      "required": ["claim_type", "output_ref"],
+      "properties": {
+        "claim_type": {
+          "type": "string",
+          "description": "Type label for the emitted structured claim."
+        },
+        "output_ref": {
+          "type": "string",
+          "description": "Upstream step whose output is emitted as a final claim."
+        }
       },
       "additionalProperties": false
     },
@@ -108,56 +213,60 @@
       "properties": {
         "replay_basis": {
           "type": "string",
-          "enum": ["recorded_trace"]
+          "enum": ["recorded_trace"],
+          "description": "v0.1 supports recorded_trace only"
         },
         "comparator_tier": {
           "type": "string",
-          "enum": ["A"]
+          "enum": ["A"],
+          "description": "v0.1 supports Tier A only"
         },
         "comparator_tiers_by_step": {
           "type": "object",
           "additionalProperties": {
             "type": "string",
             "enum": ["A"]
-          }
+          },
+          "description": "Per-step comparator tier overrides. All must be A in v0.1."
         }
       },
       "additionalProperties": false
     },
     "environment": {
       "type": "object",
-      "required": [
-        "env_fingerprint_hash",
-        "provider",
-        "model_id",
-        "tool_versions",
-        "container_digest"
-      ],
+      "required": ["env_fingerprint_hash", "provider", "model_id", "tool_versions", "container_digest"],
       "properties": {
         "env_fingerprint_hash": {
           "type": "string",
-          "pattern": "^sha256:[0-9a-f]{64}$"
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "description": "SHA-256 of JCS({provider, model_id, tool_versions, container_digest}). Derived cross-check — not a direct identity input."
         },
         "provider": {
-          "type": "string"
+          "type": "string",
+          "description": "Model provider identifier. Identity-bearing."
         },
         "model_id": {
-          "type": "string"
+          "type": "string",
+          "description": "Model identifier. Identity-bearing."
         },
         "model_version_hint": {
-          "type": ["string", "null"]
+          "type": ["string", "null"],
+          "description": "Advisory model version. NOT identity-bearing."
         },
         "system_fingerprint": {
-          "type": ["string", "null"]
+          "type": ["string", "null"],
+          "description": "Runtime-reported fingerprint. NOT identity-bearing."
         },
         "tool_versions": {
           "type": "object",
           "additionalProperties": {
             "type": "string"
-          }
+          },
+          "description": "Tool name to semver mapping. Identity-bearing."
         },
         "container_digest": {
-          "type": ["string", "null"]
+          "type": ["string", "null"],
+          "description": "Container digest if applicable. Identity-bearing."
         }
       },
       "additionalProperties": false
