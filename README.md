@@ -32,7 +32,7 @@ assay demo-challenge
 - **MCP demo:** `assay try-mcp` — MCP tool calls with signed receipts (30 seconds)
 - **[See the before/after specimen](https://github.com/Haserjian/assay-proof-gallery/tree/main/gallery/07-contested-decision)** — contested decision, reconstruction vs verification
 
-Assay turns AI runs into signed proof packs another team can verify offline. It makes tampering visible and preserves honest failure.
+Assay turns AI runs into signed proof packs — a signed folder another team can verify offline. It makes tampering visible and preserves honest failure.
 
 ---
 
@@ -107,13 +107,15 @@ zero false passes. [Full report](docs/TRUST_UNDER_ATTACK.md).
 > score. That is expected — Assay instruments AI workflows, not itself.
 > This repo is the instrument, not the subject.
 
-**Why now:** EU AI Act Article 12 requires automatic logging for high-risk
-AI systems; Article 19 requires providers to retain automatically generated
-logs for at least 6 months. High-risk obligations apply from 2 Aug 2026
-(Annex III) and 2 Aug 2027 (regulated products). SOC 2 CC7.2 requires
-monitoring of system components and analysis of anomalies as security events.
-"We have logs on our server" is not independently verifiable evidence.
-Assay produces evidence that is.
+**Why now:** As EU AI Act obligations come into force, especially for
+high-risk systems, teams need evidence another party can verify. Article 12
+covers automatic logging for high-risk AI systems; Article 19 covers
+retention of automatically generated logs. High-risk obligations apply from
+2 Aug 2026 (Annex III) and 2 Aug 2027 (regulated products). SOC 2 CC7.2
+requires monitoring of system components and analysis of anomalies as
+security events. "We have logs on our server" is not independently
+verifiable evidence. Assay produces evidence another party can inspect,
+forward, and verify offline.
 See [compliance citations](docs/compliance-citations.md) for exact references.
 
 For the ecosystem map, see [docs/REPO_MAP.md](docs/REPO_MAP.md).
@@ -270,6 +272,78 @@ reduced via multi-detector scanning and CI gating.
 
 Assay doesn't make fraud impossible -- it makes fraud expensive, fragile,
 and much easier to catch.
+
+</details>
+
+<details>
+<summary><b>Attack surface map</b> (what Assay catches, what it does not)</summary>
+
+## Honest Failure: The Assay Attack-Surface Map
+
+Assay proves integrity after compilation for the artifact it produced. It does
+not prove initial honesty, signer identity, or a non-compromised runtime by
+itself. The point of this section is to name the main attack surfaces directly:
+what the verifier catches today, what remains outside the trust boundary, and
+what the upgrade path is.
+
+### 1. Post-run tampering
+
+Someone edits the evidence after the run: a model name, tool output, refund
+amount, or failed trace.
+
+- **What Assay catches:** `assay verify-pack` returns tampered when any
+  covered byte changes. In the canonical challenge, changing `"gpt-4"` to
+  `"gpt-5"` flips verification from PASS to FAIL.
+- **What this means:** the proof pack is the evidence. A screenshot of PASS is
+  not. A forwarded pack or reviewer packet is.
+
+### 2. Signer authority
+
+Someone generates a mathematically valid proof pack with their own key and
+claims it came from your system.
+
+- **What Assay proves today:** Base trust tier T0 proves structural
+  cryptographic validity after compilation, not signer authority.
+- **Upgrade path:** move signing to CI-held keys, bind signers to external
+  identity, and/or anchor hashes in a transparency ledger. See
+  [trust tiers](docs/FULL_PICTURE.md#trust-tiers).
+
+### 3. Compromised runtime before compilation
+
+The host or agent is compromised during execution and feeds fabricated
+telemetry into the compiler before signing.
+
+- **Boundary:** Assay is a flight data recorder, not host attestation or
+  malware defense. If the runtime lies before signing, Assay can only preserve
+  that lie faithfully.
+- **Mitigation:** hardened runners, controlled signers, policy gates, and
+  external anchors.
+
+### 4. Coverage gaps and ghost calls
+
+A model call or tool action bypasses instrumentation and never enters the
+proof pack.
+
+- **Boundary:** Assay cannot sign what it cannot see.
+- **Mitigation:** `assay scan`, `assay patch`, CI gates, and explicit policy
+  declarations reduce this risk. Dynamic dispatch and raw HTTP remain residual
+  risk unless you instrument them directly.
+
+### 5. Evidence drop and external anchoring
+
+An honest failure occurs and someone simply deletes the pack or withholds it
+from the next reviewer.
+
+- **Boundary:** a proof pack is portable and offline-verifiable, but deletion
+  is still deletion.
+- **Mitigation:** publish or anchor pack hashes in
+  [assay-ledger](https://github.com/Haserjian/assay-ledger) or another
+  transparency system at creation time.
+
+This is the current public posture: tamper-evident artifacts, honest failure
+retention, and explicit upgrade paths for stronger trust. For deeper adversarial
+cases, see [Trust Under Attack](docs/TRUST_UNDER_ATTACK.md) and
+[What Assay Does Today](docs/WHAT_ASSAY_DOES_TODAY.md).
 
 </details>
 

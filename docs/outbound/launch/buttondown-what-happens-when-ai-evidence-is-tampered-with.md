@@ -1,0 +1,3 @@
+Most AI systems can show logs. That is not the same as handing another team evidence they can verify. Assay compiles AI activity into signed proof packs, a signed folder another team can verify offline. The shortest demo is plain on purpose: verify a good pack, change `gpt-4` to `gpt-5` after the run, verify again, and watch the artifact fail.
+
+The important part is the boundary. Assay proves integrity after compilation for the artifact it produced; it does not, by itself, prove initial honesty, signer identity, or an uncompromised runtime. That narrower claim is still enough to matter at handoff, in CI, and in review, because it turns post-run tampering from an argument into a deterministic failure.
