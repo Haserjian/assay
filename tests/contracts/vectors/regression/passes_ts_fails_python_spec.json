@@ -1,0 +1,21 @@
+{
+  "format_version": "0.1.0",
+  "specimen": "passes_ts_fails_python",
+  "invariant": "INV-01",
+  "description": "A receipt that passes the TypeScript verifier (which only checks receipt_id, type, timestamp) but is rejected by Python (which checks ts, trace_id, principal, decision). This receipt has the wrong field names by spec.",
+  "receipt": {
+    "receipt_id": "regression-inv01-ts-pass-py-fail",
+    "type": "mcp_gateway",
+    "timestamp": "2026-04-03T00:00:00Z"
+  },
+  "expected_python": {
+    "errors": ["Missing ts", "Missing trace_id", "Missing principal", "Missing decision"],
+    "verdict": "fail"
+  },
+  "expected_typescript": {
+    "passed": true,
+    "reason": "TS checks only receipt_id, type, timestamp — all present. No other validation."
+  },
+  "conformance_requirement": "A conforming verifier pair MUST agree on this receipt. Both should reject it as schema-invalid. If TS passes it, INV-01 is violated.",
+  "source": "2026-04-03 multi-agent security audit"
+}

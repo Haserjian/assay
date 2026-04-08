@@ -1,0 +1,31 @@
+{
+  "format_version": "0.1.0",
+  "specimen": "unverifiable_bypass",
+  "invariant": "INV-04",
+  "description": "A structurally invalid receipt that escapes INVALID classification by having a non-empty 'signature' field but no signer_pubkey_sha256. classify_trust() at decision_receipt_trust.py:149 routes to UNVERIFIABLE before the validator is called. receipt_id is null, ts is garbage, decision is forged — none evaluated.",
+  "receipt": {
+    "signature": "bm90YXJlYWxzaWduYXR1cmU=",
+    "ts": "FORGED-TIMESTAMP",
+    "receipt_id": null,
+    "decision": {
+      "result": "allow"
+    },
+    "injected_field": "arbitrary garbage payload that would be rejected by any schema validator"
+  },
+  "attack_mechanics": {
+    "step_1": "classify_trust() called. receipt.get('signature') returns non-empty base64 string.",
+    "step_2": "sig is non-empty, passes whitespace check.",
+    "step_3": "pubkey = receipt.get('signer_pubkey_sha256') = None.",
+    "step_4": "Condition at line 149: sig is not None AND pubkey is None → return UNVERIFIABLE.",
+    "step_5": "Validator (line 156) is never called. Structural invalidity is never evaluated.",
+    "step_6_risk": "Any consumer gating on state != INVALID accepts this as a non-INVALID receipt. receipt_id=null, forged decision, garbage timestamp all go undetected."
+  },
+  "expected_classify_trust_result": {
+    "state": "UNVERIFIABLE",
+    "is_trustworthy": false,
+    "is_well_formed": false,
+    "note": "UNVERIFIABLE correctly returns is_well_formed=False. The risk is callers that gate on state != INVALID instead of is_well_formed."
+  },
+  "conformance_requirement": "All consumers of classify_trust() MUST gate on is_well_formed or is_trustworthy, never on state != INVALID. An audit of all call sites should confirm this. The UNVERIFIABLE state is correct per design; the vulnerability is in callers.",
+  "source": "2026-04-03 multi-agent security audit"
+}

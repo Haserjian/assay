@@ -1,0 +1,35 @@
+{
+  "format_version": "0.1.0",
+  "specimen": "passes_python_fails_ts",
+  "invariant": "INV-01",
+  "description": "A spec-conformant receipt that passes Python validate_receipt() but is rejected by the TypeScript verifier because TS checks for 'type' and 'timestamp' instead of the canonical spec fields 'ts', 'trace_id', 'mcp', etc.",
+  "receipt": {
+    "ts": "2026-04-03T00:00:00Z",
+    "receipt_id": "regression-inv01-py-pass-ts-fail",
+    "trace_id": "tr-regression-001",
+    "principal": {
+      "sub": "agent@example.com",
+      "actor_type": "agent"
+    },
+    "mcp": {
+      "method": "tools/call"
+    },
+    "decision": {
+      "result": "allow"
+    },
+    "token_handling": {
+      "mode": "none",
+      "passthrough_detected": false
+    }
+  },
+  "expected_python": {
+    "errors": [],
+    "verdict": "pass"
+  },
+  "expected_typescript": {
+    "passed": false,
+    "reason": "TS requires 'type' and 'timestamp' fields (verify-core.ts:325) which are absent from the canonical spec. This receipt is schema-valid but TS rejects it."
+  },
+  "conformance_requirement": "A conforming verifier pair MUST agree on this receipt. Either both pass or both fail. Divergent outcomes prove verifier parity invariant is violated.",
+  "source": "2026-04-03 multi-agent security audit"
+}

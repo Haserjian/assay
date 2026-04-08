@@ -1,0 +1,38 @@
+{
+  "format_version": "0.1.0",
+  "specimen": "passthrough_detected_true",
+  "invariant": "INV-02",
+  "description": "A receipt claiming token_handling.passthrough_detected = true. This is a security violation per MCP_MINIMUM_PROFILE MUST-9. Both verifiers must reject it. Python rejects it; TypeScript silently accepts it (as of 2026-04-03 audit).",
+  "receipt": {
+    "receipt_id": "regression-inv02-passthrough",
+    "type": "mcp_gateway",
+    "timestamp": "2026-04-03T00:00:00Z",
+    "ts": "2026-04-03T00:00:00Z",
+    "trace_id": "tr-regression-002",
+    "principal": {
+      "sub": "agent@example.com",
+      "actor_type": "agent"
+    },
+    "mcp": {
+      "method": "tools/call"
+    },
+    "decision": {
+      "result": "allow"
+    },
+    "token_handling": {
+      "mode": "passthrough",
+      "passthrough_detected": true
+    }
+  },
+  "expected_python": {
+    "errors": ["passthrough_detected must be false"],
+    "verdict": "fail"
+  },
+  "expected_typescript": {
+    "passed": false,
+    "reason": "MUST-9 violation. TS must reject this. As of audit date, TS has no token_handling check — this is the regression the test must catch.",
+    "current_broken_behavior": "passed: true (TS silently accepts)"
+  },
+  "conformance_requirement": "A conforming verifier MUST return passed=false for any receipt where token_handling.passthrough_detected is true.",
+  "source": "2026-04-03 multi-agent security audit"
+}

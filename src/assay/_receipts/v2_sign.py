@@ -33,6 +33,7 @@ Ergonomic helpers:
     build_v2_base_receipt(...)   — convenience constructor (NOT the conceptual
                                    center; emit_v2_receipt is)
 """
+
 from __future__ import annotations
 
 import base64
@@ -54,6 +55,7 @@ from assay._receipts.jcs import canonicalize as jcs_canonicalize
 # Default policy helpers
 # ---------------------------------------------------------------------------
 
+
 def default_v2_policy(profile: str = "operational-v1") -> dict:
     """Return the standard verification_policy dict for a named profile.
 
@@ -62,8 +64,10 @@ def default_v2_policy(profile: str = "operational-v1") -> dict:
 
     Profiles:
         "operational-v1"   — Ed25519 minimum; satisfies today's verifiers.
-        "archival-v1"      — Ed25519 (operational) + ML-DSA-65 (archival);
-                             satisfies long-lived compliance horizon.
+        "archival-v1"      — Ed25519 operational policy plus reserved PQ
+                             archival requirements. Current builds attest this
+                             target policy, but do not yet emit or verify the
+                             PQ signatures needed to satisfy it end-to-end.
 
     The returned dict is part of the attested projection. Policy changes
     require reissuance — the policy cannot be amended after signing.
@@ -96,6 +100,7 @@ def default_v2_policy(profile: str = "operational-v1") -> dict:
 # ---------------------------------------------------------------------------
 # Ergonomic base receipt constructor
 # ---------------------------------------------------------------------------
+
 
 def build_v2_base_receipt(
     receipt_type: str,
@@ -156,6 +161,7 @@ def build_v2_base_receipt(
 # ---------------------------------------------------------------------------
 # Main minting function
 # ---------------------------------------------------------------------------
+
 
 def emit_v2_receipt(
     base_receipt: dict,
@@ -291,6 +297,7 @@ def emit_v2_receipt(
 # ---------------------------------------------------------------------------
 # Internal utilities
 # ---------------------------------------------------------------------------
+
 
 def _generate_receipt_id() -> str:
     """Generate a short random receipt ID in the organism convention."""

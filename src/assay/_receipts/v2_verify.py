@@ -18,10 +18,15 @@ metadata (signer_id absent → None in synthesized entry, signed_at omitted).
 Key resolver interface:
     key_resolver(signer_id: str, pubkey_sha256: Optional[str]) -> Optional[bytes]
 
-    Returns 32-byte Ed25519 public key bytes, or None if unknown/untrusted.
+    Returns 32-byte Ed25519 public key bytes, or None if this verifier layer
+    should not trust the signer's key material.
     Callers supply their own resolver (wrapping signers.json, keystore, etc.).
+    This is only the low-level key-availability trust check for signature
+    verification. Higher-level authorization and acceptance are evaluated by
+    the pack trust pipeline, not by verify_v2().
     If no key_resolver is provided, all signatures return trusted_signer=False.
 """
+
 from __future__ import annotations
 
 import base64
@@ -37,10 +42,10 @@ from assay._receipts.v2_types import (
     UNSUPPORTED_ALGORITHMS,
 )
 
-
 # ---------------------------------------------------------------------------
 # SigResult — per-signature verification result
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class SigResult:
@@ -48,8 +53,13 @@ class SigResult:
 
     Three independent predicates — each may be True independently:
       cryptographically_valid: signature math verifies against canonical bytes
-      trusted_signer:          signer_id in registry, key fingerprint matches
+            trusted_signer:          key_resolver returned key material for this
+                                                             signer_id/pubkey fingerprint pair at this layer
       algorithm_acceptable:    algorithm is in at least one policy-allowed set
+
+        trusted_signer is intentionally narrower than pack-level authorization.
+        A higher-level trust evaluator may still reject an otherwise trusted key
+        for the target environment or artifact class.
 
     status is the canonical aggregate (check this first):
       "valid"                 — all three predicates True
@@ -60,6 +70,7 @@ class SigResult:
 
     error: human-readable reason when status != "valid", None otherwise.
     """
+
     algorithm: str
     signer_id: str
     cryptographically_valid: bool
@@ -72,6 +83,7 @@ class SigResult:
 # ---------------------------------------------------------------------------
 # VerifyResultV2 — full structured verifier output
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class VerifyResultV2:
@@ -90,6 +102,7 @@ class VerifyResultV2:
       True iff operational policy is met AND (archival policy is met OR
       no archival policy was declared in verification_policy).
     """
+
     digest_valid: bool
     digest_status: str  # "matched" | "mismatch" | "missing_bundle" | "unsupported_projection" | "canonicalization_error"
     signature_results: List[SigResult] = field(default_factory=list)
@@ -103,9 +116,8 @@ class VerifyResultV2:
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-def _extract_canonical_bytes(
-    receipt: Dict[str, Any], projection_id: str
-) -> tuple:
+
+def _extract_canonical_bytes(receipt: Dict[str, Any], projection_id: str) -> tuple:
     """Returns (canonical_bytes_or_None, digest_status_string)."""
     try:
         projected = canonical_projection(receipt, projection_id=projection_id)
@@ -128,22 +140,33 @@ def _shim_v1_signatures(receipt: Dict[str, Any]) -> List[Dict[str, Any]]:
     - algorithm         → "ed25519" (v1 was always Ed25519)
     """
     if "signatures" in receipt:
+        if "signature" in receipt:
+            import warnings
+            warnings.warn(
+                "Receipt contains both 'signature' (flat v1 field) and 'signatures' "
+                "(v2 array). The flat 'signature' field is ignored. This may indicate "
+                "a version mismatch or a crafted receipt.",
+                UserWarning,
+                stacklevel=3,
+            )
         sigs = receipt["signatures"]
         return sigs if isinstance(sigs, list) else []
     if "signature" not in receipt:
         return []
-    return [{
-        "algorithm": "ed25519",
-        "signer_id": receipt.get("signer_id"),        # may be None
-        "value": receipt["signature"],
-        "signer_pubkey_sha256": receipt.get("signer_pubkey_sha256"),  # may be None
-    }]
+    return [
+        {
+            "algorithm": "ed25519",
+            "signer_id": receipt.get("signer_id"),  # may be None
+            "value": receipt["signature"],
+            "signer_pubkey_sha256": receipt.get("signer_pubkey_sha256"),  # may be None
+        }
+    ]
 
 
 def _verify_ed25519(pubkey_bytes: bytes, message: bytes, sig_bytes: bytes) -> bool:
     try:
         from nacl.signing import VerifyKey
-        from nacl.exceptions import BadSignatureError
+
         vk = VerifyKey(pubkey_bytes)
         vk.verify(message, sig_bytes)
         return True
@@ -166,8 +189,10 @@ def _verify_single_sig(
     # 1. Algorithm known-but-unsupported in this build
     if algorithm in UNSUPPORTED_ALGORITHMS:
         return SigResult(
-            algorithm=algorithm, signer_id=signer_id,
-            cryptographically_valid=False, trusted_signer=False,
+            algorithm=algorithm,
+            signer_id=signer_id,
+            cryptographically_valid=False,
+            trusted_signer=False,
             algorithm_acceptable=True,  # recognized by spec
             status="unsupported_algorithm",
             error=f"Algorithm {algorithm!r} is recognized but not implemented in this build",
@@ -177,8 +202,10 @@ def _verify_single_sig(
     algorithm_acceptable = algorithm in all_acceptable_algorithms
     if not algorithm_acceptable:
         return SigResult(
-            algorithm=algorithm, signer_id=signer_id,
-            cryptographically_valid=False, trusted_signer=False,
+            algorithm=algorithm,
+            signer_id=signer_id,
+            cryptographically_valid=False,
+            trusted_signer=False,
             algorithm_acceptable=False,
             status="policy_rejected",
             error=f"Algorithm {algorithm!r} is not in the allowed algorithm set",
@@ -193,8 +220,10 @@ def _verify_single_sig(
 
     if pubkey_bytes is None:
         return SigResult(
-            algorithm=algorithm, signer_id=signer_id,
-            cryptographically_valid=False, trusted_signer=False,
+            algorithm=algorithm,
+            signer_id=signer_id,
+            cryptographically_valid=False,
+            trusted_signer=False,
             algorithm_acceptable=algorithm_acceptable,
             status="untrusted_signer",
             error=f"Public key not available for signer {signer_id!r}",
@@ -205,8 +234,10 @@ def _verify_single_sig(
         sig_bytes = base64.b64decode(value)
     except Exception:
         return SigResult(
-            algorithm=algorithm, signer_id=signer_id,
-            cryptographically_valid=False, trusted_signer=trusted_signer,
+            algorithm=algorithm,
+            signer_id=signer_id,
+            cryptographically_valid=False,
+            trusted_signer=trusted_signer,
             algorithm_acceptable=algorithm_acceptable,
             status="invalid",
             error="Signature value is not valid base64",
@@ -218,8 +249,10 @@ def _verify_single_sig(
     else:
         # PQ algorithms recognized but not yet cryptographically verified
         return SigResult(
-            algorithm=algorithm, signer_id=signer_id,
-            cryptographically_valid=False, trusted_signer=trusted_signer,
+            algorithm=algorithm,
+            signer_id=signer_id,
+            cryptographically_valid=False,
+            trusted_signer=trusted_signer,
             algorithm_acceptable=algorithm_acceptable,
             status="unsupported_algorithm",
             error=f"Algorithm {algorithm!r} cryptographic verification not yet implemented",
@@ -227,16 +260,20 @@ def _verify_single_sig(
 
     if not crypto_valid:
         return SigResult(
-            algorithm=algorithm, signer_id=signer_id,
-            cryptographically_valid=False, trusted_signer=trusted_signer,
+            algorithm=algorithm,
+            signer_id=signer_id,
+            cryptographically_valid=False,
+            trusted_signer=trusted_signer,
             algorithm_acceptable=algorithm_acceptable,
             status="invalid",
             error="Signature verification failed",
         )
 
     return SigResult(
-        algorithm=algorithm, signer_id=signer_id,
-        cryptographically_valid=True, trusted_signer=trusted_signer,
+        algorithm=algorithm,
+        signer_id=signer_id,
+        cryptographically_valid=True,
+        trusted_signer=trusted_signer,
         algorithm_acceptable=algorithm_acceptable,
         status="valid",
     )
@@ -245,6 +282,7 @@ def _verify_single_sig(
 # ---------------------------------------------------------------------------
 # verify_v2 — main entry point
 # ---------------------------------------------------------------------------
+
 
 def verify_v2(
     receipt: Dict[str, Any],
@@ -307,7 +345,7 @@ def verify_v2(
             digest_status="unsupported_projection",
         )
 
-    digest_valid = (actual_digest == stored_digest)
+    digest_valid = actual_digest == stored_digest
     digest_status = "matched" if digest_valid else "mismatch"
 
     if not digest_valid:
@@ -331,7 +369,9 @@ def verify_v2(
     op_min_sigs = int(op_req.get("min_signatures", 1)) if op_req else 1
 
     if arch_req is not None:
-        arch_algorithms = frozenset(arch_req.get("algorithms", [])) or ARCHIVAL_ALGORITHMS
+        arch_algorithms = (
+            frozenset(arch_req.get("algorithms", [])) or ARCHIVAL_ALGORITHMS
+        )
         arch_min_sigs = int(arch_req.get("min_signatures", 1))
     else:
         arch_algorithms = ARCHIVAL_ALGORITHMS
@@ -354,13 +394,13 @@ def verify_v2(
     operational_valid = op_valid_count >= op_min_sigs
 
     # archival_valid tri-state
-    pq_sig_dicts = [s for s in sig_dicts if (s.get("algorithm") or "") in ARCHIVAL_ALGORITHMS]
+    pq_sig_dicts = [
+        s for s in sig_dicts if (s.get("algorithm") or "") in ARCHIVAL_ALGORITHMS
+    ]
     if not pq_sig_dicts:
-        archival_valid: Optional[bool] = None   # no PQ signatures present — not assessed
+        archival_valid: Optional[bool] = None  # no PQ signatures present — not assessed
     else:
-        pq_valid_count = sum(
-            1 for r in valid_results if r.algorithm in arch_algorithms
-        )
+        pq_valid_count = sum(1 for r in valid_results if r.algorithm in arch_algorithms)
         archival_valid = pq_valid_count >= arch_min_sigs
 
     # policy_satisfied: operational met AND (archival met OR no archival policy declared)

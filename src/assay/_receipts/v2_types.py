@@ -9,15 +9,16 @@ Spec lock: projection_id="receipt-core-v2"
 Core rule: signatures[] entries cover verification_bundle.bundle_digest only.
            No per-field signing. No JSON-path subsets.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
-
 # ---------------------------------------------------------------------------
 # SigEntry — one entry in a v2 signatures[] array
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class SigEntry:
@@ -35,16 +36,18 @@ class SigEntry:
         unless backed by a trusted timestamp/log/TSA receipt. Omit when
         external timestamping is not available.
     """
+
     algorithm: str
     signer_id: str
-    value: str                            # base64url-encoded signature bytes
+    value: str  # base64url-encoded signature bytes
     signer_pubkey_sha256: Optional[str] = None
-    signed_at: Optional[str] = None       # ISO 8601; advisory only, not authoritative
+    signed_at: Optional[str] = None  # ISO 8601; advisory only, not authoritative
 
 
 # ---------------------------------------------------------------------------
 # VerificationBundle — normative digest descriptor
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class VerificationBundle:
@@ -63,11 +66,12 @@ class VerificationBundle:
         Explanatory only. Mismatch between covers and actual projection
         produces a verifier warning, not a failure.
     """
-    bundle_digest: str        # "sha256:hexhash" or "sha3-256:hexhash"
-    bundle_algorithm: str     # "sha256"
-    canonicalization: str     # "jcs-rfc8785"
+
+    bundle_digest: str  # "sha256:hexhash" or "sha3-256:hexhash"
+    bundle_algorithm: str  # "sha256"
+    canonicalization: str  # "jcs-rfc8785"
     projection_id: str = "receipt-core-v2"
-    covers: tuple = ()        # explanatory only — see docstring
+    covers: tuple = ()  # explanatory only — see docstring
     schema_version: str = "1"
 
 
@@ -75,9 +79,11 @@ class VerificationBundle:
 # VerificationPolicy — acceptance policy embedded in the receipt
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class PolicyRequires:
     """Minimum signature requirements for one validity predicate."""
+
     min_signatures: int
     algorithms: List[str] = field(default_factory=list)
 
@@ -96,6 +102,7 @@ class VerificationPolicy:
     archival_requires=None means no archival policy declared; verifier will
     return archival_valid=None (not assessed), not archival_valid=False.
     """
+
     operational_requires: PolicyRequires
     archival_requires: Optional[PolicyRequires] = None
     schema_version: str = "1"
@@ -108,31 +115,51 @@ class VerificationPolicy:
 # Status table for verifier logic. Not part of the receipt schema.
 # Keys: algorithm identifier strings matching SigEntry.algorithm.
 ALGORITHM_STATUS: Dict[str, str] = {
-    "ed25519":            "classical_signing",
-    "ml-dsa-44":          "pq_signing",
-    "ml-dsa-65":          "pq_signing",
-    "ml-dsa-87":          "pq_signing",
-    "slh-dsa-sha2-128s":  "backup_signing",
-    "slh-dsa-sha2-128f":  "backup_signing",
-    "slh-dsa-sha2-192s":  "backup_signing",
-    "slh-dsa-sha2-256s":  "backup_signing",
+    "ed25519": "classical_signing",
+    "ml-dsa-44": "pq_signing",
+    "ml-dsa-65": "pq_signing",
+    "ml-dsa-87": "pq_signing",
+    "slh-dsa-sha2-128s": "backup_signing",
+    "slh-dsa-sha2-128f": "backup_signing",
+    "slh-dsa-sha2-192s": "backup_signing",
+    "slh-dsa-sha2-256s": "backup_signing",
 }
 
-OPERATIONAL_ALGORITHMS: frozenset = frozenset({
-    "ed25519",
-    "ml-dsa-44", "ml-dsa-65", "ml-dsa-87",
-})
+OPERATIONAL_ALGORITHMS: frozenset = frozenset(
+    {
+        "ed25519",
+        # PQ algorithms (ml-dsa-*, slh-dsa-*) are in UNSUPPORTED_ALGORITHMS until
+        # cryptographic verification is implemented. Do not add them here first.
+        # INV-04: ambiguous dual-membership (operational + unsupported) is the bug.
+    }
+)
 
-ARCHIVAL_ALGORITHMS: frozenset = frozenset({
-    "ml-dsa-44", "ml-dsa-65", "ml-dsa-87",
-    "slh-dsa-sha2-128s", "slh-dsa-sha2-128f",
-    "slh-dsa-sha2-192s", "slh-dsa-sha2-256s",
-})
+ARCHIVAL_ALGORITHMS: frozenset = frozenset(
+    {
+        "ml-dsa-44",
+        "ml-dsa-65",
+        "ml-dsa-87",
+        "slh-dsa-sha2-128s",
+        "slh-dsa-sha2-128f",
+        "slh-dsa-sha2-192s",
+        "slh-dsa-sha2-256s",
+    }
+)
 
 # Algorithms recognized by this spec but not implemented in this build.
 # Verifier MUST return status="unsupported_algorithm" for these,
 # not a cryptographic failure.
-UNSUPPORTED_ALGORITHMS: frozenset = frozenset()
+UNSUPPORTED_ALGORITHMS: frozenset = frozenset(
+    {
+        "ml-dsa-44",
+        "ml-dsa-65",
+        "ml-dsa-87",
+        "slh-dsa-sha2-128s",
+        "slh-dsa-sha2-128f",
+        "slh-dsa-sha2-192s",
+        "slh-dsa-sha2-256s",
+    }
+)
 
 
 __all__ = [
