@@ -105,9 +105,33 @@ def _append_query_param(url: str, key: str, value: str) -> str:
 
 
 def _feedback_url_for_source(source: str) -> str:
-    """Return the feedback URL for a human-facing surface."""
+    """Return the feedback URL for a human-facing surface.
+
+    Source attribution is embedded in the body= query parameter so it
+    lands inside the actual discussion content. GitHub Discussions drops
+    unknown query params (like ?src=try) at form-submit time, so the
+    ?src= param alone is not recoverable post-submit. Embedding "Source:
+    <surface>" as the first line of the prefilled body means responders
+    see it, can leave it in, and it ends up in the discussion body where
+    it can be greppped after the fact.
+
+    The ?src= query param is also preserved as a belt-and-suspenders
+    fallback for non-Discussions destinations (custom forms set via
+    ASSAY_FEEDBACK_URL) that may retain query params natively.
+    """
     base = os.environ.get("ASSAY_FEEDBACK_URL", _DEFAULT_FEEDBACK_URL)
-    return _append_query_param(base, "src", source)
+    # Inject "Source: <surface>" as the first line of the body so it
+    # survives the GitHub Discussions form-submit redirect.
+    parts = urlsplit(base)
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+    existing_body = query.get("body", "")
+    marker = f"Source: {source}\n\n"
+    query["body"] = marker + existing_body if existing_body else marker
+    base_with_marker = urlunsplit(
+        (parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment)
+    )
+    # Belt-and-suspenders: keep ?src= for destinations that preserve it.
+    return _append_query_param(base_with_marker, "src", source)
 
 
 def _should_show_feedback_footer(stdout: Any = None) -> bool:
