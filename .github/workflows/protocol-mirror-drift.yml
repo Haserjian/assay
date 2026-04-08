@@ -1,0 +1,45 @@
+name: Protocol Mirror Drift Guard
+
+# Fails CI when the mirrored RCE protocol files in this repo no longer
+# byte-equal the canonical files in Haserjian/assay-protocol at the
+# pinned commit, after applying the declared transform.
+#
+# Authority: assay-protocol is normative; this repo is verifier/runtime
+# mirror. The check lives here (the consumer) by design.
+#
+# Refresh ritual: bump canonical_ref in tools/protocol_mirror/manifest.json,
+# run the script with --mode=refresh, commit both files together.
+
+on:
+  pull_request:
+    paths:
+      - 'src/assay/schemas/rce_episode_contract.schema.json'
+      - 'tools/protocol_mirror/**'
+      - 'scripts/check_protocol_mirror_drift.py'
+      - '.github/workflows/protocol-mirror-drift.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/assay/schemas/rce_episode_contract.schema.json'
+      - 'tools/protocol_mirror/**'
+      - 'scripts/check_protocol_mirror_drift.py'
+      - '.github/workflows/protocol-mirror-drift.yml'
+  workflow_dispatch:
+
+jobs:
+  drift:
+    name: RCE schema mirror drift check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout assay
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify protocol mirror byte-equals canonical at pinned ref
+        run: python scripts/check_protocol_mirror_drift.py tools/protocol_mirror/manifest.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
