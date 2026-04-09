@@ -32,6 +32,7 @@ challenge_pack/
 *.jsonl
 !tests/contracts/vectors/**/*.jsonl
 assay.lock
+assay_openclaw_demo/
 
 # Package manager lock (library, not app -- consumers use their own lock)
 uv.lock
