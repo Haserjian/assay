@@ -1,9 +1,11 @@
 """
 Tests for OpenClaw bridge and WebToolReceipt.
 """
-import pytest
+
 import tempfile
 from pathlib import Path
+
+import pytest
 
 
 class TestWebToolReceipt:
@@ -107,7 +109,10 @@ class TestWebToolReceipt:
 
     def test_content_hash_computed(self):
         """Content hash is computed from response bytes."""
-        from assay._receipts.domains.web_tool import create_web_fetch_receipt, compute_content_hash
+        from assay._receipts.domains.web_tool import (
+            compute_content_hash,
+            create_web_fetch_receipt,
+        )
 
         content = b"Hello, world!"
         expected_hash = compute_content_hash(content)
@@ -132,7 +137,10 @@ class TestWebToolReceipt:
             agent_id="agent:test",
             redirect_chain=["https://docs.python.org/", "https://docs.python.org/3/"],
         )
-        assert receipt1.redirect_chain == ["https://docs.python.org/", "https://docs.python.org/3/"]
+        assert receipt1.redirect_chain == [
+            "https://docs.python.org/",
+            "https://docs.python.org/3/",
+        ]
         assert receipt1.crossed_domain_boundary is False
 
         # Cross-domain redirect
@@ -165,7 +173,9 @@ class TestWebToolReceipt:
         """Unapproved sensitive actions cannot have success outcome."""
         from assay._receipts.domains.web_tool import WebToolReceipt
 
-        with pytest.raises(ValueError, match="Unapproved sensitive actions must be blocked"):
+        with pytest.raises(
+            ValueError, match="Unapproved sensitive actions must be blocked"
+        ):
             WebToolReceipt(
                 receipt_id="wtr_test",
                 tool="browser",
@@ -272,7 +282,9 @@ class TestOpenClawBridge:
             allowlist=["*.github.com", "*.python.org"],
         )
 
-        verdict = bridge.check_browser_access("https://github.com/anthropics/claude-code")
+        verdict = bridge.check_browser_access(
+            "https://github.com/anthropics/claude-code"
+        )
 
         assert verdict.allowed is True
         assert verdict.domain == "github.com"
@@ -366,6 +378,80 @@ class TestParseOpenClawSessionLog:
             assert receipts[1].result_size_chars == 5000
             assert receipts[2].tool == "browser"
             assert receipts[2].allowed is True  # github.com in allowlist
+
+        finally:
+            log_path.unlink()
+
+    def test_import_report_tracks_skipped_rows(self):
+        """Malformed, unsupported, and invalid rows are surfaced explicitly."""
+        from assay.openclaw_bridge import import_openclaw_session_log
+
+        log_content = """
+{"tool": "web_search", "query": "python async", "results": [{"title": "a"}]}
+not-json
+{"tool": "shell_exec", "command": "whoami"}
+{"tool": "browser", "url": "https://github.com/login", "sensitive_action_attempted": true}
+{"tool": "web_fetch", "url": "https://docs.python.org/", "content_length": 5000}
+
+"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
+            f.write(log_content)
+            log_path = Path(f.name)
+
+        try:
+            report = import_openclaw_session_log(
+                log_path=log_path,
+                agent_id="agent:test",
+                allowlist=["*.github.com"],
+            )
+
+            assert report.total_lines == 7
+            assert report.blank_lines == 2
+            assert report.imported_count == 2
+            assert report.skipped_count == 3
+            assert report.completeness == "partial"
+            assert [receipt.tool for receipt in report.receipts] == [
+                "web_search",
+                "web_fetch",
+            ]
+            assert [entry.line_number for entry in report.imported_entries] == [2, 6]
+            assert [entry.reason for entry in report.skipped_entries] == [
+                "invalid_json",
+                "unsupported_tool",
+                "invalid_entry",
+            ]
+            assert report.skipped_entries[1].tool == "shell_exec"
+            assert "explicit approval status" in report.skipped_entries[2].message
+
+        finally:
+            log_path.unlink()
+
+    def test_imported_browser_row_still_receipts_allowlist_denial(self):
+        """Imported browser rows can become blocked receipts without being skipped."""
+        from assay.openclaw_bridge import import_openclaw_session_log
+
+        log_content = '{"tool": "browser", "url": "https://evil.com/login"}\n'
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
+            f.write(log_content)
+            log_path = Path(f.name)
+
+        try:
+            report = import_openclaw_session_log(
+                log_path=log_path,
+                agent_id="agent:test",
+                allowlist=["*.github.com"],
+            )
+
+            assert report.imported_count == 1
+            assert report.skipped_count == 0
+            assert report.completeness == "clean"
+            assert report.imported_entries[0].line_number == 1
+            receipt = report.receipts[0]
+            assert receipt.tool == "browser"
+            assert receipt.allowed is False
+            assert receipt.outcome == "blocked"
+            assert receipt.domain_allowlist_match is False
+            assert receipt.policy_rule == "domain_not_in_allowlist"
 
         finally:
             log_path.unlink()
