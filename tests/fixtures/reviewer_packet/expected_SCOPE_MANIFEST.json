@@ -29,6 +29,6 @@
     "This is a redacted commercial sample for portability.",
     "Coverage is partial, so the packet settlement is VERIFIED_WITH_GAPS."
   ],
-  "signed_at": "2026-03-11T00:00:00+00:00",
+  "signed_at": "2030-01-01T00:00:00+00:00",
   "signed_by": "sample-fixture"
 }
