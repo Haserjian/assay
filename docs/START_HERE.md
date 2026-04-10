@@ -111,6 +111,7 @@ Open a PR and you'll see all three checks in your GitHub status checks.
 - [Reviewer Packets](reviewer-packets.md) -- compile and verify the buyer-facing reviewer-ready evidence packet
 - [OpenClaw v1 Claim Sheet](openclaw-v1-claim-sheet.md) -- short statement of current proofs, non-proofs, trust assumptions, and required artifacts
 - [OpenClaw Support](openclaw-support.md) -- current subprocess membrane posture, proof boundary, and non-goals
+- [OpenClaw Live Validation Runbook](openclaw-live-validation-runbook.md) -- internal operator path for generating the first real exported session log and rerunning the live-fit harness
 - `assay diff` -- compare packs for cost/latency regressions
 - [Integrity surface spec](specs/INTEGRITY_SURFACE_SPEC_V1.md) and [port compatibility checklist](specs/INTEGRITY_PORT_COMPATIBILITY_CHECKLIST.md) -- the normative contract for verifier ports
 - [CI integration](ci-integration.md) -- why CI matters and how to enforce evidence discipline
