@@ -21,8 +21,12 @@ inspect, forward, and challenge.
 ## End-to-end flow
 
 ```text
-proof pack -> reviewer packet -> assay reviewer verify -> browser verify
+proof pack -> reviewer packet -> assay reviewer verify
 ```
+
+Browser verification remains proof-pack-only today. If you want a client-side
+trust check during a reviewer handoff, upload the nested `proof_pack/`
+directory, not the reviewer packet wrapper.
 
 ## Build a sample reviewer packet
 
@@ -182,18 +186,19 @@ This means the packet can degrade honestly:
 pack and any packaged canonical Decision Receipts. It does not trust the
 packet's `SETTLEMENT.json` or coverage rows.
 
-## Verify in the browser
+## Verify the trust root in the browser
 
-Open the browser verifier and drop in the compiled packet directory:
+Open the browser verifier and drop in the nested `proof_pack/` directory from
+the reviewer packet:
 
 - [Browser verifier](https://haserjian.github.io/assay-proof-gallery/verify.html)
 
-The browser verifier uses the same reviewer-packet contract as
-`assay reviewer verify` and checks:
+The browser verifier currently checks signed proof packs only. Use
+`assay reviewer verify` for the reviewer-packet layer. The browser verifier
+does not currently verify:
 
 - packet-layer file integrity
 - detached packet-signature parity when the packet manifest is signed
-- nested proof-pack integrity
 - derived settlement, freshness, regression, and coverage
 
 ## Buyer verdicts vs CLI exit codes
