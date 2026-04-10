@@ -3302,7 +3302,6 @@ def verify_pack_cmd(
     from pathlib import Path
 
     from assay.keystore import get_default_keystore
-    from assay.manifest_schema import parse_rfc3339_datetime
     from assay.proof_pack import verify_proof_pack
 
     if not 0.0 <= min_coverage <= 1.0:
@@ -3523,23 +3522,35 @@ def verify_pack_cmd(
 
     # Expiry check: valid_until in the past means the pack has expired.
     # This is an honest failure (exit 1), not a tamper (exit 2).
+    # Malformed valid_until is also an expiry failure (fail-closed); see #75.
     expiry_failed = False
+    expiry_kind: Optional[str] = None  # "expired" | "malformed"
     expiry_message = "--check-expiry: valid_until is in the past"
     if check_expiry:
         valid_until_str = att.get("valid_until")
         if valid_until_str:
-            try:
-                from datetime import datetime as _dt
-                from datetime import timezone as _tz
+            from datetime import datetime as _dt
+            from datetime import timezone as _tz
 
-                valid_until_ts = parse_rfc3339_datetime(valid_until_str)
+            try:
+                # Python 3.9/3.10 fromisoformat does not handle the 'Z' suffix.
+                _vu = (
+                    valid_until_str.replace("Z", "+00:00")
+                    if valid_until_str.endswith("Z")
+                    else valid_until_str
+                )
+                valid_until_ts = _dt.fromisoformat(_vu)
+                if valid_until_ts.tzinfo is None:
+                    valid_until_ts = valid_until_ts.replace(tzinfo=_tz.utc)
                 if _dt.now(_tz.utc) > valid_until_ts:
                     expiry_failed = True
+                    expiry_kind = "expired"
             except (ValueError, TypeError):
                 expiry_failed = True
+                expiry_kind = "malformed"
                 expiry_message = (
                     f"--check-expiry: valid_until is malformed ({valid_until_str!r}); "
-                    "treating as expired"
+                    "treating as expiry failure"
                 )
 
     overall_status = "ok"
@@ -3724,6 +3735,8 @@ def verify_pack_cmd(
         }
         if max_age_hours is not None:
             out["max_age_hours"] = max_age_hours
+        if expiry_failed:
+            out["expiry_status"] = expiry_kind  # "expired" | "malformed"
         if claim_gate_failed:
             out["claim_gate"] = f"--require-claim-pass: claim_check is '{claim_check}'"
         if lock_failed:
