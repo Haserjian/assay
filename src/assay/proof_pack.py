@@ -84,11 +84,9 @@ PROOF_PACK_ALLOWED_RECEIPT_TYPES = frozenset(
 _PROOF_PACK_NAMESPACED_TYPE_RE = re.compile(
     r"^[a-z0-9_]+(?:\.[a-z0-9_]+)+(?:/[a-z0-9_]+)?$"
 )
-PROOF_PACK_CURRENT_LOOM_RECEIPT_TYPES = frozenset(
-    {
-        # Mirror rows marked `current` in
-        # docs/specs/LOOM_RECEIPT_MAPPING_REGISTRY_V1.md.
-    }
+PROOF_PACK_CURRENT_LOOM_RECEIPT_TYPES: frozenset[str] = frozenset(
+    # Mirror rows marked `current` in
+    # docs/specs/LOOM_RECEIPT_MAPPING_REGISTRY_V1.md.
 )
 
 
@@ -290,7 +288,7 @@ def _unsupported_receipt_type_message(
     if _is_loom_namespaced_receipt_type(receipt_type):
         return _unsupported_loom_receipt_type_message(receipt_type)
     allowed = ", ".join(sorted(allowed_types))
-    return f"Unsupported proof-pack receipt type {receipt_type!r}. Allowed types: {allowed}"
+    return f"type {receipt_type!r} not in allowed types: {allowed}"
 
 
 def _is_allowed_proof_pack_receipt_type(
@@ -994,9 +992,12 @@ def verify_proof_pack(
     policy_errors = [
         VerifyError(
             code=E_SCHEMA_UNKNOWN,
-            message=_unsupported_receipt_type_message(
-                receipt_type,
-                PROOF_PACK_ALLOWED_RECEIPT_TYPES,
+            message=(
+                f"{receipt_id}: "
+                + _unsupported_receipt_type_message(
+                    receipt_type,
+                    PROOF_PACK_ALLOWED_RECEIPT_TYPES,
+                )
             ),
             receipt_index=index,
             field="type",
