@@ -13,6 +13,7 @@ import uuid
 from datetime import datetime, timezone
 
 import pytest
+from typer.testing import CliRunner
 
 from assay._receipts.canonicalize import prepare_receipt_for_hashing
 from assay._receipts.jcs import canonicalize as jcs_canonicalize
@@ -37,6 +38,7 @@ from assay.integrity import (
     verify_receipt,
     verify_receipt_pack,
 )
+from assay.commands import assay_app
 from assay.keystore import AssayKeyStore
 from assay.proof_pack import (
     PROOF_PACK_ALLOWED_RECEIPT_TYPES,
@@ -53,6 +55,9 @@ from assay.run_cards import (
     get_builtin_card,
     load_run_card,
 )
+
+runner = CliRunner()
+
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -1977,6 +1982,108 @@ class TestSchemaEnforcement:
         assert len(errors) >= 2
         assert any("claim_check" in e for e in errors)
         assert any("mode" in e for e in errors)
+
+    @pytest.mark.parametrize(
+        ("field_name", "bad_value"),
+        [
+            ("timestamp_start", "2026-01-01T00:00:00"),
+            ("timestamp_end", "2026-01-01 00:00:00+00:00"),
+        ],
+    )
+    def test_validate_attestation_rejects_non_rfc3339_datetime_shapes(
+        self,
+        tmp_path,
+        tmp_keys,
+        sample_receipts,
+        field_name,
+        bad_value,
+    ):
+        from assay.manifest_schema import validate_attestation
+
+        pack = ProofPack(
+            run_id="test_schema_datetime_strict",
+            entries=sample_receipts,
+            signer_id="test-signer",
+        )
+        out = pack.build(tmp_path / "pack", keystore=tmp_keys)
+        manifest = json.loads((out / "pack_manifest.json").read_text())
+
+        attestation = manifest["attestation"]
+        attestation[field_name] = bad_value
+
+        errors = validate_attestation(attestation)
+        assert errors
+        assert any(field_name in error for error in errors)
+
+    def test_validate_attestation_accepts_rfc3339_datetime_shapes(
+        self,
+        tmp_path,
+        tmp_keys,
+        sample_receipts,
+    ):
+        from assay.manifest_schema import validate_attestation
+
+        pack = ProofPack(
+            run_id="test_schema_datetime_accepts",
+            entries=sample_receipts,
+            signer_id="test-signer",
+        )
+        out = pack.build(tmp_path / "pack", keystore=tmp_keys)
+        manifest = json.loads((out / "pack_manifest.json").read_text())
+
+        attestation = manifest["attestation"]
+        attestation["timestamp_start"] = "2026-01-01T00:00:00Z"
+        attestation["timestamp_end"] = "2026-01-01T00:00:00+00:00"
+
+        errors = validate_attestation(attestation)
+        assert errors == []
+
+    def test_validate_manifest_rejects_malformed_valid_until(
+        self,
+        tmp_path,
+        tmp_keys,
+        sample_receipts,
+    ):
+        from assay.manifest_schema import validate_manifest
+
+        pack = ProofPack(
+            run_id="test_schema_valid_until",
+            entries=sample_receipts,
+            signer_id="test-signer",
+        )
+        out = pack.build(tmp_path / "pack", keystore=tmp_keys)
+        manifest = json.loads((out / "pack_manifest.json").read_text())
+
+        manifest["attestation"]["valid_until"] = "2026-01-01 00:00:00+00:00"
+
+        errors = validate_manifest(manifest)
+        assert errors
+        assert any("valid_until" in error for error in errors)
+
+    def test_verify_pack_cli_rejects_malformed_valid_until(
+        self,
+        tmp_path,
+        tmp_keys,
+        sample_receipts,
+    ):
+        pack = ProofPack(
+            run_id="test_cli_valid_until",
+            entries=sample_receipts,
+            signer_id="test-signer",
+        )
+        out = pack.build(tmp_path / "pack", keystore=tmp_keys)
+        manifest_path = out / "pack_manifest.json"
+        manifest = json.loads(manifest_path.read_text())
+        manifest["attestation"]["valid_until"] = "2026-01-01 00:00:00+00:00"
+        manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+
+        result = runner.invoke(assay_app, ["verify-pack", str(out), "--json"])
+        assert result.exit_code == 1, result.output
+
+        payload = json.loads(result.output)
+        assert payload["status"] == "error"
+        assert payload["error"] == "schema_validation_failed"
+        assert any("valid_until" in detail for detail in payload["details"])
 
     def test_missing_schemas_raises(self, monkeypatch):
         """Validation fails closed when schema files are missing."""

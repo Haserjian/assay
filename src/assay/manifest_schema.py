@@ -14,12 +14,14 @@ packs from external sources).
 from __future__ import annotations
 
 import json
+import re
+from datetime import datetime as _dt
 from pathlib import Path
 from typing import Any, Dict, List
 
 import referencing
 import referencing.jsonschema
-from jsonschema import Draft202012Validator
+from jsonschema import Draft202012Validator, FormatChecker
 
 # ---------------------------------------------------------------------------
 # Schema loading -- package-relative, fail closed
@@ -29,6 +31,38 @@ _SCHEMA_DIR = Path(__file__).resolve().parent / "schemas"
 
 _manifest_validator = None
 _attestation_validator = None
+
+_RFC3339_DATETIME_RE = re.compile(
+    r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$"
+)
+
+
+def parse_rfc3339_datetime(value: Any) -> _dt:
+    """Parse a strict RFC 3339 date-time string.
+
+    The proof-pack contract requires canonical uppercase ``T`` and an explicit
+    zone designator (``Z`` or ``±HH:MM``).
+    """
+    if not isinstance(value, str):
+        raise ValueError("date-time must be a string")
+    if not _RFC3339_DATETIME_RE.fullmatch(value):
+        raise ValueError(
+            "date-time must use RFC 3339 shape "
+            "YYYY-MM-DDTHH:MM:SS[.fff](Z|±HH:MM)"
+        )
+    normalized = value[:-1] + "+00:00" if value.endswith("Z") else value
+    return _dt.fromisoformat(normalized)
+
+
+_format_checker = FormatChecker()
+
+
+@_format_checker.checks("date-time", raises=(ValueError, TypeError))
+def _check_date_time(value: Any) -> bool:
+    if not isinstance(value, str):
+        return True
+    parse_rfc3339_datetime(value)
+    return True
 
 
 def _load_validators() -> tuple:
@@ -56,8 +90,12 @@ def _load_validators() -> tuple:
         (manifest_schema["$id"], referencing.Resource.from_contents(manifest_schema)),
     ])
 
-    _manifest_validator = Draft202012Validator(manifest_schema, registry=registry)
-    _attestation_validator = Draft202012Validator(att_schema, registry=registry)
+    _manifest_validator = Draft202012Validator(
+        manifest_schema, registry=registry, format_checker=_format_checker
+    )
+    _attestation_validator = Draft202012Validator(
+        att_schema, registry=registry, format_checker=_format_checker
+    )
 
     return _manifest_validator, _attestation_validator
 
@@ -96,4 +134,4 @@ def validate_attestation(attestation: Dict[str, Any]) -> List[str]:
     return errors
 
 
-__all__ = ["validate_manifest", "validate_attestation"]
+__all__ = ["parse_rfc3339_datetime", "validate_manifest", "validate_attestation"]

@@ -1603,6 +1603,7 @@ def verify_pack(
 
     from assay.claim_verifier import verify_claims
     from assay.integrity import verify_receipt_pack
+    from assay.manifest_schema import parse_rfc3339_datetime
 
     pack_dir = Path(pack_dir)
     errors: List[str] = []
@@ -1648,12 +1649,16 @@ def verify_pack(
             valid_until = manifest.get("attestation", {}).get("valid_until")
             if valid_until:
                 try:
-                    expiry = datetime.fromisoformat(valid_until)
+                    expiry = parse_rfc3339_datetime(valid_until)
                     if datetime.now(timezone.utc) > expiry:
                         errors.append("E_PACK_STALE: pack has expired")
                         integrity_pass = False
                 except (ValueError, TypeError):
-                    pass
+                    errors.append(
+                        f"E_PACK_STALE: pack valid_until is malformed ({valid_until!r}); "
+                        "treating as expired under check_expiry"
+                    )
+                    integrity_pass = False
 
     # Claims check
     claims_pass = True

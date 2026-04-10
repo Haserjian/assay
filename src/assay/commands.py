@@ -3263,6 +3263,7 @@ def verify_pack_cmd(
     from pathlib import Path
 
     from assay.keystore import get_default_keystore
+    from assay.manifest_schema import parse_rfc3339_datetime
     from assay.proof_pack import verify_proof_pack
 
     if not 0.0 <= min_coverage <= 1.0:
@@ -3484,26 +3485,23 @@ def verify_pack_cmd(
     # Expiry check: valid_until in the past means the pack has expired.
     # This is an honest failure (exit 1), not a tamper (exit 2).
     expiry_failed = False
+    expiry_message = "--check-expiry: valid_until is in the past"
     if check_expiry:
         valid_until_str = att.get("valid_until")
         if valid_until_str:
-            from datetime import datetime as _dt
-            from datetime import timezone as _tz
-
             try:
-                # Python 3.9/3.10 fromisoformat doesn't handle 'Z' suffix
-                _vu = (
-                    valid_until_str.replace("Z", "+00:00")
-                    if valid_until_str.endswith("Z")
-                    else valid_until_str
-                )
-                valid_until_ts = _dt.fromisoformat(_vu)
-                if valid_until_ts.tzinfo is None:
-                    valid_until_ts = valid_until_ts.replace(tzinfo=_tz.utc)
+                from datetime import datetime as _dt
+                from datetime import timezone as _tz
+
+                valid_until_ts = parse_rfc3339_datetime(valid_until_str)
                 if _dt.now(_tz.utc) > valid_until_ts:
                     expiry_failed = True
             except (ValueError, TypeError):
-                pass  # Malformed valid_until is not an expiry failure
+                expiry_failed = True
+                expiry_message = (
+                    f"--check-expiry: valid_until is malformed ({valid_until_str!r}); "
+                    "treating as expired"
+                )
 
     overall_status = "ok"
     if not result.passed:
@@ -3803,7 +3801,7 @@ def verify_pack_cmd(
                 f"Claims:       {claim_check}\n"
                 f"Valid Until:  {valid_until_str}\n"
                 f"Receipts:     {result.receipt_count}\n\n"
-                f"--check-expiry: valid_until is in the past",
+                f"{expiry_message}",
                 title="assay verify-pack",
             )
         )
