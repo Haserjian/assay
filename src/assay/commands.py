@@ -52,8 +52,11 @@ from __future__ import annotations
 
 import base64
 import json
+import os
+import sys
 from collections import Counter
 from typing import Any, Dict, List, Optional
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import typer
 from rich.console import Console
@@ -62,11 +65,47 @@ from rich.table import Table
 
 console = Console()
 
+_DEFAULT_FEEDBACK_URL = "https://github.com/Haserjian/assay/discussions"
+_CI_FEEDBACK_SUPPRESSION_VARS = (
+    "CI",
+    "GITHUB_ACTIONS",
+    "BUILD_ID",
+    "JENKINS_URL",
+    "TF_BUILD",
+    "BUILDKITE",
+    "CIRCLECI",
+)
+
 assay_app = typer.Typer(
     name="assay",
     help="Signed evidence for AI systems. Start with: assay try",
     no_args_is_help=True,
 )
+
+
+def _append_query_param(url: str, key: str, value: str) -> str:
+    """Return url with the given query parameter set."""
+    parts = urlsplit(url)
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+    query[key] = value
+    return urlunsplit(
+        (parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment)
+    )
+
+
+def _feedback_url_for_source(source: str) -> str:
+    """Return the feedback URL for a human-facing surface."""
+    base = os.environ.get("ASSAY_FEEDBACK_URL", _DEFAULT_FEEDBACK_URL)
+    return _append_query_param(base, "src", source)
+
+
+def _should_show_feedback_footer(stdout: Any = None) -> bool:
+    """Return True when a human-facing footer should be shown."""
+    stream = stdout if stdout is not None else sys.stdout
+    is_tty = getattr(stream, "isatty", lambda: False)()
+    if not is_tty:
+        return False
+    return not any(os.environ.get(var) for var in _CI_FEEDBACK_SUPPRESSION_VARS)
 
 
 def _clamp(value: float, name: str) -> float:
@@ -11171,6 +11210,11 @@ def demo_challenge_cmd(
     console.print("  [dim]To dig deeper:[/]")
     console.print(f"    assay explain {good_out}/")
     console.print(f"    assay explain {tampered_out}/")
+    if _should_show_feedback_footer():
+        console.print()
+        console.print(
+            f"  [dim]Feedback:[/] {_feedback_url_for_source('demo-challenge')}"
+        )
     console.print()
 
 
