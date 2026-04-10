@@ -8,6 +8,8 @@ Microsoft enforces runtime policy. Assay proves what happened.
 
 One byte changed. Verification fails. No server call. Just math.
 
+Receipts are forwardable, offline-verifiable, and tamper-evident.
+
 ### Install
 
 ```bash
@@ -464,11 +466,15 @@ Full reference (key management, lockfile, pack management, incident forensics): 
 </details>
 
 <details>
-<summary><b>Advanced: VendorQ</b> (verifiable vendor questionnaires)</summary>
+<summary><b>Experimental: VendorQ</b> (verifiable vendor questionnaires — export format only)</summary>
 
 ## VendorQ: Verifiable Vendor Questionnaires
 
-Enterprise customers ask AI governance questions in security questionnaires.
+> **Posture:** VendorQ is currently an **export format** for evidence-backed
+> answers, not a production governance surface. Command examples are retained
+> for reproducibility; broader governance features are out of scope until the
+> product surface stabilizes.
+
 VendorQ compiles evidence-backed answer packets from Assay proof packs.
 Every answer traces to a signed receipt. Every modification is detectable.
 
@@ -759,9 +765,9 @@ Restart your shell after installing. Tab completion works for all commands and o
 - **Try it**: `python3 -m pip install assay-ai && assay try`
 - **Questions / feedback**: [GitHub Discussions](https://github.com/Haserjian/assay/discussions)
 - **Bug reports**: [Issues](https://github.com/Haserjian/assay/issues)
-- **Want this in your stack in 2 weeks?** [Pilot program](docs/PILOT_PROGRAM.md) --
-  we instrument your AI workflows, set up CI gates, and hand you a working
-  evidence pipeline. [Open a pilot inquiry](https://github.com/Haserjian/assay/issues/new?template=pilot-inquiry.md).
+- **Pilot program**: onboarding a bounded cohort while the product surface
+  stabilizes; new inquiries are queued as a waitlist rather than an immediate
+  start. Posture and scope: [Pilot program](docs/PILOT_PROGRAM.md).
 
 ## Related Repos
 
