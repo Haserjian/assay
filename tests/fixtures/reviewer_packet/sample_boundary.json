@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-11T00:00:00+00:00",
+  "generated_at": "2030-01-01T00:00:00+00:00",
   "source_commit": "sample-redacted-artifact",
   "signed_by": "sample-fixture",
   "workflow_name": "AcmeSaaS support workflow sample",
@@ -27,6 +27,6 @@
   ],
   "freshness_policy": {
     "valid_for": "P30D",
-    "stale_after": "P90D"
+    "stale_after": "P9999D"
   }
 }
