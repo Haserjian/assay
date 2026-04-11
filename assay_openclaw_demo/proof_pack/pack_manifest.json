@@ -1,0 +1,72 @@
+{
+  "pack_id": "pack_openclaw_demo_v1",
+  "pack_version": "0.1.0",
+  "manifest_version": "1.0.0",
+  "hash_alg": "sha256",
+  "attestation": {
+    "pack_format_version": "0.1.0",
+    "fingerprint_version": 1,
+    "pack_id": "pack_openclaw_demo_v1",
+    "run_id": "openclaw_demo_v1",
+    "suite_id": "openclaw_demo",
+    "suite_hash": "9a0864ecfac148a3e133f26e6aa561875d417071de20305e88e69b5848f3854a",
+    "verifier_version": "1.21.0",
+    "canon_version": "jcs-rfc8785",
+    "canon_impl": "receipts.jcs",
+    "canon_impl_version": "1.21.0",
+    "policy_hash": "4791aaa760a131484e3c971c4f9b171ad1ef2f6fb9c2e4858fdad6d8fc8f6c0f",
+    "claim_set_id": "openclaw_demo_contract_v1",
+    "claim_set_hash": "534077d2f0be0926ccf68b070aa42d2061fd62381543adfd736bf60a73b41947",
+    "receipt_integrity": "PASS",
+    "claim_check": "N/A",
+    "discrepancy_fingerprint": null,
+    "assurance_level": "L0",
+    "proof_tier": "signed-pack",
+    "mode": "shadow",
+    "head_hash": "cfb7eb8525b94406dd4bbb5911fe3ada8424be0cf5863914bf248691868ec20b",
+    "head_hash_algorithm": "last-receipt-digest-v0",
+    "time_authority": "local_clock",
+    "n_receipts": 4,
+    "timestamp_start": "2026-04-09T04:45:01.476000Z",
+    "timestamp_end": "2026-04-09T04:45:01Z",
+    "ci_binding": null,
+    "valid_until": null,
+    "superseded_by": null
+  },
+  "attestation_sha256": "3191b9599de2c31ed8f0eebd14634574f05016c0f1d0d838b708f05a475d92c6",
+  "suite_hash": "9a0864ecfac148a3e133f26e6aa561875d417071de20305e88e69b5848f3854a",
+  "claim_set_id": "openclaw_demo_contract_v1",
+  "claim_set_hash": "534077d2f0be0926ccf68b070aa42d2061fd62381543adfd736bf60a73b41947",
+  "receipt_count_expected": 4,
+  "files": [
+    {
+      "path": "receipt_pack.jsonl",
+      "sha256": "16ea50368d62c4a0ca94bdcbb7a8d24e867c5c08b966fbd3d083f9cc774a3e26",
+      "bytes": 3430
+    },
+    {
+      "path": "verify_report.json",
+      "sha256": "3d79155056651c2eb6acbb0bb81ffc2225023a1a8a1f863a0dca8c79c4f81c31",
+      "bytes": 307
+    },
+    {
+      "path": "verify_transcript.md",
+      "sha256": "2f42b8d2f7fd11e09a60eeae2a823a7a21dfd9dcc024c15435dcfc9ef05f6b35",
+      "bytes": 1022
+    }
+  ],
+  "expected_files": [
+    "receipt_pack.jsonl",
+    "verify_report.json",
+    "verify_transcript.md",
+    "pack_manifest.json",
+    "pack_signature.sig"
+  ],
+  "signer_id": "openclaw-demo-signer",
+  "signer_pubkey": "DNRs26oseO7pvigNzamwo+vSa+ijw2gCAPl3+3def2M=",
+  "signer_pubkey_sha256": "84364d3496e6df3bfa06590887fa6646280031219a4bef84d3cf42f8c6067476",
+  "signature_alg": "ed25519",
+  "signature_scope": "JCS(pack_manifest_excluding_signature_and_pack_root_sha256)",
+  "signature": "YWvZBc0n2qBRMYWtORtLQpHeYVlO86UvKbV43hN5bRySKGm4gHk9mtYwcare8VJc5mPtSEjwu+glVZAzZnvwBA==",
+  "pack_root_sha256": "3191b9599de2c31ed8f0eebd14634574f05016c0f1d0d838b708f05a475d92c6"
+}

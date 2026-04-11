@@ -1,0 +1,53 @@
+{
+  "cases": {
+    "membrane_allowed": {
+      "outcome": "ok",
+      "tool": "web_fetch",
+      "url": "https://docs.python.org/3/library/asyncio.html"
+    },
+    "membrane_denied": {
+      "policy_ref": "POLICY_URL_002",
+      "reason": "Private/localhost URL blocked",
+      "tool": "web_fetch",
+      "url": "http://127.0.0.1:8080/admin"
+    },
+    "sensitive_action_blocked": {
+      "approved": false,
+      "outcome": "blocked",
+      "url": "https://github.com/login"
+    },
+    "session_log_import": {
+      "blank_lines": 0,
+      "imported_count": 1,
+      "path": "assay_openclaw_demo/openclaw_session.jsonl",
+      "receipt_count": 1,
+      "skipped_count": 0,
+      "status": "clean",
+      "total_lines": 1
+    }
+  },
+  "demo": "openclaw",
+  "import_report": {
+    "blank_lines": 0,
+    "imported_count": 1,
+    "skipped_count": 0,
+    "skipped_entries": [],
+    "status": "clean",
+    "total_lines": 1
+  },
+  "pack_id": "pack_openclaw_demo_v1",
+  "projected_evidence_sources": {
+    "imported_session_log": 1,
+    "live_receipt_adapter": 1,
+    "membrane_execution": 2
+  },
+  "projected_receipt_count": 4,
+  "projected_receipt_types": [
+    "openclaw.bridge_execution/v1",
+    "openclaw.bridge_denial/v1",
+    "openclaw.browser/v1",
+    "openclaw.browser/v1"
+  ],
+  "trace_id": "openclaw_demo_v1",
+  "verification": "PASS"
+}

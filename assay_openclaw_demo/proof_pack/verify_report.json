@@ -1,0 +1,11 @@
+{
+  "pack_id": "pack_openclaw_demo_v1",
+  "run_id": "openclaw_demo_v1",
+  "passed": true,
+  "errors": [],
+  "warnings": [],
+  "receipt_count": 4,
+  "head_hash": "cfb7eb8525b94406dd4bbb5911fe3ada8424be0cf5863914bf248691868ec20b",
+  "verified_at": "2026-04-08T00:00:00+00:00",
+  "verifier_version": "1.21.0"
+}
