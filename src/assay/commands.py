@@ -3,6 +3,7 @@ Assay CLI commands: AI evidence that's harder to fake and easier to verify.
 
 Commands:
   assay try           - See what Assay does in 15 seconds (start here)
+    assay try-openclaw  - OpenClaw membrane demo with proof-pack verification
   assay reviewer verify - Verify a Reviewer Packet and explain the settlement
   assay run           - Run a command and build a Proof Pack from receipts
   assay verify-pack   - Verify a Proof Pack's integrity
@@ -51,8 +52,11 @@ from __future__ import annotations
 
 import base64
 import json
+import os
+import sys
 from collections import Counter
 from typing import Any, Dict, List, Optional
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import typer
 from rich.console import Console
@@ -61,11 +65,47 @@ from rich.table import Table
 
 console = Console()
 
+_DEFAULT_FEEDBACK_URL = "https://github.com/Haserjian/assay/discussions"
+_CI_FEEDBACK_SUPPRESSION_VARS = (
+    "CI",
+    "GITHUB_ACTIONS",
+    "BUILD_ID",
+    "JENKINS_URL",
+    "TF_BUILD",
+    "BUILDKITE",
+    "CIRCLECI",
+)
+
 assay_app = typer.Typer(
     name="assay",
     help="Signed evidence for AI systems. Start with: assay try",
     no_args_is_help=True,
 )
+
+
+def _append_query_param(url: str, key: str, value: str) -> str:
+    """Return url with the given query parameter set."""
+    parts = urlsplit(url)
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+    query[key] = value
+    return urlunsplit(
+        (parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment)
+    )
+
+
+def _feedback_url_for_source(source: str) -> str:
+    """Return the feedback URL for a human-facing surface."""
+    base = os.environ.get("ASSAY_FEEDBACK_URL", _DEFAULT_FEEDBACK_URL)
+    return _append_query_param(base, "src", source)
+
+
+def _should_show_feedback_footer(stdout: Any = None) -> bool:
+    """Return True when a human-facing footer should be shown."""
+    stream = stdout if stdout is not None else sys.stdout
+    is_tty = getattr(stream, "isatty", lambda: False)()
+    if not is_tty:
+        return False
+    return not any(os.environ.get(var) for var in _CI_FEEDBACK_SUPPRESSION_VARS)
 
 
 def _clamp(value: float, name: str) -> float:
@@ -2288,6 +2328,111 @@ def try_mcp_cmd(
     )
 
 
+@assay_app.command("try-openclaw", rich_help_panel=_TRY_PANEL)
+def try_openclaw_cmd(
+    output_dir: str = typer.Option(
+        "./assay_openclaw_demo",
+        "-o",
+        "--output",
+        help="Output directory for the demo artifacts and proof pack",
+    ),
+    output_json: bool = typer.Option(False, "--json", help="Structured output"),
+):
+    """See the OpenClaw membrane posture with a deterministic proof path.
+
+    Produces:
+    - one allowed public web fetch through the subprocess membrane
+    - one denied localhost fetch blocked by policy
+    - one imported OpenClaw session-log event
+    - one blocked sensitive browser action via the receipt adapter
+    - one signed proof pack built from the projected evidence
+
+    The demo uses deterministic synthetic OpenClaw responses so it survives on a
+    clean machine without a live OpenClaw install.
+    """
+    from pathlib import Path
+
+    from assay.openclaw_demo import run_openclaw_demo
+
+    out_path = Path(output_dir)
+
+    if not output_json:
+        console.print()
+        console.print(
+            "[bold]assay try-openclaw[/] — OpenClaw membrane demo with offline verification"
+        )
+        console.print()
+        console.print(
+            "  [dim]Uses deterministic synthetic OpenClaw responses; no live OpenClaw process required.[/]"
+        )
+        console.print("  [bold]1.[/] Allowed public web fetch [green]→ receipted[/]")
+        console.print("  [bold]2.[/] Blocked localhost fetch [yellow]→ denied[/]")
+        console.print(
+            "  [bold]3.[/] Imported session-log browser event [green]→ receipted[/]"
+        )
+        console.print(
+            "  [bold]4.[/] Blocked sensitive browser action [yellow]→ blocked[/]"
+        )
+
+    result = run_openclaw_demo(out_path)
+
+    if output_json:
+        _output_json(
+            {
+                "command": "try-openclaw",
+                "status": "ok" if result.verification_passed else "error",
+                "pack_dir": str(result.pack_dir),
+                "session_log": str(result.session_log_path),
+                "summary": str(result.summary_path),
+                "projected_receipts": len(result.projected_entries),
+                "imported_events": result.import_report.imported_count,
+                "skipped_import_entries": result.import_report.skipped_count,
+                "import_status": result.import_report.completeness,
+                "import_total_lines": result.import_report.total_lines,
+                "import_blank_lines": result.import_report.blank_lines,
+                "verification": "PASS" if result.verification_passed else "FAIL",
+                "errors": result.verification_errors,
+            }
+        )
+        return
+
+    console.print()
+    if result.verification_passed:
+        console.print(
+            Panel(
+                f"[bold]Integrity:[/]  [bold green]PASS[/]\n"
+                f"[bold]Receipts:[/]   {len(result.projected_entries)} projected evidence entries\n"
+                f"[bold]Imported:[/]   {result.import_report.imported_count} session-log entries ({result.import_report.skipped_count} skipped, {result.import_report.completeness})\n"
+                f"[bold]Pack:[/]       {result.pack_dir}\n"
+                f"[bold]Session log:[/] {result.session_log_path}\n"
+                f"[bold]Summary:[/]    {result.summary_path}",
+                title="[bold green]OpenClaw Demo Pack Built & Verified[/]",
+                border_style="green",
+            )
+        )
+    else:
+        console.print(
+            Panel(
+                f"Pack built but verification failed.\nPack: {result.pack_dir}",
+                title="[bold red]OpenClaw Demo Verification Failed[/]",
+                border_style="red",
+            )
+        )
+        for error in result.verification_errors:
+            console.print(f"  [red]-[/] {error.get('message', error)}")
+
+    console.print()
+    console.print("[bold]Verify it yourself:[/]")
+    console.print(f"  [green]$ assay verify-pack {result.pack_dir}[/]")
+    console.print()
+    console.print(
+        "[bold]Proof boundary:[/] The proof pack covers the projected evidence entries."
+    )
+    console.print(
+        "[bold]Raw artifacts:[/] The bridge JSON artifacts and exported session log stay beside the pack for inspection."
+    )
+
+
 # --- End of early Start Here registration ---
 
 
@@ -3106,7 +3251,7 @@ def verify_pack_cmd(
     require_witness: bool = typer.Option(
         False,
         "--require-witness",
-        help="Fail if pack has no valid witness bundle (T2 trust).",
+        help="Fail if pack has no valid external witness bundle.",
     ),
     check_expiry: bool = typer.Option(
         False,
@@ -11067,6 +11212,11 @@ def demo_challenge_cmd(
     console.print("  [dim]To dig deeper:[/]")
     console.print(f"    assay explain {good_out}/")
     console.print(f"    assay explain {tampered_out}/")
+    if _should_show_feedback_footer():
+        console.print()
+        console.print(
+            f"  [dim]Feedback:[/] {_feedback_url_for_source('demo-challenge')}"
+        )
     console.print()
 
 

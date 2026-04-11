@@ -71,10 +71,8 @@ def _make_receipt(**overrides):
     return base
 
 
-def _make_external_pack_with_unknown_type(
-    tmp_path, tmp_keys, *, unknown_type="experimental_verdict"
-):
-    """Build a valid pack, then re-sign it as an external pack with a policy-unknown type."""
+def _make_external_pack_with_unknown_type(tmp_path, tmp_keys):
+    """Build a valid pack, then re-sign it as an external pack with an unknown type."""
     receipts = [
         _make_receipt(
             receipt_id="r_type_001",
@@ -104,7 +102,7 @@ def _make_external_pack_with_unknown_type(
         for line in receipt_path.read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
-    parsed[1]["type"] = unknown_type
+    parsed[1]["type"] = "experimental_verdict"
 
     receipt_lines = [
         jcs_canonicalize(prepare_receipt_for_hashing(entry)).decode("utf-8")
@@ -533,27 +531,6 @@ class TestProofPackBuilder:
         )
         assert any("experimental_verdict" in e.message for e in result.errors)
 
-    @pytest.mark.parametrize("receipt_type", ["loom.unknown/v1", "loom.dip/v1"])
-    def test_verify_proof_pack_rejects_non_current_loom_receipt_type(
-        self, tmp_path, tmp_keys, receipt_type
-    ):
-        """Loom-family tokens fail closed unless the registry marks them current."""
-        out, manifest = _make_external_pack_with_unknown_type(
-            tmp_path,
-            tmp_keys,
-            unknown_type=receipt_type,
-        )
-
-        result = verify_proof_pack(manifest, out, tmp_keys)
-        assert not result.passed
-        assert any(
-            e.code == E_SCHEMA_UNKNOWN and e.field == "type" for e in result.errors
-        )
-        assert any(receipt_type in e.message for e in result.errors)
-        assert any(
-            "LOOM_RECEIPT_MAPPING_REGISTRY_V1.md" in e.message for e in result.errors
-        )
-
     def test_generic_verify_pack_manifest_still_accepts_unknown_type(
         self, tmp_path, tmp_keys
     ):
@@ -622,58 +599,6 @@ class TestProofPackBuilder:
                 keystore=tmp_keys,
                 receipt_type_allowlist=PROOF_PACK_ALLOWED_RECEIPT_TYPES,
             )
-
-    @pytest.mark.parametrize("receipt_type", ["loom.unknown/v1", "loom.dip/v1"])
-    def test_non_current_loom_receipt_type_rejected_before_publication(
-        self, tmp_path, tmp_keys, receipt_type
-    ):
-        """Loom-family tokens fail closed at build time unless marked current."""
-        receipts = [
-            _make_receipt(
-                receipt_id="r_type_001",
-                run_id="reject-loom-proof-pack-type",
-                seq=0,
-                type="model_call",
-            ),
-            _make_receipt(
-                receipt_id="r_type_002",
-                run_id="reject-loom-proof-pack-type",
-                seq=1,
-                type=receipt_type,
-            ),
-        ]
-        pack = ProofPack(
-            run_id="reject-loom-proof-pack-type",
-            entries=receipts,
-            signer_id="test-signer",
-        )
-
-        with pytest.raises(
-            ValueError,
-            match="LOOM_RECEIPT_MAPPING_REGISTRY_V1.md",
-        ):
-            pack.build(tmp_path / "pack", keystore=tmp_keys)
-
-    def test_non_loom_namespaced_receipt_type_remains_allowed(self, tmp_path, tmp_keys):
-        """The Loom-specific gate does not narrow generic namespaced receipt tokens."""
-        receipts = [
-            _make_receipt(
-                receipt_id="r_type_001",
-                run_id="namespaced-proof-pack-types",
-                seq=0,
-                type="partner.audit/v1",
-            )
-        ]
-        pack = ProofPack(
-            run_id="namespaced-proof-pack-types",
-            entries=receipts,
-            signer_id="test-signer",
-        )
-
-        out = pack.build(tmp_path / "pack", keystore=tmp_keys)
-        manifest = json.loads((out / "pack_manifest.json").read_text())
-        result = verify_proof_pack(manifest, out, tmp_keys)
-        assert result.passed, f"Errors: {[e.to_dict() for e in result.errors]}"
 
     def test_verify_prefers_embedded_pubkey_over_wrong_local_key(
         self, tmp_path, tmp_keys, sample_receipts

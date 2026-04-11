@@ -5,8 +5,6 @@ Assay contains two packet surfaces. They are not interchangeable.
 **Compiled packets** are the canonical, general-purpose, third-party-verifiable trust
 artifact. **Reviewer packets** are a specialized VendorQ-oriented packaging format.
 When the two overlap in scope, the compiled packet is the authoritative trust object.
-Proof packs remain the signed execution kernel beneath both packet surfaces; they
-should not be confused with the whole upstream runtime ontology.
 
 ---
 
@@ -55,7 +53,6 @@ where a CI gate needs a machine-readable admissibility decision.
 - [`docs/specs/COMPILED_PACKET_SPEC_V1.md`](specs/COMPILED_PACKET_SPEC_V1.md) — full artifact spec
 - [`docs/specs/PACKET_SEMANTICS_V1.md`](specs/PACKET_SEMANTICS_V1.md) — normative semantics and error codes
 - [`docs/specs/COMPILED_PACKET_VERIFY_CONTRACT.md`](specs/COMPILED_PACKET_VERIFY_CONTRACT.md) — `--json` output contract
-- [`docs/specs/PROOF_PACK_SCOPE_AND_RECEIPT_MAPPING_V1.md`](specs/PROOF_PACK_SCOPE_AND_RECEIPT_MAPPING_V1.md) — proof-pack kernel boundary vs richer receipt ecosystems
 
 ---
 
@@ -84,9 +81,10 @@ reviewer_packet/
 **Verdict model**: `VERIFIED`, `VERIFIED_WITH_GAPS`, `INCOMPLETE_EVIDENCE`,
 `EVIDENCE_REGRESSION`, `TAMPERED`, `OUT_OF_SCOPE`
 
-**When to use**: VendorQ questionnaire review, checkpoint export, CLI reviewer
-verification, and Decision Census generation. Browser verification covers the
-nested proof pack only today, not the reviewer packet wrapper.
+**When to use**: VendorQ questionnaire review, checkpoint export, browser verifier
+workflows using the existing VendorQ profile. After verification, generate a
+Decision Census report when you need expected-vs-observed coverage surfaced as a
+portable artifact.
 
 **Docs**: [`docs/reviewer-packets.md`](reviewer-packets.md)
 
@@ -99,7 +97,7 @@ nested proof pack only today, not the reviewer packet wrapper.
 | Portable, offline-verifiable trust artifact for any subject | Compiled packet |
 | Fail-closed CI gate on evidence admissibility | Compiled packet + `assay-gate.sh` |
 | VendorQ compliance questionnaire review | Reviewer packet |
-| Browser verification of the trust root in a VendorQ workflow | Proof pack (upload the nested `proof_pack/`) |
+| Browser verifier with existing VendorQ profile | Reviewer packet |
 | Checkpoint export with decision receipts | Reviewer packet |
 
 ---

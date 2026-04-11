@@ -84,12 +84,6 @@ PROOF_PACK_ALLOWED_RECEIPT_TYPES = frozenset(
 _PROOF_PACK_NAMESPACED_TYPE_RE = re.compile(
     r"^[a-z0-9_]+(?:\.[a-z0-9_]+)+(?:/[a-z0-9_]+)?$"
 )
-PROOF_PACK_CURRENT_LOOM_RECEIPT_TYPES = frozenset(
-    {
-        # Mirror rows marked `current` in
-        # docs/specs/LOOM_RECEIPT_MAPPING_REGISTRY_V1.md.
-    }
-)
 
 
 def _generate_pack_id(*, deterministic_seed: Optional[str] = None) -> str:
@@ -249,74 +243,13 @@ def _find_disallowed_receipt_types(
     return unknown
 
 
-def _find_non_current_loom_receipt_types(
-    entries: List[Dict[str, Any]],
-) -> List[tuple[int, str, str]]:
-    """Return Loom-family namespaced tokens that lack a current registry row."""
-    unknown: List[tuple[int, str, str]] = []
-    for index, entry in enumerate(entries):
-        receipt_type = str(entry.get("type") or entry.get("receipt_type") or "")
-        if _is_loom_namespaced_receipt_type(
-            receipt_type
-        ) and not _is_current_loom_receipt_type(receipt_type):
-            receipt_id = str(entry.get("receipt_id", "<unknown>"))
-            unknown.append((index, receipt_id, receipt_type))
-    return unknown
-
-
-def _is_loom_namespaced_receipt_type(receipt_type: str) -> bool:
-    return receipt_type.startswith("loom.") and bool(
-        _PROOF_PACK_NAMESPACED_TYPE_RE.match(receipt_type)
-    )
-
-
-def _is_current_loom_receipt_type(receipt_type: str) -> bool:
-    return receipt_type in PROOF_PACK_CURRENT_LOOM_RECEIPT_TYPES
-
-
-def _unsupported_loom_receipt_type_message(receipt_type: str) -> str:
-    current_tokens = ", ".join(sorted(PROOF_PACK_CURRENT_LOOM_RECEIPT_TYPES)) or "none"
-    return (
-        f"Loom receipt type {receipt_type!r} is not admitted into the proof-pack kernel. "
-        "Only rows marked `current` in docs/specs/LOOM_RECEIPT_MAPPING_REGISTRY_V1.md "
-        f"may enter proof packs (current Loom proof-pack tokens: {current_tokens})."
-    )
-
-
-def _unsupported_receipt_type_message(
-    receipt_type: str,
-    allowed_types: frozenset[str],
-) -> str:
-    if _is_loom_namespaced_receipt_type(receipt_type):
-        return _unsupported_loom_receipt_type_message(receipt_type)
-    allowed = ", ".join(sorted(allowed_types))
-    return f"Unsupported proof-pack receipt type {receipt_type!r}. Allowed types: {allowed}"
-
-
 def _is_allowed_proof_pack_receipt_type(
     receipt_type: str,
     allowed_types: frozenset[str],
 ) -> bool:
-    if receipt_type in allowed_types:
-        return True
-    if not _PROOF_PACK_NAMESPACED_TYPE_RE.match(receipt_type):
-        return False
-    if _is_loom_namespaced_receipt_type(receipt_type):
-        return _is_current_loom_receipt_type(receipt_type)
-    return True
-
-
-def _assert_registered_loom_receipt_types(entries: List[Dict[str, Any]]) -> None:
-    """Fail closed on Loom-family tokens without a current registry row."""
-    unknown = _find_non_current_loom_receipt_types(entries)
-    if unknown:
-        raise ValueError(
-            "Unsupported proof-pack Loom receipt type(s): "
-            + ", ".join(
-                f"{receipt_id}@{index}={_unsupported_loom_receipt_type_message(receipt_type)}"
-                for index, receipt_id, receipt_type in unknown
-            )
-        )
+    return receipt_type in allowed_types or bool(
+        _PROOF_PACK_NAMESPACED_TYPE_RE.match(receipt_type)
+    )
 
 
 def _assert_allowed_receipt_types(
@@ -326,12 +259,14 @@ def _assert_allowed_receipt_types(
     """Fail closed on proof-pack receipt types outside the local allowlist."""
     unknown = _find_disallowed_receipt_types(entries, allowed_types)
     if unknown:
+        allowed = ", ".join(sorted(allowed_types))
         raise ValueError(
             "Unsupported proof-pack receipt type(s): "
             + ", ".join(
-                f"{receipt_id}@{index}={_unsupported_receipt_type_message(receipt_type, allowed_types)}"
+                f"{receipt_id}@{index}={receipt_type!r}"
                 for index, receipt_id, receipt_type in unknown
             )
+            + f". Allowed types: {allowed}"
         )
 
 
@@ -578,7 +513,6 @@ class ProofPack:
 
         sorted_entries = _sort_receipts(self.entries)
         _assert_receipt_run_ids(sorted_entries, self.run_id)
-        _assert_registered_loom_receipt_types(sorted_entries)
         if receipt_type_allowlist is not None:
             _assert_allowed_receipt_types(sorted_entries, receipt_type_allowlist)
 
@@ -991,12 +925,13 @@ def verify_proof_pack(
     if not disallowed:
         return result
 
+    allowed = ", ".join(sorted(PROOF_PACK_ALLOWED_RECEIPT_TYPES))
     policy_errors = [
         VerifyError(
             code=E_SCHEMA_UNKNOWN,
-            message=_unsupported_receipt_type_message(
-                receipt_type,
-                PROOF_PACK_ALLOWED_RECEIPT_TYPES,
+            message=(
+                f"Unsupported proof-pack receipt type {receipt_type!r} "
+                f"for receipt {receipt_id}; allowed types: {allowed}"
             ),
             receipt_index=index,
             field="type",

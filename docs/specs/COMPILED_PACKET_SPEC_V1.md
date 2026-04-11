@@ -1,7 +1,7 @@
 # Compiled Packet Specification v1
 
 **Date**: 2026-03-26
-**Status**: DRAFT — design specification, not yet implemented.
+**Status**: Implemented in the Python CLI (`assay packet init`, `assay packet compile`, `assay packet verify`). This remains a living specification; verifier parity and packet-system convergence work are still open.
 **Depends on**: Pack Contract v0 (PACK_CONTRACT.md), VendorQ schemas v1
 
 ---

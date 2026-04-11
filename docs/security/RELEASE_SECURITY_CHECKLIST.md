@@ -4,6 +4,12 @@ Run before any version bump or PyPI publish.
 
 ---
 
+- [ ] **OpenClaw slice gate first**: For any `try-openclaw` or OpenClaw-support
+      release, run `python3 scripts/check_openclaw_release_slice.py` before
+      review, before `scripts/smoke_openclaw_package.sh`, and before touching
+      `pyproject.toml` for a version bump. If the checker reports out-of-scope
+      paths, stop and split the slice first.
+
 - [ ] **Trust wording audit**: Does any CLI output, badge, or help text
       overstate what the system actually verifies? (See REMEDIATION_DOCTRINE.md
       rule 3.)

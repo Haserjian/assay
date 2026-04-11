@@ -48,6 +48,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
+      ASSAY_HOME: ${{ runner.temp }}/.assay
       ASSAY_CI_ORG_MAIN_SIGNER_ID: ci-org-main
       ASSAY_CI_ORG_MAIN_PUB_B64: ${{ secrets.ASSAY_CI_ORG_MAIN_PUB_B64 }}
       ASSAY_CI_ORG_MAIN_KEY_B64: ${{ secrets.ASSAY_CI_ORG_MAIN_KEY_B64 }}

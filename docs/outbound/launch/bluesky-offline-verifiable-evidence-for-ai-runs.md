@@ -1,0 +1,1 @@
+Most AI systems can show logs. Fewer can hand another team evidence they can verify offline. Assay compiles AI activity into signed proof packs, a signed folder another team can verify offline. Change gpt-4 to gpt-5 after the run. Verification fails. github.com/Haserjian/assay

@@ -292,7 +292,7 @@ A compiled packet does not by itself guarantee:
 | Freshness enforcement | `INTACT` packets may be operationally stale | Deferred to first buyer signal |
 | Policy engine | Admissibility logic is hardcoded; `policy_id: "default"` is a stub | Scaffolding only |
 | Gate integration tests | Shell-level gate behavior has no test coverage | Deferred |
-| TS verifier parity | `assay-verify-ts` covers packs; compiled packet semantics not yet implemented | Next chapter |
+| TS verifier parity | Python compiled-packet semantics are implemented; `assay-verify-ts` does not yet implement compiled-packet verification parity | Next chapter |
 | Subject-type canonicalization | Only `artifact` has defined `subject_digest` rules | Deferred to real usage |
 
 ### The "Verified for When?" Problem

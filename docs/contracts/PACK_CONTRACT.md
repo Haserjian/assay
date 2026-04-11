@@ -19,28 +19,6 @@ Manifests and attestations contain fields like `hash_alg`, `signature_alg`, `can
 
 ---
 
-## 0. Scope Boundary
-
-This contract defines the **proof-pack kernel** only.
-
-It does not define:
-
-- the full ontology of every upstream receipt ecosystem that may feed a pack
-- the richer governance/runtime semantics of Loom, CCIO, or other adjacent systems
-- the claim-binding and reviewer semantics of compiled packets or reviewer packets
-
-Current code intentionally accepts a narrow proof-pack receipt vocabulary plus
-namespaced dotted types, with Loom-family namespaced tokens further narrowed by
-the Loom mapping registry. That makes the proof pack a strict transport-grade
-evidence artifact, not a blanket semantic contract for every upstream receipt
-class.
-
-For the current boundary between richer receipt ecosystems, proof packs, and
-compiled/reviewer packets, see
-[`docs/specs/PROOF_PACK_SCOPE_AND_RECEIPT_MAPPING_V1.md`](../specs/PROOF_PACK_SCOPE_AND_RECEIPT_MAPPING_V1.md).
-
----
-
 ## 1. Pack Layout
 
 ### Current behavior

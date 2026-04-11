@@ -24,7 +24,6 @@ Usage:
         latency_ms=450,
     )
 """
-
 from __future__ import annotations
 
 import fnmatch
@@ -36,66 +35,19 @@ from urllib.parse import urlparse
 
 from assay._receipts.domains.web_tool import (
     WebToolReceipt,
-    create_browser_receipt,
-    create_web_fetch_receipt,
     create_web_search_receipt,
+    create_web_fetch_receipt,
+    create_browser_receipt,
 )
 
 
 @dataclass
 class BrowserVerdict:
     """Result of browser access policy check."""
-
     allowed: bool
     domain: str
     matched_pattern: Optional[str] = None
     reason: str = ""
-
-
-@dataclass(frozen=True)
-class SessionLogSkippedEntry:
-    """One session-log row that was ignored during import."""
-
-    line_number: int
-    reason: Literal["invalid_json", "unsupported_tool", "invalid_entry"]
-    message: str
-    tool: Optional[str] = None
-    raw_preview: Optional[str] = None
-
-
-@dataclass(frozen=True)
-class SessionLogImportedEntry:
-    """One supported session-log row imported into an Assay receipt."""
-
-    line_number: int
-    tool: str
-    receipt: WebToolReceipt
-
-
-@dataclass(frozen=True)
-class SessionLogImportReport:
-    """Structured import result for an OpenClaw exported session log."""
-
-    imported_entries: List[SessionLogImportedEntry]
-    skipped_entries: List[SessionLogSkippedEntry]
-    total_lines: int
-    blank_lines: int
-
-    @property
-    def receipts(self) -> List[WebToolReceipt]:
-        return [entry.receipt for entry in self.imported_entries]
-
-    @property
-    def imported_count(self) -> int:
-        return len(self.imported_entries)
-
-    @property
-    def skipped_count(self) -> int:
-        return len(self.skipped_entries)
-
-    @property
-    def completeness(self) -> Literal["clean", "partial"]:
-        return "clean" if not self.skipped_entries else "partial"
 
 
 @dataclass
@@ -212,9 +164,7 @@ class OpenClawBridge:
         latency_ms: Optional[int] = None,
         outcome: Optional[str] = None,
         sensitive_action_attempted: bool = False,
-        sensitive_action_type: Optional[
-            Literal["credential_entry", "form_submit", "file_upload", "payment"]
-        ] = None,
+        sensitive_action_type: Optional[Literal["credential_entry", "form_submit", "file_upload", "payment"]] = None,
         sensitive_action_approved: Optional[bool] = None,
     ) -> WebToolReceipt:
         """
@@ -282,130 +232,55 @@ def parse_openclaw_session_log(
 
     Returns list of WebToolReceipts for each operation found.
     """
-    return import_openclaw_session_log(
-        log_path=log_path,
-        agent_id=agent_id,
-        allowlist=allowlist,
-    ).receipts
-
-
-def import_openclaw_session_log(
-    log_path: Path,
-    agent_id: str,
-    allowlist: Optional[List[str]] = None,
-) -> SessionLogImportReport:
-    """Parse a session log and surface imported vs skipped rows explicitly."""
-
     bridge = OpenClawBridge(
         agent_id=agent_id,
         allowlist=allowlist or [],
     )
 
-    imported_entries: List[SessionLogImportedEntry] = []
-    skipped_entries: List[SessionLogSkippedEntry] = []
-    total_lines = 0
-    blank_lines = 0
+    receipts = []
 
-    with open(log_path, encoding="utf-8") as f:
-        for line_number, raw_line in enumerate(f, start=1):
-            total_lines += 1
-            line = raw_line.strip()
-            if not line:
-                blank_lines += 1
+    with open(log_path) as f:
+        for line in f:
+            if not line.strip():
                 continue
 
             try:
                 entry = json.loads(line)
-            except json.JSONDecodeError as exc:
-                skipped_entries.append(
-                    SessionLogSkippedEntry(
-                        line_number=line_number,
-                        reason="invalid_json",
-                        message=str(exc),
-                        raw_preview=_preview_line(raw_line),
-                    )
-                )
+            except json.JSONDecodeError:
                 continue
 
             tool = entry.get("tool")
-            try:
-                if tool == "web_search":
-                    receipt = bridge.record_web_search(
-                        query=entry.get("query", ""),
-                        result_items=len(entry.get("results", [])),
-                    )
-                elif tool == "web_fetch":
-                    receipt = bridge.record_web_fetch(
-                        url=entry.get("url", ""),
-                        result_size=entry.get("content_length"),
-                        cached=entry.get("cached", False),
-                    )
-                elif tool == "browser":
-                    receipt = bridge.record_browser(
-                        url=entry.get("url", ""),
-                        result_size=entry.get("content_length"),
-                        sensitive_action_attempted=entry.get(
-                            "sensitive_action_attempted", False
-                        ),
-                        sensitive_action_type=entry.get("sensitive_action_type"),
-                        sensitive_action_approved=entry.get(
-                            "sensitive_action_approved"
-                        ),
-                    )
-                else:
-                    skipped_entries.append(
-                        SessionLogSkippedEntry(
-                            line_number=line_number,
-                            reason="unsupported_tool",
-                            tool=str(tool) if tool is not None else None,
-                            message="Unsupported or missing tool field",
-                            raw_preview=_preview_line(raw_line),
-                        )
-                    )
-                    continue
-            except (TypeError, ValueError) as exc:
-                skipped_entries.append(
-                    SessionLogSkippedEntry(
-                        line_number=line_number,
-                        reason="invalid_entry",
-                        tool=str(tool) if tool is not None else None,
-                        message=str(exc),
-                        raw_preview=_preview_line(raw_line),
-                    )
+
+            if tool == "web_search":
+                receipt = bridge.record_web_search(
+                    query=entry.get("query", ""),
+                    result_items=len(entry.get("results", [])),
                 )
-                continue
+                receipts.append(receipt)
 
-            imported_entries.append(
-                SessionLogImportedEntry(
-                    line_number=line_number,
-                    tool=str(tool),
-                    receipt=receipt,
+            elif tool == "web_fetch":
+                receipt = bridge.record_web_fetch(
+                    url=entry.get("url", ""),
+                    result_size=entry.get("content_length"),
+                    cached=entry.get("cached", False),
                 )
-            )
+                receipts.append(receipt)
 
-    return SessionLogImportReport(
-        imported_entries=imported_entries,
-        skipped_entries=skipped_entries,
-        total_lines=total_lines,
-        blank_lines=blank_lines,
-    )
+            elif tool == "browser":
+                receipt = bridge.record_browser(
+                    url=entry.get("url", ""),
+                    result_size=entry.get("content_length"),
+                    sensitive_action_attempted=entry.get("sensitive_action_attempted", False),
+                    sensitive_action_type=entry.get("sensitive_action_type"),
+                    sensitive_action_approved=entry.get("sensitive_action_approved"),
+                )
+                receipts.append(receipt)
 
-
-def _preview_line(raw_line: str, max_chars: int = 160) -> str:
-    """Compact raw session-log content for skipped-entry diagnostics."""
-
-    preview = raw_line.strip().replace("\n", "\\n")
-    if len(preview) <= max_chars:
-        return preview
-    return preview[:max_chars] + "...[truncated]"
+    return receipts
 
 
 __all__ = [
     "OpenClawBridge",
-    "SessionLogImportedEntry",
     "BrowserVerdict",
-    "SessionLogImportReport",
-    "SessionLogSkippedEntry",
-    "import_openclaw_session_log",
     "parse_openclaw_session_log",
 ]
