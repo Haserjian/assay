@@ -1,0 +1,14 @@
+{
+  "agent_id": "agent:openclaw-demo",
+  "allowed": false,
+  "arguments_sha256": "c19d53b61375781d237eea4d5888429bf503251e7321eba00e44ad16439cc4a7",
+  "cwd": "assay_openclaw_demo",
+  "denial_reason": "Private/localhost URL blocked",
+  "policy_hash": "e34ff5212ae00b5f5a336047ca0c5569696f0ebd3820d6e2a36b35270728e37b",
+  "policy_ref": "POLICY_URL_002",
+  "receipt_id": "bd_110f6e09af60400e",
+  "receipt_type": "BridgeDenial",
+  "session_id": "sess_openclaw_demo_v1",
+  "timestamp": "2026-04-09T04:45:01Z",
+  "tool_name": "web_fetch"
+}

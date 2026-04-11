@@ -1,0 +1,19 @@
+{
+  "agent_id": "agent:openclaw-demo",
+  "allowed": true,
+  "arguments_sha256": "71ee7e3f0f27c6aa5689f91011a7eb3a4024c3002f6007af50ffa19f18f02435",
+  "cwd": "assay_openclaw_demo",
+  "duration_ms": 42.0,
+  "exit_code": 0,
+  "outcome": "ok",
+  "policy_hash": "e34ff5212ae00b5f5a336047ca0c5569696f0ebd3820d6e2a36b35270728e37b",
+  "receipt_id": "be_a7a91a6f53034918",
+  "receipt_type": "BridgeExecution",
+  "session_id": "sess_openclaw_demo_v1",
+  "stderr_preview": "",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stdout_preview": "{\"provider\":\"openclaw-demo\",\"status\":200,\"title\":\"Async I/O in Python\",\"url\":\"https://docs.python.org/3/library/asyncio.html\"}",
+  "stdout_sha256": "60ad43c8719e2df3e8def62aae7961fc2635a865f70a613698e6d2851e6c4d1c",
+  "timestamp": "2026-04-09T04:45:01Z",
+  "tool_name": "web_fetch"
+}
