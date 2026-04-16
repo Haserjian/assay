@@ -1,0 +1,9 @@
+{
+  "attestation_id": "ha_policy_review_001",
+  "type": "human_attestation",
+  "attester": "security-reviewer@example.com",
+  "scope": "Policy gate review for customer-support workflow",
+  "statement": "I reviewed the guardian configuration and confirm the safety gate is configured to evaluate content policy before model execution.",
+  "attested_at": "2026-03-17T10:00:00Z",
+  "authority_class": "human_attested"
+}
