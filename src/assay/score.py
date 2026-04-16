@@ -20,15 +20,16 @@ from assay.keystore import get_default_keystore
 from assay.lockfile import check_lockfile
 from assay.scanner import scan_directory
 
-SCORE_VERSION = "1.0.0"
+SCORE_VERSION = "2.0.0"
 
-# Weighted components (must sum to 100)
+# Weighted repo-scoped components (must sum to 100).
+# key_setup was removed in v2: it read the operator's ~/.assay/keys/
+# instead of the scanned repo, making scores non-reproducible (#78).
 WEIGHTS: Dict[str, int] = {
-    "coverage": 35,
-    "lockfile": 15,
-    "ci_gate": 20,
-    "receipts": 20,
-    "key_setup": 10,
+    "coverage": 39,
+    "lockfile": 17,
+    "ci_gate": 22,
+    "receipts": 22,
 }
 
 # Grade tier descriptions shown to users.
@@ -234,21 +235,21 @@ def compute_evidence_readiness_score(facts: Dict[str, Any]) -> Dict[str, Any]:
         },
     }
 
-    # 5) Key setup
+    # 5) Key setup — environment-scoped, NOT included in composite (#78).
+    # Reported for operator awareness but does not affect repo score.
     keys = facts.get("keys", {})
     signer_count = int(keys.get("signer_count", 0) or 0)
     if signer_count > 0:
-        key_points = float(WEIGHTS["key_setup"])
         key_status = "pass"
-        key_note = f"{signer_count} signer(s) configured."
+        key_note = f"{signer_count} signer(s) configured (operator environment)."
     else:
-        key_points = 0.0
-        key_status = "fail"
-        key_note = "No signing key configured."
+        key_status = "info"
+        key_note = "No signing key configured (operator environment — does not affect score)."
 
     breakdown["key_setup"] = {
-        "weight": WEIGHTS["key_setup"],
-        "points": key_points,
+        "scope": "environment",
+        "weight": 0,
+        "points": 0.0,
         "status": key_status,
         "note": key_note,
         "evidence": {
@@ -444,10 +445,10 @@ def _build_next_actions(
         })
     if int(keys.get("signer_count", 0) or 0) == 0:
         actions.append({
-            "action": "Initialize signer key",
+            "action": "Initialize signer key (operator environment — does not affect score)",
             "command": 'assay run --allow-empty -- python -c "pass"',
             "component": "key_setup",
-            "points_est": _gap("key_setup"),
+            "points_est": 0.0,
         })
 
     if not actions:
