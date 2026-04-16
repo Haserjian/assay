@@ -8,7 +8,7 @@ from typing import Any, Dict
 from typer.testing import CliRunner
 
 from assay.commands import assay_app
-from assay.score import GRADE_TIERS, SCORE_VERSION, compute_evidence_readiness_score, gather_score_facts
+from assay.score import GRADE_TIERS, SCORE_VERSION, WEIGHTS, compute_evidence_readiness_score, gather_score_facts
 
 runner = CliRunner()
 
@@ -104,6 +104,23 @@ class TestComputeEvidenceReadiness:
         assert any("assay lock init" in step for step in result["next_actions"])
 
 
+    def test_key_setup_does_not_affect_composite_score(self) -> None:
+        """Regression test for #78: key_setup is environment-scoped and must
+        not contribute points to the repo-scoped composite score."""
+        with_signer = compute_evidence_readiness_score(_facts(signer_count=5))
+        without_signer = compute_evidence_readiness_score(_facts(signer_count=0))
+        assert with_signer["score"] == without_signer["score"]
+        assert with_signer["breakdown"]["key_setup"]["scope"] == "environment"
+        assert with_signer["breakdown"]["key_setup"]["points"] == 0.0
+        assert without_signer["breakdown"]["key_setup"]["points"] == 0.0
+
+    def test_weights_sum_to_100(self) -> None:
+        assert sum(WEIGHTS.values()) == 100
+
+    def test_key_setup_not_in_weights(self) -> None:
+        assert "key_setup" not in WEIGHTS
+
+
 class TestGatherFacts:
     def test_gather_score_facts_basic_shape(self, tmp_path: Path) -> None:
         (tmp_path / "app.py").write_text(
@@ -195,7 +212,7 @@ class TestGuidanceLayer:
             a for a in result["next_actions_detail"] if a["component"] == "lockfile"
         ]
         assert len(lock_actions) == 1
-        assert lock_actions[0]["points_est"] == 15.0
+        assert lock_actions[0]["points_est"] == float(WEIGHTS["lockfile"])
         assert "assay lock init" in lock_actions[0]["command"]
 
     def test_next_actions_backward_compat_strings(self) -> None:
