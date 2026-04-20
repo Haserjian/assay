@@ -118,7 +118,10 @@ class TerminalFact:
     """
 
     seq: int  # _store_seq of the terminal receipt
-    receipt_type: str  # "fulfillment.commitment_kept" | "commitment_broken"
+    # Full dotted receipt-type name, one of:
+    #   "fulfillment.commitment_kept"
+    #   "fulfillment.commitment_broken"
+    receipt_type: str
     commitment_id: str
     result_id: str
     is_valid_closure: bool
@@ -172,9 +175,13 @@ class CommitmentLifecycleProjection:
     # ISO-8601 timestamp when the projection was computed
     scanned_at: str = ""
 
-    # Integrity failure from ``_iter_all_receipts`` surfaces here.
-    # On integrity failure, all other fields are empty.
+    # Integrity failure surfaces in TWO paired fields so consumers can
+    # both display a human-readable message (``integrity_error``) and
+    # re-raise or chain from the original exception
+    # (``integrity_exception``) for forensic context. On integrity
+    # failure, all other projection fields are empty.
     integrity_error: Optional[str] = None
+    integrity_exception: Optional[ReceiptStoreIntegrityError] = None
 
 
 # ---------------------------------------------------------------------------
@@ -209,14 +216,6 @@ def project_commitment_lifecycle(
     reference = now or datetime.now(timezone.utc)
     scanned_at = reference.isoformat()
 
-    try:
-        entries = list(_iter_all_receipts(store))
-    except ReceiptStoreIntegrityError as exc:
-        return CommitmentLifecycleProjection(
-            scanned_at=scanned_at,
-            integrity_error=str(exc),
-        )
-
     registrations: Dict[str, RegistrationFact] = {}
     observation_anchors: List[ObservationAnchorFact] = []
     terminals: List[TerminalFact] = []
@@ -229,115 +228,146 @@ def project_commitment_lifecycle(
     # observation; consulted on every terminal.
     anchor_seq_by_pair: Dict[Tuple[str, str], int] = {}
 
-    for entry in entries:
-        rt = _extract_receipt_type(entry)
-        seq = entry.get("_store_seq")
-        if not isinstance(seq, int) or isinstance(seq, bool):
-            # Defensive: _iter_all_receipts already enforces this.
-            continue
-
-        trace_id = str(entry.get("_trace_id") or "")
-        if trace_id:
-            trace_ids_seen.add(trace_id)
-
-        if rt == COMMITMENT_REGISTRATION_RECEIPT_TYPE:
-            cmt_id_raw = entry.get("commitment_id")
-            if not cmt_id_raw:
+    # Iterate the generator directly. ``_iter_all_receipts`` already
+    # materializes and sorts internally; wrapping it in ``list(...)``
+    # here would be a pointless second full copy. Integrity failures
+    # raise from the generator during iteration, so the try/except
+    # covers the whole walk.
+    try:
+        for entry in _iter_all_receipts(store):
+            rt = _extract_receipt_type(entry)
+            seq = entry.get("_store_seq")
+            if not isinstance(seq, int) or isinstance(seq, bool):
+                # Defensive: _iter_all_receipts already enforces this.
                 continue
-            cmt_id = str(cmt_id_raw)
-            if cmt_id in registrations:
-                # First-seen wins. Matches pre-extraction behavior.
-                continue
-            registrations[cmt_id] = RegistrationFact(
-                commitment_id=cmt_id,
-                seq=seq,
-                trace_id=trace_id,
-                episode_id=str(entry.get("episode_id") or ""),
-                actor_id=str(entry.get("actor_id") or ""),
-                text=str(entry.get("text") or ""),
-                commitment_type=str(entry.get("commitment_type") or ""),
-                due_at=_opt_str(entry.get("due_at")),
-                registered_at=_extract_timestamp(entry),
-            )
-            continue
 
-        if rt == RESULT_OBSERVATION_RECEIPT_TYPE:
-            result_id_raw = entry.get("result_id")
-            if not result_id_raw:
-                continue
-            result_id = str(result_id_raw)
-            referenced: List[str] = []
-            for ref in entry.get("references") or []:
-                if (
-                    isinstance(ref, dict)
-                    and ref.get("kind") == "commitment"
-                    and ref.get("id")
-                ):
-                    ref_cmt = str(ref["id"])
-                    referenced.append(ref_cmt)
-                    # Latest observation seq wins (still strictly < future
-                    # terminal seqs because we walk in _store_seq order).
-                    anchor_seq_by_pair[(result_id, ref_cmt)] = seq
+            trace_id = str(entry.get("_trace_id") or "")
+            if trace_id:
+                trace_ids_seen.add(trace_id)
 
-            if referenced:
-                observation_anchors.append(
-                    ObservationAnchorFact(
+            if rt == COMMITMENT_REGISTRATION_RECEIPT_TYPE:
+                cmt_id_raw = entry.get("commitment_id")
+                if not cmt_id_raw:
+                    continue
+                cmt_id = str(cmt_id_raw)
+                if cmt_id in registrations:
+                    # First-seen wins. Matches pre-extraction behavior.
+                    continue
+                registrations[cmt_id] = RegistrationFact(
+                    commitment_id=cmt_id,
+                    seq=seq,
+                    trace_id=trace_id,
+                    episode_id=str(entry.get("episode_id") or ""),
+                    actor_id=str(entry.get("actor_id") or ""),
+                    text=str(entry.get("text") or ""),
+                    commitment_type=str(entry.get("commitment_type") or ""),
+                    due_at=_opt_str(entry.get("due_at")),
+                    registered_at=_extract_timestamp(entry),
+                )
+                continue
+
+            if rt == RESULT_OBSERVATION_RECEIPT_TYPE:
+                result_id_raw = entry.get("result_id")
+                if not result_id_raw:
+                    continue
+                result_id = str(result_id_raw)
+                referenced: List[str] = []
+                for ref in entry.get("references") or []:
+                    if (
+                        isinstance(ref, dict)
+                        and ref.get("kind") == "commitment"
+                        and ref.get("id")
+                    ):
+                        ref_cmt = str(ref["id"])
+                        referenced.append(ref_cmt)
+                        # Latest observation seq wins (still strictly <
+                        # future terminal seqs because we walk in
+                        # _store_seq order).
+                        anchor_seq_by_pair[(result_id, ref_cmt)] = seq
+
+                if referenced:
+                    observation_anchors.append(
+                        ObservationAnchorFact(
+                            seq=seq,
+                            result_id=result_id,
+                            referenced_commitment_ids=tuple(referenced),
+                        )
+                    )
+                continue
+
+            if rt in TERMINAL_FULFILLMENT_TYPES:
+                cmt_id_raw = entry.get("commitment_id")
+                result_id_raw = entry.get("result_id")
+                if not cmt_id_raw or not result_id_raw:
+                    continue
+                cmt_id = str(cmt_id_raw)
+                result_id = str(result_id_raw)
+
+                has_registration = cmt_id in registrations
+                anchor_seq = anchor_seq_by_pair.get((result_id, cmt_id))
+                has_anchor = anchor_seq is not None
+                already_closed = cmt_id in closures
+
+                reasons: List[str] = []
+                if not has_registration:
+                    reasons.append(
+                        "no registration seen before this terminal"
+                    )
+                if not has_anchor:
+                    reasons.append(
+                        f"no anchor edge from result_id={result_id!r} "
+                        f"to commitment={cmt_id!r} at the terminal's "
+                        "encounter point"
+                    )
+                if already_closed:
+                    reasons.append(
+                        f"post-closure terminal (commitment already "
+                        f"closed by seq="
+                        f"{closures[cmt_id].closing_terminal_seq})"
+                    )
+
+                is_valid = not reasons
+
+                terminals.append(
+                    TerminalFact(
                         seq=seq,
+                        receipt_type=rt,
+                        commitment_id=cmt_id,
                         result_id=result_id,
-                        referenced_commitment_ids=tuple(referenced),
+                        is_valid_closure=is_valid,
+                        invalid_reasons=tuple(reasons),
                     )
                 )
-            continue
 
-        if rt in TERMINAL_FULFILLMENT_TYPES:
-            cmt_id_raw = entry.get("commitment_id")
-            result_id_raw = entry.get("result_id")
-            if not cmt_id_raw or not result_id_raw:
+                if is_valid:
+                    # Semantic invariant: is_valid implies not `reasons`,
+                    # which implies has_anchor is True, which implies
+                    # anchor_seq is an int. Assert the chain so the
+                    # type system (and future refactors) can rely on it
+                    # without a ``type: ignore``.
+                    assert anchor_seq is not None, (
+                        "is_valid closure without anchor_seq — invariant "
+                        "violated"
+                    )
+                    closures[cmt_id] = ClosureFact(
+                        commitment_id=cmt_id,
+                        closing_terminal_seq=seq,
+                        closing_terminal_type=rt,
+                        anchor_observation_seq=anchor_seq,
+                    )
                 continue
-            cmt_id = str(cmt_id_raw)
-            result_id = str(result_id_raw)
-
-            has_registration = cmt_id in registrations
-            anchor_seq = anchor_seq_by_pair.get((result_id, cmt_id))
-            has_anchor = anchor_seq is not None
-            already_closed = cmt_id in closures
-
-            reasons: List[str] = []
-            if not has_registration:
-                reasons.append("no registration seen before this terminal")
-            if not has_anchor:
-                reasons.append(
-                    f"no anchor edge from result_id={result_id!r} to "
-                    f"commitment={cmt_id!r} at the terminal's encounter point"
-                )
-            if already_closed:
-                reasons.append(
-                    f"post-closure terminal (commitment already closed "
-                    f"by seq={closures[cmt_id].closing_terminal_seq})"
-                )
-
-            is_valid = not reasons
-
-            terminals.append(
-                TerminalFact(
-                    seq=seq,
-                    receipt_type=rt,
-                    commitment_id=cmt_id,
-                    result_id=result_id,
-                    is_valid_closure=is_valid,
-                    invalid_reasons=tuple(reasons),
-                )
-            )
-
-            if is_valid:
-                # anchor_seq is not None here because has_anchor was True.
-                closures[cmt_id] = ClosureFact(
-                    commitment_id=cmt_id,
-                    closing_terminal_seq=seq,
-                    closing_terminal_type=rt,
-                    anchor_observation_seq=anchor_seq,  # type: ignore[arg-type]
-                )
-            continue
+    except ReceiptStoreIntegrityError as exc:
+        # Paired fields: human-readable message + original exception for
+        # forensic chain. On integrity failure, return an empty
+        # projection so consumers cannot accidentally act on partial
+        # facts — the contract is "corruption never produces clean
+        # semantic output", and empty+error is the shape that enforces
+        # it.
+        return CommitmentLifecycleProjection(
+            scanned_at=scanned_at,
+            integrity_error=str(exc),
+            integrity_exception=exc,
+        )
 
     return CommitmentLifecycleProjection(
         registrations=registrations,

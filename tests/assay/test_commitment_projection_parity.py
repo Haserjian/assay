@@ -508,3 +508,65 @@ def test_all_consumers_fail_closed_on_same_corrupt_corpus(tmp_path):
     # mixed with corruption evidence.
     assert explanation.registration is None
     assert explanation.timeline == []
+
+
+def test_projection_preserves_original_integrity_exception(tmp_path):
+    """The projection surfaces BOTH a human-readable ``integrity_error``
+    string and the original ``integrity_exception`` object so callers
+    that need forensic chain (e.g. the detector) can re-raise with the
+    original traceback intact, while callers that only need a user-
+    facing message (CLI) can read the string.
+
+    This test locks the paired-field contract. A future refactor that
+    dropped ``integrity_exception`` would silently degrade
+    debuggability; this test makes that visible.
+    """
+    from assay.commitment_projection import project_commitment_lifecycle
+    from assay.store import ReceiptStoreIntegrityError
+
+    store = AssayStore(base_dir=tmp_path / "preserve_exc")
+    store.start_trace()
+    store.append_dict({
+        "type": COMMITMENT_REGISTRATION_RECEIPT_TYPE,
+        "commitment_id": "cmt_preserve",
+        "episode_id": "ep",
+        "actor_id": "alice",
+        "text": "test",
+        "commitment_type": "delivery",
+        "policy_hash": "sha256:" + "c" * 64,
+        "due_at": "2020-01-01T00:00:00Z",
+        "timestamp": "2026-04-20T10:00:00Z",
+    })
+    trace_files = sorted(store.base_dir.rglob("trace_*.jsonl"))
+    with open(trace_files[-1], "a") as f:
+        f.write("{corrupt\n")
+
+    projection = project_commitment_lifecycle(store)
+
+    # Both fields must be set in lockstep.
+    assert projection.integrity_error is not None, (
+        "projection must expose integrity_error for user-facing display"
+    )
+    assert projection.integrity_exception is not None, (
+        "projection must expose integrity_exception for forensic chain"
+    )
+    assert isinstance(projection.integrity_exception, ReceiptStoreIntegrityError)
+    # The string must come from the exception (not a different source).
+    assert str(projection.integrity_exception) == projection.integrity_error
+
+    # All other projection fields must be empty — the corruption
+    # contract. No partial authoritative facts alongside an integrity
+    # error.
+    assert projection.registrations == {}
+    assert projection.observation_anchors == []
+    assert projection.terminals == []
+    assert projection.closures == {}
+
+    # The detector re-raises an exception whose message matches the
+    # original. (We can't assert identity because the detector calls
+    # ``project_commitment_lifecycle`` which triggers a fresh walk
+    # and a fresh exception instance, but the message must be the
+    # same — proving the detector is not synthesizing its own text.)
+    with pytest.raises(ReceiptStoreIntegrityError) as exc_info:
+        detect_open_overdue_commitments(store)
+    assert str(exc_info.value) == projection.integrity_error
