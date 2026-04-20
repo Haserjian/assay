@@ -6366,6 +6366,22 @@ from assay.passport_commands import passport_app
 
 assay_app.add_typer(passport_app, name="passport", rich_help_panel="Advanced")
 
+# ---------------------------------------------------------------------------
+# Commitment-lifecycle inspection surface (assay commitments ...)
+# ---------------------------------------------------------------------------
+# NOTE: This is deliberately mounted at name="commitments", NOT "explain".
+# The top-level "explain" command name is already owned by the proof-pack
+# explainer (@assay_app.command("explain") below); mounting a Typer sub-app
+# at "explain" silently shadows that command.
+
+from assay.commitment_explain import commitments_app
+
+assay_app.add_typer(
+    commitments_app,
+    name="commitments",
+    rich_help_panel="Inspect",
+)
+
 
 @assay_app.command("xray", hidden=True, rich_help_panel="Advanced")
 def xray_alias_cmd(
