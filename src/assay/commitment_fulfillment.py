@@ -231,8 +231,14 @@ class FulfillmentBrokenArtifact:
 def _iter_all_receipts(store: AssayStore) -> Iterator[Dict[str, Any]]:
     """Iterate all receipts in store-wide ``_store_seq`` order.
 
-    Slice 1's receipt-order primitive is the monotonic ``_store_seq``
-    envelope field assigned by ``AssayStore.append`` / ``append_dict``.
+    ``_store_seq`` is the store's witnessed append order: the monotonic,
+    immutable envelope field assigned by ``AssayStore.append`` /
+    ``append_dict`` at write time. It is a STORAGE primitive — used for
+    deterministic traversal, tie-breaking, and tamper detection. It is
+    NOT a semantic global happens-before relation between unrelated
+    aggregates; that is always a per-aggregate question.
+    See ``docs/doctrine/COMMITMENT_ORDERING.md``.
+
     Lexicographic trace-path order is NOT a valid chronology because
     ``AssayStore.start_trace(trace_id=...)`` accepts arbitrary trace IDs.
 
