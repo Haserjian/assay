@@ -119,12 +119,12 @@ def detect_open_overdue_commitments(
 
     # Integrity failure parity: the pre-extraction detector propagated
     # ``ReceiptStoreIntegrityError`` directly rather than returning a
-    # result with an error field. Preserve that contract so existing
-    # tests that expect a raised exception still work.
-    if projection.integrity_error is not None:
-        from assay.store import ReceiptStoreIntegrityError
-
-        raise ReceiptStoreIntegrityError(projection.integrity_error)
+    # result with an error field. Preserve that contract — and the
+    # original traceback for forensics — by re-raising the projection's
+    # captured exception directly instead of wrapping its message in a
+    # fresh instance.
+    if projection.integrity_exception is not None:
+        raise projection.integrity_exception
 
     open_commitments: List[OpenOverdueCommitment] = []
     for cmt_id, reg in projection.registrations.items():
