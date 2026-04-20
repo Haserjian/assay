@@ -19,7 +19,7 @@ Claims that cannot be verified in the code today are labelled as such.
 Most audit logging systems tell you *what happened*. The commitment wedge
 tells you *what was promised, what happened, and whether the promise was
 kept* — and enforces the distinction in storage so a "closed" verdict
-cannot be fabricated by writing a clever log entry.
+cannot be fabricated by a single unanchored terminal log entry.
 
 Three things it refuses to do, by construction:
 
@@ -175,7 +175,7 @@ writing this packet.
 | Closure semantics are order-aware (no retroactive legitimization) | **shipped** (Slice 1 review rounds R2–R7 closed this) |
 | Fail-closed corruption behavior (malformed JSON / mixed / duplicate `_store_seq`) | **shipped** (`_iter_all_receipts` raises; all three readers honor the contract) |
 | Commitment receipts are emitted to the append-only store | **shipped** (`store.append_dict` stamps `_store_seq` under cross-process `fcntl.flock`) |
-| Commitment receipts have tamper-evident storage order | **shipped** (within-file `_store_seq` regression is an integrity error) |
+| Commitment receipts have integrity-checked storage order | **shipped** (within-file `_store_seq` regression is an integrity error; not cryptographic signing) |
 | Commitment receipts are cryptographically signed (ReceiptV2) | **not yet** — ReceiptV2 signing infrastructure exists at `src/assay/_receipts/v2_sign.py`, but none of the four commitment receipt types are wired to it today |
 | Commitment receipts are externally verifiable (independent of the issuing store) | **not yet** — consequence of the previous row; signing is the prerequisite |
 | Commitment receipts fit into a proof pack / witness bundle | **partially** — the proof-pack pipeline exists (`proof_pack.py`, witness-bundle schema); commitment receipt types are not currently included in pack generation by default |
