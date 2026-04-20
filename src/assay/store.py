@@ -104,15 +104,22 @@ class AssayStore:
         self._current_trace_id: Optional[str] = None
         self._current_file: Optional[Path] = None
         self._lock = threading.RLock()
-        # Store-wide monotonic receipt sequence primitive. Its state lives
-        # ON DISK at ``<base_dir>/.store_seq`` and is mutated under
-        # ``fcntl.flock(LOCK_EX)`` so that multiple AssayStore instances
-        # (including across processes) cannot allocate the same seq.
-        # Allocation + receipt persistence run in a single critical section:
-        # no writer releases the seq-file lock between "take a seq" and
-        # "put the receipt bearing that seq on disk". Lexicographic trace-
-        # path order is NOT a valid chronology; ``_store_seq`` is the
-        # authority.
+        # ``_store_seq`` is the store's **witnessed append order** — a
+        # monotonic, immutable primitive stamped atomically at write
+        # time. State lives ON DISK at ``<base_dir>/.store_seq`` and is
+        # mutated under ``fcntl.flock(LOCK_EX)`` so that multiple
+        # AssayStore instances (including across processes) cannot
+        # allocate the same seq. Allocation and receipt persistence run
+        # in a single critical section: no writer releases the seq-file
+        # lock between "take a seq" and "put the receipt bearing that
+        # seq on disk". Once written, ``_store_seq`` is not rewritten
+        # by any supported code path — repair tooling must use a
+        # separate reconstructed-order marker if it needs one.
+        #
+        # Doctrine note: this is a STORAGE primitive (witnessed append
+        # order, tamper detection, deterministic traversal). It is NOT
+        # a semantic global happens-before relation between unrelated
+        # aggregates. See docs/doctrine/COMMITMENT_ORDERING.md.
         self._seq_file = self.base_dir / ".store_seq"
 
     def start_trace(self, trace_id: Optional[str] = None) -> str:

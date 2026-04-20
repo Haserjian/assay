@@ -1,23 +1,22 @@
 """Commitment closure detector — DOCTOR_COMMITMENT_001.
 
-Pure-read scan of an AssayStore that flags ``commitment.registered`` receipts
-with a past ``due_at`` and no terminal fulfillment
-(``fulfillment.commitment_kept`` | ``fulfillment.commitment_broken``).
+Pure-read detection of overdue open commitments. Consumes the shared
+projection from
+:func:`assay.commitment_projection.project_commitment_lifecycle`;
+previously carried its own corpus walk.
 
-Mirrors ``contradiction_detector.py`` structurally. No mutations.
+Responsibility boundary:
+    This module contributes only the "overdue + open" filter. Closure
+    semantics, registration tracking, observation anchoring, and
+    validity checks all live in the projector now.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional
 
-from assay.commitment_fulfillment import (
-    COMMITMENT_REGISTRATION_RECEIPT_TYPE,
-    RESULT_OBSERVATION_RECEIPT_TYPE,
-    TERMINAL_FULFILLMENT_TYPES,
-    _iter_all_receipts,
-)
+from assay.commitment_projection import project_commitment_lifecycle
 from assay.store import AssayStore
 
 
@@ -76,14 +75,6 @@ class CommitmentClosureResult:
         }
 
 
-def _extract_receipt_type(entry: Dict[str, Any]) -> str:
-    return str(entry.get("type") or entry.get("receipt_type") or "")
-
-
-def _extract_timestamp(entry: Dict[str, Any]) -> str:
-    return str(entry.get("timestamp") or entry.get("_stored_at") or "")
-
-
 def _parse_iso(value: str) -> Optional[datetime]:
     """Parse ISO-8601; return None if unparseable."""
     if not value:
@@ -107,133 +98,66 @@ def detect_open_overdue_commitments(
 ) -> CommitmentClosureResult:
     """Scan a store for open, overdue commitments.
 
-    Closure rule (order-aware):
-        A terminal fulfillment closes commitment C if, *at the point the
-        terminal is encountered in receipt order*:
-          - C was already registered (``commitment.registered``); AND
-          - result R was already observed (``result.observed`` with
-            ``result_id == terminal.result_id``); AND
-          - that observation's ``references`` list explicitly carried
-            ``{"kind": "commitment", "id": C}``.
+    Closure semantics and corpus-walk logic are handled by the shared
+    projection (see :func:`project_commitment_lifecycle`). This
+    function's remaining job is the overdue filter:
 
-    Future observations cannot retroactively legitimize prior terminals.
-    Forged terminals written before any observation — or naming a result
-    that observed a different commitment — do not close anything.
+        - the commitment is registered
+        - no valid closure exists for it (per the projection)
+        - its ``due_at`` is parseable and in the past relative to ``now``
 
-    A commitment is "open and overdue" when:
-        - It is registered.
-        - Its ``due_at`` is parseable and in the past relative to ``now``.
-        - No valid closure edge was observed for it.
+    Commitments without ``due_at`` are treated as perpetual.
+    Commitments whose ``due_at`` is unparseable are also treated as
+    perpetual (conservative — matches pre-extraction behavior).
 
-    Commitments without ``due_at`` are treated as perpetual in Slice 1
-    and never flagged. Commitments whose ``due_at`` is unparseable are
-    treated conservatively as perpetual.
-
-    Scan is full-store and fail-closed: corruption surfaces as
-    ``ReceiptStoreIntegrityError``, not as missing evidence.
-
-    Args:
-        store: The AssayStore to scan.
-        now: Reference time for overdue comparison. Defaults to
-            ``datetime.now(timezone.utc)``.
-
-    Returns:
-        CommitmentClosureResult with all findings.
+    Corruption surfaces as ``ReceiptStoreIntegrityError`` from the
+    underlying projection walk; this function does not swallow it.
     """
     reference = now or datetime.now(timezone.utc)
-    scanned_at = reference.isoformat()
 
-    registered: Dict[str, Dict[str, Any]] = {}
-    # result_id -> set of commitment_ids the observation explicitly referenced.
-    observed_result_anchors: Dict[str, Set[str]] = {}
-    closed_ids: Set[str] = set()
-    trace_ids_seen: Set[str] = set()
+    projection = project_commitment_lifecycle(store, now=reference)
 
-    # Walk receipts in store order (path-sorted, then line order).
-    # _iter_all_receipts raises ReceiptStoreIntegrityError on corruption.
-    for entry in _iter_all_receipts(store):
-        rt = _extract_receipt_type(entry)
-        trace_id = str(entry.get("_trace_id") or "")
-        if trace_id:
-            trace_ids_seen.add(trace_id)
+    # Integrity failure parity: the pre-extraction detector propagated
+    # ``ReceiptStoreIntegrityError`` directly rather than returning a
+    # result with an error field. Preserve that contract so existing
+    # tests that expect a raised exception still work.
+    if projection.integrity_error is not None:
+        from assay.store import ReceiptStoreIntegrityError
 
-        if rt == COMMITMENT_REGISTRATION_RECEIPT_TYPE:
-            cmt_id = entry.get("commitment_id")
-            if cmt_id and cmt_id not in registered:
-                registered[cmt_id] = {
-                    "trace_id": trace_id,
-                    "trace_path": None,
-                    "episode_id": str(entry.get("episode_id") or ""),
-                    "actor_id": str(entry.get("actor_id") or ""),
-                    "text": str(entry.get("text") or ""),
-                    "commitment_type": str(entry.get("commitment_type") or ""),
-                    "registered_at": _extract_timestamp(entry),
-                    "due_at": str(entry.get("due_at") or ""),
-                }
-            continue
-
-        if rt == RESULT_OBSERVATION_RECEIPT_TYPE:
-            result_id = entry.get("result_id")
-            if not result_id:
-                continue
-            anchors = observed_result_anchors.setdefault(str(result_id), set())
-            for ref in entry.get("references") or []:
-                if (
-                    isinstance(ref, dict)
-                    and ref.get("kind") == "commitment"
-                    and ref.get("id")
-                ):
-                    anchors.add(str(ref["id"]))
-            continue
-
-        if rt in TERMINAL_FULFILLMENT_TYPES:
-            cmt_id = entry.get("commitment_id")
-            result_id = entry.get("result_id")
-            if not cmt_id or not result_id:
-                continue
-            cmt_id_s = str(cmt_id)
-            result_id_s = str(result_id)
-            # At the temporal point of THIS terminal:
-            #   - commitment must already be registered
-            #   - result must already be observed with this commitment in refs
-            if cmt_id_s not in registered:
-                continue  # terminal precedes registration — invalid
-            if cmt_id_s not in observed_result_anchors.get(result_id_s, set()):
-                continue  # no valid (result_id, commitment_id) edge yet — invalid
-            closed_ids.add(cmt_id_s)
-            continue
+        raise ReceiptStoreIntegrityError(projection.integrity_error)
 
     open_commitments: List[OpenOverdueCommitment] = []
-    for cmt_id, info in registered.items():
-        if cmt_id in closed_ids:
-            continue
-        due_at_str = info["due_at"]
-        if not due_at_str:
+    for cmt_id, reg in projection.registrations.items():
+        if cmt_id in projection.closures:
+            continue  # closed — not overdue
+        if not reg.due_at:
             continue  # perpetual
-        due_at_dt = _parse_iso(due_at_str)
-        if due_at_dt is None:
+        due_dt = _parse_iso(reg.due_at)
+        if due_dt is None:
             continue  # unparseable → perpetual (conservative)
-        if due_at_dt >= reference:
+        if due_dt >= reference:
             continue  # not yet overdue
-        open_commitments.append(OpenOverdueCommitment(
-            commitment_id=cmt_id,
-            trace_id=info["trace_id"],
-            episode_id=info["episode_id"],
-            actor_id=info["actor_id"],
-            text=info["text"],
-            commitment_type=info["commitment_type"],
-            registered_at=info["registered_at"],
-            due_at=info["due_at"],
-            trace_path=info["trace_path"],
-        ))
+        open_commitments.append(
+            OpenOverdueCommitment(
+                commitment_id=reg.commitment_id,
+                trace_id=reg.trace_id,
+                episode_id=reg.episode_id,
+                actor_id=reg.actor_id,
+                text=reg.text,
+                commitment_type=reg.commitment_type,
+                registered_at=reg.registered_at,
+                due_at=reg.due_at,
+                trace_path=None,
+            )
+        )
 
     return CommitmentClosureResult(
         open_commitments=open_commitments,
-        total_traces_scanned=len(trace_ids_seen),
-        total_registered_found=len(registered),
-        total_closed_found=len(closed_ids),
+        total_traces_scanned=projection.total_traces_scanned,
+        total_registered_found=len(projection.registrations),
+        total_closed_found=len(projection.closures),
         total_open_found=len(open_commitments),
-        scanned_at=scanned_at,
+        scanned_at=projection.scanned_at,
     )
 
 

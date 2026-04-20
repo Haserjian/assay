@@ -39,16 +39,15 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional
 
 import typer
 
 from assay.commitment_fulfillment import (
     COMMITMENT_REGISTRATION_RECEIPT_TYPE,
     RESULT_OBSERVATION_RECEIPT_TYPE,
-    TERMINAL_FULFILLMENT_TYPES,
-    _iter_all_receipts,
 )
+from assay.commitment_projection import project_commitment_lifecycle
 from assay.commitment_summary import (
     CommitmentSummary,
     SummariesResult,
@@ -56,7 +55,6 @@ from assay.commitment_summary import (
 )
 from assay.store import (
     AssayStore,
-    ReceiptStoreIntegrityError,
     get_default_store,
 )
 
@@ -104,26 +102,22 @@ class ExplainResult:
 
 
 def explain_commitment(store: AssayStore, commitment_id: str) -> ExplainResult:
-    """Walk ``store`` in ``_store_seq`` order and explain ``commitment_id``'s state.
+    """Explain ``commitment_id``'s state from the shared lifecycle projection.
 
     Pure-read. Fails closed on corpus corruption: returns
     ``state="INVALID_STORE"`` with the integrity error, rather than
     proceeding with partial / mixed / corrupt evidence.
 
-    Closure rule matches the detector:
-        A terminal fulfillment closes commitment C at the point it is
-        encountered IFF, at that seq position:
-            - C has been registered
-            - some prior result.observed receipt with result_id=R
-              exists whose references explicitly include
-              ``{"kind": "commitment", "id": C}``
-
-        Later observations cannot retroactively legitimize earlier
-        terminals.
+    Closure semantics come from
+    :func:`assay.commitment_projection.project_commitment_lifecycle`;
+    this function's remaining job is the per-commitment presentation:
+    selecting the commitment's own registration / anchor-observation /
+    terminal lines from the projection, building the timeline in
+    ``_store_seq`` order, and composing the plain-text decision string.
     """
-    try:
-        entries = list(_iter_all_receipts(store))
-    except ReceiptStoreIntegrityError as exc:
+    projection = project_commitment_lifecycle(store)
+
+    if projection.integrity_error is not None:
         return ExplainResult(
             commitment_id=commitment_id,
             state="INVALID_STORE",
@@ -134,126 +128,73 @@ def explain_commitment(store: AssayStore, commitment_id: str) -> ExplainResult:
                 "validation. Cannot reason about commitment state until the "
                 "store is repaired."
             ),
-            integrity_error=str(exc),
+            integrity_error=projection.integrity_error,
         )
 
+    reg_fact = projection.registrations.get(commitment_id)
+    closure_fact = projection.closures.get(commitment_id)
+
+    # Build the per-commitment timeline. The projection already has
+    # everything we need; we just filter and translate facts into the
+    # presentation-layer ``ExplainLine`` shape, then sort by seq.
+
     registration: Optional[ExplainLine] = None
-    timeline: List[ExplainLine] = []
-    # result_id -> set of commitment_ids whose anchor edge is present
-    # by the point we reach each receipt in seq order.
-    observed_result_anchors: Dict[str, Set[str]] = {}
+    if reg_fact is not None:
+        due_at_display = reg_fact.due_at if reg_fact.due_at else "perpetual"
+        registration = ExplainLine(
+            seq=reg_fact.seq,
+            receipt_type=COMMITMENT_REGISTRATION_RECEIPT_TYPE,
+            summary=(
+                f"registered by actor_id={reg_fact.actor_id!r}, "
+                f"due_at={due_at_display}"
+            ),
+            note="ok",
+        )
 
-    closing_terminal_seq: Optional[int] = None
-    closing_terminal_type: Optional[str] = None
-    closing_anchor_seq: Optional[int] = None
+    # Observation lines: only those referencing this commitment.
+    observation_lines: List[ExplainLine] = []
+    for obs in projection.observation_anchors:
+        if commitment_id not in obs.referenced_commitment_ids:
+            continue
+        observation_lines.append(
+            ExplainLine(
+                seq=obs.seq,
+                receipt_type=RESULT_OBSERVATION_RECEIPT_TYPE,
+                summary=f"observed result_id={obs.result_id!r}",
+                note="anchor edge present",
+            )
+        )
+
+    # Terminal lines: only those naming this commitment.
     terminal_lines_for_cmt: List[ExplainLine] = []
-
-    for entry in entries:
-        rt = str(entry.get("type") or entry.get("receipt_type") or "")
-        seq = entry.get("_store_seq")
-        if not isinstance(seq, int) or isinstance(seq, bool):
-            # _iter_all_receipts already fails closed on missing/invalid seq;
-            # this branch is defensive and should not be reachable.
+    for term in projection.terminals:
+        if term.commitment_id != commitment_id:
             continue
-
-        if rt == COMMITMENT_REGISTRATION_RECEIPT_TYPE:
-            if entry.get("commitment_id") != commitment_id:
-                continue
+        if term.is_valid_closure:
             line = ExplainLine(
-                seq=seq,
-                receipt_type=rt,
-                summary=(
-                    f"registered by actor_id={entry.get('actor_id', '?')!r}, "
-                    f"due_at={entry.get('due_at', 'perpetual')}"
-                ),
-                note="ok",
+                seq=term.seq,
+                receipt_type=term.receipt_type,
+                summary=f"fulfillment for result_id={term.result_id!r}",
+                note="closes commitment",
             )
-            if registration is None:
-                registration = line
-            timeline.append(line)
-            continue
-
-        if rt == RESULT_OBSERVATION_RECEIPT_TYPE:
-            result_id = entry.get("result_id")
-            if not result_id:
-                continue
-            referenced: Set[str] = set()
-            for ref in entry.get("references") or []:
-                if (
-                    isinstance(ref, dict)
-                    and ref.get("kind") == "commitment"
-                    and ref.get("id")
-                ):
-                    referenced.add(str(ref["id"]))
-            observed_result_anchors.setdefault(str(result_id), set()).update(
-                referenced
+        else:
+            reason_text = "; ".join(term.invalid_reasons) or "unknown"
+            line = ExplainLine(
+                seq=term.seq,
+                receipt_type=term.receipt_type,
+                summary=f"fulfillment for result_id={term.result_id!r}",
+                note=f"invalid anchor ({reason_text})",
             )
+        terminal_lines_for_cmt.append(line)
 
-            if commitment_id in referenced:
-                timeline.append(ExplainLine(
-                    seq=seq,
-                    receipt_type=rt,
-                    summary=f"observed result_id={result_id!r}",
-                    note="anchor edge present",
-                ))
-            continue
-
-        if rt in TERMINAL_FULFILLMENT_TYPES:
-            if entry.get("commitment_id") != commitment_id:
-                continue
-            result_id = str(entry.get("result_id") or "")
-            has_registration = registration is not None
-            anchors_for_result = observed_result_anchors.get(result_id, set())
-            has_anchor_edge = commitment_id in anchors_for_result
-            already_closed = closing_terminal_seq is not None
-            is_valid_closure = (
-                has_registration and has_anchor_edge and not already_closed
-            )
-
-            if is_valid_closure:
-                closing_terminal_seq = seq
-                closing_terminal_type = rt
-                # Find the most recent matching observation line for the
-                # decision text (seq of the anchor edge).
-                for prev in timeline:
-                    if (
-                        prev.receipt_type == RESULT_OBSERVATION_RECEIPT_TYPE
-                        and f"result_id={result_id!r}" in prev.summary
-                    ):
-                        closing_anchor_seq = prev.seq
-                line = ExplainLine(
-                    seq=seq,
-                    receipt_type=rt,
-                    summary=f"fulfillment for result_id={result_id!r}",
-                    note="closes commitment",
-                )
-            else:
-                reasons: List[str] = []
-                if not has_registration:
-                    reasons.append(
-                        "no registration seen before this terminal"
-                    )
-                if not has_anchor_edge:
-                    reasons.append(
-                        f"no anchor edge from result_id={result_id!r} "
-                        f"to commitment={commitment_id!r} "
-                        "at the terminal's encounter point"
-                    )
-                if already_closed:
-                    reasons.append(
-                        f"post-closure terminal (commitment already closed "
-                        f"by seq={closing_terminal_seq})"
-                    )
-                reason_text = "; ".join(reasons) or "unknown"
-                line = ExplainLine(
-                    seq=seq,
-                    receipt_type=rt,
-                    summary=f"fulfillment for result_id={result_id!r}",
-                    note=f"invalid anchor ({reason_text})",
-                )
-            timeline.append(line)
-            terminal_lines_for_cmt.append(line)
-            continue
+    # Compose the timeline in seq order. The projection guarantees seq
+    # is the authoritative causal key for this per-aggregate view.
+    timeline: List[ExplainLine] = []
+    if registration is not None:
+        timeline.append(registration)
+    timeline.extend(observation_lines)
+    timeline.extend(terminal_lines_for_cmt)
+    timeline.sort(key=lambda line: line.seq)
 
     # ----- Decision -----
 
@@ -269,17 +210,15 @@ def explain_commitment(store: AssayStore, commitment_id: str) -> ExplainResult:
             ),
         )
 
-    if closing_terminal_seq is not None:
+    if closure_fact is not None:
         anchor_hint = (
-            f" and anchor result.observed seq={closing_anchor_seq} "
+            f" and anchor result.observed seq={closure_fact.anchor_observation_seq} "
             "explicitly references this commitment"
-            if closing_anchor_seq is not None
-            else ""
         )
         decision = (
-            f"CLOSED because terminal {closing_terminal_type!r} "
-            f"seq={closing_terminal_seq} occurred with a valid anchor edge"
-            f"{anchor_hint}."
+            f"CLOSED because terminal {closure_fact.closing_terminal_type!r} "
+            f"seq={closure_fact.closing_terminal_seq} occurred with a valid "
+            f"anchor edge{anchor_hint}."
         )
         return ExplainResult(
             commitment_id=commitment_id,
