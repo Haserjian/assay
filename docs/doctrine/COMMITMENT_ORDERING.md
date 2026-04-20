@@ -106,10 +106,10 @@ Per-commitment-only is *semantically* clean but operationally weaker.
 An obligation — as distinct from a Slice 1 commitment — is an
 **inherited duty**: forward-looking, possibly cross-episode, potentially
 derived from a parent commitment or from a constitutional event such
-as an authority override or a policy change. (See the Slice-2 design
-notes in `memory/project_obligation_namespace_collision.md`; the
-obligation noun's precise semantics are separately gated by that
-namespace adjudication.)
+as an authority override or a policy change. The precise naming
+semantics of the obligation noun are separately gated; this memo does
+not decide them, and the ordering argument below does not depend on
+them.
 
 For ordering purposes, this memo only needs the following properties
 of any Slice-2 obligation shape — none of which require cross-aggregate
@@ -255,8 +255,8 @@ be via explicit new fields and a new memo, not by quiet mutation.
 - This memo does not introduce a new storage primitive.
 - This memo does not unblock or schedule Slice 2 on its own; Slice 2
   remains blocked by the pre-existing `src/assay/obligation.py`
-  namespace collision (see
-  `~/.claude/projects/-Users-timmymacbookpro/memory/project_obligation_namespace_collision.md`).
+  namespace collision, which is a separate decision about naming — not
+  about ordering.
 
 ## Summary sentence
 
