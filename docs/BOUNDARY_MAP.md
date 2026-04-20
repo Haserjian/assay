@@ -6,14 +6,18 @@ This is the working boundary for the current charter. If a sentence blurs these 
 |-----------|------------|----------|------------------|------------------|------------------------|
 | Assay | Public evidence compiler for AI execution: scan, patch, run, signed proof pack, offline verify | Developers, security reviewers, procurement reviewers | Public | Current | Public trust layer |
 | VendorQ | Reviewer workflow and packet compiler built on top of Assay evidence | Teams answering buyer or reviewer questions | Public-facing workflow, but wedge-specific | Current wedge hypothesis | Wedge |
-| AgentMesh | Provenance and execution-lineage helper used to support delivery and runtime evidence stories | Builders who need lineage between execution surfaces | Public | Current, but support-layer | Support for the trust story, not the whole product |
+| Threadwork | Provenance and execution-lineage helper used to support delivery and runtime evidence stories | Builders who need lineage between execution surfaces | Public | Current, but support-layer | Support for the trust story, not the whole product |
 | Loom / CCIO | Private constitutional runtime and consequence membrane: episodes, checkpoints, governance, lineage, settlement | Internal builder / operator surface | Private | Current privately, future strategic center | Organism |
 
 ## Working rules
 
 - Assay is the first public trust story.
 - VendorQ is a wedge hypothesis built on that trust layer.
-- AgentMesh is supporting provenance infrastructure.
+- Threadwork is supporting provenance infrastructure.
+- Compatibility note: implementation/runtime surfaces may still use `agentmesh` naming during migration.
+- Naming invariant during migration: `Threadwork` is the public name. `agentmesh`
+  may remain in repository, package, CLI, config, schema, state-path, and
+  trailer surfaces until an explicit compatibility plan lands.
 - Loom / CCIO is where the real load-bearing membrane is allowed to get weird and powerful.
 
 ## Anti-blur rules

@@ -13,7 +13,7 @@ how the Assay ecosystem fits together.
 | [Haserjian/assay-ledger](https://github.com/Haserjian/assay-ledger) | Public transparency ledger (GitHub Pages) | Append-only ledger entries via PR | Tim Bhaserjian |
 | [Haserjian/assay-scorecard](https://github.com/Haserjian/assay-scorecard) | Ecosystem readiness scoring | Public scorecard site | Tim Bhaserjian |
 | [Haserjian/assay-agent-demo](https://github.com/Haserjian/assay-agent-demo) | Demo packs and walkthroughs | Demo proof packs | Tim Bhaserjian |
-| [Haserjian/agentmesh](https://github.com/Haserjian/agentmesh) | Provenance and coordination engine | Claims, episodes, lineage, witness tooling | Tim Bhaserjian |
+| [Haserjian/agentmesh](https://github.com/Haserjian/agentmesh) | Threadwork coordination and provenance substrate (repo currently `agentmesh`) | Claims, episodes, lineage, witness tooling | Tim Bhaserjian |
 
 ## Private Repos
 
@@ -62,10 +62,12 @@ Public append-only ledger. Accepts submissions via PR workflow. Entries include:
 - `witness_level` (unwitnessed, hash_verified, signature_verified)
 - signer fingerprint and timestamp
 
-### Haserjian/agentmesh
+### Haserjian/agentmesh (Threadwork)
 
-Provenance and coordination system. It tracks claims, episodes, and lineage
-and can feed evidence into Assay.
+Threadwork is the provenance and coordination substrate. It tracks claims,
+episodes, and lineage and can feed evidence into Assay. The public name is
+moving to `Threadwork`; the repo/package/CLI still carry `agentmesh` naming
+during migration.
 
 ## Open vs Closed Product Boundary
 
