@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://assay.ai/schemas/fulfillment_commitment_broken.v0.1.schema.json",
+  "title": "Fulfillment — Commitment Broken (v0.1)",
+  "description": "Terminal: commitment was broken. Doctrine source: authority_nouns.md (9c5921d5, frozen).",
+  "type": "object",
+  "required": [
+    "fulfillment_id",
+    "timestamp",
+    "episode_id",
+    "commitment_id",
+    "result_id",
+    "evaluator",
+    "evaluator_version",
+    "policy_hash",
+    "policy_resolver",
+    "violation_reason",
+    "schema_version",
+    "artifact_type"
+  ],
+  "properties": {
+    "fulfillment_id": {"type": "string", "minLength": 1},
+    "timestamp": {"type": "string", "format": "date-time"},
+    "episode_id": {"type": "string", "minLength": 1},
+    "commitment_id": {"type": "string", "minLength": 1},
+    "result_id": {"type": "string", "minLength": 1},
+    "evaluator": {"type": "string", "minLength": 1},
+    "evaluator_version": {"type": "string", "minLength": 1},
+    "policy_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "policy_resolver": {
+      "type": "object",
+      "required": ["kind", "ref", "policy_hash"],
+      "properties": {
+        "kind": {"type": "string", "enum": ["uri", "registry"]},
+        "ref": {"type": "string", "minLength": 1},
+        "policy_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+      }
+    },
+    "violation_reason": {"type": "string", "minLength": 1},
+    "schema_version": {"type": "string"},
+    "artifact_type": {"type": "string", "const": "fulfillment_commitment_broken"}
+  },
+  "additionalProperties": true
+}

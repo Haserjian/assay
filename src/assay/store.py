@@ -15,7 +15,7 @@ import threading
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from assay._receipts.compat.pyd import BaseModel
 
@@ -28,6 +28,41 @@ except ImportError:
 
 _LEGACY_HOME = ".loom/assay"
 _NEW_HOME = ".assay"
+
+
+class ReceiptStoreIntegrityError(RuntimeError):
+    """Raised when the store's trace corpus is unreadable, malformed, or
+    otherwise in a state where normal writes cannot proceed safely.
+
+    Covers:
+        - unreadable trace files
+        - malformed JSON lines
+        - mixed state (some receipts with ``_store_seq``, some without)
+        - within-file ``_store_seq`` regression or duplicates
+
+    Distinct from :class:`MigrationRequiredError`: that is an operator-
+    solvable state with a clear remediation path (run migration). An
+    integrity error signals the corpus itself has been tampered with or
+    damaged and requires explicit repair tooling — no silent recovery.
+    """
+
+
+class MigrationRequiredError(RuntimeError):
+    """Raised by the write path when a store carries legacy receipts without
+    ``_store_seq`` and has not been migrated.
+
+    A pure legacy store must be migrated explicitly before new writes, or
+    the next ordinary write would silently convert the store to mixed
+    state (which ``migrate_legacy_store_seq`` then correctly refuses to
+    touch, stranding the operator).
+
+    Resolution:
+        from assay.store_seq_migration import migrate_legacy_store_seq
+        migrate_legacy_store_seq(store)
+
+    Or via CLI:
+        python -m assay.store_seq_migration <base_dir>
+    """
 
 
 def assay_home() -> Path:
@@ -69,6 +104,16 @@ class AssayStore:
         self._current_trace_id: Optional[str] = None
         self._current_file: Optional[Path] = None
         self._lock = threading.RLock()
+        # Store-wide monotonic receipt sequence primitive. Its state lives
+        # ON DISK at ``<base_dir>/.store_seq`` and is mutated under
+        # ``fcntl.flock(LOCK_EX)`` so that multiple AssayStore instances
+        # (including across processes) cannot allocate the same seq.
+        # Allocation + receipt persistence run in a single critical section:
+        # no writer releases the seq-file lock between "take a seq" and
+        # "put the receipt bearing that seq on disk". Lexicographic trace-
+        # path order is NOT a valid chronology; ``_store_seq`` is the
+        # authority.
+        self._seq_file = self.base_dir / ".store_seq"
 
     def start_trace(self, trace_id: Optional[str] = None) -> str:
         """Start a new trace, returning the trace ID.
@@ -154,6 +199,245 @@ class AssayStore:
         finally:
             os.close(fd)
 
+    def _classify_store_for_write_strict(self) -> Tuple[int, int]:
+        """Full-corpus strict validation for the write path.
+
+        Walks every ``trace_*.jsonl`` file under ``base_dir``. Enforces the
+        same stamped-store integrity invariants as the detector's
+        ``_iter_all_receipts``: corrupt, duplicated, non-monotonic, or
+        non-integer ``_store_seq`` values all fail closed.
+
+        Classification buckets:
+            * ABSENT — receipt lacks ``_store_seq`` key entirely (legacy).
+            * VALID — ``_store_seq`` is a non-boolean integer ≥ 0, unique
+              store-wide, and strictly increasing within its trace file.
+            * CORRUPT — ``_store_seq`` is present but not a valid integer,
+              or violates uniqueness / within-file monotonicity. Always
+              an integrity error.
+
+        Returns:
+            ``(max_store_seq_seen, legacy_count)``
+
+            * ``max_store_seq_seen`` is the largest VALID ``_store_seq``,
+              or ``-1`` if no receipt carries one.
+            * ``legacy_count`` is the number of ABSENT-bucket receipts.
+              A positive value with zero stamped receipts signals
+              PURE_LEGACY; callers should raise
+              :class:`MigrationRequiredError`.
+
+        State decoding by caller (assuming this method returned cleanly):
+            ``(max=-1, legacy=0)``  → EMPTY (first-ever write allowed)
+            ``(max>=0, legacy=0)``  → CURRENT (next_seq = max+1 or counter)
+            ``(_,      legacy>0)``  → PURE_LEGACY (raise MigrationRequiredError)
+
+        Raises:
+            ReceiptStoreIntegrityError on:
+                - any unreadable trace file
+                - any malformed JSON line
+                - MIXED state (VALID AND ABSENT receipts both present)
+                - duplicate ``_store_seq`` anywhere in the corpus
+                - within-file regression or equality of ``_store_seq``
+                - ``_store_seq`` present but not an integer (or a bool),
+                  or a negative integer
+
+        The ``.store_seq`` counter file is intentionally NOT consulted
+        here: it is only authoritative for a corpus that has passed this
+        check.
+        """
+        max_seq = -1
+        stamped = 0
+        legacy = 0
+        if not self.base_dir.exists():
+            return max_seq, legacy
+
+        # seq -> "file:line" witness of first occurrence, for duplicate detection.
+        seen_seqs: Dict[int, str] = {}
+
+        for trace_file in sorted(self.base_dir.rglob("trace_*.jsonl")):
+            if not trace_file.is_file():
+                continue
+            try:
+                handle = open(trace_file)
+            except OSError as exc:
+                raise ReceiptStoreIntegrityError(
+                    f"Cannot read trace file {trace_file} during write "
+                    f"validation: {exc}. Write refused."
+                ) from exc
+            last_seq_in_file = -1
+            with handle:
+                for line_number, line in enumerate(handle, start=1):
+                    stripped = line.strip()
+                    if not stripped:
+                        continue
+                    try:
+                        entry = json.loads(stripped)
+                    except json.JSONDecodeError as exc:
+                        raise ReceiptStoreIntegrityError(
+                            f"Malformed JSON in {trace_file} line "
+                            f"{line_number}: {exc}. Write refused: the "
+                            "trace corpus must be readable before new "
+                            "receipts can be written."
+                        ) from exc
+
+                    # Classify this receipt's _store_seq.
+                    if "_store_seq" not in entry:
+                        legacy += 1
+                        continue
+                    seq = entry["_store_seq"]
+                    # bool is subclass of int in Python — reject explicitly.
+                    if not isinstance(seq, int) or isinstance(seq, bool):
+                        raise ReceiptStoreIntegrityError(
+                            f"Non-integer _store_seq at {trace_file} line "
+                            f"{line_number}: got {seq!r} "
+                            f"({type(seq).__name__}). Write refused; this "
+                            "is corpus corruption, not legacy data."
+                        )
+                    if seq < 0:
+                        raise ReceiptStoreIntegrityError(
+                            f"Negative _store_seq at {trace_file} line "
+                            f"{line_number}: {seq}. Write refused."
+                        )
+                    if seq in seen_seqs:
+                        raise ReceiptStoreIntegrityError(
+                            f"Duplicate _store_seq={seq} at {trace_file} "
+                            f"line {line_number}; first seen at "
+                            f"{seen_seqs[seq]}. Write refused: "
+                            "store-local sequence must be unique."
+                        )
+                    if seq <= last_seq_in_file:
+                        raise ReceiptStoreIntegrityError(
+                            f"Non-monotonic _store_seq in {trace_file} "
+                            f"line {line_number}: {seq} <= previous "
+                            f"{last_seq_in_file}. Write refused: "
+                            "within-file sequence must strictly increase."
+                        )
+                    seen_seqs[seq] = f"{trace_file}:{line_number}"
+                    last_seq_in_file = seq
+                    stamped += 1
+                    if seq > max_seq:
+                        max_seq = seq
+
+        if stamped > 0 and legacy > 0:
+            raise ReceiptStoreIntegrityError(
+                f"AssayStore at {self.base_dir} is in mixed state: "
+                f"{stamped} receipts stamped with _store_seq and "
+                f"{legacy} receipts without. Normal writes refused. "
+                "Mixed state cannot be healed by automatic migration; "
+                "explicit operator repair is required."
+            )
+
+        return max_seq, legacy
+
+    def _raise_migration_required(self) -> None:
+        raise MigrationRequiredError(
+            f"AssayStore at {self.base_dir} contains legacy "
+            "receipts without _store_seq. Appending now would "
+            "create unrecoverable mixed state (migration "
+            "refuses to repair a mixed store). Run migration "
+            "before writing: "
+            "`python -m assay.store_seq_migration "
+            f"{self.base_dir}` "
+            "(or `from assay.store_seq_migration import "
+            "migrate_legacy_store_seq; "
+            "migrate_legacy_store_seq(store)`)."
+        )
+
+    def _persist_entry_with_store_seq(self, data: Dict[str, Any]) -> None:
+        """Atomically allocate the next ``_store_seq`` and write ``data``.
+
+        Rollout contract (enforced on every write):
+
+            EMPTY          — allow; start at seq 0
+            CURRENT        — allow; allocate from ``.store_seq`` counter or
+                             ``max(_store_seq) + 1``, whichever is higher
+            PURE_LEGACY    — refuse with :class:`MigrationRequiredError`
+            MIXED          — refuse with :class:`ReceiptStoreIntegrityError`
+            CORRUPT        — refuse with :class:`ReceiptStoreIntegrityError`
+
+        ``.store_seq`` is NOT a health certificate. Its presence does not
+        bypass corpus validation; the counter is only authoritative for a
+        corpus that has just passed strict classification.
+
+        Cross-process-safe: the durable ``<base_dir>/.store_seq`` file is
+        opened under ``fcntl.flock(LOCK_EX)`` around allocation and
+        persistence. The strict classifier is also re-run under the lock
+        to close the narrow ToCTTOU window between the pre-check and
+        counter read.
+        """
+        self.base_dir.mkdir(parents=True, exist_ok=True)
+
+        # Strict full-corpus validation BEFORE touching ``.store_seq``.
+        # Fails closed on corrupt / mixed state. On PURE_LEGACY we still
+        # get here (no raise from the classifier) and refuse with a
+        # migration-pointer error — leaving ``.store_seq`` uncreated.
+        _, legacy_count = self._classify_store_for_write_strict()
+        if legacy_count > 0:
+            self._raise_migration_required()
+
+        seq_fd = os.open(
+            str(self._seq_file),
+            os.O_RDWR | os.O_CREAT,
+            0o644,
+        )
+        try:
+            if _HAS_FCNTL:
+                fcntl.flock(seq_fd, fcntl.LOCK_EX)
+            try:
+                # Defensive re-classification under the lock: closes a
+                # narrow window where another writer could have changed
+                # corpus state between the pre-check and here.
+                max_seq_in_corpus, legacy_count = (
+                    self._classify_store_for_write_strict()
+                )
+                if legacy_count > 0:
+                    self._raise_migration_required()
+
+                # Corpus is EMPTY or CURRENT. Allocate from the counter
+                # file if it's valid; otherwise reconstruct defensively
+                # from the corpus. Never allocate a seq that would
+                # non-monotonically collide with an existing receipt.
+                os.lseek(seq_fd, 0, os.SEEK_SET)
+                raw = os.read(seq_fd, 64)
+                text = raw.decode("utf-8").strip() if raw else ""
+                if text:
+                    try:
+                        counter_seq = int(text)
+                    except ValueError as exc:
+                        raise RuntimeError(
+                            f"AssayStore sequence counter at "
+                            f"{self._seq_file} is corrupted: {text!r}"
+                        ) from exc
+                    if counter_seq < 0:
+                        raise RuntimeError(
+                            f"AssayStore sequence counter at "
+                            f"{self._seq_file} is negative: {counter_seq}"
+                        )
+                    # Defensive: if the counter has somehow fallen behind
+                    # the corpus (external reset, partial rollback), use
+                    # whichever is higher to preserve strict monotonicity.
+                    next_seq = max(counter_seq, max_seq_in_corpus + 1)
+                else:
+                    next_seq = max_seq_in_corpus + 1
+
+                # Stamp receipt with allocated seq and persist to trace file.
+                data["_store_seq"] = next_seq
+                line = json.dumps(data, default=str) + "\n"
+                self._write_line(line.encode("utf-8"))
+
+                # Persist incremented counter.
+                new_counter = str(next_seq + 1).encode("utf-8")
+                os.lseek(seq_fd, 0, os.SEEK_SET)
+                os.ftruncate(seq_fd, 0)
+                self._write_all(seq_fd, new_counter)
+            finally:
+                if _HAS_FCNTL:
+                    try:
+                        fcntl.flock(seq_fd, fcntl.LOCK_UN)
+                    except OSError:
+                        pass
+        finally:
+            os.close(seq_fd)
+
     def append(self, receipt: BaseModel) -> str:
         """
         Append a receipt to the current trace.
@@ -167,12 +451,12 @@ class AssayStore:
             # Serialize with Pydantic
             data = receipt.model_dump(mode="json", exclude_none=True)
 
-            # Add trace metadata
+            # Add trace metadata (trace_id + wall-clock). _store_seq is
+            # stamped inside the cross-process critical section below.
             data["_trace_id"] = self._current_trace_id
             data["_stored_at"] = datetime.now(timezone.utc).isoformat()
 
-            line = json.dumps(data, default=str) + "\n"
-            self._write_line(line.encode("utf-8"))
+            self._persist_entry_with_store_seq(data)
 
             return data.get("receipt_id", "unknown")
 
@@ -185,8 +469,7 @@ class AssayStore:
             data["_trace_id"] = self._current_trace_id
             data["_stored_at"] = datetime.now(timezone.utc).isoformat()
 
-            line = json.dumps(data, default=str) + "\n"
-            self._write_line(line.encode("utf-8"))
+            self._persist_entry_with_store_seq(data)
 
     def read_trace(self, trace_id: str) -> List[Dict[str, Any]]:
         """Read all entries from a trace file."""
@@ -329,6 +612,8 @@ __all__ = [
     "assay_home",
     "generate_trace_id",
     "AssayStore",
+    "MigrationRequiredError",
+    "ReceiptStoreIntegrityError",
     "get_default_store",
     "emit_receipt",
 ]

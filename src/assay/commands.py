@@ -1109,7 +1109,7 @@ def verify_trace(
                         payload = {
                             k: v
                             for k, v in entry.items()
-                            if k not in ("proof", "_trace_id", "_stored_at")
+                            if k not in ("proof", "_trace_id", "_stored_at", "_store_seq")
                         }
                         # compute_payload_hash returns raw hex (OCD-1 resolved)
                         computed_hash = compute_payload_hash(
@@ -1144,7 +1144,7 @@ def verify_trace(
                             k: v
                             for k, v in entry.items()
                             if k
-                            not in ("proof", "_trace_id", "_stored_at", "receipt_hash")
+                            not in ("proof", "_trace_id", "_stored_at", "_store_seq", "receipt_hash")
                         }
                         computed_receipt_hash = compute_payload_hash(
                             payload, algorithm="sha256"

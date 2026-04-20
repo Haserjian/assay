@@ -46,6 +46,7 @@ _VERSIONS: Dict[str, Dict[str, FrozenSet[str]]] = {
             # Trace metadata (added by store)
             "_trace_id",
             "_stored_at",
+            "_store_seq",
         }),
     },
 }

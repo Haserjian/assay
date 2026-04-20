@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://assay.ai/schemas/result_observation.v0.1.schema.json",
+  "title": "Result Observation (v0.1)",
+  "description": "A non-adjudicating observation. Never closes a commitment. Doctrine source: authority_nouns.md (9c5921d5, frozen).",
+  "type": "object",
+  "required": [
+    "result_id",
+    "timestamp",
+    "episode_id",
+    "text",
+    "evidence_uri",
+    "policy_hash",
+    "policy_resolver",
+    "schema_version",
+    "artifact_type"
+  ],
+  "properties": {
+    "result_id": {"type": "string", "minLength": 1},
+    "timestamp": {"type": "string", "format": "date-time"},
+    "episode_id": {"type": "string", "minLength": 1},
+    "text": {"type": "string", "minLength": 1},
+    "evidence_uri": {"type": "string", "minLength": 1},
+    "policy_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "policy_resolver": {
+      "type": "object",
+      "required": ["kind", "ref", "policy_hash"],
+      "properties": {
+        "kind": {"type": "string", "enum": ["uri", "registry"]},
+        "ref": {"type": "string", "minLength": 1},
+        "policy_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+      }
+    },
+    "references": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "id"],
+        "properties": {
+          "kind": {"type": "string"},
+          "id": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "schema_version": {"type": "string"},
+    "artifact_type": {"type": "string", "const": "result_observation"},
+    "fulfills": {"not": {}},
+    "closes": {"not": {}}
+  },
+  "additionalProperties": true
+}

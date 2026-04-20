@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://assay.ai/schemas/commitment_registration.v0.1.schema.json",
+  "title": "Commitment Registration (v0.1)",
+  "description": "A declared forward-looking commitment. Doctrine source: authority_nouns.md (9c5921d5, frozen).",
+  "type": "object",
+  "required": [
+    "commitment_id",
+    "timestamp",
+    "episode_id",
+    "actor_id",
+    "text",
+    "commitment_type",
+    "policy_hash",
+    "policy_resolver",
+    "schema_version",
+    "artifact_type"
+  ],
+  "properties": {
+    "commitment_id": {"type": "string", "minLength": 1},
+    "timestamp": {"type": "string", "format": "date-time"},
+    "episode_id": {"type": "string", "minLength": 1},
+    "actor_id": {"type": "string", "minLength": 1},
+    "text": {"type": "string", "minLength": 1},
+    "commitment_type": {"type": "string", "minLength": 1},
+    "due_at": {"type": "string", "format": "date-time"},
+    "evidence_uri": {"type": "string"},
+    "policy_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "policy_resolver": {
+      "type": "object",
+      "required": ["kind", "ref", "policy_hash"],
+      "properties": {
+        "kind": {"type": "string", "enum": ["uri", "registry"]},
+        "ref": {"type": "string", "minLength": 1},
+        "policy_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+      }
+    },
+    "schema_version": {"type": "string"},
+    "artifact_type": {"type": "string", "const": "commitment_registration"}
+  },
+  "additionalProperties": true
+}

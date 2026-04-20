@@ -396,7 +396,17 @@ class TestBackwardCompat:
         assert entries[1]["type"] == "old2"
 
     def test_append_to_old_trace(self, tmp_path: Path) -> None:
-        """New store can append to traces created by old store."""
+        """New store can append to traces created by old store after migration.
+
+        Appending directly to a legacy trace is refused with
+        MigrationRequiredError — silently mixing unstamped legacy receipts
+        with new _store_seq-carrying ones would strand the store (mixed
+        state is refused by migrate_legacy_store_seq). The supported
+        rollout path is: migrate first, then append.
+        """
+        from assay.store import MigrationRequiredError
+        from assay.store_seq_migration import migrate_legacy_store_seq
+
         day_dir = tmp_path / "2026-01-01"
         day_dir.mkdir()
         trace_file = day_dir / "trace_old.jsonl"
@@ -404,6 +414,14 @@ class TestBackwardCompat:
             f.write(json.dumps({"type": "old", "_trace_id": "trace_old"}) + "\n")
 
         store = AssayStore(base_dir=tmp_path)
+        store.start_trace("trace_old")
+
+        # Direct append refused: legacy store has no _store_seq envelope.
+        with pytest.raises(MigrationRequiredError):
+            store.append_dict({"type": "new"})
+
+        # Migrate, then append succeeds.
+        migrate_legacy_store_seq(store)
         store.start_trace("trace_old")
         store.append_dict({"type": "new"})
 
