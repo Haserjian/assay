@@ -352,6 +352,22 @@ def test_closing_terminal_precedes_its_anchor_in_seq_order_never_closes(sequence
     This is the specific causal invariant from the detector: at a
     terminal's encounter point, the anchor edge must already be present.
     Later observations cannot retroactively legitimize the terminal.
+
+    Implementation note on the structural assertion:
+        The closing terminal's ``_store_seq`` is taken from
+        ``ExplainLine.seq`` (a structured int field) via the line whose
+        ``note == "closes commitment"``. The terminal's ``result_id`` is
+        taken from the generated event sequence itself — because
+        ``store.append_dict`` stamps ``_store_seq`` in write order,
+        event index == _store_seq for this direct-write test.
+
+        The anchor's ``_store_seq`` is found by walking the generated
+        events up to that terminal index for a prior ``observe`` whose
+        ``result_id`` matches and whose ``references`` list contains
+        this commitment_id.
+
+        No ``ExplainResult.decision`` prose is parsed. The property holds
+        against semantic invariants, not wording.
     """
     with tempfile.TemporaryDirectory() as tmp:
         store = AssayStore(base_dir=Path(tmp))
@@ -360,6 +376,14 @@ def test_closing_terminal_precedes_its_anchor_in_seq_order_never_closes(sequence
         counter = [0]
         for event in sequence:
             _apply_event_to_store(store, event, counter)
+
+        # Because direct ``append_dict`` to a fresh store yields
+        # ``_store_seq == 0`` for the first write, and every subsequent
+        # write increments by 1, the generated event at index ``i`` is
+        # precisely the receipt whose ``_store_seq`` is ``i``. Asserting
+        # this in code keeps the mapping honest if the test helper ever
+        # grows extra writes.
+        assert _verify_event_index_matches_store_seq(store, sequence)
 
         seen_cmts = {
             event[1] for event in sequence if event[0] == "register"
@@ -371,38 +395,101 @@ def test_closing_terminal_precedes_its_anchor_in_seq_order_never_closes(sequence
             if result.state != "CLOSED":
                 continue
 
-            # Find the seq of the closing terminal and the seq of its
-            # anchor observation in the decision / timeline.
+            # Structural: closing terminal's seq comes straight from the
+            # ExplainLine integer field, not from parsing prose.
             closures = [
                 line for line in result.timeline
                 if line.note == "closes commitment"
             ]
-            assert len(closures) == 1, f"expected exactly 1 closure, got {closures}"
+            assert len(closures) == 1, (
+                f"expected exactly 1 closure, got {closures}"
+            )
             terminal_seq = closures[0].seq
 
-            # The decision text cites the anchor seq when present.
-            # Parse it out of result.decision — the deterministic format is:
-            #   "... anchor result.observed seq=<N> explicitly references ..."
-            # If the decision doesn't name an anchor seq, the explainer
-            # considered the terminal unanchored, which contradicts
-            # state=CLOSED — surface that as a failure.
-            if "anchor result.observed seq=" not in result.decision:
-                pytest.fail(
-                    f"state=CLOSED but decision names no anchor seq: "
-                    f"{result.decision!r}; sequence={sequence!r}"
-                )
-            anchor_piece = result.decision.split("anchor result.observed seq=")[1]
-            anchor_seq_str = anchor_piece.split(" ")[0]
-            try:
-                anchor_seq = int(anchor_seq_str)
-            except ValueError:  # pragma: no cover — defensive
-                pytest.fail(
-                    f"could not parse anchor seq from decision: "
-                    f"{result.decision!r}"
-                )
+            # Structural: terminal's result_id comes from the generated
+            # event at index == terminal_seq, not from prose.
+            terminal_event = sequence[terminal_seq]
+            assert terminal_event[0] in ("kept", "broken"), (
+                f"expected terminal event at seq={terminal_seq}, got "
+                f"{terminal_event!r}"
+            )
+            terminal_cmt_id = terminal_event[1]
+            terminal_result_id = terminal_event[2]
+            assert terminal_cmt_id == cmt_id, (
+                f"closing terminal at seq={terminal_seq} names "
+                f"cmt_id={terminal_cmt_id!r} but explainer attributed "
+                f"the closure to cmt_id={cmt_id!r}"
+            )
 
+            # Structural: scan the generated sequence for the anchor —
+            # an earlier ``observe`` whose result_id matches and whose
+            # refs include this commitment.
+            anchor_seq = _find_anchor_seq_in_sequence(
+                sequence, terminal_seq, cmt_id, terminal_result_id
+            )
+            assert anchor_seq is not None, (
+                f"state=CLOSED for cmt_id={cmt_id!r} but no matching "
+                f"observation precedes terminal seq={terminal_seq} in the "
+                f"generated sequence. sequence={sequence!r}"
+            )
             assert anchor_seq < terminal_seq, (
                 f"closure violates causal order: anchor seq={anchor_seq} "
                 f">= terminal seq={terminal_seq} for cmt_id={cmt_id!r}. "
                 f"sequence={sequence!r}"
             )
+
+
+# --- Structural helpers for the causal-order property. ----------------------
+
+
+def _verify_event_index_matches_store_seq(
+    store: AssayStore, sequence: List[Tuple]
+) -> bool:
+    """Confirm that the i-th generated event landed at ``_store_seq == i``.
+
+    This anchors the structural causal-order assertion: the test derives
+    order by event index, and this check ensures that index really is the
+    persisted ``_store_seq``. If the helper were ever changed to emit
+    extra implicit writes, this assertion would flag the drift.
+    """
+    if not sequence:
+        return True
+    for trace_file in sorted(store.base_dir.rglob("trace_*.jsonl")):
+        if not trace_file.is_file():
+            continue
+        import json as _json
+        with open(trace_file) as handle:
+            seqs = []
+            for line in handle:
+                line = line.strip()
+                if not line:
+                    continue
+                entry = _json.loads(line)
+                seqs.append(entry.get("_store_seq"))
+        # Test assumes single trace file for a single-trace sequence run.
+        if seqs == list(range(len(sequence))):
+            return True
+    return False
+
+
+def _find_anchor_seq_in_sequence(
+    sequence: List[Tuple],
+    terminal_seq: int,
+    commitment_id: str,
+    result_id: str,
+) -> "int | None":
+    """Return the ``_store_seq`` of the latest qualifying observation before
+    ``terminal_seq``, or ``None`` if no such observation exists.
+
+    Qualifying observation: an ``observe`` event whose ``result_id`` matches
+    and whose ``references`` list includes ``commitment_id``.
+    """
+    latest: "int | None" = None
+    for i in range(terminal_seq):
+        event = sequence[i]
+        if event[0] != "observe":
+            continue
+        _, ev_result_id, ref_cmt_ids = event
+        if ev_result_id == result_id and commitment_id in ref_cmt_ids:
+            latest = i  # keep scanning for the most recent one
+    return latest
