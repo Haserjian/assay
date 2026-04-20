@@ -448,3 +448,176 @@ class TestCliInvalidStoreExit:
         )
         assert result.exit_code == 1, result.output
         assert "INVALID_STORE" in result.output
+
+
+# ---------------------------------------------------------------------------
+# 8. Adversarial closure semantics (order / anchor hostility)
+# ---------------------------------------------------------------------------
+#
+# ``commitment_summary.py`` re-implements the anchored-terminal closure
+# projection. ``TestDetectorSummarizerAgreement`` above guards against
+# drift on the happy path. These tests add hostile-order cases so that
+# drift in any direction (summarizer closes something the detector would
+# leave open, or vice versa) also fails loudly.
+#
+# Longer-term, the three readers (detector / explainer / summarizer)
+# should consume a single ``project_commitment_lifecycle(store)``
+# primitive. Until that refactor lands, these tests are the tripwire.
+
+
+class TestAdversarialClosureSemantics:
+    """Hostile-order and wrong-anchor scenarios the summarizer must handle
+    identically to the detector/explainer. Tests run through the top-level
+    ``assay_app`` where natural, asserting structured JSON output — not
+    prose.
+    """
+
+    def _invoke_list_json(self, runner, base):
+        from assay.commands import assay_app
+
+        result = runner.invoke(
+            assay_app,
+            ["commitments", "list", "--base-dir", str(base), "--json"],
+        )
+        assert result.exit_code == 0, result.output
+        return json.loads(result.output)
+
+    def _invoke_overdue_json(self, runner, base):
+        from assay.commands import assay_app
+
+        result = runner.invoke(
+            assay_app,
+            ["commitments", "overdue", "--base-dir", str(base), "--json"],
+        )
+        assert result.exit_code == 0, result.output
+        return json.loads(result.output)
+
+    def test_terminal_before_result_observed_does_not_close(self, tmp_path):
+        """A terminal whose anchor observation appears *after* it in
+        ``_store_seq`` order must not be counted as a closure.
+
+        Same causal rule the detector enforces: at the terminal's
+        encounter point, the anchor edge must already be present. Later
+        observations do not retroactively legitimize earlier terminals.
+        """
+        from typer.testing import CliRunner
+
+        base = tmp_path / "adv_terminal_first"
+        store = AssayStore(base_dir=base)
+        store.start_trace()
+        _write_registered(store, "cmt_forged",
+                          due_at="2020-01-01T00:00:00Z")
+        # Forged terminal: no observation yet at this receipt-order point.
+        _write_kept(store, "cmt_forged", "res_late")
+        # Observation arrives AFTER — would have anchored, had order allowed.
+        _write_result(store, "res_late",
+                      references=[{"kind": "commitment", "id": "cmt_forged"}])
+
+        runner = CliRunner()
+        list_result = self._invoke_list_json(runner, base)
+        by_id = {c["commitment_id"]: c for c in list_result["commitments"]}
+        assert by_id["cmt_forged"]["state"] == "OPEN", (
+            f"terminal-before-observation must NOT close commitment; "
+            f"got state={by_id['cmt_forged']['state']!r}"
+        )
+        assert by_id["cmt_forged"]["is_overdue"] is True
+        assert by_id["cmt_forged"]["closing_terminal_seq"] is None
+
+        overdue_result = self._invoke_overdue_json(runner, base)
+        overdue_ids = [c["commitment_id"] for c in overdue_result["commitments"]]
+        assert "cmt_forged" in overdue_ids
+
+    def test_result_observed_after_terminal_does_not_retroactively_close(
+        self, tmp_path
+    ):
+        """Equivalent in spirit to the test above, phrased from the
+        observation side: appending a matching observation after the
+        terminal must not retroactively close the commitment."""
+        from typer.testing import CliRunner
+
+        base = tmp_path / "adv_observation_later"
+        store = AssayStore(base_dir=base)
+        store.start_trace()
+        _write_registered(store, "cmt_retro",
+                          due_at="2020-01-01T00:00:00Z")
+        _write_kept(store, "cmt_retro", "res_retro")
+        # Sequence of events *cannot* rescue the terminal after the fact.
+        _write_result(store, "res_retro",
+                      references=[{"kind": "commitment", "id": "cmt_retro"}])
+
+        runner = CliRunner()
+        list_result = self._invoke_list_json(runner, base)
+        by_id = {c["commitment_id"]: c for c in list_result["commitments"]}
+        assert by_id["cmt_retro"]["state"] == "OPEN"
+        assert by_id["cmt_retro"]["closing_terminal_seq"] is None
+
+    def test_terminal_citing_result_for_wrong_commitment_does_not_close(
+        self, tmp_path
+    ):
+        """A terminal whose ``result_id`` was observed but the observation's
+        references point to a *different* commitment must not close this
+        commitment. Bare result-id existence is not sufficient — the
+        anchor must be the specific ``(result_id, commitment_id)`` edge.
+        """
+        from typer.testing import CliRunner
+
+        base = tmp_path / "adv_wrong_anchor"
+        store = AssayStore(base_dir=base)
+        store.start_trace()
+        _write_registered(store, "cmt_A", due_at="2020-01-01T00:00:00Z")
+        _write_registered(store, "cmt_B", due_at="2020-01-01T00:00:00Z")
+        # res_B was observed *for cmt_B only*.
+        _write_result(store, "res_B",
+                      references=[{"kind": "commitment", "id": "cmt_B"}])
+        # Terminal tries to close cmt_A by citing res_B — not allowed.
+        _write_kept(store, "cmt_A", "res_B")
+
+        runner = CliRunner()
+        list_result = self._invoke_list_json(runner, base)
+        by_id = {c["commitment_id"]: c for c in list_result["commitments"]}
+        assert by_id["cmt_A"]["state"] == "OPEN", (
+            "terminal citing result observed for a different commitment "
+            "must NOT close this one"
+        )
+        # cmt_B was never fulfilled at all; must remain open too.
+        assert by_id["cmt_B"]["state"] == "OPEN"
+
+        overdue_ids = {
+            c["commitment_id"]
+            for c in self._invoke_overdue_json(runner, base)["commitments"]
+        }
+        assert overdue_ids == {"cmt_A", "cmt_B"}
+
+    def test_unparseable_due_at_is_treated_as_perpetual_not_overdue(
+        self, tmp_path
+    ):
+        """A commitment with an unparseable ``due_at`` string must not be
+        flagged as overdue. Treating malformed due dates as "past" would
+        be strictly worse than treating them as perpetual: malformed
+        data could be silent corruption, and guessing overdue on garbage
+        produces false operator alarms.
+        """
+        from typer.testing import CliRunner
+
+        base = tmp_path / "adv_bad_due_at"
+        store = AssayStore(base_dir=base)
+        store.start_trace()
+        _write_registered(
+            store,
+            "cmt_bad_due",
+            due_at="not-a-real-iso-8601-string",
+        )
+
+        runner = CliRunner()
+        list_result = self._invoke_list_json(runner, base)
+        by_id = {c["commitment_id"]: c for c in list_result["commitments"]}
+        assert by_id["cmt_bad_due"]["state"] == "OPEN"
+        assert by_id["cmt_bad_due"]["is_overdue"] is False, (
+            "unparseable due_at must not be treated as overdue"
+        )
+
+        overdue_ids = [
+            c["commitment_id"]
+            for c in self._invoke_overdue_json(runner, base)["commitments"]
+        ]
+        assert "cmt_bad_due" not in overdue_ids

@@ -50,6 +50,7 @@ from assay.commitment_fulfillment import (
     _iter_all_receipts,
 )
 from assay.commitment_summary import (
+    CommitmentSummary,
     SummariesResult,
     summarize_all_commitments,
 )
@@ -406,10 +407,11 @@ def _resolve_store(base_dir: Optional[Path]) -> AssayStore:
     return get_default_store()
 
 
-def _format_summary_line(s) -> str:
-    """One-line operator text for a CommitmentSummary. Stable shape for
-    easy grepping by operators; tests should assert structured fields
-    from ``--json``, not this prose format.
+def _format_summary_line(s: CommitmentSummary) -> str:
+    """One-line operator text for a :class:`CommitmentSummary`.
+
+    Stable shape for easy grepping by operators; tests should assert
+    structured fields from ``--json``, not this prose format.
     """
     overdue_marker = " [OVERDUE]" if s.is_overdue else ""
     closing = (
