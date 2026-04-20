@@ -908,6 +908,71 @@ def _check_contradiction_001(store: Any = None) -> DoctorCheckResult:
         )
 
 
+def _check_commitment_001(store: Any = None) -> DoctorCheckResult:
+    """Detect overdue open commitments (declared but unfulfilled past due_at).
+
+    Scope: Slice 1 of the Commitment-Fulfillment wedge. A commitment is open
+    when no terminal fulfillment (commitment_kept | commitment_broken) names
+    it; it is overdue when its declared due_at is in the past. Commitments
+    without due_at are treated as perpetual and not flagged.
+
+    Enabled via --check-orphans (not in default profiles).
+    """
+    try:
+        from assay.commitment_closure_detector import (
+            detect_open_overdue_commitments,
+        )
+        from assay.store import get_default_store
+
+        s = store if store is not None else get_default_store()
+        result = detect_open_overdue_commitments(s)
+        if result.clean:
+            return DoctorCheckResult(
+                id="DOCTOR_COMMITMENT_001",
+                status=CheckStatus.PASS,
+                severity=Severity.INFO,
+                message=(
+                    f"No overdue commitments ({result.total_traces_scanned} traces "
+                    f"scanned, {result.total_registered_found} registered, "
+                    f"{result.total_closed_found} closed)"
+                ),
+                evidence={
+                    "traces_scanned": result.total_traces_scanned,
+                    "registered_found": result.total_registered_found,
+                    "closed_found": result.total_closed_found,
+                },
+            )
+        return DoctorCheckResult(
+            id="DOCTOR_COMMITMENT_001",
+            status=CheckStatus.FAIL,
+            severity=Severity.HIGH,
+            message=(
+                f"{result.total_open_found} overdue commitment(s) detected "
+                "(no terminal fulfillment past due_at)"
+            ),
+            evidence={
+                "total_open": result.total_open_found,
+                "total_registered": result.total_registered_found,
+                "total_closed": result.total_closed_found,
+                "open_commitments": [
+                    c.to_dict() for c in result.open_commitments
+                ],
+            },
+            fix=(
+                "# Close each overdue commitment via emit_fulfillment_kept() "
+                "or emit_fulfillment_broken()"
+            ),
+        )
+    except Exception as e:
+        return DoctorCheckResult(
+            id="DOCTOR_COMMITMENT_001",
+            status=CheckStatus.FAIL,
+            severity=Severity.HIGH,
+            message=f"Commitment check error: {e}",
+            evidence={"error": str(e)},
+        )
+
+
 def _check_obligation_001(store: Any = None) -> DoctorCheckResult:
     """Detect open override obligations (unresolved governance debt).
 
@@ -1178,6 +1243,7 @@ _CHECK_FUNCTIONS = {
     "DOCTOR_ORPHAN_001": lambda **kw: _check_orphan_001(kw.get("store")),
     "DOCTOR_CONTRADICTION_001": lambda **kw: _check_contradiction_001(kw.get("store")),
     "DOCTOR_OBLIGATION_001": lambda **kw: _check_obligation_001(kw.get("store")),
+    "DOCTOR_COMMITMENT_001": lambda **kw: _check_commitment_001(kw.get("store")),
     "DOCTOR_ANCHOR_001": lambda **kw: _check_anchor_001(kw.get("pack_dir")),
 }
 
@@ -1244,6 +1310,8 @@ def run_doctor(
             check_ids.append("DOCTOR_CONTRADICTION_001")
         if "DOCTOR_OBLIGATION_001" not in check_ids:
             check_ids.append("DOCTOR_OBLIGATION_001")
+        if "DOCTOR_COMMITMENT_001" not in check_ids:
+            check_ids.append("DOCTOR_COMMITMENT_001")
         if "DOCTOR_ANCHOR_001" not in check_ids:
             check_ids.append("DOCTOR_ANCHOR_001")
 

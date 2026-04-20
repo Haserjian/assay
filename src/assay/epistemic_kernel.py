@@ -42,6 +42,7 @@ TRACE_ENVELOPE_FIELDS = {
     "type",
     "_trace_id",
     "_stored_at",
+    "_store_seq",
     "parent_receipt_id",
     "seq",
     "canonical_hash",

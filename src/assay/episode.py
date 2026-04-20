@@ -289,6 +289,7 @@ class Receipt:
                 "canonical_hash",
                 "_trace_id",
                 "_stored_at",
+                "_store_seq",
             }
         }
         canonical_hash = str(data.get("canonical_hash") or "")
@@ -532,7 +533,7 @@ def _strip_runtime_metadata(entry: Mapping[str, Any]) -> Dict[str, Any]:
     return {
         key: value
         for key, value in entry.items()
-        if key not in {"_trace_id", "_stored_at"}
+        if key not in {"_trace_id", "_stored_at", "_store_seq"}
     }
 
 
