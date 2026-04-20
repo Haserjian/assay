@@ -40,6 +40,19 @@ Purity contract:
     - No prose. No CLI formatting. No ``is_overdue`` derivation (that
       is a per-reader, ``now``-dependent derivation — the projector
       records the facts, consumers interpret them).
+
+Scope boundary (deliberate):
+    This module projects **commitment** lifecycle facts only.
+    Obligation lifecycle (Slice 2) must not be added here. The intended
+    shape when obligations land:
+
+        src/assay/commitment_projection.py  — this file
+        src/assay/obligation_projection.py  — Slice 2 sibling
+
+    Shared primitives go in a third module only if duplication becomes
+    materially painful; one-pass corpus walks are cheap, so the default
+    is two independent projections. Do not let "projection" become a
+    catch-all home for all doctrine logic.
 """
 from __future__ import annotations
 

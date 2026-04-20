@@ -351,3 +351,160 @@ def test_explainer_closed_anchor_seq_matches_projection(tmp_path):
     assert anchor_token in explanation.decision, (
         f"expected {anchor_token!r} in decision, got: {explanation.decision!r}"
     )
+
+
+def test_projection_stable_across_consumer_call_orders(tmp_path):
+    """Calling the three consumers in any order must produce identical
+    projection-derived state for the same underlying store.
+
+    Guards against hidden mutation / caching / side-effects crossing
+    consumer boundaries. The projection is pure-read by contract; this
+    test locks the contract so future changes that violate it fail
+    before they land.
+    """
+    store = _build_adversarial_corpus(tmp_path)
+
+    # Order A: detector → summarizer → explainer (one pass per cmt_id)
+    a_detector = detect_open_overdue_commitments(store)
+    a_summary = summarize_all_commitments(store)
+    a_explanations = {
+        s.commitment_id: explain_commitment(store, s.commitment_id)
+        for s in a_summary.commitments
+    }
+
+    # Order B: summarizer → explainer → detector
+    b_summary = summarize_all_commitments(store)
+    b_explanations = {
+        s.commitment_id: explain_commitment(store, s.commitment_id)
+        for s in b_summary.commitments
+    }
+    b_detector = detect_open_overdue_commitments(store)
+
+    # Order C: explainer for every commitment → detector → summarizer
+    ids_from_summary = [s.commitment_id for s in a_summary.commitments]
+    c_explanations = {
+        cmt_id: explain_commitment(store, cmt_id)
+        for cmt_id in ids_from_summary
+    }
+    c_detector = detect_open_overdue_commitments(store)
+    c_summary = summarize_all_commitments(store)
+
+    # Detector output stable.
+    assert (
+        {c.commitment_id for c in a_detector.open_commitments}
+        == {c.commitment_id for c in b_detector.open_commitments}
+        == {c.commitment_id for c in c_detector.open_commitments}
+    )
+    assert (
+        a_detector.total_registered_found
+        == b_detector.total_registered_found
+        == c_detector.total_registered_found
+    )
+    assert (
+        a_detector.total_closed_found
+        == b_detector.total_closed_found
+        == c_detector.total_closed_found
+    )
+
+    # Summarizer output stable (dict-of-dicts comparison ignores
+    # scanned_at, which is the wall-clock at call time and thus
+    # legitimately varies).
+    def _summary_facts(result):
+        return {
+            s.commitment_id: {
+                "state": s.state,
+                "is_overdue": s.is_overdue,
+                "closing_terminal_seq": s.closing_terminal_seq,
+                "closing_terminal_type": s.closing_terminal_type,
+                "registered_seq": s.registered_seq,
+            }
+            for s in result.commitments
+        }
+
+    assert _summary_facts(a_summary) == _summary_facts(b_summary) == _summary_facts(c_summary)
+
+    # Explainer output stable per commitment.
+    for cmt_id in a_explanations:
+        a_ex = a_explanations[cmt_id]
+        b_ex = b_explanations[cmt_id]
+        c_ex = c_explanations[cmt_id]
+
+        # State is deterministic.
+        assert a_ex.state == b_ex.state == c_ex.state, (
+            f"explainer state drift for {cmt_id!r}: "
+            f"{a_ex.state!r} vs {b_ex.state!r} vs {c_ex.state!r}"
+        )
+        # Timeline is deterministic by (seq, receipt_type, note, summary).
+        def _timeline_facts(ex):
+            return [
+                (line.seq, line.receipt_type, line.note, line.summary)
+                for line in ex.timeline
+            ]
+        assert _timeline_facts(a_ex) == _timeline_facts(b_ex) == _timeline_facts(c_ex), (
+            f"explainer timeline drift for {cmt_id!r}"
+        )
+        # Decision text is deterministic (no wall-clock in decisions).
+        assert a_ex.decision == b_ex.decision == c_ex.decision
+
+
+def test_all_consumers_fail_closed_on_same_corrupt_corpus(tmp_path):
+    """Locks the integrity contract across the three readers:
+
+        detector   → raises ReceiptStoreIntegrityError
+        explainer  → returns state="INVALID_STORE" with integrity_error set
+        summarizer → returns empty commitments with integrity_error set
+
+    Three different contracts (historical, each justified by caller
+    shape), but the same invariant: **corruption never silently
+    produces 'clean' output**. Empty + no error would be a silent
+    degradation; this test forbids it.
+
+    If a future change ever makes any consumer silently skip corrupt
+    data and return as if all was well, this test fails before it
+    ships.
+    """
+    from assay.store import ReceiptStoreIntegrityError
+
+    store = AssayStore(base_dir=tmp_path / "corrupt")
+    store.start_trace()
+    # Plant a legit receipt so the store has something to inspect.
+    store.append_dict({
+        "type": COMMITMENT_REGISTRATION_RECEIPT_TYPE,
+        "commitment_id": "cmt_corrupt_test",
+        "episode_id": "ep",
+        "actor_id": "alice",
+        "text": "will become corrupt",
+        "commitment_type": "delivery",
+        "policy_hash": "sha256:" + "c" * 64,
+        "due_at": "2020-01-01T00:00:00Z",
+        "timestamp": "2026-04-20T10:00:00Z",
+    })
+    # Corrupt the trace file by appending malformed JSON.
+    trace_files = sorted(store.base_dir.rglob("trace_*.jsonl"))
+    with open(trace_files[-1], "a") as f:
+        f.write("{this is not valid json\n")
+
+    # Detector: must raise.
+    with pytest.raises(ReceiptStoreIntegrityError):
+        detect_open_overdue_commitments(store)
+
+    # Summarizer: must have integrity_error set AND empty commitments.
+    summary = summarize_all_commitments(store)
+    assert summary.integrity_error is not None, (
+        "summarizer must surface corruption via integrity_error"
+    )
+    assert summary.commitments == [], (
+        "summarizer must not return partial facts on corruption"
+    )
+
+    # Explainer: must return INVALID_STORE state, NOT OPEN/CLOSED.
+    explanation = explain_commitment(store, "cmt_corrupt_test")
+    assert explanation.state == "INVALID_STORE", (
+        f"explainer must not downgrade corruption into OPEN/CLOSED; "
+        f"got state={explanation.state!r}"
+    )
+    assert explanation.integrity_error is not None
+    # Registration and timeline MUST be empty — no partial facts
+    # mixed with corruption evidence.
+    assert explanation.registration is None
+    assert explanation.timeline == []
