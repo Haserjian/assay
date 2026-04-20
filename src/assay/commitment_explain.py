@@ -49,6 +49,11 @@ from assay.commitment_fulfillment import (
     TERMINAL_FULFILLMENT_TYPES,
     _iter_all_receipts,
 )
+from assay.commitment_summary import (
+    CommitmentSummary,
+    SummariesResult,
+    summarize_all_commitments,
+)
 from assay.store import (
     AssayStore,
     ReceiptStoreIntegrityError,
@@ -322,7 +327,8 @@ commitments_app = typer.Typer(
     name="commitments",
     help=(
         "Commitment-lifecycle operator surface. "
-        "Subcommands: explain (inspect a single commitment's state)."
+        "Subcommands: list (all commitments), overdue (OPEN past due_at), "
+        "explain (single commitment state)."
     ),
     no_args_is_help=True,
 )
@@ -394,10 +400,144 @@ def explain_commitment_cmd(
     typer.echo(f"  {result.decision}")
 
 
+def _resolve_store(base_dir: Optional[Path]) -> AssayStore:
+    """Shared base-dir resolution for commitments_app subcommands."""
+    if base_dir is not None:
+        return AssayStore(base_dir=base_dir)
+    return get_default_store()
+
+
+def _format_summary_line(s: CommitmentSummary) -> str:
+    """One-line operator text for a :class:`CommitmentSummary`.
+
+    Stable shape for easy grepping by operators; tests should assert
+    structured fields from ``--json``, not this prose format.
+    """
+    overdue_marker = " [OVERDUE]" if s.is_overdue else ""
+    closing = (
+        f" via seq={s.closing_terminal_seq} ({s.closing_terminal_type})"
+        if s.closing_terminal_seq is not None
+        else ""
+    )
+    return (
+        f"{s.commitment_id}  {s.state}{overdue_marker}  "
+        f"registered_seq={s.registered_seq}  "
+        f"due={s.due_at or 'perpetual'}  actor={s.actor_id}{closing}"
+    )
+
+
+@commitments_app.command("list")
+def list_commitments_cmd(
+    json_output: bool = typer.Option(
+        False,
+        "--json",
+        help="Emit the result as JSON instead of plain text.",
+    ),
+    base_dir: Optional[Path] = typer.Option(
+        None,
+        "--base-dir",
+        help=(
+            "Override the default AssayStore location. Useful for "
+            "inspecting a specific store; defaults to ~/.assay."
+        ),
+    ),
+) -> None:
+    """List all commitments in the store with their current state.
+
+    Open commitments past their ``due_at`` are flagged ``[OVERDUE]``.
+    Read-only: does not mutate store state, does not emit receipts.
+
+    Exits nonzero if the store fails strict integrity validation.
+    """
+    store = _resolve_store(base_dir)
+    result = summarize_all_commitments(store)
+
+    if json_output:
+        typer.echo(json.dumps(result.to_dict(), indent=2))
+        if result.integrity_error:
+            raise typer.Exit(1)
+        return
+
+    if result.integrity_error:
+        typer.echo(f"INVALID_STORE: {result.integrity_error}")
+        raise typer.Exit(1)
+
+    if not result.commitments:
+        typer.echo("No commitments registered.")
+        return
+
+    typer.echo(
+        f"{len(result.commitments)} commitment(s) "
+        f"(scanned_at={result.scanned_at})"
+    )
+    for s in result.commitments:
+        typer.echo(_format_summary_line(s))
+        if s.text:
+            typer.echo(f"    {s.text}")
+
+
+@commitments_app.command("overdue")
+def overdue_commitments_cmd(
+    json_output: bool = typer.Option(
+        False,
+        "--json",
+        help="Emit the result as JSON instead of plain text.",
+    ),
+    base_dir: Optional[Path] = typer.Option(
+        None,
+        "--base-dir",
+        help=(
+            "Override the default AssayStore location. Useful for "
+            "inspecting a specific store; defaults to ~/.assay."
+        ),
+    ),
+) -> None:
+    """Show only commitments that are OPEN and past their ``due_at``.
+
+    Filtered view over the same bulk scan used by ``commitments list``.
+    Read-only: does not mutate store state, does not emit receipts.
+
+    Exits nonzero if the store fails strict integrity validation.
+    """
+    store = _resolve_store(base_dir)
+    full_result = summarize_all_commitments(store)
+    overdue_only = [c for c in full_result.commitments if c.is_overdue]
+    filtered = SummariesResult(
+        commitments=overdue_only,
+        scanned_at=full_result.scanned_at,
+        integrity_error=full_result.integrity_error,
+    )
+
+    if json_output:
+        typer.echo(json.dumps(filtered.to_dict(), indent=2))
+        if filtered.integrity_error:
+            raise typer.Exit(1)
+        return
+
+    if filtered.integrity_error:
+        typer.echo(f"INVALID_STORE: {filtered.integrity_error}")
+        raise typer.Exit(1)
+
+    if not overdue_only:
+        typer.echo("No overdue commitments.")
+        return
+
+    typer.echo(
+        f"{len(overdue_only)} overdue commitment(s) "
+        f"(scanned_at={filtered.scanned_at})"
+    )
+    for s in overdue_only:
+        typer.echo(_format_summary_line(s))
+        if s.text:
+            typer.echo(f"    {s.text}")
+
+
 __all__ = [
     "ExplainLine",
     "ExplainResult",
     "explain_commitment",
     "commitments_app",
     "explain_commitment_cmd",
+    "list_commitments_cmd",
+    "overdue_commitments_cmd",
 ]
