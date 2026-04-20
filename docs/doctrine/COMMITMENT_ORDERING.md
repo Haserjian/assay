@@ -103,26 +103,35 @@ Per-commitment-only is *semantically* clean but operationally weaker.
 
 ## Slice 2 obligations: different shape from Slice 1 commitments?
 
-Loom doctrine (`authority_nouns.md`, 9c5921d5) treats `obligation` as
-an **inherited duty** — forward-looking, possibly cross-episode,
-potentially derived from a parent commitment or from a constitutional
-event (override, policy change).
+An obligation — as distinct from a Slice 1 commitment — is an
+**inherited duty**: forward-looking, possibly cross-episode, potentially
+derived from a parent commitment or from a constitutional event such
+as an authority override or a policy change. (See the Slice-2 design
+notes in `memory/project_obligation_namespace_collision.md`; the
+obligation noun's precise semantics are separately gated by that
+namespace adjudication.)
 
-Specifically:
+For ordering purposes, this memo only needs the following properties
+of any Slice-2 obligation shape — none of which require cross-aggregate
+total order:
 
 - An obligation may be inherited from a parent commitment; its causal
-  predecessor lives in that parent's seq space.
+  predecessor lives in that parent's per-commitment chain, not in the
+  global store.
 - An obligation may cross process / episode boundaries; its relevant
-  ordering is **not** "which other obligation was written first in the
-  whole store," but "was this obligation active when that commitment
-  was registered?"
+  ordering question is **not** "which other obligation was written
+  first in the whole store" but "was this obligation active when that
+  commitment was registered" — a per-pair question answerable by
+  comparing the two aggregates' own chains, or by comparing append-id
+  timestamps as a tie-breaker.
 - Obligation closure (discharge / waiver / supersession) is per-
   obligation, exactly like commitment closure.
 
 Slice 2 does not need a stronger ordering primitive than Slice 1.
 It needs the same primitive applied to a different noun, plus the
-ability to link obligations to commitments via typed edges (the same
-`{kind, id}` reference shape `result.observed` already uses).
+ability to link obligations to commitments via typed edges — the same
+`{kind, id}` reference shape `result.observed.references` already uses
+in-repo today.
 
 ## Decision: **hybrid**
 
@@ -139,15 +148,18 @@ Expanded contract:
    receipts cite). No reader may reach a closure decision by consulting
    receipts that mention unrelated commitments.
 
-2. **`_store_seq` remains the store's witnessed append order.** It
-   stays stamped atomically at write time, flocked across processes,
-   validated strictly on every write. Its role is:
+2. **`_store_seq` is immutable witnessed append order.** It stays
+   stamped atomically at write time, flocked across processes,
+   validated strictly on every write, and — once stamped on an
+   on-disk receipt — is never rewritten. Its role is:
    - ordering the single-pass scan deterministically
    - tie-breaking within and across aggregates
    - audit/replay iteration
    - tamper detection (duplicate / within-file regression)
    - NOT: expressing a semantic global happens-before relation
      between unrelated aggregates
+   - NOT: a slot that repair or migration may recompute (see
+     **Repair doctrine** below)
 
 3. **Cross-commitment views may sort by `_store_seq`.** `assay
    commitments list` and similar ordered views are allowed to use it
@@ -159,10 +171,52 @@ Expanded contract:
    obligation inheriting from a commitment carries a typed ref to
    that commitment, same as `result.observed.references` today.
 
-5. **Future repair must preserve the per-aggregate chain.** A repair
-   tool that re-sequences receipts for a single commitment must not
-   reorder them relative to each other. It may reorder their
-   `_store_seq` values relative to unrelated aggregates.
+5. **`_store_seq` is immutable witnessed append order. Repair must
+   not rewrite it.** Future repair tools may rebuild derived views /
+   indexes, emit superseding receipts, or introduce a distinct
+   reconstructed-traversal marker (e.g. `repaired_seq`,
+   `canonical_seq`, or a repair receipt that maps original
+   `_store_seq` values to reconstructed order). What repair MUST NOT
+   do is mutate existing `_store_seq` values — that would destroy the
+   audit property the field names. Two concepts, kept separate:
+
+   - `_store_seq` answers: "what order did this store witness
+     appends?" — the historical fact
+   - a future reconstructed/canonical order would answer: "what
+     order should a repaired traversal use?" — a derived view
+
+   Collapsing the two into one mutable field is the loophole this
+   clause explicitly closes.
+
+## Repair doctrine
+
+Extracted and promoted from clause 5 because this is the place the
+memo most needs to be unambiguous for future contributors:
+
+> `_store_seq` answers "what order did this store witness appends?"
+> A future reconstructed order answers "what order should a
+> repaired/canonical traversal use?" **Those are different fields,
+> different contracts, and must not be the same storage slot.**
+
+What a future repair tool MAY do:
+
+- Emit superseding receipts (new `_store_seq`, larger than any current)
+- Build / rebuild derived indexes or projections
+- Write a repair receipt that maps original `_store_seq` → reconstructed
+  traversal order as a separate stored field
+- Quarantine malformed receipts in a side-file and document which
+  `_store_seq` values are quarantined
+
+What a future repair tool MUST NOT do:
+
+- Overwrite `_store_seq` on any existing on-disk receipt
+- Reuse the name `_store_seq` for anything other than the original
+  witnessed append position
+- Rely on readers ignoring `_store_seq` "because the repair tool says so"
+
+The audit property of `_store_seq` is exactly that nothing — including
+repair — rewrites it. If this contract ever needs to break, it will
+be via explicit new fields and a new memo, not by quiet mutation.
 
 ## What this memo does NOT decide
 
