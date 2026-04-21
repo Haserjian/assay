@@ -93,11 +93,15 @@ If stronger language is desired, that requires a protocol and workflow change ra
 
 Current operating decision: keep public ledger claims at manifest/attestation witness scope unless the protocol changes. See [`LEDGER_SCOPE_DECISION.md`](LEDGER_SCOPE_DECISION.md).
 
-## AgentMesh Integration Today
+## Threadwork Integration Today
 
 In the Assay-integrated reference workflow:
-- AgentMesh records lineage, coordination, and provenance
+- Threadwork records lineage, coordination, and provenance
 - Assay handles proof-pack verification and trust-artifact packaging
+
+Current compatibility note:
+- Threadwork is the canonical public name
+- runtime/package/CLI surfaces may still use `agentmesh` naming during migration
 
 Current honest CI language is:
 - `assay-gate` is the baseline evidence-readiness score

@@ -717,7 +717,7 @@ Restart your shell after installing. Tab completion works for all commands and o
 - [OpenClaw v1 Claim Sheet](docs/openclaw-v1-claim-sheet.md) -- tight public claim: proofs, non-proofs, trust assumptions, and required artifacts
 - [OpenClaw Support](docs/openclaw-support.md) -- current supported posture, proof boundary, and non-goals for OpenClaw integrations
 - [What Assay Does Today](docs/WHAT_ASSAY_DOES_TODAY.md) -- the plain-language founder memo
-- [Boundary Map](docs/BOUNDARY_MAP.md) -- Assay vs VendorQ vs AgentMesh vs Loom/CCIO
+- [Boundary Map](docs/BOUNDARY_MAP.md) -- Assay vs VendorQ vs Threadwork vs Loom/CCIO
 - [Full Picture](docs/FULL_PICTURE.md) -- architecture, trust tiers, repo boundaries, release history
 - [Quickstart](docs/README_quickstart.md) -- install, golden path, command reference
 - [For Compliance Teams](docs/for-compliance.md) -- what auditors see, evidence artifacts, framework alignment
