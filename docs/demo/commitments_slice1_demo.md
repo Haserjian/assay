@@ -4,6 +4,9 @@ Buyer-facing packaging of the Slice 1 commitment wedge. Intended for a live
 demo, a pilot conversation, or an outbound deck. No marketing exaggeration.
 Claims that cannot be verified in the code today are labelled as such.
 
+For the shorter truth-only version, see
+[Commitments Slice 1 Claim Sheet](../commitments-slice1-claim-sheet.md).
+
 ---
 
 ## 1. Product claim (one sentence)
@@ -262,6 +265,9 @@ As of `31bddfc`:
 | #86 | docs(commitments): decide global-vs-per-commitment ordering |
 | #87 | refactor(commitments): extract shared lifecycle projection |
 | #89 | chore(commitments): clean projection review nits |
+
+There is no merged PR `#88` in this slice. Keep that gap explicit rather than
+silently implying a missing shipped capability.
 
 Related doctrine:
 
