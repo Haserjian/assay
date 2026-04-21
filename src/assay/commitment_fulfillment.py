@@ -1,14 +1,23 @@
-"""Commitment → Result → Fulfillment wedge — Slice 1.
+"""Commitment → Result → Fulfillment wedge — Slice 1 + terminal membrane.
 
 Doctrine source: loom-staging docs/architecture/authority_nouns.md
 (commit 9c5921d5, frozen).
 
 Event lifecycle:
-    commitment.registered      — a declared forward-looking commitment.
-    result.observed            — a non-adjudicating observation referencing
-                                 zero or more commitments. Never closes.
-    fulfillment.commitment_kept    — terminal: commitment was kept.
-    fulfillment.commitment_broken  — terminal: commitment was broken.
+    commitment.registered            — a declared forward-looking commitment.
+    result.observed                  — a non-adjudicating observation.
+    fulfillment.commitment_kept      — terminal: commitment was kept.
+    fulfillment.commitment_broken    — terminal: commitment was broken.
+    commitment.terminated            — terminal: non-fulfillment ending
+                                       (revoked | superseded | amended).
+
+Doctrine sentence:
+    "Kept, broken, revoked, amended, and superseded may all end a
+    commitment's active life, but only kept/broken are fulfillment
+    outcomes."
+
+Implementation invariant:
+    "If it changes list or overdue, it must be state, not commentary."
 
 Invariants:
     1. Every commitment.registered must have a resolvable policy_hash. The
@@ -17,9 +26,13 @@ Invariants:
     2. result.observed is non-adjudicating. It MUST NOT contain ``fulfills``
        or ``closes`` fields. References are typed ({"kind": "commitment",
        "id": ...}) and do not, by themselves, close anything.
-    3. A commitment has zero or one terminal fulfillment. Emission of a
-       second terminal for the same commitment_id raises
-       ``TerminalFulfillmentError``.
+    3. A commitment has AT MOST ONE terminal event (kept | broken |
+       terminated). Emission of a second terminal event for the same
+       commitment_id raises ``TerminalFulfillmentError`` — with one
+       exception: replaying an identical ``commitment.terminated`` with
+       the same ``idempotency_key`` is a no-op (storage primitive).
+    4. ``commitment.terminated`` covers only non-fulfillment terminal
+       endings. It MUST NOT absorb kept/broken.
 
 This module does NOT adjudicate the obligation namespace collision with
 ``src/assay/obligation.py`` (override-debt semantics). Slice 2 must resolve
@@ -27,7 +40,9 @@ that before adding the obligation side of the wedge.
 """
 from __future__ import annotations
 
+import hashlib
 import json
+import unicodedata
 from dataclasses import asdict, dataclass, field
 from importlib import resources
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
@@ -50,8 +65,38 @@ COMMITMENT_REGISTRATION_RECEIPT_TYPE = "commitment.registered"
 RESULT_OBSERVATION_RECEIPT_TYPE = "result.observed"
 FULFILLMENT_COMMITMENT_KEPT_RECEIPT_TYPE = "fulfillment.commitment_kept"
 FULFILLMENT_COMMITMENT_BROKEN_RECEIPT_TYPE = "fulfillment.commitment_broken"
+COMMITMENT_TERMINATED_RECEIPT_TYPE = "commitment.terminated"
+PROBE_SCOPED_RECEIPT_TYPE = "probe.scoped"
 
 TERMINAL_FULFILLMENT_TYPES = frozenset({
+    FULFILLMENT_COMMITMENT_KEPT_RECEIPT_TYPE,
+    FULFILLMENT_COMMITMENT_BROKEN_RECEIPT_TYPE,
+})
+
+# All receipt types that end a commitment's active life. Includes the
+# fulfillment outcomes AND ``commitment.terminated``. "All terminal" is a
+# strictly wider set than "fulfillment terminal": kept is fulfillment,
+# terminated is not. The projection/emission guards check this set when
+# enforcing the zero-or-one terminal invariant across every ending.
+TERMINAL_RECEIPT_TYPES = frozenset(
+    TERMINAL_FULFILLMENT_TYPES | {COMMITMENT_TERMINATED_RECEIPT_TYPE}
+)
+
+# Enums — doctrine-exact. Do not rename without explicit authorization.
+TERMINAL_REASONS = frozenset({"revoked", "superseded", "amended"})
+AMENDED_FIELDS = frozenset({"none", "due_at", "scope", "owner", "acceptance_terms"})
+AUTHORITY_MODES = frozenset({"self", "owner", "policy", "external"})
+
+# Runtime rule for this PR: only authority_mode=self is accepted.
+# Other values are schema-reserved but rejected at emission until
+# delegation work exists.
+ACCEPTED_AUTHORITY_MODES = frozenset({"self"})
+
+# Current self-authored probe membrane: probe.scoped must declare exactly
+# this event surface, no more and no less.
+PROBE_SCOPED_ALLOWED_EVENT_TYPES = frozenset({
+    COMMITMENT_REGISTRATION_RECEIPT_TYPE,
+    COMMITMENT_TERMINATED_RECEIPT_TYPE,
     FULFILLMENT_COMMITMENT_KEPT_RECEIPT_TYPE,
     FULFILLMENT_COMMITMENT_BROKEN_RECEIPT_TYPE,
 })
@@ -86,6 +131,18 @@ class UnanchoredFulfillmentError(ValueError):
     """
 
 
+class AuthorityModeUnsupportedError(ValueError):
+    """Raised when a commitment.terminated emission carries an authority_mode
+    that is valid per the schema but not supported in the current probe.
+
+    The schema reserves {"self", "owner", "policy", "external"}. This PR
+    only accepts ``self``. Emitting with another value is rejected at
+    validation time with an explicit "not supported in current probe"
+    diagnostic — no event is written. Support for the remaining modes
+    lands with delegation work.
+    """
+
+
 # ``ReceiptStoreIntegrityError`` is defined in ``assay.store`` (its home is
 # the storage substrate, not the commitment wedge). We re-export it here
 # for backwards-compat with tests/consumers that imported it from this
@@ -116,7 +173,14 @@ def _get_validator(schema_name: str) -> Draft202012Validator:
 
 @dataclass
 class CommitmentRegistrationArtifact:
-    """A declared forward-looking commitment."""
+    """A declared forward-looking commitment.
+
+    The optional ``supersedes_commitment_id`` and
+    ``lineage_root_commitment_id`` fields are how a replacement
+    commitment declares its lineage when registered after a prior
+    commitment was amended. See the membrane doctrine note
+    ``docs/doctrine/COMMITMENT_TERMINAL_MEMBRANE.md``.
+    """
 
     commitment_id: str
     timestamp: str
@@ -128,6 +192,8 @@ class CommitmentRegistrationArtifact:
     policy_resolver: Dict[str, Any]
     due_at: Optional[str] = None
     evidence_uri: Optional[str] = None
+    supersedes_commitment_id: Optional[str] = None
+    lineage_root_commitment_id: Optional[str] = None
     schema_version: str = SCHEMA_VERSION
     artifact_type: str = "commitment_registration"
 
@@ -221,6 +287,138 @@ class FulfillmentBrokenArtifact:
         _get_validator("fulfillment_commitment_broken.v0.1.schema.json").validate(
             self.to_dict()
         )
+
+
+@dataclass
+class CommitmentTerminatedArtifact:
+    """Non-fulfillment terminal ending: revoked | superseded | amended.
+
+    Separate receipt type from fulfillment outcomes: kept/broken remain
+    fulfillment terminals. ``commitment.terminated`` is for endings that
+    are NOT fulfillment.
+    """
+
+    commitment_id: str
+    timestamp: str
+    terminated_at: str
+    terminated_by_actor: str
+    terminal_reason: str  # revoked | superseded | amended
+    authority_mode: str   # self | owner | policy | external (only self accepted)
+    idempotency_key: str
+    amended_field: Optional[str] = None  # none | due_at | scope | owner | acceptance_terms
+    replacement_commitment_id: Optional[str] = None
+    supersedes_commitment_id: Optional[str] = None
+    lineage_root_commitment_id: Optional[str] = None
+    schema_version: str = SCHEMA_VERSION
+    artifact_type: str = "commitment_terminated"
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {k: v for k, v in asdict(self).items() if v is not None}
+
+    def validate(self) -> None:
+        _get_validator("commitment_terminated.v0.1.schema.json").validate(
+            self.to_dict()
+        )
+
+
+@dataclass
+class ProbeScopedArtifact:
+    """Meta-receipt declaring a probe's boundary (scope + allowed events).
+
+    This PR does not wire the full claude-organism self-authored emitter.
+    It only makes the membrane real and testable. The artifact records
+    the probe's scope so downstream verifiers can check emitted receipts
+    against the declared boundary.
+    """
+
+    probe_name: str
+    scope: str
+    owner_equals_author: bool
+    delegation_allowed: bool
+    external_ingestion_allowed: bool
+    allowed_event_types: List[str]
+    membrane_version: str
+    code_commit: str
+    emitted_at: str
+    schema_version: str = SCHEMA_VERSION
+    artifact_type: str = "probe_scoped"
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+    def validate(self) -> None:
+        _get_validator("probe_scoped.v0.1.schema.json").validate(self.to_dict())
+
+
+# ---------------------------------------------------------------------------
+# Identity / idempotency derivation
+# ---------------------------------------------------------------------------
+
+
+def normalize_first_authored_text(text: str) -> str:
+    """Canonicalize commitment text for identity derivation.
+
+    Rule (documented in the membrane note):
+        - Unicode NFC.
+        - Trim leading and trailing whitespace.
+        - Collapse internal whitespace runs to a single space.
+        - No case folding.
+
+    This normalization is ONLY for commitment_id derivation. It is not
+    applied to the stored ``text`` field, which must round-trip as
+    authored.
+    """
+    nfc = unicodedata.normalize("NFC", text)
+    stripped = nfc.strip()
+    # ``split()`` without args splits on any whitespace run AND drops
+    # leading/trailing empties — exactly the collapse rule we want.
+    collapsed = " ".join(stripped.split())
+    return collapsed
+
+
+def derive_commitment_id(
+    *,
+    emitter_namespace: str,
+    actor: str,
+    plan_slot_key: str,
+    first_authored_text: str,
+) -> str:
+    """Derive a stable commitment_id from emitter-side identity material.
+
+    Used ONLY when the emitter does not have a pre-existing stable id.
+    Prefer an emitter-authored id when available.
+
+    Shape:
+        sha256(emitter_namespace || "\\0" || actor || "\\0" ||
+               plan_slot_key || "\\0" || normalized_first_authored_text)
+    """
+    normalized = normalize_first_authored_text(first_authored_text)
+    joined = "\0".join([emitter_namespace, actor, plan_slot_key, normalized])
+    digest = hashlib.sha256(joined.encode("utf-8")).hexdigest()
+    return f"cmt_{digest}"
+
+
+def derive_idempotency_key(
+    *,
+    emitter_namespace: str,
+    operation_id: str,
+    commitment_id: str,
+    event_type: str,
+) -> str:
+    """Derive a stable idempotency_key for a commitment event.
+
+    Shape:
+        sha256(emitter_namespace || "\\0" || operation_id || "\\0" ||
+               commitment_id || "\\0" || event_type)
+
+    Same idempotency_key replaying the same operation is a no-op.
+    A different idempotency_key attempting to terminate an
+    already-terminal commitment_id is a conflict (raises
+    ``TerminalFulfillmentError``).
+    """
+    joined = "\0".join([emitter_namespace, operation_id, commitment_id, event_type])
+    digest = hashlib.sha256(joined.encode("utf-8")).hexdigest()
+    return f"idem_{digest}"
 
 
 # ---------------------------------------------------------------------------
@@ -391,22 +589,50 @@ def _assert_result_anchors_commitment(
 
 
 def _assert_no_existing_terminal(store: AssayStore, commitment_id: str) -> None:
-    """Scan the entire store for a prior terminal fulfillment of this commitment.
+    """Scan the entire store for a prior terminal event of this commitment.
+
+    "Terminal" here is the WIDE set: fulfillment.commitment_kept,
+    fulfillment.commitment_broken, and commitment.terminated. A commitment
+    has AT MOST ONE terminal event across all three types — the first one
+    wins.
 
     Full-store scan, no cap. Raises TerminalFulfillmentError if one is found.
     """
     for entry in _iter_all_receipts(store):
         entry_type = _extract_receipt_type(entry)
-        if entry_type not in TERMINAL_FULFILLMENT_TYPES:
+        if entry_type not in TERMINAL_RECEIPT_TYPES:
             continue
         if entry.get("commitment_id") != commitment_id:
             continue
         raise TerminalFulfillmentError(
-            f"Commitment {commitment_id!r} already has a terminal fulfillment: "
-            f"type={entry_type!r} "
-            f"fulfillment_id={entry.get('fulfillment_id')!r}. "
-            "A commitment has zero or one terminal fulfillment."
+            f"Commitment {commitment_id!r} already has a terminal event: "
+            f"type={entry_type!r}. "
+            "A commitment has zero or one terminal event "
+            "(kept | broken | terminated); first event wins."
         )
+
+
+def _find_existing_terminated_by_idempotency(
+    store: AssayStore,
+    *,
+    commitment_id: str,
+    idempotency_key: str,
+) -> Optional[Dict[str, Any]]:
+    """Return a prior commitment.terminated receipt for this commitment with
+    the same idempotency_key, or ``None``.
+
+    Used by ``emit_commitment_terminated`` to implement the replay no-op
+    rule: same idempotency_key + same commitment_id = no-op.
+    """
+    for entry in _iter_all_receipts(store):
+        if _extract_receipt_type(entry) != COMMITMENT_TERMINATED_RECEIPT_TYPE:
+            continue
+        if entry.get("commitment_id") != commitment_id:
+            continue
+        if entry.get("idempotency_key") != idempotency_key:
+            continue
+        return entry
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -596,22 +822,173 @@ def emit_fulfillment_broken(
     return artifact
 
 
+def emit_commitment_terminated(
+    episode: Episode,
+    termination: Union[CommitmentTerminatedArtifact, Dict[str, Any]],
+    *,
+    parent_receipt_id: Optional[str] = None,
+) -> Tuple[CommitmentTerminatedArtifact, bool]:
+    """Emit a commitment.terminated receipt (revoked | superseded | amended).
+
+    Covers only non-fulfillment terminal endings. Does NOT absorb kept
+    or broken. Those remain ``fulfillment.commitment_kept`` and
+    ``fulfillment.commitment_broken`` respectively.
+
+    Guards (all before emission; no event is written on failure):
+        1. Schema validation (covers enum membership for terminal_reason,
+           authority_mode, amended_field).
+        2. Runtime authority_mode rule: only ``self`` is accepted in
+           this PR. Other values are schema-reserved but rejected with
+           ``AuthorityModeUnsupportedError`` until delegation work exists.
+          3. Amendment shape: terminal_reason=amended requires a non-None
+              ``amended_field`` (other than "none") and a
+              ``replacement_commitment_id``. These are structural
+           correctness checks, not schema checks.
+        4. Idempotency: if a prior ``commitment.terminated`` exists for
+           the same commitment_id with the SAME ``idempotency_key``, the
+           call is a NO-OP and returns ``(artifact, False)``. If a prior
+           terminal event exists for the same commitment_id with a
+           DIFFERENT idempotency_key (or of a different type),
+           ``TerminalFulfillmentError`` is raised.
+
+    Returns:
+        (artifact, wrote_event) — ``wrote_event`` is ``False`` for a
+        replayed idempotent no-op, ``True`` otherwise.
+
+    Raises:
+        AuthorityModeUnsupportedError: on a schema-valid authority_mode
+            that is not supported in the current probe.
+        TerminalFulfillmentError: on conflicting prior terminal event.
+        jsonschema.ValidationError: on schema failure.
+    """
+    artifact = (
+        termination
+        if isinstance(termination, CommitmentTerminatedArtifact)
+        else CommitmentTerminatedArtifact(**termination)
+    )
+
+    # Schema first — rejects invalid enum values, missing required fields.
+    artifact.validate()
+
+    # Runtime authority rule: only ``self`` accepted in this PR.
+    if artifact.authority_mode not in ACCEPTED_AUTHORITY_MODES:
+        raise AuthorityModeUnsupportedError(
+            f"authority_mode={artifact.authority_mode!r} is not supported "
+            "in the current probe. Only authority_mode='self' is accepted "
+            "until delegation work lands. No event written."
+        )
+
+    store = episode._store
+
+    # Termination must target an existing registered commitment.
+    _assert_commitment_exists(store, artifact.commitment_id)
+
+    # Amendment shape check.
+    if artifact.terminal_reason == "amended":
+        amended = artifact.amended_field
+        if amended is None or amended == "none":
+            raise ValueError(
+                "commitment.terminated with terminal_reason='amended' "
+                "requires a non-'none' amended_field "
+                "(due_at | scope | owner | acceptance_terms). "
+                "No event written."
+            )
+        if not artifact.replacement_commitment_id:
+            raise ValueError(
+                "commitment.terminated with terminal_reason='amended' "
+                "requires replacement_commitment_id. Amendment terminates "
+                "the original only by registering a replacement. "
+                "No event written."
+            )
+
+    # Idempotency: same key + same commitment_id → no-op.
+    existing = _find_existing_terminated_by_idempotency(
+        store,
+        commitment_id=artifact.commitment_id,
+        idempotency_key=artifact.idempotency_key,
+    )
+    if existing is not None:
+        # No-op: do not emit a second event. Same key = same operation.
+        return artifact, False
+
+    # Different key (or different terminal type) on an already-terminated
+    # commitment is a conflict. First terminal wins.
+    _assert_no_existing_terminal(store, artifact.commitment_id)
+
+    episode.emit(
+        COMMITMENT_TERMINATED_RECEIPT_TYPE,
+        artifact.to_dict(),
+        parent_receipt_id=parent_receipt_id,
+    )
+    return artifact, True
+
+
+def emit_probe_scoped(
+    episode: Episode,
+    probe: Union[ProbeScopedArtifact, Dict[str, Any]],
+    *,
+    parent_receipt_id: Optional[str] = None,
+) -> ProbeScopedArtifact:
+    """Emit a probe.scoped meta-receipt.
+
+    Declares a probe's boundary so downstream verifiers can check its
+    emitted receipts against the declared scope. This PR does NOT wire
+    the full claude-organism self-authored emitter; it only makes the
+    membrane real and testable.
+    """
+    artifact = (
+        probe
+        if isinstance(probe, ProbeScopedArtifact)
+        else ProbeScopedArtifact(**probe)
+    )
+    artifact.validate()
+    if set(artifact.allowed_event_types) != PROBE_SCOPED_ALLOWED_EVENT_TYPES:
+        raise ValueError(
+            "probe.scoped allowed_event_types must exactly equal the "
+            "current self-authored probe membrane whitelist. "
+            f"expected={sorted(PROBE_SCOPED_ALLOWED_EVENT_TYPES)!r} "
+            f"got={sorted(set(artifact.allowed_event_types))!r}."
+        )
+    episode.emit(
+        PROBE_SCOPED_RECEIPT_TYPE,
+        artifact.to_dict(),
+        parent_receipt_id=parent_receipt_id,
+    )
+    return artifact
+
+
 __all__ = [
     "SCHEMA_VERSION",
     "COMMITMENT_REGISTRATION_RECEIPT_TYPE",
     "RESULT_OBSERVATION_RECEIPT_TYPE",
     "FULFILLMENT_COMMITMENT_KEPT_RECEIPT_TYPE",
     "FULFILLMENT_COMMITMENT_BROKEN_RECEIPT_TYPE",
+    "COMMITMENT_TERMINATED_RECEIPT_TYPE",
+    "PROBE_SCOPED_RECEIPT_TYPE",
     "TERMINAL_FULFILLMENT_TYPES",
+    "TERMINAL_RECEIPT_TYPES",
+    "TERMINAL_REASONS",
+    "AMENDED_FIELDS",
+    "AUTHORITY_MODES",
+    "ACCEPTED_AUTHORITY_MODES",
+    "PROBE_SCOPED_ALLOWED_EVENT_TYPES",
     "TerminalFulfillmentError",
     "UnanchoredFulfillmentError",
+    "AuthorityModeUnsupportedError",
     "ReceiptStoreIntegrityError",
     "CommitmentRegistrationArtifact",
     "ResultObservationArtifact",
     "FulfillmentKeptArtifact",
     "FulfillmentBrokenArtifact",
+    "CommitmentTerminatedArtifact",
+    "ProbeScopedArtifact",
+    "normalize_first_authored_text",
+    "derive_commitment_id",
+    "derive_idempotency_key",
     "emit_commitment_registration",
     "emit_result_observation",
     "emit_fulfillment_kept",
     "emit_fulfillment_broken",
+    "emit_commitment_terminated",
+    "emit_probe_scoped",
 ]

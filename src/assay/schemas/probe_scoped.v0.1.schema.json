@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://assay.ai/schemas/probe_scoped.v0.1.schema.json",
+  "title": "Probe Scoped Receipt (v0.1)",
+  "description": "Meta-receipt declaring the scope and allowed event types of a probe. Records a probe's boundary (what it is and is not allowed to emit) so downstream verifiers can check its receipts against its declared scope. This PR does not wire a full emitter; it only makes the membrane real and testable.",
+  "type": "object",
+  "required": [
+    "probe_name",
+    "scope",
+    "owner_equals_author",
+    "delegation_allowed",
+    "external_ingestion_allowed",
+    "allowed_event_types",
+    "membrane_version",
+    "code_commit",
+    "emitted_at",
+    "schema_version",
+    "artifact_type"
+  ],
+  "properties": {
+    "probe_name": {"type": "string", "minLength": 1},
+    "scope": {
+      "type": "string",
+      "enum": ["self-authored-only"]
+    },
+    "owner_equals_author": {"type": "boolean"},
+    "delegation_allowed": {"type": "boolean"},
+    "external_ingestion_allowed": {"type": "boolean"},
+    "allowed_event_types": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "commitment.registered",
+          "commitment.terminated",
+          "fulfillment.commitment_kept",
+          "fulfillment.commitment_broken"
+        ]
+      }
+    },
+    "membrane_version": {"type": "string", "minLength": 1},
+    "code_commit": {"type": "string", "minLength": 1},
+    "emitted_at": {"type": "string", "format": "date-time"},
+    "schema_version": {"type": "string"},
+    "artifact_type": {"type": "string", "const": "probe_scoped"}
+  },
+  "additionalProperties": true
+}
