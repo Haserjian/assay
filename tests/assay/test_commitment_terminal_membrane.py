@@ -669,6 +669,39 @@ def test_12_projection_exposes_immediate_supersession_edge(tmp_store):
         assert not hasattr(term, "lineage_chain")
 
 
+def test_12b_duplicate_post_terminal_receipt_does_not_create_edge(tmp_store):
+    """Strict lineage: only the first accepted terminal shapes lineage.
+
+    If a direct-write corpus contains a second post-terminal
+    commitment.terminated receipt carrying replacement_commitment_id,
+    the projection ignores it. Invalid duplicate terminals do not shape
+    lineage edges.
+    """
+    _write_registered(tmp_store, "cmt_A")
+    _write_terminated(
+        tmp_store,
+        "cmt_A",
+        terminal_reason="revoked",
+        idempotency_key="idem_first",
+    )
+    _write_terminated(
+        tmp_store,
+        "cmt_A",
+        terminal_reason="superseded",
+        idempotency_key="idem_second",
+        replacement_commitment_id="cmt_B",
+    )
+
+    projection = project_commitment_lifecycle(tmp_store)
+
+    # First terminal wins, and the duplicate later receipt does not
+    # create lineage.
+    term = projection.terminations["cmt_A"]
+    assert term.terminal_reason == "revoked"
+    assert term.replacement_commitment_id is None
+    assert projection.supersession_edges == []
+
+
 def test_13_probe_scoped_validates_allowed_events_and_scope(tmp_store):
     """Test 13: probe.scoped receipt validates allowed event types and scope.
 

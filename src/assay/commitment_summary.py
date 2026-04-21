@@ -41,9 +41,10 @@ class CommitmentSummary:
                      outcome; see membrane doctrine note.
 
     Doctrine: "Kept, broken, revoked, amended, and superseded may all
-    end a commitment's active life, but only kept is fulfillment." Only
-    OPEN is active. Both CLOSED and TERMINATED are ended, but they are
-    distinct terminal states and MUST NOT be conflated.
+    end a commitment's active life, but only kept/broken are
+    fulfillment outcomes." Only OPEN is active. Both CLOSED and
+    TERMINATED are ended, but they are distinct terminal states and
+    MUST NOT be conflated.
     """
 
     commitment_id: str
