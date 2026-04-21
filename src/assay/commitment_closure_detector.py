@@ -129,7 +129,9 @@ def detect_open_overdue_commitments(
     open_commitments: List[OpenOverdueCommitment] = []
     for cmt_id, reg in projection.registrations.items():
         if cmt_id in projection.closures:
-            continue  # closed — not overdue
+            continue  # closed by fulfillment — not overdue
+        if cmt_id in projection.terminations:
+            continue  # terminated (revoked | superseded | amended) — not overdue
         if not reg.due_at:
             continue  # perpetual
         due_dt = _parse_iso(reg.due_at)

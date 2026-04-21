@@ -79,10 +79,19 @@ class ExplainLine:
 
 @dataclass(frozen=True)
 class ExplainResult:
-    """The full explanation record for a single commitment."""
+    """The full explanation record for a single commitment.
+
+    States:
+        CLOSED         — ended by fulfillment (kept | broken).
+        TERMINATED     — ended by commitment.terminated (revoked |
+                         superseded | amended). Non-fulfillment ending.
+        OPEN           — registered, no terminal event yet.
+        NOT_REGISTERED — no registration receipt found.
+        INVALID_STORE  — the receipt corpus failed integrity validation.
+    """
 
     commitment_id: str
-    state: str  # CLOSED | OPEN | NOT_REGISTERED | INVALID_STORE
+    state: str  # CLOSED | TERMINATED | OPEN | NOT_REGISTERED | INVALID_STORE
     registration: Optional[ExplainLine]
     timeline: List[ExplainLine]
     decision: str
@@ -133,6 +142,7 @@ def explain_commitment(store: AssayStore, commitment_id: str) -> ExplainResult:
 
     reg_fact = projection.registrations.get(commitment_id)
     closure_fact = projection.closures.get(commitment_id)
+    termination_fact = projection.terminations.get(commitment_id)
 
     # Build the per-commitment timeline. The projection already has
     # everything we need; we just filter and translate facts into the
@@ -187,6 +197,30 @@ def explain_commitment(store: AssayStore, commitment_id: str) -> ExplainResult:
             )
         terminal_lines_for_cmt.append(line)
 
+    # Termination line (commitment.terminated, if any).
+    termination_line: Optional[ExplainLine] = None
+    if termination_fact is not None:
+        replacement_hint = (
+            f", replacement={termination_fact.replacement_commitment_id!r}"
+            if termination_fact.replacement_commitment_id
+            else ""
+        )
+        amended_hint = (
+            f", amended_field={termination_fact.amended_field!r}"
+            if termination_fact.amended_field
+            and termination_fact.amended_field != "none"
+            else ""
+        )
+        termination_line = ExplainLine(
+            seq=termination_fact.seq,
+            receipt_type="commitment.terminated",
+            summary=(
+                f"terminated (reason={termination_fact.terminal_reason}"
+                f"{amended_hint}{replacement_hint})"
+            ),
+            note="terminates commitment",
+        )
+
     # Compose the timeline in seq order. The projection guarantees seq
     # is the authoritative causal key for this per-aggregate view.
     timeline: List[ExplainLine] = []
@@ -194,6 +228,8 @@ def explain_commitment(store: AssayStore, commitment_id: str) -> ExplainResult:
         timeline.append(registration)
     timeline.extend(observation_lines)
     timeline.extend(terminal_lines_for_cmt)
+    if termination_line is not None:
+        timeline.append(termination_line)
     timeline.sort(key=lambda line: line.seq)
 
     # ----- Decision -----
@@ -223,6 +259,28 @@ def explain_commitment(store: AssayStore, commitment_id: str) -> ExplainResult:
         return ExplainResult(
             commitment_id=commitment_id,
             state="CLOSED",
+            registration=registration,
+            timeline=timeline,
+            decision=decision,
+        )
+
+    if termination_fact is not None:
+        replacement_hint = (
+            f" replacement_commitment_id="
+            f"{termination_fact.replacement_commitment_id!r}."
+            if termination_fact.replacement_commitment_id
+            else ""
+        )
+        decision = (
+            f"TERMINATED because commitment.terminated "
+            f"seq={termination_fact.seq} ended the commitment "
+            f"with terminal_reason={termination_fact.terminal_reason!r}. "
+            "This is a non-fulfillment ending — not a kept/broken "
+            "outcome." + (f" {replacement_hint}" if replacement_hint else "")
+        )
+        return ExplainResult(
+            commitment_id=commitment_id,
+            state="TERMINATED",
             registration=registration,
             timeline=timeline,
             decision=decision,
@@ -353,11 +411,20 @@ def _format_summary_line(s: CommitmentSummary) -> str:
     structured fields from ``--json``, not this prose format.
     """
     overdue_marker = " [OVERDUE]" if s.is_overdue else ""
-    closing = (
-        f" via seq={s.closing_terminal_seq} ({s.closing_terminal_type})"
-        if s.closing_terminal_seq is not None
-        else ""
-    )
+    if s.closing_terminal_seq is not None:
+        closing = f" via seq={s.closing_terminal_seq} ({s.closing_terminal_type})"
+    elif s.termination_seq is not None:
+        replacement = (
+            f" replacement={s.replacement_commitment_id}"
+            if s.replacement_commitment_id
+            else ""
+        )
+        closing = (
+            f" via seq={s.termination_seq} "
+            f"(commitment.terminated:{s.terminal_reason}){replacement}"
+        )
+    else:
+        closing = ""
     return (
         f"{s.commitment_id}  {s.state}{overdue_marker}  "
         f"registered_seq={s.registered_seq}  "

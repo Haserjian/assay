@@ -62,6 +62,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 from assay.commitment_fulfillment import (
     COMMITMENT_REGISTRATION_RECEIPT_TYPE,
+    COMMITMENT_TERMINATED_RECEIPT_TYPE,
     RESULT_OBSERVATION_RECEIPT_TYPE,
     TERMINAL_FULFILLMENT_TYPES,
     _iter_all_receipts,
@@ -145,6 +146,48 @@ class ClosureFact:
 
 
 @dataclass(frozen=True)
+class TerminationFact:
+    """Derived: the ``commitment.terminated`` event that ended a commitment
+    (non-fulfillment ending).
+
+    First-terminal-wins: if a commitment already has a fulfillment closure
+    (kept | broken) or a prior termination, subsequent terminated events
+    do NOT replace it and are NOT recorded here. They are also refused at
+    emission time; this field reflects the first accepted terminal event.
+
+    ``commitment.terminated`` covers only non-fulfillment endings
+    (revoked | superseded | amended). Kept/broken remain ``ClosureFact``.
+    """
+
+    commitment_id: str
+    seq: int
+    terminal_reason: str  # revoked | superseded | amended
+    amended_field: Optional[str]
+    authority_mode: str
+    idempotency_key: str
+    replacement_commitment_id: Optional[str]
+    supersedes_commitment_id: Optional[str]
+    lineage_root_commitment_id: Optional[str]
+
+
+@dataclass(frozen=True)
+class SupersessionEdge:
+    """Immediate supersession edge between two commitments.
+
+    Captures only the direct predecessor/successor relationship. Chain
+    reconstruction (if ever needed) walks edges; chains are NOT stored
+    per-event. ``lineage_root_commitment_id`` may be present as a
+    convenience when the emitter already knows the chain's root.
+    """
+
+    predecessor_commitment_id: str
+    successor_commitment_id: str
+    lineage_root_commitment_id: Optional[str]
+    source_seq: int  # _store_seq of the receipt that declared this edge
+    source_receipt_type: str  # "commitment.registered" or "commitment.terminated"
+
+
+@dataclass(frozen=True)
 class CommitmentLifecycleProjection:
     """Ground-truth projection of the commitment lifecycle as recorded in
     the store's receipt corpus, in ``_store_seq`` order.
@@ -168,6 +211,17 @@ class CommitmentLifecycleProjection:
     # Derived: commitment_id -> ClosureFact for commitments that have a
     # valid closing terminal.
     closures: Dict[str, ClosureFact] = field(default_factory=dict)
+
+    # Derived: commitment_id -> TerminationFact for commitments ended by a
+    # ``commitment.terminated`` event (revoked | superseded | amended).
+    # Fulfillment closures (kept | broken) remain in ``closures``; this
+    # map is strictly for non-fulfillment terminal endings. First-wins.
+    terminations: Dict[str, TerminationFact] = field(default_factory=dict)
+
+    # Immediate supersession edges (predecessor -> successor). Chains are
+    # NOT stored per-event; consumers reconstruct chains from edges when
+    # needed.
+    supersession_edges: List[SupersessionEdge] = field(default_factory=list)
 
     # For detector's total_traces_scanned
     total_traces_scanned: int = 0
@@ -220,7 +274,54 @@ def project_commitment_lifecycle(
     observation_anchors: List[ObservationAnchorFact] = []
     terminals: List[TerminalFact] = []
     closures: Dict[str, ClosureFact] = {}
+    terminations: Dict[str, TerminationFact] = {}
+    supersession_edges: List[SupersessionEdge] = []
+    # Dedup supersession edges by (predecessor, successor) so two
+    # receipts declaring the same edge (e.g. an amendment's terminated
+    # receipt carries replacement_commitment_id, and the replacement's
+    # registered receipt carries supersedes_commitment_id) do not
+    # double-count. When a later receipt declares the same edge with a
+    # ``lineage_root_commitment_id`` that the first did not carry, the
+    # edge is upgraded in-place so the root is reachable even if the
+    # earlier receipt omitted it.
+    edge_index_by_pair: Dict[Tuple[str, str], int] = {}
     trace_ids_seen: Set[str] = set()
+
+    def _record_edge(
+        predecessor: str,
+        successor: str,
+        lineage_root: Optional[str],
+        source_seq: int,
+        source_receipt_type: str,
+    ) -> None:
+        key = (predecessor, successor)
+        if key in edge_index_by_pair:
+            idx = edge_index_by_pair[key]
+            existing = supersession_edges[idx]
+            # Upgrade in-place if this receipt carries a lineage_root
+            # the earlier one did not.
+            if (
+                existing.lineage_root_commitment_id is None
+                and lineage_root is not None
+            ):
+                supersession_edges[idx] = SupersessionEdge(
+                    predecessor_commitment_id=existing.predecessor_commitment_id,
+                    successor_commitment_id=existing.successor_commitment_id,
+                    lineage_root_commitment_id=lineage_root,
+                    source_seq=existing.source_seq,
+                    source_receipt_type=existing.source_receipt_type,
+                )
+            return
+        edge_index_by_pair[key] = len(supersession_edges)
+        supersession_edges.append(
+            SupersessionEdge(
+                predecessor_commitment_id=predecessor,
+                successor_commitment_id=successor,
+                lineage_root_commitment_id=lineage_root,
+                source_seq=source_seq,
+                source_receipt_type=source_receipt_type,
+            )
+        )
 
     # Rolling state used to decide terminal validity at encounter time.
     # Keyed by (result_id, commitment_id); value is the most recent
@@ -250,6 +351,23 @@ def project_commitment_lifecycle(
                 if not cmt_id_raw:
                     continue
                 cmt_id = str(cmt_id_raw)
+
+                # Capture supersession edge from the registration side
+                # (the replacement declaring its predecessor), even if
+                # this is a second registration of the same id. The
+                # edge is independent of first-seen-wins.
+                supersedes_raw = entry.get("supersedes_commitment_id")
+                if supersedes_raw:
+                    _record_edge(
+                        predecessor=str(supersedes_raw),
+                        successor=cmt_id,
+                        lineage_root=_opt_str(
+                            entry.get("lineage_root_commitment_id")
+                        ),
+                        source_seq=seq,
+                        source_receipt_type=rt,
+                    )
+
                 if cmt_id in registrations:
                     # First-seen wins. Matches pre-extraction behavior.
                     continue
@@ -307,6 +425,7 @@ def project_commitment_lifecycle(
                 anchor_seq = anchor_seq_by_pair.get((result_id, cmt_id))
                 has_anchor = anchor_seq is not None
                 already_closed = cmt_id in closures
+                already_terminated = cmt_id in terminations
 
                 reasons: List[str] = []
                 if not has_registration:
@@ -324,6 +443,12 @@ def project_commitment_lifecycle(
                         f"post-closure terminal (commitment already "
                         f"closed by seq="
                         f"{closures[cmt_id].closing_terminal_seq})"
+                    )
+                if already_terminated:
+                    reasons.append(
+                        f"post-termination terminal (commitment already "
+                        f"terminated at seq="
+                        f"{terminations[cmt_id].seq})"
                     )
 
                 is_valid = not reasons
@@ -356,6 +481,52 @@ def project_commitment_lifecycle(
                         anchor_observation_seq=anchor_seq,
                     )
                 continue
+
+            if rt == COMMITMENT_TERMINATED_RECEIPT_TYPE:
+                cmt_id_raw = entry.get("commitment_id")
+                reason_raw = entry.get("terminal_reason")
+                idem_raw = entry.get("idempotency_key")
+                authority_raw = entry.get("authority_mode")
+                if not cmt_id_raw or not reason_raw or not idem_raw:
+                    continue
+                cmt_id = str(cmt_id_raw)
+
+                # First-terminal-wins across BOTH closures and
+                # terminations. Subsequent terminated receipts for the
+                # same commitment_id are ignored (the emit path refuses
+                # them; this is defensive parity for direct writes).
+                if cmt_id in closures or cmt_id in terminations:
+                    continue
+
+                replacement_raw = entry.get("replacement_commitment_id")
+                if replacement_raw:
+                    # Supersession edge from the termination side.
+                    _record_edge(
+                        predecessor=cmt_id,
+                        successor=str(replacement_raw),
+                        lineage_root=_opt_str(
+                            entry.get("lineage_root_commitment_id")
+                        ),
+                        source_seq=seq,
+                        source_receipt_type=rt,
+                    )
+
+                terminations[cmt_id] = TerminationFact(
+                    commitment_id=cmt_id,
+                    seq=seq,
+                    terminal_reason=str(reason_raw),
+                    amended_field=_opt_str(entry.get("amended_field")),
+                    authority_mode=str(authority_raw or ""),
+                    idempotency_key=str(idem_raw),
+                    replacement_commitment_id=_opt_str(replacement_raw),
+                    supersedes_commitment_id=_opt_str(
+                        entry.get("supersedes_commitment_id")
+                    ),
+                    lineage_root_commitment_id=_opt_str(
+                        entry.get("lineage_root_commitment_id")
+                    ),
+                )
+                continue
     except ReceiptStoreIntegrityError as exc:
         # Paired fields: human-readable message + original exception for
         # forensic chain. On integrity failure, return an empty
@@ -374,6 +545,8 @@ def project_commitment_lifecycle(
         observation_anchors=observation_anchors,
         terminals=terminals,
         closures=closures,
+        terminations=terminations,
+        supersession_edges=supersession_edges,
         total_traces_scanned=len(trace_ids_seen),
         scanned_at=scanned_at,
     )
@@ -404,6 +577,8 @@ __all__ = [
     "ObservationAnchorFact",
     "TerminalFact",
     "ClosureFact",
+    "TerminationFact",
+    "SupersessionEdge",
     "CommitmentLifecycleProjection",
     "project_commitment_lifecycle",
 ]

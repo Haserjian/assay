@@ -25,6 +25,8 @@
     "commitment_type": {"type": "string", "minLength": 1},
     "due_at": {"type": "string", "format": "date-time"},
     "evidence_uri": {"type": "string"},
+    "supersedes_commitment_id": {"type": "string", "minLength": 1},
+    "lineage_root_commitment_id": {"type": "string", "minLength": 1},
     "policy_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
     "policy_resolver": {
       "type": "object",

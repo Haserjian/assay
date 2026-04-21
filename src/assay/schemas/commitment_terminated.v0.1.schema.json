@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://assay.ai/schemas/commitment_terminated.v0.1.schema.json",
+  "title": "Commitment Terminated (v0.1)",
+  "description": "Non-fulfillment terminal ending of a commitment (revoked | superseded | amended). Fulfillment outcomes (kept | broken) are separate receipt types and are NOT absorbed here.",
+  "type": "object",
+  "required": [
+    "commitment_id",
+    "timestamp",
+    "terminated_at",
+    "terminated_by_actor",
+    "terminal_reason",
+    "authority_mode",
+    "idempotency_key",
+    "schema_version",
+    "artifact_type"
+  ],
+  "properties": {
+    "commitment_id": {"type": "string", "minLength": 1},
+    "timestamp": {"type": "string", "format": "date-time"},
+    "terminated_at": {"type": "string", "format": "date-time"},
+    "terminated_by_actor": {"type": "string", "minLength": 1},
+    "terminal_reason": {
+      "type": "string",
+      "enum": ["revoked", "superseded", "amended"]
+    },
+    "amended_field": {
+      "type": "string",
+      "enum": ["none", "due_at", "scope", "owner", "acceptance_terms"]
+    },
+    "authority_mode": {
+      "type": "string",
+      "enum": ["self", "owner", "policy", "external"]
+    },
+    "idempotency_key": {"type": "string", "minLength": 1},
+    "replacement_commitment_id": {"type": "string", "minLength": 1},
+    "supersedes_commitment_id": {"type": "string", "minLength": 1},
+    "lineage_root_commitment_id": {"type": "string", "minLength": 1},
+    "schema_version": {"type": "string"},
+    "artifact_type": {"type": "string", "const": "commitment_terminated"}
+  },
+  "additionalProperties": true
+}

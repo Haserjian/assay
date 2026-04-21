@@ -30,10 +30,24 @@ from assay.store import AssayStore
 
 @dataclass(frozen=True)
 class CommitmentSummary:
-    """Compact per-commitment state for list/overdue views."""
+    """Compact per-commitment state for list/overdue views.
+
+    States:
+        OPEN       — registered, not yet closed or terminated.
+        CLOSED     — ended by fulfillment.commitment_kept or
+                     fulfillment.commitment_broken (fulfillment outcomes).
+        TERMINATED — ended by commitment.terminated
+                     (revoked | superseded | amended). NOT a fulfillment
+                     outcome; see membrane doctrine note.
+
+    Doctrine: "Kept, broken, revoked, amended, and superseded may all
+    end a commitment's active life, but only kept is fulfillment." Only
+    OPEN is active. Both CLOSED and TERMINATED are ended, but they are
+    distinct terminal states and MUST NOT be conflated.
+    """
 
     commitment_id: str
-    state: str  # OPEN | CLOSED
+    state: str  # OPEN | CLOSED | TERMINATED
     actor_id: str
     text: str
     commitment_type: str
@@ -42,6 +56,10 @@ class CommitmentSummary:
     closing_terminal_seq: Optional[int]
     closing_terminal_type: Optional[str]
     is_overdue: bool
+    # Populated when state == TERMINATED; None otherwise.
+    terminal_reason: Optional[str] = None  # revoked | superseded | amended
+    termination_seq: Optional[int] = None
+    replacement_commitment_id: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -55,6 +73,9 @@ class CommitmentSummary:
             "closing_terminal_seq": self.closing_terminal_seq,
             "closing_terminal_type": self.closing_terminal_type,
             "is_overdue": self.is_overdue,
+            "terminal_reason": self.terminal_reason,
+            "termination_seq": self.termination_seq,
+            "replacement_commitment_id": self.replacement_commitment_id,
         }
 
 
@@ -108,10 +129,43 @@ def summarize_all_commitments(
         projection.registrations.values(), key=lambda r: r.seq
     ):
         closure = projection.closures.get(reg.commitment_id)
-        state = "CLOSED" if closure else "OPEN"
-        closing_seq = closure.closing_terminal_seq if closure else None
-        closing_type = closure.closing_terminal_type if closure else None
+        termination = projection.terminations.get(reg.commitment_id)
 
+        # First-terminal-wins across closures and terminations. The
+        # projector already enforces this: a commitment that entered
+        # ``closures`` cannot subsequently enter ``terminations``, and
+        # vice-versa. Defensive tie-break if both ever appeared: whichever
+        # has the smaller seq wins.
+        if closure and termination:
+            if closure.closing_terminal_seq <= termination.seq:
+                termination = None
+            else:
+                closure = None
+
+        if closure:
+            state = "CLOSED"
+            closing_seq = closure.closing_terminal_seq
+            closing_type = closure.closing_terminal_type
+            terminal_reason = None
+            termination_seq = None
+            replacement_commitment_id = None
+        elif termination:
+            state = "TERMINATED"
+            closing_seq = None
+            closing_type = None
+            terminal_reason = termination.terminal_reason
+            termination_seq = termination.seq
+            replacement_commitment_id = termination.replacement_commitment_id
+        else:
+            state = "OPEN"
+            closing_seq = None
+            closing_type = None
+            terminal_reason = None
+            termination_seq = None
+            replacement_commitment_id = None
+
+        # is_overdue only applies to OPEN commitments. TERMINATED and
+        # CLOSED have ended their active life and are never overdue.
         is_overdue = False
         if state == "OPEN" and reg.due_at:
             parsed = _parse_iso(reg.due_at)
@@ -130,6 +184,9 @@ def summarize_all_commitments(
                 closing_terminal_seq=closing_seq,
                 closing_terminal_type=closing_type,
                 is_overdue=is_overdue,
+                terminal_reason=terminal_reason,
+                termination_seq=termination_seq,
+                replacement_commitment_id=replacement_commitment_id,
             )
         )
 
