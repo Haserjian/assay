@@ -1,8 +1,9 @@
 # Assay
 
-**Signed evidence for tool-using AI.**
+**Portable, independently verifiable evidence packs for AI decisions.**
 
-Microsoft enforces runtime policy. Assay proves what happened.
+For audits, regulated sales, and incidents, Assay turns AI runs into signed
+proof packs another party can verify offline.
 
 ![assay demo-challenge](demo.gif)
 
@@ -31,11 +32,13 @@ assay demo-challenge
 **Or choose another path:**
 
 - **[Verify a proof pack in your browser](https://haserjian.github.io/assay-proof-gallery/verify.html)** — no install, no account
+- **[See the Article 11 / Annex IV working map](https://github.com/Haserjian/assay-protocol/blob/main/ARTICLE11_ANNEXIV_MAPPING.md)** — where proof packs help in a technical documentation packet
 - **MCP demo:** `assay try-mcp` — MCP tool calls with signed receipts (30 seconds)
 - **OpenClaw demo:** `assay try-openclaw` — deterministic subprocess-membrane demo + receipt adapter + signed proof pack
 - **[See the before/after specimen](https://github.com/Haserjian/assay-proof-gallery/tree/main/gallery/07-contested-decision)** — contested decision, reconstruction vs verification
 
-Assay turns AI runs into signed proof packs another team can verify offline. It makes tampering visible and preserves honest failure.
+Assay turns AI runs into signed proof packs another team can verify offline.
+It makes tampering visible and preserves honest failure.
 
 ---
 
@@ -717,7 +720,7 @@ Restart your shell after installing. Tab completion works for all commands and o
 - [OpenClaw v1 Claim Sheet](docs/openclaw-v1-claim-sheet.md) -- tight public claim: proofs, non-proofs, trust assumptions, and required artifacts
 - [OpenClaw Support](docs/openclaw-support.md) -- current supported posture, proof boundary, and non-goals for OpenClaw integrations
 - [What Assay Does Today](docs/WHAT_ASSAY_DOES_TODAY.md) -- the plain-language founder memo
-- [Boundary Map](docs/BOUNDARY_MAP.md) -- Assay vs VendorQ vs Threadwork vs Loom/CCIO
+- [Boundary Map](docs/BOUNDARY_MAP.md) -- repo roles across Assay and related internal tools
 - [Full Picture](docs/FULL_PICTURE.md) -- architecture, trust tiers, repo boundaries, release history
 - [Quickstart](docs/README_quickstart.md) -- install, golden path, command reference
 - [For Compliance Teams](docs/for-compliance.md) -- what auditors see, evidence artifacts, framework alignment
@@ -765,9 +768,9 @@ Restart your shell after installing. Tab completion works for all commands and o
 - **Try it**: `python3 -m pip install assay-ai && assay try`
 - **Questions / feedback**: [GitHub Discussions](https://github.com/Haserjian/assay/discussions)
 - **Bug reports**: [Issues](https://github.com/Haserjian/assay/issues)
-- **Pilot program**: onboarding a bounded cohort while the product surface
-  stabilizes; new inquiries are queued as a waitlist rather than an immediate
-  start. Posture and scope: [Pilot program](docs/PILOT_PROGRAM.md).
+- **Pilot program**: accepting a small bounded cohort of pilot inquiries from
+  teams evaluating verifiable AI decision evidence, CI evidence gates, or
+  audit-ready proof packs. Scope: [Pilot program](docs/PILOT_PROGRAM.md).
 
 ## Related Repos
 
