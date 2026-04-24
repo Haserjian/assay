@@ -92,7 +92,7 @@
   },
   "allOf": [
     {
-      "$comment": "Relativization branch: BGS obstruction, no assumptions, oracle_invariant is the sole load-bearing predicate.",
+      "$comment": "Relativization branch: BGS obstruction, no assumptions, exactly one predicate = oracle_invariant, exact BGS closure pointer.",
       "if": {
         "properties": {
           "implicated_barrier": {
@@ -110,15 +110,20 @@
             "maxItems": 0
           },
           "barrier_predicates": {
+            "minItems": 1,
+            "maxItems": 1,
             "items": {
               "const": "oracle_invariant"
             }
+          },
+          "canonical_non_implications": {
+            "const": "N(RELATIVIZATION, BGS_contradictory_oracle_worlds, [])"
           }
         }
       }
     },
     {
-      "$comment": "Natural-proofs branch: RR obstruction, requires SUBEXP_secure_PRFs_exist_in(...) assumption; predicates restricted to {constructive, large, useful_against(...)}.",
+      "$comment": "Natural-proofs branch: RR obstruction, exactly one PRF assumption, exactly three predicates covering all three RR roles (constructive, large, useful_against(...)), RR closure pointer pattern.",
       "if": {
         "properties": {
           "implicated_barrier": {
@@ -134,25 +139,37 @@
           },
           "assumptions": {
             "minItems": 1,
+            "maxItems": 1,
             "contains": {
               "type": "string",
               "pattern": "^SUBEXP_secure_PRFs_exist_in\\(.+\\)$"
             }
           },
           "barrier_predicates": {
+            "minItems": 3,
+            "maxItems": 3,
             "items": {
               "anyOf": [
                 { "const": "constructive" },
                 { "const": "large" },
                 { "type": "string", "pattern": "^useful_against\\(.+\\)$" }
               ]
-            }
+            },
+            "allOf": [
+              { "contains": { "const": "constructive" } },
+              { "contains": { "const": "large" } },
+              { "contains": { "type": "string", "pattern": "^useful_against\\(.+\\)$" } }
+            ]
+          },
+          "canonical_non_implications": {
+            "type": "string",
+            "pattern": "^N\\(NATURAL_PROOFS, RR_constructive_large_against_PRF_class, \\[SUBEXP_secure_PRFs_exist_in\\(.+\\)\\]\\)$"
           }
         }
       }
     },
     {
-      "$comment": "Algebrization branch: AW obstruction, no assumptions, algebrizing is the sole load-bearing predicate (NOT arithmetizing; that is auxiliary).",
+      "$comment": "Algebrization branch: AW obstruction, no assumptions, exactly one predicate = algebrizing (NOT arithmetizing; that is auxiliary), exact AW closure pointer.",
       "if": {
         "properties": {
           "implicated_barrier": {
@@ -170,9 +187,14 @@
             "maxItems": 0
           },
           "barrier_predicates": {
+            "minItems": 1,
+            "maxItems": 1,
             "items": {
               "const": "algebrizing"
             }
+          },
+          "canonical_non_implications": {
+            "const": "N(ALGEBRIZATION, AW_algebraic_oracle_contradictory_worlds, [])"
           }
         }
       }
