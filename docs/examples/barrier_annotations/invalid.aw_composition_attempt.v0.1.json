@@ -1,0 +1,24 @@
+{
+  "schema_version": "0.1.0",
+  "artifact_type": "barrier_annotation",
+  "version": "v0.1",
+  "attempt_ref": "schematic:invalid-aw-annotation-asserting-modus-ponens-composition",
+  "target": "C subset-of E (derived via C subset-of D and D subset-of E, both algebrizing)",
+  "implicated_barrier": "ALGEBRIZATION",
+  "obstruction_kind": "AW_algebraic_oracle_contradictory_worlds",
+  "assumptions": [],
+  "barrier_predicates": [
+    "algebrizing"
+  ],
+  "canonical_non_implications": "N(ALGEBRIZATION, AW_algebraic_oracle_contradictory_worlds, [])",
+  "evidence_pointers": [
+    "Aaronson-Wigderson 2008"
+  ],
+  "auxiliary_descriptors": {
+    "defect": "attempts to derive an algebrizing conclusion by composing two algebrizing premises under modus ponens; the AW definition is not closed under modus ponens"
+  },
+  "composes_with": [
+    "annotation_for_C_subset_D",
+    "annotation_for_D_subset_E"
+  ]
+}

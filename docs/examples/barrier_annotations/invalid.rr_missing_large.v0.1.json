@@ -1,0 +1,23 @@
+{
+  "schema_version": "0.1.0",
+  "artifact_type": "barrier_annotation",
+  "version": "v0.1",
+  "attempt_ref": "schematic:invalid-rr-annotation-missing-large-predicate",
+  "target": "an explicit family {f_n} lies outside P/poly",
+  "implicated_barrier": "NATURAL_PROOFS",
+  "obstruction_kind": "RR_constructive_large_against_PRF_class",
+  "assumptions": [
+    "SUBEXP_secure_PRFs_exist_in(P/poly)"
+  ],
+  "barrier_predicates": [
+    "constructive",
+    "useful_against(P/poly)"
+  ],
+  "canonical_non_implications": "N(NATURAL_PROOFS, RR_constructive_large_against_PRF_class, [SUBEXP_secure_PRFs_exist_in(P/poly)])",
+  "evidence_pointers": [
+    "Razborov-Rudich 1997"
+  ],
+  "auxiliary_descriptors": {
+    "defect": "omits the largeness predicate; RR applicability requires the conjunction of constructive + large + useful_against(C), not a subset"
+  }
+}

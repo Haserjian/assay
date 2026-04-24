@@ -1,0 +1,20 @@
+{
+  "schema_version": "0.1.0",
+  "artifact_type": "barrier_annotation",
+  "version": "v0.1",
+  "attempt_ref": "schematic:invalid-aw-annotation-with-arbitrary-closure-pointer",
+  "target": "NEXP not-subset-of P/poly",
+  "implicated_barrier": "ALGEBRIZATION",
+  "obstruction_kind": "AW_algebraic_oracle_contradictory_worlds",
+  "assumptions": [],
+  "barrier_predicates": [
+    "algebrizing"
+  ],
+  "canonical_non_implications": "not a closure pointer",
+  "evidence_pointers": [
+    "Aaronson-Wigderson 2008"
+  ],
+  "auxiliary_descriptors": {
+    "defect": "closure pointer is an arbitrary string, not a canonical N(...) reference; v0.1 branch-specific const rejects unparseable closure pointers"
+  }
+}

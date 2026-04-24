@@ -1,0 +1,20 @@
+{
+  "schema_version": "0.1.0",
+  "artifact_type": "barrier_annotation",
+  "version": "v0.1",
+  "attempt_ref": "schematic:invalid-bgs-annotation-pointing-at-rr-closure",
+  "target": "P != NP",
+  "implicated_barrier": "RELATIVIZATION",
+  "obstruction_kind": "BGS_contradictory_oracle_worlds",
+  "assumptions": [],
+  "barrier_predicates": [
+    "oracle_invariant"
+  ],
+  "canonical_non_implications": "N(NATURAL_PROOFS, RR_constructive_large_against_PRF_class, [SUBEXP_secure_PRFs_exist_in(P/poly)])",
+  "evidence_pointers": [
+    "Baker-Gill-Solovay 1975"
+  ],
+  "auxiliary_descriptors": {
+    "defect": "closure pointer references the RR closure, but the annotation is a BGS annotation; branch-specific closure pointer must match the implicated barrier's canonical non-implication set"
+  }
+}
