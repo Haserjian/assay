@@ -1,0 +1,21 @@
+{
+  "schema_version": "0.1.0",
+  "artifact_type": "barrier_annotation",
+  "version": "v0.1",
+  "attempt_ref": "schematic:invalid-aw-annotation-promoting-arithmetizing-to-load-bearing",
+  "target": "NEXP not-subset-of P/poly",
+  "implicated_barrier": "ALGEBRIZATION",
+  "obstruction_kind": "AW_algebraic_oracle_contradictory_worlds",
+  "assumptions": [],
+  "barrier_predicates": [
+    "arithmetizing",
+    "algebrizing"
+  ],
+  "canonical_non_implications": "N(ALGEBRIZATION, AW_algebraic_oracle_contradictory_worlds, [])",
+  "evidence_pointers": [
+    "Aaronson-Wigderson 2008"
+  ],
+  "auxiliary_descriptors": {
+    "defect": "arithmetizing is technique-family metadata, not a load-bearing predicate; it belongs in auxiliary_descriptors, not barrier_predicates"
+  }
+}

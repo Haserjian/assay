@@ -1,0 +1,22 @@
+{
+  "schema_version": "0.1.0",
+  "artifact_type": "barrier_annotation",
+  "version": "v0.1",
+  "attempt_ref": "schematic:nexp-not-in-p-poly-via-algebrizing-argument",
+  "target": "NEXP not-subset-of P/poly",
+  "implicated_barrier": "ALGEBRIZATION",
+  "obstruction_kind": "AW_algebraic_oracle_contradictory_worlds",
+  "assumptions": [],
+  "barrier_predicates": [
+    "algebrizing"
+  ],
+  "canonical_non_implications": "N(ALGEBRIZATION, AW_algebraic_oracle_contradictory_worlds, [])",
+  "evidence_pointers": [
+    "Aaronson-Wigderson 2008, STOC '08 / ACM TOCT 2009, Definition 2.3 and Section 5"
+  ],
+  "auxiliary_descriptors": {
+    "technique_family": "arithmetization",
+    "algebrizing_direction": "separation (left-hand class receives Ã)",
+    "composition_note": "local annotation; not composed under modus ponens"
+  }
+}
