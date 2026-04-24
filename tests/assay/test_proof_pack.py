@@ -680,6 +680,38 @@ class TestProofPackBuilder:
         result = verify_proof_pack(manifest, out, tmp_keys)
         assert result.passed, f"Errors: {[e.to_dict() for e in result.errors]}"
 
+    def test_agentmesh_namespaced_receipt_types_build_and_verify(
+        self, tmp_path, tmp_keys
+    ):
+        # Conformance gate for the AgentMesh alias_bug fix (2026-04-24):
+        # AgentMesh emits agentmesh.weave/v1 and agentmesh.witness/v1; both must
+        # round-trip through build() and verify_proof_pack() without allowlist
+        # expansion, relying only on the existing namespaced-token regex.
+        receipts = [
+            _make_receipt(
+                receipt_id="r_type_001",
+                run_id="agentmesh-namespaced-types",
+                seq=0,
+                type="agentmesh.weave/v1",
+            ),
+            _make_receipt(
+                receipt_id="r_type_002",
+                run_id="agentmesh-namespaced-types",
+                seq=1,
+                type="agentmesh.witness/v1",
+            ),
+        ]
+        pack = ProofPack(
+            run_id="agentmesh-namespaced-types",
+            entries=receipts,
+            signer_id="test-signer",
+        )
+
+        out = pack.build(tmp_path / "pack", keystore=tmp_keys)
+        manifest = json.loads((out / "pack_manifest.json").read_text())
+        result = verify_proof_pack(manifest, out, tmp_keys)
+        assert result.passed, f"Errors: {[e.to_dict() for e in result.errors]}"
+
     def test_verify_prefers_embedded_pubkey_over_wrong_local_key(
         self, tmp_path, tmp_keys, sample_receipts
     ):
