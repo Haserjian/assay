@@ -1,0 +1,223 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "barrier_annotation v0.1",
+  "description": "Local citation-scoped annotation for barrier-sensitive implications in complexity theory. Citation instrument, not a theorem or closure theory. See notes/barrier-annotation-integration-spec.md in the barrier-implications-note repo for the full integration spec.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "version",
+    "attempt_ref",
+    "target",
+    "implicated_barrier",
+    "obstruction_kind",
+    "assumptions",
+    "barrier_predicates",
+    "canonical_non_implications",
+    "evidence_pointers",
+    "auxiliary_descriptors"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "artifact_type": {
+      "const": "barrier_annotation"
+    },
+    "version": {
+      "description": "Vocabulary version; pins (predicates, obstruction_kinds, assumptions, closure function N).",
+      "const": "v0.1"
+    },
+    "attempt_ref": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable identifier for the proof attempt being annotated (DOI, arXiv id, ECCC id, commit hash, or schematic descriptor)."
+    },
+    "target": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Separation or inclusion statement being claimed."
+    },
+    "implicated_barrier": {
+      "type": "string",
+      "enum": [
+        "RELATIVIZATION",
+        "NATURAL_PROOFS",
+        "ALGEBRIZATION"
+      ]
+    },
+    "obstruction_kind": {
+      "type": "string",
+      "enum": [
+        "BGS_contradictory_oracle_worlds",
+        "RR_constructive_large_against_PRF_class",
+        "AW_algebraic_oracle_contradictory_worlds"
+      ]
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/assumption"
+      },
+      "uniqueItems": true
+    },
+    "barrier_predicates": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/predicate"
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "canonical_non_implications": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Reference into the closure function N at `version`. Stored as a string pointer, e.g. 'N(RELATIVIZATION, BGS_contradictory_oracle_worlds, [])'."
+    },
+    "evidence_pointers": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "auxiliary_descriptors": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Non-load-bearing technique-family metadata. Not consulted by the closure function."
+    }
+  },
+  "allOf": [
+    {
+      "$comment": "Relativization branch: BGS obstruction, no assumptions, exactly one predicate = oracle_invariant, exact BGS closure pointer.",
+      "if": {
+        "properties": {
+          "implicated_barrier": {
+            "const": "RELATIVIZATION"
+          }
+        },
+        "required": ["implicated_barrier"]
+      },
+      "then": {
+        "properties": {
+          "obstruction_kind": {
+            "const": "BGS_contradictory_oracle_worlds"
+          },
+          "assumptions": {
+            "maxItems": 0
+          },
+          "barrier_predicates": {
+            "minItems": 1,
+            "maxItems": 1,
+            "items": {
+              "const": "oracle_invariant"
+            }
+          },
+          "canonical_non_implications": {
+            "const": "N(RELATIVIZATION, BGS_contradictory_oracle_worlds, [])"
+          }
+        }
+      }
+    },
+    {
+      "$comment": "Natural-proofs branch: RR obstruction, exactly one PRF assumption, exactly three predicates covering all three RR roles (constructive, large, useful_against(...)), RR closure pointer pattern.",
+      "if": {
+        "properties": {
+          "implicated_barrier": {
+            "const": "NATURAL_PROOFS"
+          }
+        },
+        "required": ["implicated_barrier"]
+      },
+      "then": {
+        "properties": {
+          "obstruction_kind": {
+            "const": "RR_constructive_large_against_PRF_class"
+          },
+          "assumptions": {
+            "minItems": 1,
+            "maxItems": 1,
+            "contains": {
+              "type": "string",
+              "pattern": "^SUBEXP_secure_PRFs_exist_in\\(.+\\)$"
+            }
+          },
+          "barrier_predicates": {
+            "minItems": 3,
+            "maxItems": 3,
+            "items": {
+              "anyOf": [
+                { "const": "constructive" },
+                { "const": "large" },
+                { "type": "string", "pattern": "^useful_against\\(.+\\)$" }
+              ]
+            },
+            "allOf": [
+              { "contains": { "const": "constructive" } },
+              { "contains": { "const": "large" } },
+              { "contains": { "type": "string", "pattern": "^useful_against\\(.+\\)$" } }
+            ]
+          },
+          "canonical_non_implications": {
+            "type": "string",
+            "pattern": "^N\\(NATURAL_PROOFS, RR_constructive_large_against_PRF_class, \\[SUBEXP_secure_PRFs_exist_in\\(.+\\)\\]\\)$"
+          }
+        }
+      }
+    },
+    {
+      "$comment": "Algebrization branch: AW obstruction, no assumptions, exactly one predicate = algebrizing (NOT arithmetizing; that is auxiliary), exact AW closure pointer.",
+      "if": {
+        "properties": {
+          "implicated_barrier": {
+            "const": "ALGEBRIZATION"
+          }
+        },
+        "required": ["implicated_barrier"]
+      },
+      "then": {
+        "properties": {
+          "obstruction_kind": {
+            "const": "AW_algebraic_oracle_contradictory_worlds"
+          },
+          "assumptions": {
+            "maxItems": 0
+          },
+          "barrier_predicates": {
+            "minItems": 1,
+            "maxItems": 1,
+            "items": {
+              "const": "algebrizing"
+            }
+          },
+          "canonical_non_implications": {
+            "const": "N(ALGEBRIZATION, AW_algebraic_oracle_contradictory_worlds, [])"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "predicate": {
+      "type": "string",
+      "anyOf": [
+        { "const": "oracle_invariant" },
+        { "const": "constructive" },
+        { "const": "large" },
+        { "type": "string", "pattern": "^useful_against\\(.+\\)$" },
+        { "const": "algebrizing" }
+      ],
+      "description": "Closed load-bearing predicate vocabulary for v0.1. Auxiliary descriptors (diagonalization_based, simulation_based, arithmetizing, relativizing, circuit_complexity_measure_based) must not appear here; they belong in auxiliary_descriptors."
+    },
+    "assumption": {
+      "type": "string",
+      "anyOf": [
+        { "type": "string", "pattern": "^SUBEXP_secure_PRFs_exist_in\\(.+\\)$" }
+      ],
+      "description": "Closed assumption vocabulary for v0.1. Pattern-matched so target class C can be parameterized. Extend under a vocabulary version bump, not as schema patch."
+    }
+  }
+}

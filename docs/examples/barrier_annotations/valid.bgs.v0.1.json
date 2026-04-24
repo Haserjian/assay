@@ -1,0 +1,20 @@
+{
+  "schema_version": "0.1.0",
+  "artifact_type": "barrier_annotation",
+  "version": "v0.1",
+  "attempt_ref": "schematic:p-neq-np-via-oracle-invariant-simulation-diagonalization",
+  "target": "P != NP",
+  "implicated_barrier": "RELATIVIZATION",
+  "obstruction_kind": "BGS_contradictory_oracle_worlds",
+  "assumptions": [],
+  "barrier_predicates": [
+    "oracle_invariant"
+  ],
+  "canonical_non_implications": "N(RELATIVIZATION, BGS_contradictory_oracle_worlds, [])",
+  "evidence_pointers": [
+    "Baker-Gill-Solovay 1975, SIAM J. Comput. 4(4):431-442, Theorems 1 and 2"
+  ],
+  "auxiliary_descriptors": {
+    "technique_family": "diagonalization+simulation"
+  }
+}
