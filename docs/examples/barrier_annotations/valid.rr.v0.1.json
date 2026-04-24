@@ -1,0 +1,24 @@
+{
+  "schema_version": "0.1.0",
+  "artifact_type": "barrier_annotation",
+  "version": "v0.1",
+  "attempt_ref": "schematic:natural-proof-lower-bound-against-P/poly",
+  "target": "an explicit family {f_n} lies outside P/poly",
+  "implicated_barrier": "NATURAL_PROOFS",
+  "obstruction_kind": "RR_constructive_large_against_PRF_class",
+  "assumptions": [
+    "SUBEXP_secure_PRFs_exist_in(P/poly)"
+  ],
+  "barrier_predicates": [
+    "constructive",
+    "large",
+    "useful_against(P/poly)"
+  ],
+  "canonical_non_implications": "N(NATURAL_PROOFS, RR_constructive_large_against_PRF_class, [SUBEXP_secure_PRFs_exist_in(P/poly)])",
+  "evidence_pointers": [
+    "Razborov-Rudich 1997, JCSS 55(1):24-35, Theorems 4.1 and 4.4"
+  ],
+  "auxiliary_descriptors": {
+    "technique_family": "combinatorial-property-of-truth-tables"
+  }
+}

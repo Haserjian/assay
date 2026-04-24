@@ -1,0 +1,20 @@
+{
+  "schema_version": "0.1.0",
+  "artifact_type": "barrier_annotation",
+  "version": "v0.1",
+  "attempt_ref": "schematic:invalid-annotation-using-post-v0.1-obstruction-kind",
+  "target": "some separation blocked by a post-2008 algebrization refinement",
+  "implicated_barrier": "ALGEBRIZATION",
+  "obstruction_kind": "IKK_affine_relativization_refinement",
+  "assumptions": [],
+  "barrier_predicates": [
+    "algebrizing"
+  ],
+  "canonical_non_implications": "N(ALGEBRIZATION, IKK_affine_relativization_refinement, [])",
+  "evidence_pointers": [
+    "Impagliazzo-Kabanets-Kolokolova 2009; Aydınlıoğlu-Bach 2018"
+  ],
+  "auxiliary_descriptors": {
+    "defect": "obstruction_kind is not in dom(N) at version v0.1; this is a vocabulary-extension request, not a valid annotation. Requires a version bump to a later vocabulary."
+  }
+}
