@@ -3123,6 +3123,17 @@ def proof_pack_cmd(
         "-c",
         help="Run card: builtin name or path to JSON file (repeatable)",
     ),
+    emit_v2_receipts: bool = typer.Option(
+        False,
+        "--emit-v2-receipts",
+        help=(
+            "Also emit _unsigned/receipt_pack_v2.jsonl: one Ed25519-signed "
+            "ReceiptV2 envelope per receipt, each carrying an attested "
+            "pack_binding (pack_id, source_index, source_receipt_sha256, "
+            "receipt_pack_sha256, pack_root_sha256). Sidecar artifact; the "
+            "v1 5-file kernel is unaffected."
+        ),
+    ),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Build a signed Proof Pack (5-file kernel) from a trace."""
@@ -3156,7 +3167,11 @@ def proof_pack_cmd(
 
     try:
         result_dir = build_proof_pack(
-            trace_id, output_dir=out, mode=mode, claims=claims
+            trace_id,
+            output_dir=out,
+            mode=mode,
+            claims=claims,
+            emit_v2_receipts=emit_v2_receipts,
         )
     except ValueError as e:
         if output_json:
