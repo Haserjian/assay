@@ -30,6 +30,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from assay._receipts import build_v2_base_receipt, emit_v2_receipt
 from assay._receipts.canonicalize import prepare_receipt_for_hashing
 from assay._receipts.jcs import canonicalize as jcs_canonicalize
 from assay.claim_verifier import ClaimSetResult, ClaimSpec, verify_claims
@@ -475,6 +476,7 @@ class ProofPack:
         emit_adc: bool = False,
         claim_namespace: Optional[str] = None,
         authority_snapshot: Optional[Dict[str, Any]] = None,
+        emit_v2_receipts: bool = False,
     ):
         # run_id is canonical; trace_id accepted as alias for backward compat
         resolved_run_id = run_id or trace_id
@@ -491,6 +493,7 @@ class ProofPack:
         self.emit_adc = emit_adc
         self.claim_namespace = claim_namespace
         self.authority_snapshot = authority_snapshot
+        self.emit_v2_receipts = emit_v2_receipts
 
         # Default hashes for fields not yet wired
         self.policy_hash = policy_hash or _sha256_hex(b"default-policy-v0")
@@ -612,6 +615,17 @@ class ProofPack:
             )
             pack_id = _generate_pack_id(deterministic_seed=seed)
         (staging_dir / "receipt_pack.jsonl").write_bytes(receipt_pack_bytes)
+
+        # 1b. (optional) Mint ReceiptV2 envelopes alongside the v1 pack.
+        # First production caller of emit_v2_receipt(). Sidecar artifact only:
+        # written to unsigned/receipt_pack_v2.jsonl, NOT included in
+        # pack_root_sha256, NOT in the 5-file v1 verification kernel.
+        # Each envelope is individually Ed25519-signed using the same signer
+        # as the pack-level signature.
+        if self.emit_v2_receipts:
+            self._write_receipt_pack_v2(
+                staging_dir, sorted_entries, ks, deterministic_ts=deterministic_ts
+            )
 
         # 2. Verify receipts (structural integrity)
         verify_result = verify_receipt_pack(sorted_entries)
@@ -870,6 +884,57 @@ class ProofPack:
         os.rename(str(staging_dir), str(output_dir))
         return output_dir
 
+    def _write_receipt_pack_v2(
+        self,
+        staging_dir: Path,
+        sorted_entries: List[Dict[str, Any]],
+        ks: AssayKeyStore,
+        *,
+        deterministic_ts: Optional[str] = None,
+    ) -> None:
+        """Mint and write ReceiptV2 envelopes to unsigned/receipt_pack_v2.jsonl.
+
+        First production caller of emit_v2_receipt(). Sidecar artifact only —
+        outside the v1 5-file kernel and outside pack_root_sha256.
+        Each envelope is individually Ed25519-signed using the same signer
+        as the pack-level signature.
+
+        Identity fields (type, receipt_id, timestamp) are lifted from the
+        v1 entry. Pack-internal meta keys (anything else, including
+        underscore-prefixed _trace_id / _stored_at) and v1-specific cruft
+        (schema_version, seq) are demoted into the attested payload, except
+        the cruft fields which are dropped entirely.
+        """
+        ks.ensure_key(self.signer_id)
+        signing_key = ks.get_signing_key(self.signer_id)
+
+        v2_lines: List[str] = []
+        for entry in sorted_entries:
+            payload = {
+                k: v
+                for k, v in entry.items()
+                if k not in {"type", "receipt_id", "timestamp", "schema_version", "seq"}
+            }
+            base = build_v2_base_receipt(
+                receipt_type=entry.get("type") or "assay.legacy_receipt_v1",
+                payload=payload,
+                receipt_id=entry.get("receipt_id"),
+                timestamp=entry.get("timestamp"),
+            )
+            envelope = emit_v2_receipt(
+                base,
+                signing_key=signing_key,
+                signer_id=self.signer_id,
+                add_signed_at=deterministic_ts is None,
+            )
+            v2_lines.append(jcs_canonicalize(envelope).decode("utf-8"))
+
+        content = ("\n".join(v2_lines) + "\n") if v2_lines else ""
+
+        unsigned_dir = get_unsigned_sidecar_dir(staging_dir)
+        unsigned_dir.mkdir(parents=True, exist_ok=True)
+        (unsigned_dir / "receipt_pack_v2.jsonl").write_bytes(content.encode("utf-8"))
+
 
 def build_proof_pack(
     trace_id: str,
@@ -880,6 +945,7 @@ def build_proof_pack(
     claims: Optional[List[ClaimSpec]] = None,
     ci_binding: Optional[Dict[str, Any]] = None,
     authority_snapshot: Optional[Dict[str, Any]] = None,
+    emit_v2_receipts: bool = False,
 ) -> Path:
     """Convenience function: load trace from store and build a Proof Pack.
 
@@ -889,6 +955,11 @@ def build_proof_pack(
         keystore: Optional key store (default: ~/.assay/keys/).
         mode: shadow | enforced | breakglass.
         claims: Optional list of ClaimSpecs for semantic verification.
+        emit_v2_receipts: When True, additionally write a sidecar
+            ``unsigned/receipt_pack_v2.jsonl`` containing one
+            individually Ed25519-signed ReceiptV2 envelope per entry.
+            The v2 file is NOT in the pack manifest and does not affect
+            v1 verification.
 
     Returns:
         Path to the output directory.
@@ -913,6 +984,7 @@ def build_proof_pack(
         claims=claims,
         ci_binding=ci_binding,
         authority_snapshot=authority_snapshot,
+        emit_v2_receipts=emit_v2_receipts,
     )
     return pack.build(output_dir, keystore=keystore)
 
