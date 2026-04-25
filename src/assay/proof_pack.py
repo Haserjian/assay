@@ -616,17 +616,6 @@ class ProofPack:
             pack_id = _generate_pack_id(deterministic_seed=seed)
         (staging_dir / "receipt_pack.jsonl").write_bytes(receipt_pack_bytes)
 
-        # 1b. (optional) Mint ReceiptV2 envelopes alongside the v1 pack.
-        # First production caller of emit_v2_receipt(). Sidecar artifact only:
-        # written to unsigned/receipt_pack_v2.jsonl, NOT included in
-        # pack_root_sha256, NOT in the 5-file v1 verification kernel.
-        # Each envelope is individually Ed25519-signed using the same signer
-        # as the pack-level signature.
-        if self.emit_v2_receipts:
-            self._write_receipt_pack_v2(
-                staging_dir, sorted_entries, ks, deterministic_ts=deterministic_ts
-            )
-
         # 2. Verify receipts (structural integrity)
         verify_result = verify_receipt_pack(sorted_entries)
 
@@ -820,6 +809,24 @@ class ProofPack:
         sig_raw = base64.b64decode(signature_b64)
         (staging_dir / "pack_signature.sig").write_bytes(sig_raw)
 
+        # 9c. (optional) Emit ReceiptV2 envelopes as a signed sidecar.
+        # Each envelope is individually Ed25519-signed and carries an attested
+        # pack_binding (pack_id, source_index, source_receipt_sha256,
+        # receipt_pack_sha256, pack_root_sha256) so a reviewer can prove this
+        # v2 line is the v2 representation of a specific v1 receipt line in
+        # this specific pack. The sidecar lives in _unsigned/, outside the v1
+        # 5-file kernel and outside pack_root_sha256.
+        if self.emit_v2_receipts:
+            self._write_receipt_pack_v2(
+                staging_dir,
+                sorted_entries,
+                ks,
+                pack_id=pack_id,
+                receipt_pack_bytes=receipt_pack_bytes,
+                pack_root_sha256=pack_root_sha256,
+                deterministic_ts=deterministic_ts,
+            )
+
         # 9b. Emit ADC (optional, presentation layer alongside PACK_SUMMARY)
         if self.emit_adc:
             from assay.adc_emitter import build_adc
@@ -890,9 +897,12 @@ class ProofPack:
         sorted_entries: List[Dict[str, Any]],
         ks: AssayKeyStore,
         *,
+        pack_id: str,
+        receipt_pack_bytes: bytes,
+        pack_root_sha256: str,
         deterministic_ts: Optional[str] = None,
     ) -> None:
-        """Mint and write ReceiptV2 envelopes to unsigned/receipt_pack_v2.jsonl.
+        """Mint and write ReceiptV2 envelopes to _unsigned/receipt_pack_v2.jsonl.
 
         First production caller of emit_v2_receipt(). Sidecar artifact only —
         outside the v1 5-file kernel and outside pack_root_sha256.
@@ -900,16 +910,37 @@ class ProofPack:
         as the pack-level signature.
 
         Identity fields (type, receipt_id, timestamp) are lifted from the
-        v1 entry. Pack-internal meta keys (anything else, including
-        underscore-prefixed _trace_id / _stored_at) and v1-specific cruft
-        (schema_version, seq) are demoted into the attested payload, except
-        the cruft fields which are dropped entirely.
+        v1 entry. Pack-internal meta (underscore-prefixed _trace_id /
+        _stored_at, etc.) is demoted into the attested payload. v1-specific
+        cruft (schema_version, seq) is dropped.
+
+        Each envelope carries an attested ``pack_binding`` pointing back to
+        its source row in ``receipt_pack.jsonl``:
+
+            pack_id                 — the v1 pack identifier
+            source_index            — 0-based row index in receipt_pack.jsonl
+            source_receipt_sha256   — sha256 of the JCS-canonical v1 line bytes
+            receipt_pack_sha256     — sha256 of the v1 receipt_pack.jsonl bytes
+            pack_root_sha256        — the v1 pack's attested root hash
+
+        Because ``pack_binding`` is a top-level attested field (not in the
+        projection exclusion set), it is covered by the v2 envelope's
+        signature. Tampering with any binding field invalidates the signature.
+        Tampering with the source v1 line invalidates the recomputed
+        ``source_receipt_sha256`` against the attested binding.
         """
         ks.ensure_key(self.signer_id)
         signing_key = ks.get_signing_key(self.signer_id)
 
+        receipt_pack_sha256 = _sha256_hex(receipt_pack_bytes)
+
         v2_lines: List[str] = []
-        for entry in sorted_entries:
+        for source_index, entry in enumerate(sorted_entries):
+            # Recompute the canonical v1 line bytes so the binding is exactly
+            # what a reviewer will see by reading receipt_pack.jsonl line N.
+            v1_line_bytes = jcs_canonicalize(prepare_receipt_for_hashing(entry))
+            source_receipt_sha256 = _sha256_hex(v1_line_bytes)
+
             payload = {
                 k: v
                 for k, v in entry.items()
@@ -920,6 +951,13 @@ class ProofPack:
                 payload=payload,
                 receipt_id=entry.get("receipt_id"),
                 timestamp=entry.get("timestamp"),
+                pack_binding={
+                    "pack_id": pack_id,
+                    "source_index": source_index,
+                    "source_receipt_sha256": source_receipt_sha256,
+                    "receipt_pack_sha256": receipt_pack_sha256,
+                    "pack_root_sha256": pack_root_sha256,
+                },
             )
             envelope = emit_v2_receipt(
                 base,
@@ -956,7 +994,7 @@ def build_proof_pack(
         mode: shadow | enforced | breakglass.
         claims: Optional list of ClaimSpecs for semantic verification.
         emit_v2_receipts: When True, additionally write a sidecar
-            ``unsigned/receipt_pack_v2.jsonl`` containing one
+            ``_unsigned/receipt_pack_v2.jsonl`` containing one
             individually Ed25519-signed ReceiptV2 envelope per entry.
             The v2 file is NOT in the pack manifest and does not affect
             v1 verification.
