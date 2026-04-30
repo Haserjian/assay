@@ -132,6 +132,24 @@ def _load_manifest() -> dict:
     return _load_json(MANIFEST_PATH)
 
 
+def _span_matches_artifact(
+    artifact_text: str, artifact_span: dict[str, object]
+) -> bool:
+    start_char = artifact_span["start_char"]
+    end_char = artifact_span["end_char"]
+    span_text = artifact_span["text"]
+
+    assert isinstance(start_char, int)
+    assert isinstance(end_char, int)
+    assert isinstance(span_text, str)
+
+    if start_char < 0 or end_char < 0:
+        return False
+    if end_char > len(artifact_text):
+        return False
+    return artifact_text[start_char:end_char] == span_text
+
+
 def _fixture_directories() -> set[str]:
     dirs: set[str] = set()
     for category_dir in ALLOWED_DIRECTORY_CATEGORIES:
@@ -202,6 +220,9 @@ def test_expected_run_contract() -> None:
     for entry in manifest["fixtures"]:
         fixture_dir = FIXTURE_ROOT / entry["path"]
         fixture = _load_json(fixture_dir / "fixture.json")
+        artifact_text = (fixture_dir / fixture["artifact_path"]).read_text(
+            encoding="utf-8"
+        )
         expected_run = _load_json(fixture_dir / "expected_run.json")
         guardian_verdict = expected_run["guardian_verdict"]
         compression = expected_run["compression"]
@@ -253,6 +274,7 @@ def test_expected_run_contract() -> None:
             assert isinstance(artifact_span["text"], str) and artifact_span["text"]
             assert isinstance(artifact_span["start_char"], int)
             assert isinstance(artifact_span["end_char"], int)
+            assert artifact_span["start_char"] >= 0
             assert artifact_span["start_char"] <= artifact_span["end_char"]
 
             promotion_eligibility = observed_unit["promotion_eligibility"]
@@ -280,6 +302,9 @@ def test_expected_run_contract() -> None:
             if observed_unit.get("anchoring_expectation") == "unanchorable":
                 assert observed_unit["observation_status"] == "guardian_blocked"
                 assert promotion_eligibility["status"] == "ineligible"
+                assert not _span_matches_artifact(artifact_text, artifact_span)
+            else:
+                assert _span_matches_artifact(artifact_text, artifact_span)
 
             if guardian_verdict["run_status"] == "block":
                 assert promotion_eligibility["status"] == "ineligible"
