@@ -1,6 +1,6 @@
 {
     "schema_version": "0.1",
-    "status": "seed",
+    "status": "v0_complete",
     "fixture_root": "tests/fixtures/output_assay",
     "categories": [
         "positive_controls",
