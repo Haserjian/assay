@@ -67,9 +67,7 @@ def test_validate_output_assay_analysis_draft_rejects_extra_top_level_fields() -
     with pytest.raises(OutputAssayDraftValidationError) as exc_info:
         validate_output_assay_analysis_draft(payload)
 
-    assert any(
-        "unexpected_top_level" in error for error in exc_info.value.errors
-    )
+    assert any("unexpected_top_level" in error for error in exc_info.value.errors)
 
 
 def test_validate_output_assay_analysis_draft_rejects_invalid_span_order() -> None:
