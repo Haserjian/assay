@@ -301,8 +301,9 @@ Rules:
 
 - `run_status = block` means the run is not acceptable as clean evidence under
   the v0 policy surface. It does not mean the artifact is false.
-- `failure_modes` must use canonical names from the Output Assay policy lane.
-  Synonym drift is not allowed in fixtures.
+- During `manifest.status = "seed"`, `failure_modes` should reuse existing
+  leaf names from the draft canonical vocabulary below. New near-synonyms
+  should not be introduced silently.
 - Observation-level `observation_status` and the aggregate
   `guardian_verdict.observation_counts` must agree exactly.
 - Missing evidence spans, invented spans, or author/source judgment should be
@@ -461,6 +462,94 @@ Failure-mode strings are governed by manifest status.
 This preserves calibration agility during seed while preventing noun
 collision and silent vocabulary drift before the corpus is treated as
 authoritative.
+
+## Draft Canonical Failure-Mode Vocabulary
+
+The groups below are the draft consolidation target for recurring
+fixture-level failure modes while `manifest.status = "seed"`.
+
+Fixtures continue to carry leaf strings such as
+`unanchorable_extraction` or `author_judgment_bait` in
+`expected_failure_modes`. The group names below are taxonomy labels for
+specification and future completeness gates; they are not replacement
+fixture values yet.
+
+### `extraction_integrity`
+
+Leaf names:
+
+- `unanchorable_extraction`
+- `invented_span`
+- `receipt_gap`
+
+Use for:
+
+- extraction defects that break traceability from observation back to artifact
+- provenance gaps that make an observation unusable as clean evidence
+- span or receipt failures that should quarantine or block the run when silent
+  repair is forbidden
+
+### `support_gap`
+
+Leaf names:
+
+- `unearned_confidence`
+- `unsupported_resilience_claim`
+
+Use for:
+
+- claims whose rhetoric outruns available internal support
+- claims that extrapolate beyond what the cited boundary or evidence actually
+  proves
+
+### `rhetorical_padding`
+
+Leaf names:
+
+- `redundancy_padding`
+- `inflated_fluency`
+
+Use for:
+
+- duplicated or padded language that enlarges persuasive surface without adding
+  new evidence
+- high-polish framing that can mask weak support or repeated assertions
+
+### `adversarial_instruction`
+
+Leaf names:
+
+- `prompt_injection_bait`
+- `instruction_injection_bait`
+
+Use for:
+
+- artifacts that try to coerce, redirect, or contaminate the assayer
+- literal instruction strings or prompt-injection bait embedded in artifact
+  content
+
+### `author_source_judgment`
+
+Leaf names:
+
+- `author_judgment_bait`
+- `authorship_proxy_for_truth`
+- `authorship_proxy_for_distrust`
+
+Use for:
+
+- artifacts that try to route promotion or distrust through authorship rather
+  than support
+- claims that treat source identity as a substitute for evidence, provenance,
+  or extraction hygiene
+
+Draft consolidation rules:
+
+- New fixture-level failure-mode strings introduced during seed should either
+  reuse an existing leaf name above or extend this section in the same change.
+- A leaf name should belong to exactly one draft group.
+- Promotion out of `seed` requires collapsing remaining near-synonyms before
+  validator completeness gates treat the vocabulary as closed.
 
 ## Open Questions
 
