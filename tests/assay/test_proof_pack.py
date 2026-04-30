@@ -538,6 +538,40 @@ class TestProofPackBuilder:
         )
         assert any("experimental_verdict" in e.message for e in result.errors)
 
+    @pytest.mark.xfail(strict=True, reason="Counter-doctrine tripwire: generic non-loom namespaced receipt types are proof-pack-admissible by regex; only loom.* types are registry-gated by LOOM_RECEIPT_MAPPING_REGISTRY_V1")
+    def test_drift_tripwire_non_loom_namespaced_now_rejected(
+        self, tmp_path, tmp_keys
+    ):
+        """Counterfactual / expected failure.
+
+        Asserts the OPPOSITE of doctrine: that a non-loom namespaced receipt
+        (partner.audit/v1) is rejected. Per LOOM_RECEIPT_MAPPING_REGISTRY_V1,
+        rejection MUST NOT happen for generic non-loom namespaced types —
+        admission is by regex, distinct from trust certification. Strict
+        xfail means: if this test ever unexpectedly passes (rejection of any
+        shape begins happening), CI breaks and forces conscious doctrine
+        review.
+
+        Behavioral invariant only — does not assert specific error code,
+        field, or message. Any rejection signal — `passed=False` OR a raised
+        exception during verify — counts as drift detection.
+        """
+        out, manifest = _make_external_pack_with_unknown_type(
+            tmp_path,
+            tmp_keys,
+            unknown_type="partner.audit/v1",
+        )
+
+        try:
+            result = verify_proof_pack(manifest, out, tmp_keys)
+        except Exception:
+            # Drift: rejection via exception. Test exits without assertion
+            # failure, so strict-xfail records an unexpected pass and breaks
+            # the suite — exactly the drift-detection signal we want.
+            return
+
+        assert not result.passed
+
     @pytest.mark.parametrize("receipt_type", ["loom.unknown/v1", "loom.dip/v1"])
     def test_verify_proof_pack_rejects_non_current_loom_receipt_type(
         self, tmp_path, tmp_keys, receipt_type
