@@ -1,11 +1,13 @@
 """Local-only Output Assay analyzer scaffold.
 
-This slice stops at strict draft validation. Provider execution, Guardian
-projection, and canonical receipt stamping land later.
+This slice stops at strict draft validation and deterministic local stamping.
+Provider execution, Guardian projection, and kernel promotion land later.
 """
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
@@ -13,7 +15,23 @@ from typing import Any
 from jsonschema.validators import validator_for
 from pydantic import ValidationError
 
-from assay.output_assay.models import OutputAssayAnalysisDraft
+from assay.output_assay.models import (
+    ObservationStatus,
+    ObserverKind,
+    OutputAssayAnalysisDraft,
+    OutputAssayObservedUnit,
+    OutputAssayObserver,
+    OutputAssayPromotionEligibility,
+    OutputAssayRunEnvelope,
+    PromotionEligibilityStatus,
+    UnitType,
+)
+
+DEFAULT_LOCAL_OBSERVER = OutputAssayObserver(
+    kind=ObserverKind.TOOL,
+    provider="local",
+    model="output_assay_scaffold",
+)
 
 
 class OutputAssayDraftValidationError(ValueError):
@@ -62,6 +80,9 @@ def validate_output_assay_analysis_draft(
     payload: object,
 ) -> OutputAssayAnalysisDraft:
     """Validate a draft payload with local schema and model checks only."""
+    if isinstance(payload, OutputAssayAnalysisDraft):
+        return payload
+
     schema_errors = output_assay_analysis_draft_schema_errors(payload)
     if schema_errors:
         raise OutputAssayDraftValidationError(schema_errors)
@@ -76,9 +97,92 @@ def validate_output_assay_analysis_draft(
         raise OutputAssayDraftValidationError(formatted_errors) from exc
 
 
+def compute_output_assay_artifact_hash(artifact_text: str) -> str:
+    """Return the canonical artifact hash for local Output Assay stamping."""
+    return f"sha256:{hashlib.sha256(artifact_text.encode('utf-8')).hexdigest()}"
+
+
+def _stable_json_bytes(data: dict[str, Any]) -> bytes:
+    return json.dumps(
+        data,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")
+
+
+def _deterministic_run_id(artifact_hash: str, draft: OutputAssayAnalysisDraft) -> str:
+    digest = hashlib.sha256(
+        _stable_json_bytes(
+            {
+                "artifact_hash": artifact_hash,
+                "draft": draft.model_dump(mode="json"),
+            }
+        )
+    ).hexdigest()
+    return f"oa_run_{digest[:16]}"
+
+
+def _draft_promotion_eligibility(
+    unit_type: UnitType,
+) -> OutputAssayPromotionEligibility:
+    if unit_type == UnitType.CLAIM:
+        return OutputAssayPromotionEligibility(
+            status=PromotionEligibilityStatus.INELIGIBLE,
+            reason="guardian_review_pending",
+        )
+    return OutputAssayPromotionEligibility(
+        status=PromotionEligibilityStatus.INELIGIBLE,
+        reason="non_claim_unit",
+    )
+
+
+def stamp_output_assay_run(
+    artifact_text: str,
+    payload: object,
+    *,
+    observer: OutputAssayObserver | None = None,
+) -> OutputAssayRunEnvelope:
+    """Stamp a deterministic local-only Output Assay run envelope.
+
+    This function performs no provider calls, no Guardian projection, and no
+    promotion. It only validates the draft locally, computes the artifact hash,
+    and stamps deterministic envelope and observation fields.
+    """
+    draft = validate_output_assay_analysis_draft(payload)
+    artifact_hash = compute_output_assay_artifact_hash(artifact_text)
+    run_id = _deterministic_run_id(artifact_hash, draft)
+    stamped_observer = observer or DEFAULT_LOCAL_OBSERVER
+
+    observed_units = [
+        OutputAssayObservedUnit(
+            unit_id=f"{run_id}_u{index:03d}",
+            unit_type=observed_unit.unit_type,
+            source_role=observed_unit.source_role,
+            artifact_hash=artifact_hash,
+            artifact_span=observed_unit.artifact_span,
+            normalized_text=observed_unit.normalized_text,
+            observer=stamped_observer,
+            observation_confidence=observed_unit.observation_confidence,
+            observation_status=ObservationStatus.DRAFT,
+            promotion_eligibility=_draft_promotion_eligibility(observed_unit.unit_type),
+            notes=observed_unit.notes,
+        )
+        for index, observed_unit in enumerate(draft.observed_units, start=1)
+    ]
+
+    return OutputAssayRunEnvelope(
+        run_id=run_id,
+        artifact_hash=artifact_hash,
+        intent_class=draft.intent_class,
+        summary=draft.summary,
+        observed_units=observed_units,
+    )
+
+
 @dataclass(frozen=True)
 class OutputAssayAnalyzerScaffold:
-    """Minimal analyzer entrypoint that performs local draft validation only."""
+    """Minimal analyzer entrypoint for local validation and stamping only."""
 
     def draft_schema(self) -> dict[str, Any]:
         return output_assay_analysis_draft_schema()
@@ -86,11 +190,26 @@ class OutputAssayAnalyzerScaffold:
     def validate_local_draft(self, payload: object) -> OutputAssayAnalysisDraft:
         return validate_output_assay_analysis_draft(payload)
 
+    def stamp_local_run(
+        self,
+        artifact_text: str,
+        payload: object,
+        *,
+        observer: OutputAssayObserver | None = None,
+    ) -> OutputAssayRunEnvelope:
+        return stamp_output_assay_run(
+            artifact_text,
+            payload,
+            observer=observer,
+        )
+
 
 __all__ = [
     "OutputAssayAnalyzerScaffold",
     "OutputAssayDraftValidationError",
+    "compute_output_assay_artifact_hash",
     "output_assay_analysis_draft_schema",
     "output_assay_analysis_draft_schema_errors",
+    "stamp_output_assay_run",
     "validate_output_assay_analysis_draft",
 ]
