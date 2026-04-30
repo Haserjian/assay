@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections import Counter
 from pathlib import Path
 
 FIXTURE_ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "output_assay"
@@ -47,6 +48,7 @@ ALLOWED_ARTIFACT_KINDS = {
 ALLOWED_RUN_DISPOSITIONS = {"pass", "warn", "block"}
 ALLOWED_COMPRESSION_BEHAVIORS = {"preserve", "compress", "quarantine"}
 ALLOWED_PROMOTION_SURFACES = {"observation_only", "claim_review_possible"}
+ALLOWED_MANIFEST_STATUSES = {"seed", "v0_complete"}
 ALLOWED_UNIT_TYPES = {
     "claim",
     "constraint",
@@ -119,6 +121,17 @@ REQUIRED_UNIT_FIELDS = {
 }
 REQUIRED_PROMOTION_FIELDS = {"status", "reason"}
 
+MIN_ACTIVE_FIXTURE_COUNT = 20
+MIN_CATEGORY_COUNTS = {
+    "positive_control": 5,
+    "negative_control": 5,
+    "mixed_quality": 5,
+    "business_artifact": 3,
+    "non_claim_artifact": 2,
+}
+RHETORICAL_PADDING_FAILURE_MODES = {"rhetorical_padding", "redundancy_padding"}
+SUPPORT_GAP_FAILURE_MODES = {"support_gap", "unearned_confidence"}
+
 
 def _load_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
@@ -162,6 +175,21 @@ def _fixture_directories() -> set[str]:
     return dirs
 
 
+def _load_fixture_corpus() -> list[tuple[dict, dict, dict]]:
+    manifest = _load_manifest()
+    corpus: list[tuple[dict, dict, dict]] = []
+    for entry in manifest["fixtures"]:
+        fixture_dir = FIXTURE_ROOT / entry["path"]
+        corpus.append(
+            (
+                entry,
+                _load_json(fixture_dir / "fixture.json"),
+                _load_json(fixture_dir / "expected_run.json"),
+            )
+        )
+    return corpus
+
+
 def test_manifest_and_category_directories_exist() -> None:
     manifest = _load_manifest()
 
@@ -169,7 +197,7 @@ def test_manifest_and_category_directories_exist() -> None:
     assert (FIXTURE_ROOT / "README.md").exists()
     assert MANIFEST_PATH.exists()
     assert manifest["schema_version"] == "0.1"
-    assert manifest["status"] == "seed"
+    assert manifest["status"] in ALLOWED_MANIFEST_STATUSES
     assert manifest["fixture_root"] == "tests/fixtures/output_assay"
     assert set(manifest["categories"]) == ALLOWED_DIRECTORY_CATEGORIES
 
@@ -315,3 +343,140 @@ def test_expected_run_contract() -> None:
                 assert "reasons" not in promotion_eligibility
 
         assert guardian_verdict["observation_counts"] == status_counts
+
+
+def test_calibration_completeness_gate() -> None:
+    manifest = _load_manifest()
+    active_corpus = [
+        corpus_entry
+        for corpus_entry in _load_fixture_corpus()
+        if corpus_entry[0]["status"] == "active"
+    ]
+    category_counts = Counter(entry["category"] for entry, _, _ in active_corpus)
+    run_statuses: set[str] = set()
+    invalid_promotion_units: list[tuple[str, str, str]] = []
+    blocked_run_promotion_units: list[tuple[str, str]] = []
+
+    has_clean_positive_pass = False
+    has_rhetorical_padding_negative = False
+    has_support_gap_coverage = False
+    has_mixed_claim_and_non_claim = False
+    has_non_claim_observation_without_promotion = False
+
+    for entry, fixture, expected_run in active_corpus:
+        guardian_verdict = expected_run["guardian_verdict"]
+        observed_units = expected_run["observed_units"]
+        failure_modes = set(fixture["expected_failure_modes"]) | set(
+            guardian_verdict["failure_modes"]
+        )
+        run_status = guardian_verdict["run_status"]
+        run_statuses.add(run_status)
+
+        if (
+            entry["category"] == "positive_control"
+            and run_status == "pass"
+            and expected_run["compression"]["status"] == "preserve"
+            and not guardian_verdict["failure_modes"]
+        ):
+            has_clean_positive_pass = True
+
+        if entry["category"] == "negative_control" and (
+            failure_modes & RHETORICAL_PADDING_FAILURE_MODES
+        ):
+            has_rhetorical_padding_negative = True
+
+        if failure_modes & SUPPORT_GAP_FAILURE_MODES:
+            has_support_gap_coverage = True
+
+        if (
+            entry["category"] == "mixed_quality"
+            and any(
+                observed_unit["unit_type"] == "claim"
+                for observed_unit in observed_units
+            )
+            and any(
+                observed_unit["unit_type"] != "claim"
+                for observed_unit in observed_units
+            )
+        ):
+            has_mixed_claim_and_non_claim = True
+
+        if (
+            entry["category"] == "non_claim_artifact"
+            and observed_units
+            and any(
+                observed_unit["observation_status"]
+                in {"guardian_passed", "guardian_warned"}
+                for observed_unit in observed_units
+            )
+            and all(
+                observed_unit["promotion_eligibility"]["status"] == "ineligible"
+                for observed_unit in observed_units
+            )
+        ):
+            has_non_claim_observation_without_promotion = True
+
+        for observed_unit in observed_units:
+            promotion_status = observed_unit["promotion_eligibility"]["status"]
+
+            if observed_unit["unit_type"] != "claim" and promotion_status == "eligible":
+                invalid_promotion_units.append(
+                    (entry["fixture_id"], observed_unit["unit_id"], "non_claim_unit")
+                )
+
+            if (
+                observed_unit["observation_status"] == "guardian_blocked"
+                and promotion_status == "eligible"
+            ):
+                invalid_promotion_units.append(
+                    (
+                        entry["fixture_id"],
+                        observed_unit["unit_id"],
+                        "guardian_blocked",
+                    )
+                )
+
+            if run_status == "block" and promotion_status == "eligible":
+                blocked_run_promotion_units.append(
+                    (entry["fixture_id"], observed_unit["unit_id"])
+                )
+
+    completeness_checks = {
+        "minimum_active_fixture_count": len(active_corpus) >= MIN_ACTIVE_FIXTURE_COUNT,
+        "minimum_positive_controls": (
+            category_counts["positive_control"]
+            >= MIN_CATEGORY_COUNTS["positive_control"]
+        ),
+        "minimum_negative_controls": (
+            category_counts["negative_control"]
+            >= MIN_CATEGORY_COUNTS["negative_control"]
+        ),
+        "minimum_mixed_quality": (
+            category_counts["mixed_quality"] >= MIN_CATEGORY_COUNTS["mixed_quality"]
+        ),
+        "minimum_business_artifacts": (
+            category_counts["business_artifact"]
+            >= MIN_CATEGORY_COUNTS["business_artifact"]
+        ),
+        "minimum_non_claim_artifacts": (
+            category_counts["non_claim_artifact"]
+            >= MIN_CATEGORY_COUNTS["non_claim_artifact"]
+        ),
+        "has_clean_positive_pass": has_clean_positive_pass,
+        "has_rhetorical_padding_negative": has_rhetorical_padding_negative,
+        "has_support_gap_coverage": has_support_gap_coverage,
+        "has_mixed_claim_and_non_claim": has_mixed_claim_and_non_claim,
+        "has_non_claim_observation_without_promotion": (
+            has_non_claim_observation_without_promotion
+        ),
+        "has_block_disposition": "block" in run_statuses,
+        "has_warn_disposition": "warn" in run_statuses,
+        "has_pass_disposition": "pass" in run_statuses,
+    }
+
+    assert all(completeness_checks.values()), completeness_checks
+    assert not invalid_promotion_units, invalid_promotion_units
+    assert not blocked_run_promotion_units, blocked_run_promotion_units
+
+    if manifest["status"] == "v0_complete":
+        assert all(completeness_checks.values()), completeness_checks
