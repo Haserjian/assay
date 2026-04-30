@@ -47,6 +47,12 @@
             "path": "business_artifacts/oa_302_decision_memo_mixed"
         },
         {
+            "fixture_id": "oa_303_business_insight_brief_mixed",
+            "category": "business_artifact",
+            "status": "active",
+            "path": "business_artifacts/oa_303_business_insight_brief_mixed"
+        },
+        {
             "fixture_id": "oa_401_support_note",
             "category": "non_claim_artifact",
             "status": "active",
