@@ -35,6 +35,12 @@
             "path": "positive_controls/oa_004_observation_not_assertion_boundary"
         },
         {
+            "fixture_id": "oa_005_verification_order_plan",
+            "category": "positive_control",
+            "status": "active",
+            "path": "positive_controls/oa_005_verification_order_plan"
+        },
+        {
             "fixture_id": "oa_101_output_assay_duplicate_spec",
             "category": "negative_control",
             "status": "active",
@@ -59,6 +65,12 @@
             "path": "negative_controls/oa_104_author_judgment_bait"
         },
         {
+            "fixture_id": "oa_105_failed_extraction_refusal",
+            "category": "negative_control",
+            "status": "active",
+            "path": "negative_controls/oa_105_failed_extraction_refusal"
+        },
+        {
             "fixture_id": "oa_201_claim_like_example",
             "category": "mixed_quality",
             "status": "active",
@@ -81,6 +93,12 @@
             "category": "mixed_quality",
             "status": "active",
             "path": "mixed_quality/oa_204_ambiguous_stance_argument"
+        },
+        {
+            "fixture_id": "oa_205_verify_status_boundary",
+            "category": "mixed_quality",
+            "status": "active",
+            "path": "mixed_quality/oa_205_verify_status_boundary"
         },
         {
             "fixture_id": "oa_301_status_update_mixed",
