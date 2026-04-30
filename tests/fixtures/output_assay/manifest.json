@@ -29,6 +29,12 @@
             "path": "positive_controls/oa_003_compiled_packet_claim_bindings"
         },
         {
+            "fixture_id": "oa_004_observation_not_assertion_boundary",
+            "category": "positive_control",
+            "status": "active",
+            "path": "positive_controls/oa_004_observation_not_assertion_boundary"
+        },
+        {
             "fixture_id": "oa_101_output_assay_duplicate_spec",
             "category": "negative_control",
             "status": "active",

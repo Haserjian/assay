@@ -1,0 +1,21 @@
+{
+    "fixture_id": "oa_004_observation_not_assertion_boundary",
+    "title": "Positive control derived from the observation-not-assertion boundary",
+    "status": "active",
+    "category": "positive_control",
+    "artifact_kind": "spec_proposal",
+    "artifact_path": "artifact.md",
+    "artifact_hash": "sha256:a52e9e2a44a4892706d0b76598bd2b5a5a324e68e1140cd263894ce9c2323e8f",
+    "declared_intent_class": "argument",
+    "expected_run_disposition": "pass",
+    "expected_failure_modes": [],
+    "expected_compression_behavior": "preserve",
+    "promotion_surface": "claim_review_possible",
+    "labels": [
+        "seed",
+        "positive_control",
+        "reconciliation_spec",
+        "argument"
+    ],
+    "notes": "Anchored reconciliation-spec claims that cleanly separate witness-layer observation from kernel assertion and promotion."
+}
