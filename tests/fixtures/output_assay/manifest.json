@@ -35,6 +35,12 @@
             "path": "mixed_quality/oa_201_claim_like_example"
         },
         {
+            "fixture_id": "oa_202_partial_evidence_brief",
+            "category": "mixed_quality",
+            "status": "active",
+            "path": "mixed_quality/oa_202_partial_evidence_brief"
+        },
+        {
             "fixture_id": "oa_301_status_update_mixed",
             "category": "business_artifact",
             "status": "active",
