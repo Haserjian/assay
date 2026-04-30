@@ -1,9 +1,11 @@
 # Assay
 
-**Portable, independently verifiable evidence packs for AI decisions.**
+**Receipts for agent work.**
 
-For audits, regulated sales, and incidents, Assay turns AI runs into signed
-proof packs another party can verify offline.
+Assay records selected agent/runtime actions as structured evidence: what was
+claimed, what checked it, and what receipt was produced. For audits,
+regulated sales, and incidents, those receipts can be packaged into signed
+proof packs another team can verify offline.
 
 ![assay demo-challenge](demo.gif)
 
@@ -34,10 +36,10 @@ assay demo-challenge
 - **[Verify a proof pack in your browser](https://haserjian.github.io/assay-proof-gallery/verify.html)** — no install, no account
 - **[See the Article 11 / Annex IV working map](https://github.com/Haserjian/assay-protocol/blob/main/ARTICLE11_ANNEXIV_MAPPING.md)** — where proof packs help in a technical documentation packet
 - **MCP demo:** `assay try-mcp` — MCP tool calls with signed receipts (30 seconds)
-- **OpenClaw demo:** `assay try-openclaw` — deterministic subprocess-membrane demo + receipt adapter + signed proof pack
 - **[See the before/after specimen](https://github.com/Haserjian/assay-proof-gallery/tree/main/gallery/07-contested-decision)** — contested decision, reconstruction vs verification
 
-Assay turns AI runs into signed proof packs another team can verify offline.
+Those receipts can be packaged into signed proof packs another team can
+verify offline.
 It makes tampering visible and preserves honest failure.
 
 ---
@@ -710,15 +712,12 @@ Restart your shell after installing. Tab completion works for all commands and o
 - **Developers** — scan existing code, instrument LLM calls, get a signed artifact per run
 - **Security and CI teams** — gate on evidence quality, fail builds without tamper-evident proof packs
 - **MCP and agent operators** — `assay try-mcp`, transparent MCP proxy, per-tool-call receipts
-- **OpenClaw operators** — subprocess membrane + receipt adapter for selected tool actions and exported session logs; proof-pack verification of emitted evidence
 - **Auditors, compliance teams, and reviewers** — offline verification, reviewer packets, HTML evidence reports
 
 ## Documentation
 
 - **[Start Here](docs/START_HERE.md) -- 6 steps from install to evidence in CI**
 - [Evidence Packets](docs/reviewer-packets.md) -- compile, verify, and hand off reviewer-ready evidence packets
-- [OpenClaw v1 Claim Sheet](docs/openclaw-v1-claim-sheet.md) -- tight public claim: proofs, non-proofs, trust assumptions, and required artifacts
-- [OpenClaw Support](docs/openclaw-support.md) -- current supported posture, proof boundary, and non-goals for OpenClaw integrations
 - [What Assay Does Today](docs/WHAT_ASSAY_DOES_TODAY.md) -- the plain-language founder memo
 - [Boundary Map](docs/BOUNDARY_MAP.md) -- repo roles across Assay and related internal tools
 - [Full Picture](docs/FULL_PICTURE.md) -- architecture, trust tiers, repo boundaries, release history
@@ -729,6 +728,14 @@ Restart your shell after installing. Tab completion works for all commands and o
 - [Roadmap](docs/ROADMAP.md) -- phases, product boundary, execution stack
 - [Repo Map](docs/REPO_MAP.md) -- what lives where across the Assay ecosystem
 - [Pilot Program](docs/PILOT_PROGRAM.md) -- early adopter program details
+
+### Example integration: OpenClaw
+
+OpenClaw is one integration/runtime surface, not a dependency, scope boundary,
+or main product.
+
+- **OpenClaw demo:** `assay try-openclaw` — deterministic subprocess-membrane demo + receipt adapter + signed proof pack
+- [OpenClaw v1 Claim Sheet](docs/openclaw-v1-claim-sheet.md) -- tight public claim: proofs, non-proofs, trust assumptions, and required artifacts
 
 ## Common Issues
 
