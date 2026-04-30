@@ -13,6 +13,8 @@ One byte changed. Verification fails. No server call. Just math.
 
 Receipts are forwardable, offline-verifiable, and tamper-evident.
 
+Not blockchain. Not cryptocurrency. Just signed, inspectable AI evidence.
+
 ### Install
 
 ```bash
