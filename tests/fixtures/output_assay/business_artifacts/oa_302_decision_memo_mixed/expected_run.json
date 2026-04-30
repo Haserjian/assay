@@ -1,0 +1,110 @@
+{
+    "fixture_id": "oa_302_decision_memo_mixed",
+    "input_hash": "sha256:dea72cc4991c3690f0297955f3685e5cfeeb294722b157def9dc522c7d60f8f9",
+    "intent_class": "decision_memo",
+    "summary": "The decision memo carries one promotable factual claim, one warned overconfident strategic claim, and a directive plus commitment that pass Guardian but are not promotable as kernel claims.",
+    "observed_units": [
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_302_u001",
+            "unit_type": "claim",
+            "source_role": "assertion",
+            "artifact_span": {
+                "text": "The Output Assay calibration corpus reached seven fixtures across five categories before this commit.",
+                "start_char": 0,
+                "end_char": 101
+            },
+            "normalized_text": "The Output Assay calibration corpus reached seven fixtures across five categories before this commit.",
+            "observation_status": "guardian_passed",
+            "promotion_eligibility": {
+                "status": "eligible",
+                "reason": "claim_unit_with_clean_provenance"
+            }
+        },
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_302_u002",
+            "unit_type": "claim",
+            "source_role": "assertion",
+            "artifact_span": {
+                "text": "This will obviously become the standard cross-team review tool by Q4.",
+                "start_char": 102,
+                "end_char": 171
+            },
+            "normalized_text": "This will obviously become the standard cross-team review tool by Q4.",
+            "observation_status": "guardian_warned",
+            "promotion_eligibility": {
+                "status": "ineligible",
+                "reason": "support_gap_requires_review",
+                "reasons": [
+                    "unearned_confidence",
+                    "support_gap_requires_review"
+                ]
+            }
+        },
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_302_u003",
+            "unit_type": "decision",
+            "source_role": "assertion",
+            "artifact_span": {
+                "text": "Decision: Calibrate Output Assay to seed status only until the corpus reaches twenty fixtures.",
+                "start_char": 172,
+                "end_char": 266
+            },
+            "normalized_text": "Decision: Calibrate Output Assay to seed status only until the corpus reaches twenty fixtures.",
+            "observation_status": "guardian_passed",
+            "promotion_eligibility": {
+                "status": "ineligible",
+                "reason": "non_claim_unit",
+                "reasons": [
+                    "non_claim_unit"
+                ]
+            }
+        },
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_302_u004",
+            "unit_type": "commitment",
+            "source_role": "assertion",
+            "artifact_span": {
+                "text": "Commitment: Land oa_302 and oa_303 before introducing any model integration.",
+                "start_char": 267,
+                "end_char": 343
+            },
+            "normalized_text": "Commitment: Land oa_302 and oa_303 before introducing any model integration.",
+            "observation_status": "guardian_passed",
+            "promotion_eligibility": {
+                "status": "ineligible",
+                "reason": "non_claim_unit",
+                "reasons": [
+                    "non_claim_unit"
+                ]
+            }
+        }
+    ],
+    "guardian_verdict": {
+        "run_status": "warn",
+        "observation_counts": {
+            "guardian_passed": 3,
+            "guardian_warned": 1,
+            "guardian_blocked": 0
+        },
+        "failure_modes": [
+            "unearned_confidence"
+        ],
+        "warnings": [
+            "support_gap_present"
+        ],
+        "block_reasons": []
+    },
+    "compression": {
+        "status": "preserve",
+        "compressed_summary": "The memo decides to keep Output Assay in seed status until twenty fixtures, supported by one promotable factual claim, while a separate strategic prediction is warned for unearned confidence."
+    },
+    "truth_verification": {
+        "performed": false,
+        "tier": "internal_support_only",
+        "notes": "Calibration validates observation behavior and internal support only, not external truth."
+    }
+}
