@@ -41,6 +41,12 @@
             "path": "negative_controls/oa_102_unanchorable_extraction"
         },
         {
+            "fixture_id": "oa_103_prompt_injection_bait",
+            "category": "negative_control",
+            "status": "active",
+            "path": "negative_controls/oa_103_prompt_injection_bait"
+        },
+        {
             "fixture_id": "oa_201_claim_like_example",
             "category": "mixed_quality",
             "status": "active",
