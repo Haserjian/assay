@@ -208,7 +208,7 @@ def test_expected_run_contract() -> None:
         truth_verification = expected_run["truth_verification"]
         observed_units = expected_run["observed_units"]
 
-        assert REQUIRED_RUN_FIELDS <= set(expected_run), entry["fixture_id"]
+        assert set(expected_run) == REQUIRED_RUN_FIELDS, entry["fixture_id"]
         assert expected_run["fixture_id"] == fixture["fixture_id"]
         assert expected_run["input_hash"] == fixture["artifact_hash"]
         assert expected_run["intent_class"] == fixture["declared_intent_class"]
