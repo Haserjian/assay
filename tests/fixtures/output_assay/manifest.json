@@ -23,6 +23,12 @@
             "path": "negative_controls/oa_101_output_assay_duplicate_spec"
         },
         {
+            "fixture_id": "oa_102_unanchorable_extraction",
+            "category": "negative_control",
+            "status": "active",
+            "path": "negative_controls/oa_102_unanchorable_extraction"
+        },
+        {
             "fixture_id": "oa_201_claim_like_example",
             "category": "mixed_quality",
             "status": "active",

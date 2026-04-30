@@ -73,6 +73,10 @@ tests/fixtures/output_assay/
       artifact.md
       fixture.json
       expected_run.json
+    oa_102_unanchorable_extraction/
+      artifact.md
+      fixture.json
+      expected_run.json
   mixed_quality/
     oa_201_architecture_answer/
       artifact.md
@@ -178,6 +182,10 @@ Lifecycle note:
   current validator run.
 - An active fixture is not a claim that Output Assay is production-ready; it
   only means the fixture is included in the current calibration contract.
+- During `manifest.status = seed`, `failure_modes` remain open-set
+  calibration vocabulary.
+- Before the corpus graduates out of `seed`, recurring `failure_modes` should
+  be consolidated into canonical failure-mode vocabulary.
 
 ## Expected Observed Unit Schema
 
@@ -201,9 +209,15 @@ Minimum expected unit shape:
   },
   "normalized_text": "...",
   "observation_status": "draft | guardian_passed | guardian_warned | guardian_blocked",
+  "anchoring_expectation": "anchored | unanchorable",
+  "anchoring_notes": "Future validator target for span or byte anchoring when applicable.",
   "promotion_eligibility": {
     "status": "eligible | ineligible",
-    "reason": "claim_unit_with_clean_provenance"
+    "reason": "claim_unit_with_clean_provenance",
+    "reasons": [
+      "unanchorable_extraction",
+      "invented_span"
+    ]
   }
 }
 ```
@@ -221,6 +235,11 @@ Required expected-unit fields in v0:
 - `observation_status`
 - `promotion_eligibility`
 
+Optional expected-unit fields in v0:
+
+- `anchoring_expectation`
+- `anchoring_notes`
+
 Rules:
 
 - Every expected unit must include exact span text, not only character ranges.
@@ -232,6 +251,13 @@ Rules:
 - `guardian_blocked` means the unit is not usable for promotion in v0.
 - If an observation is `guardian_blocked`, its `promotion_eligibility.status`
   must be `ineligible`.
+- `anchoring_expectation` is structural in v0. It records whether the fixture
+  expects normal span anchoring or expects the observation to fail anchoring.
+- Exact span-to-artifact membership and byte-bound checks are future validator
+  work. The v0 contract may represent those expectations without enforcing them
+  semantically yet.
+- If `anchoring_expectation = unanchorable`, the observation should be
+  `guardian_blocked` and promotion-ineligible.
 
 ## Expected Guardian Verdict Schema
 
@@ -294,6 +320,10 @@ Draft shape:
   "promotion_eligibility": {
     "status": "eligible | ineligible",
     "reason": "claim_unit_with_clean_provenance",
+    "reasons": [
+      "missing_provenance",
+      "guardian_blocked"
+    ],
     "requires": [
       "unit_type=claim",
       "observation_status!=guardian_blocked",
@@ -320,6 +350,9 @@ Recommended ineligibility reasons:
 - `non_claim_unit`
 - `guardian_blocked`
 - `missing_provenance`
+- `unanchorable_extraction`
+- `invented_span`
+- `receipt_gap`
 - `source_role_not_assertive`
 - `support_gap_requires_review`
 - `observation_status_warned_requires_operator_judgment`
@@ -409,6 +442,25 @@ Calibration fixtures are part of the spec surface.
   not drift silently.
 - Temporary analyzer regressions must not be resolved by weakening fixture
   expectations unless the spec changes first.
+
+## Failure-Mode Vocabulary Lifecycle
+
+Failure-mode strings are governed by manifest status.
+
+- During `manifest.status = "seed"`, `expected_failure_modes` is open-set
+  calibration vocabulary. Fixtures may introduce new failure-mode strings
+  (e.g. `unanchorable_extraction`, `invented_span`, `receipt_gap`) without a
+  prior canonical enum.
+- Before corpus promotion out of `seed` status, recurring failure modes must
+  be consolidated into a canonical vocabulary and enumerated in the spec.
+  Synonyms must be merged. Single-occurrence strings should be reviewed for
+  retention or removal.
+- After consolidation, fixture-level introduction of new failure-mode strings
+  requires an explicit spec update, matching the rename rule above.
+
+This preserves calibration agility during seed while preventing noun
+collision and silent vocabulary drift before the corpus is treated as
+authoritative.
 
 ## Open Questions
 

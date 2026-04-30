@@ -73,6 +73,7 @@ ALLOWED_OBSERVATION_STATUSES = {
     "guardian_warned",
     "guardian_blocked",
 }
+ALLOWED_ANCHORING_EXPECTATIONS = {"anchored", "unanchorable"}
 ALLOWED_PROMOTION_STATUSES = {"eligible", "ineligible"}
 
 REQUIRED_FIXTURE_FIELDS = {
@@ -238,6 +239,15 @@ def test_expected_run_contract() -> None:
             assert isinstance(observed_unit["normalized_text"], str)
             assert observed_unit["normalized_text"]
 
+            if "anchoring_expectation" in observed_unit:
+                assert (
+                    observed_unit["anchoring_expectation"]
+                    in ALLOWED_ANCHORING_EXPECTATIONS
+                )
+            if "anchoring_notes" in observed_unit:
+                assert isinstance(observed_unit["anchoring_notes"], str)
+                assert observed_unit["anchoring_notes"]
+
             artifact_span = observed_unit["artifact_span"]
             assert set(artifact_span) == {"text", "start_char", "end_char"}
             assert isinstance(artifact_span["text"], str) and artifact_span["text"]
@@ -250,6 +260,13 @@ def test_expected_run_contract() -> None:
             assert promotion_eligibility["status"] in ALLOWED_PROMOTION_STATUSES
             assert isinstance(promotion_eligibility["reason"], str)
             assert promotion_eligibility["reason"]
+            if "reasons" in promotion_eligibility:
+                assert isinstance(promotion_eligibility["reasons"], list)
+                assert promotion_eligibility["reasons"]
+                assert all(
+                    isinstance(reason, str) and reason
+                    for reason in promotion_eligibility["reasons"]
+                )
 
             if observed_unit["observation_status"] != "draft":
                 status_counts[observed_unit["observation_status"]] += 1
@@ -260,8 +277,16 @@ def test_expected_run_contract() -> None:
             if observed_unit["observation_status"] == "guardian_blocked":
                 assert promotion_eligibility["status"] == "ineligible"
 
+            if observed_unit.get("anchoring_expectation") == "unanchorable":
+                assert observed_unit["observation_status"] == "guardian_blocked"
+                assert promotion_eligibility["status"] == "ineligible"
+
+            if guardian_verdict["run_status"] == "block":
+                assert promotion_eligibility["status"] == "ineligible"
+
             if promotion_eligibility["status"] == "eligible":
                 assert observed_unit["unit_type"] == "claim"
                 assert observed_unit["observation_status"] != "guardian_blocked"
+                assert "reasons" not in promotion_eligibility
 
         assert guardian_verdict["observation_counts"] == status_counts
