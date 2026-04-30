@@ -9,18 +9,21 @@ from assay.output_assay.analyzer import (
     stamp_output_assay_run,
     validate_output_assay_analysis_draft,
 )
+from assay.output_assay.guardian import guardian_validate_output_assay_run
 from assay.output_assay.models import (
     ArtifactSpanDraft,
     IntentClass,
     ObservationStatus,
     ObserverKind,
     OutputAssayAnalysisDraft,
+    OutputAssayGuardianVerdict,
     OutputAssayObservedUnit,
     OutputAssayObservedUnitDraft,
     OutputAssayObserver,
     OutputAssayPromotionEligibility,
     OutputAssayRunEnvelope,
     PromotionEligibilityStatus,
+    RunDisposition,
     SourceRole,
     UnitType,
 )
@@ -42,8 +45,11 @@ __all__ = [
     "SourceRole",
     "UnitType",
     "compute_output_assay_artifact_hash",
+    "guardian_validate_output_assay_run",
     "output_assay_analysis_draft_schema",
     "output_assay_analysis_draft_schema_errors",
     "stamp_output_assay_run",
     "validate_output_assay_analysis_draft",
+    "OutputAssayGuardianVerdict",
+    "RunDisposition",
 ]

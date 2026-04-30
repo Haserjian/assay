@@ -60,6 +60,12 @@ class PromotionEligibilityStatus(str, Enum):
     INELIGIBLE = "ineligible"
 
 
+class RunDisposition(str, Enum):
+    PASS = "pass"
+    WARN = "warn"
+    BLOCK = "block"
+
+
 class ArtifactSpanDraft(BaseModel):
     model_config = ConfigDictLike(extra="forbid", protected_namespaces=())
 
@@ -150,6 +156,31 @@ class OutputAssayPromotionEligibility(BaseModel):
         return self
 
 
+class OutputAssayGuardianVerdict(BaseModel):
+    model_config = ConfigDictLike(extra="forbid", protected_namespaces=())
+
+    run_status: RunDisposition
+    observation_counts: dict[str, int]
+    failure_modes: list[str]
+    warnings: list[str]
+    block_reasons: list[str]
+
+    @model_validator(mode="after")
+    def _validate_observation_counts(self) -> "OutputAssayGuardianVerdict":
+        expected_keys = {
+            ObservationStatus.GUARDIAN_PASSED.value,
+            ObservationStatus.GUARDIAN_WARNED.value,
+            ObservationStatus.GUARDIAN_BLOCKED.value,
+        }
+        if set(self.observation_counts) != expected_keys:
+            raise ValueError(
+                "guardian_verdict.observation_counts must track passed, warned, and blocked observations"
+            )
+        if any(count < 0 for count in self.observation_counts.values()):
+            raise ValueError("guardian_verdict.observation_counts values must be >= 0")
+        return self
+
+
 class OutputAssayObservedUnit(BaseModel):
     model_config = ConfigDictLike(extra="forbid", protected_namespaces=())
 
@@ -190,6 +221,7 @@ class OutputAssayRunEnvelope(BaseModel):
     intent_class: IntentClass
     summary: str
     observed_units: list[OutputAssayObservedUnit]
+    guardian_verdict: OutputAssayGuardianVerdict | None = None
 
     @model_validator(mode="after")
     def _validate_run_envelope(self) -> "OutputAssayRunEnvelope":
@@ -208,6 +240,42 @@ class OutputAssayRunEnvelope(BaseModel):
                 raise ValueError(
                     "observed_units artifact_hash must match run artifact_hash"
                 )
+        if self.guardian_verdict is not None:
+            status_counts = {
+                ObservationStatus.GUARDIAN_PASSED.value: 0,
+                ObservationStatus.GUARDIAN_WARNED.value: 0,
+                ObservationStatus.GUARDIAN_BLOCKED.value: 0,
+            }
+            for observed_unit in self.observed_units:
+                if observed_unit.observation_status == ObservationStatus.DRAFT:
+                    continue
+                status_counts[observed_unit.observation_status.value] += 1
+
+            if self.guardian_verdict.observation_counts != status_counts:
+                raise ValueError(
+                    "guardian_verdict.observation_counts must match observed unit statuses"
+                )
+
+            expected_run_status = RunDisposition.PASS
+            if status_counts[ObservationStatus.GUARDIAN_BLOCKED.value] > 0:
+                expected_run_status = RunDisposition.BLOCK
+            elif status_counts[ObservationStatus.GUARDIAN_WARNED.value] > 0:
+                expected_run_status = RunDisposition.WARN
+
+            if self.guardian_verdict.run_status != expected_run_status:
+                raise ValueError(
+                    "guardian_verdict.run_status must match observed unit statuses"
+                )
+
+            if self.guardian_verdict.run_status == RunDisposition.BLOCK:
+                if any(
+                    observed_unit.promotion_eligibility.status
+                    == PromotionEligibilityStatus.ELIGIBLE
+                    for observed_unit in self.observed_units
+                ):
+                    raise ValueError(
+                        "blocked runs must not contain promotion-eligible observations"
+                    )
         return self
 
 
@@ -216,6 +284,7 @@ __all__ = [
     "IntentClass",
     "ObservationStatus",
     "OutputAssayAnalysisDraft",
+    "OutputAssayGuardianVerdict",
     "OutputAssayObservedUnit",
     "OutputAssayObservedUnitDraft",
     "OutputAssayObserver",
@@ -223,6 +292,7 @@ __all__ = [
     "OutputAssayRunEnvelope",
     "ObserverKind",
     "PromotionEligibilityStatus",
+    "RunDisposition",
     "SourceRole",
     "UnitType",
 ]

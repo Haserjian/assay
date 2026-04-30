@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from copy import deepcopy
 
 import pytest
 
@@ -11,7 +12,10 @@ from assay.output_assay import (
     OutputAssayAnalyzerScaffold,
     OutputAssayDraftValidationError,
     OutputAssayRunEnvelope,
+    PromotionEligibilityStatus,
+    RunDisposition,
     compute_output_assay_artifact_hash,
+    guardian_validate_output_assay_run,
     output_assay_analysis_draft_schema,
     stamp_output_assay_run,
     validate_output_assay_analysis_draft,
@@ -53,6 +57,76 @@ def _valid_payload() -> dict[str, object]:
 
 def _artifact_text() -> str:
     return "Observation is not assertion.\nAction: validate locally first.\n"
+
+
+def _non_assertive_payload() -> dict[str, object]:
+    return {
+        "intent_class": "technical_answer",
+        "summary": "The draft observes a quoted example without treating it as the artifact's own assertion.",
+        "observed_units": [
+            {
+                "unit_type": "claim",
+                "source_role": "example",
+                "artifact_span": {
+                    "text": '"This framework guarantees perfect safety."',
+                    "start_char": 0,
+                    "end_char": 43,
+                },
+                "normalized_text": "This framework guarantees perfect safety.",
+                "observation_confidence": 0.88,
+                "notes": "Quoted example stays observable but not assertive.",
+            }
+        ],
+    }
+
+
+def _non_assertive_artifact_text() -> str:
+    return '"This framework guarantees perfect safety."\n'
+
+
+def _support_gap_payload() -> dict[str, object]:
+    return {
+        "intent_class": "technical_answer",
+        "summary": "The draft contains one overconfident claim that should warn instead of pass.",
+        "observed_units": [
+            {
+                "unit_type": "claim",
+                "source_role": "assertion",
+                "artifact_span": {
+                    "text": "That guarantee means every reviewer will trust the artifact immediately.",
+                    "start_char": 0,
+                    "end_char": 72,
+                },
+                "normalized_text": "That guarantee means every reviewer will trust the artifact immediately.",
+                "observation_confidence": 0.93,
+                "notes": "Overclaim should require support-gap review.",
+            }
+        ],
+    }
+
+
+def _support_gap_artifact_text() -> str:
+    return "That guarantee means every reviewer will trust the artifact immediately.\n"
+
+
+def _blocked_payload() -> dict[str, object]:
+    payload = deepcopy(_valid_payload())
+    payload["observed_units"] = [
+        payload["observed_units"][0],
+        {
+            "unit_type": "claim",
+            "source_role": "assertion",
+            "artifact_span": {
+                "text": "This hidden guarantee does not appear in the artifact.",
+                "start_char": 999,
+                "end_char": 1052,
+            },
+            "normalized_text": "This hidden guarantee does not appear in the artifact.",
+            "observation_confidence": 0.79,
+            "notes": "This should block because the span is unanchorable.",
+        },
+    ]
+    return payload
 
 
 def test_validate_output_assay_analysis_draft_accepts_valid_payload() -> None:
@@ -177,3 +251,170 @@ def test_output_assay_analyzer_scaffold_can_stamp_local_run() -> None:
 
     assert run.artifact_hash == compute_output_assay_artifact_hash(_artifact_text())
     assert run.summary == _valid_payload()["summary"]
+
+
+def test_guardian_validate_output_assay_run_passes_clean_assertive_claims() -> None:
+    stamped_run = stamp_output_assay_run(_artifact_text(), _valid_payload())
+
+    guarded_run = guardian_validate_output_assay_run(_artifact_text(), stamped_run)
+
+    assert guarded_run.guardian_verdict is not None
+    assert guarded_run.guardian_verdict.run_status == RunDisposition.PASS
+    assert guarded_run.guardian_verdict.observation_counts == {
+        "guardian_passed": 2,
+        "guardian_warned": 0,
+        "guardian_blocked": 0,
+    }
+    assert (
+        guarded_run.observed_units[0].observation_status
+        == ObservationStatus.GUARDIAN_PASSED
+    )
+    assert (
+        guarded_run.observed_units[0].promotion_eligibility.status
+        == PromotionEligibilityStatus.ELIGIBLE
+    )
+    assert (
+        guarded_run.observed_units[1].promotion_eligibility.reason == "non_claim_unit"
+    )
+
+
+def test_guardian_validate_output_assay_run_blocks_artifact_hash_mismatch() -> None:
+    stamped_run = stamp_output_assay_run(_artifact_text(), _valid_payload())
+
+    guarded_run = guardian_validate_output_assay_run(
+        "Different artifact text.\n",
+        stamped_run,
+    )
+
+    assert guarded_run.guardian_verdict is not None
+    assert guarded_run.guardian_verdict.run_status == RunDisposition.BLOCK
+    assert guarded_run.guardian_verdict.observation_counts == {
+        "guardian_passed": 0,
+        "guardian_warned": 0,
+        "guardian_blocked": 2,
+    }
+    assert guarded_run.guardian_verdict.failure_modes == ["receipt_gap"]
+    assert guarded_run.guardian_verdict.block_reasons == ["artifact_hash_mismatch"]
+    assert all(
+        observed_unit.observation_status == ObservationStatus.GUARDIAN_BLOCKED
+        for observed_unit in guarded_run.observed_units
+    )
+    assert all(
+        observed_unit.promotion_eligibility.status
+        == PromotionEligibilityStatus.INELIGIBLE
+        for observed_unit in guarded_run.observed_units
+    )
+    assert all(
+        observed_unit.promotion_eligibility.reason == "receipt_gap"
+        for observed_unit in guarded_run.observed_units
+    )
+    assert all(
+        observed_unit.promotion_eligibility.reasons == ["receipt_gap"]
+        for observed_unit in guarded_run.observed_units
+    )
+
+
+def test_guardian_validate_output_assay_run_keeps_non_assertive_claim_ineligible() -> (
+    None
+):
+    stamped_run = stamp_output_assay_run(
+        _non_assertive_artifact_text(),
+        _non_assertive_payload(),
+    )
+
+    guarded_run = guardian_validate_output_assay_run(
+        _non_assertive_artifact_text(),
+        stamped_run,
+    )
+
+    assert guarded_run.guardian_verdict is not None
+    assert guarded_run.guardian_verdict.run_status == RunDisposition.PASS
+    assert (
+        guarded_run.observed_units[0].observation_status
+        == ObservationStatus.GUARDIAN_PASSED
+    )
+    assert (
+        guarded_run.observed_units[0].promotion_eligibility.status
+        == PromotionEligibilityStatus.INELIGIBLE
+    )
+    assert (
+        guarded_run.observed_units[0].promotion_eligibility.reason
+        == "source_role_not_assertive"
+    )
+
+
+def test_guardian_validate_output_assay_run_warns_support_gap_claims() -> None:
+    stamped_run = stamp_output_assay_run(
+        _support_gap_artifact_text(),
+        _support_gap_payload(),
+    )
+
+    guarded_run = guardian_validate_output_assay_run(
+        _support_gap_artifact_text(),
+        stamped_run,
+    )
+
+    assert guarded_run.guardian_verdict is not None
+    assert guarded_run.guardian_verdict.run_status == RunDisposition.WARN
+    assert guarded_run.guardian_verdict.failure_modes == ["unearned_confidence"]
+    assert guarded_run.guardian_verdict.warnings == ["support_gap_present"]
+    assert (
+        guarded_run.observed_units[0].observation_status
+        == ObservationStatus.GUARDIAN_WARNED
+    )
+    assert (
+        guarded_run.observed_units[0].promotion_eligibility.reason
+        == "support_gap_requires_review"
+    )
+    assert guarded_run.observed_units[0].promotion_eligibility.reasons == [
+        "unearned_confidence",
+        "support_gap_requires_review",
+    ]
+
+
+def test_guardian_validate_output_assay_run_blocks_unanchorable_spans_and_closes_promotion() -> (
+    None
+):
+    stamped_run = stamp_output_assay_run(_artifact_text(), _blocked_payload())
+
+    guarded_run = guardian_validate_output_assay_run(_artifact_text(), stamped_run)
+
+    assert guarded_run.guardian_verdict is not None
+    assert guarded_run.guardian_verdict.run_status == RunDisposition.BLOCK
+    assert guarded_run.guardian_verdict.failure_modes == [
+        "unanchorable_extraction",
+        "invented_span",
+        "receipt_gap",
+    ]
+    assert guarded_run.guardian_verdict.block_reasons == [
+        "blocked_observation_not_traceable_to_artifact"
+    ]
+    assert (
+        guarded_run.observed_units[1].observation_status
+        == ObservationStatus.GUARDIAN_BLOCKED
+    )
+    assert (
+        guarded_run.observed_units[1].promotion_eligibility.reason
+        == "unanchorable_extraction"
+    )
+    assert guarded_run.observed_units[1].promotion_eligibility.reasons == [
+        "unanchorable_extraction",
+        "invented_span",
+        "receipt_gap",
+    ]
+    assert guarded_run.observed_units[0].promotion_eligibility.reason == "receipt_gap"
+    assert all(
+        observed_unit.promotion_eligibility.status
+        == PromotionEligibilityStatus.INELIGIBLE
+        for observed_unit in guarded_run.observed_units
+    )
+
+
+def test_output_assay_analyzer_scaffold_can_apply_guardian() -> None:
+    scaffold = OutputAssayAnalyzerScaffold()
+    stamped_run = scaffold.stamp_local_run(_artifact_text(), _valid_payload())
+
+    guarded_run = scaffold.apply_guardian(_artifact_text(), stamped_run)
+
+    assert guarded_run.guardian_verdict is not None
+    assert guarded_run.guardian_verdict.run_status == RunDisposition.PASS

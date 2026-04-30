@@ -15,6 +15,7 @@ from typing import Any
 from jsonschema.validators import validator_for
 from pydantic import ValidationError
 
+from assay.output_assay.guardian import guardian_validate_output_assay_run
 from assay.output_assay.models import (
     ObservationStatus,
     ObserverKind,
@@ -202,6 +203,13 @@ class OutputAssayAnalyzerScaffold:
             payload,
             observer=observer,
         )
+
+    def apply_guardian(
+        self,
+        artifact_text: str,
+        run: OutputAssayRunEnvelope,
+    ) -> OutputAssayRunEnvelope:
+        return guardian_validate_output_assay_run(artifact_text, run)
 
 
 __all__ = [
