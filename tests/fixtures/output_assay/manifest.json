@@ -39,6 +39,12 @@
             "category": "non_claim_artifact",
             "status": "active",
             "path": "non_claim_artifacts/oa_401_support_note"
+        },
+        {
+            "fixture_id": "oa_402_brainstorm",
+            "category": "non_claim_artifact",
+            "status": "active",
+            "path": "non_claim_artifacts/oa_402_brainstorm"
         }
     ]
 }
