@@ -17,6 +17,18 @@
             "path": "positive_controls/oa_001_clear_claim"
         },
         {
+            "fixture_id": "oa_002_kernel_constitutional_rules",
+            "category": "positive_control",
+            "status": "active",
+            "path": "positive_controls/oa_002_kernel_constitutional_rules"
+        },
+        {
+            "fixture_id": "oa_003_compiled_packet_claim_bindings",
+            "category": "positive_control",
+            "status": "active",
+            "path": "positive_controls/oa_003_compiled_packet_claim_bindings"
+        },
+        {
             "fixture_id": "oa_101_output_assay_duplicate_spec",
             "category": "negative_control",
             "status": "active",
