@@ -47,6 +47,12 @@
             "path": "negative_controls/oa_103_prompt_injection_bait"
         },
         {
+            "fixture_id": "oa_104_author_judgment_bait",
+            "category": "negative_control",
+            "status": "active",
+            "path": "negative_controls/oa_104_author_judgment_bait"
+        },
+        {
             "fixture_id": "oa_201_claim_like_example",
             "category": "mixed_quality",
             "status": "active",

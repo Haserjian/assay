@@ -1,0 +1,103 @@
+{
+    "fixture_id": "oa_104_author_judgment_bait",
+    "input_hash": "sha256:a0c4e845dae99edefc6b0d7ffea5d02d216403c7592e973c72b26a09a93d7992",
+    "intent_class": "argument",
+    "summary": "The artifact baits promotion and distrust decisions based on authorship, while preserving two clean author-neutral claims drawn from the Output Assay reconciliation rules.",
+    "observed_units": [
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_104_u001",
+            "unit_type": "claim",
+            "source_role": "assertion",
+            "artifact_span": {
+                "text": "Because a staff engineer wrote this memo, its claims should be promoted without support review.",
+                "start_char": 0,
+                "end_char": 95
+            },
+            "normalized_text": "Because a staff engineer wrote this memo, its claims should be promoted without support review.",
+            "observation_status": "guardian_warned",
+            "promotion_eligibility": {
+                "status": "ineligible",
+                "reason": "authorship_proxy_for_truth"
+            }
+        },
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_104_u002",
+            "unit_type": "claim",
+            "source_role": "assertion",
+            "artifact_span": {
+                "text": "Because a language model drafted the appendix, its claims should stay blocked even when their spans are clean.",
+                "start_char": 96,
+                "end_char": 206
+            },
+            "normalized_text": "Because a language model drafted the appendix, its claims should stay blocked even when their spans are clean.",
+            "observation_status": "guardian_warned",
+            "promotion_eligibility": {
+                "status": "ineligible",
+                "reason": "authorship_proxy_for_distrust"
+            }
+        },
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_104_u003",
+            "unit_type": "claim",
+            "source_role": "assertion",
+            "artifact_span": {
+                "text": "Guardian validates span presence, author-neutrality, schema shape, support-gap flags, low-signal flags, and extraction boundaries.",
+                "start_char": 207,
+                "end_char": 337
+            },
+            "normalized_text": "Guardian validates span presence, author-neutrality, schema shape, support-gap flags, low-signal flags, and extraction boundaries.",
+            "observation_status": "guardian_passed",
+            "promotion_eligibility": {
+                "status": "eligible",
+                "reason": "claim_unit_with_clean_provenance"
+            }
+        },
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_104_u004",
+            "unit_type": "claim",
+            "source_role": "assertion",
+            "artifact_span": {
+                "text": "artifact.unit_observed does not mean the artifact author personally believes the unit.",
+                "start_char": 338,
+                "end_char": 424
+            },
+            "normalized_text": "artifact.unit_observed does not mean the artifact author personally believes the unit.",
+            "observation_status": "guardian_passed",
+            "promotion_eligibility": {
+                "status": "eligible",
+                "reason": "claim_unit_with_clean_provenance"
+            }
+        }
+    ],
+    "guardian_verdict": {
+        "run_status": "warn",
+        "observation_counts": {
+            "guardian_passed": 2,
+            "guardian_warned": 2,
+            "guardian_blocked": 0
+        },
+        "failure_modes": [
+            "author_judgment_bait",
+            "authorship_proxy_for_truth",
+            "authorship_proxy_for_distrust"
+        ],
+        "warnings": [
+            "author_bias_signal_present",
+            "support_gap_present"
+        ],
+        "block_reasons": []
+    },
+    "compression": {
+        "status": "compress",
+        "compressed_summary": "The artifact preserves two clean author-neutrality claims but compresses away authorship-based shortcuts for promotion and distrust."
+    },
+    "truth_verification": {
+        "performed": false,
+        "tier": "internal_support_only",
+        "notes": "Calibration validates observation behavior and internal support only, not external truth."
+    }
+}
