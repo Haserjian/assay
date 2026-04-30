@@ -1,0 +1,38 @@
+{
+    "schema_version": "0.1",
+    "status": "seed",
+    "fixture_root": "tests/fixtures/output_assay",
+    "categories": [
+        "positive_controls",
+        "negative_controls",
+        "mixed_quality",
+        "business_artifacts",
+        "non_claim_artifacts"
+    ],
+    "fixtures": [
+        {
+            "fixture_id": "oa_001_clear_claim",
+            "category": "positive_control",
+            "status": "active",
+            "path": "positive_controls/oa_001_clear_claim"
+        },
+        {
+            "fixture_id": "oa_101_output_assay_duplicate_spec",
+            "category": "negative_control",
+            "status": "active",
+            "path": "negative_controls/oa_101_output_assay_duplicate_spec"
+        },
+        {
+            "fixture_id": "oa_201_claim_like_example",
+            "category": "mixed_quality",
+            "status": "active",
+            "path": "mixed_quality/oa_201_claim_like_example"
+        },
+        {
+            "fixture_id": "oa_401_support_note",
+            "category": "non_claim_artifact",
+            "status": "active",
+            "path": "non_claim_artifacts/oa_401_support_note"
+        }
+    ]
+}

@@ -1,0 +1,19 @@
+{
+    "fixture_id": "oa_201_claim_like_example",
+    "title": "Claim-like sentence carried as an example rather than an assertion",
+    "status": "active",
+    "category": "mixed_quality",
+    "artifact_path": "artifact.md",
+    "artifact_hash": "sha256:5832564c5c7d211c42e91db2e9c713941743058a9fa1e19c4dbd8e8b2b52a5af",
+    "declared_intent_class": "technical_answer",
+    "expected_run_disposition": "pass",
+    "expected_failure_modes": [],
+    "expected_compression_behavior": "preserve",
+    "promotion_surface": "observation_only",
+    "labels": [
+        "seed",
+        "mixed_quality",
+        "source_role_example"
+    ],
+    "notes": "The quoted sentence is claim-like content but must remain source_role=example and promotion-ineligible."
+}

@@ -1,0 +1,137 @@
+{
+    "fixture_id": "oa_101_output_assay_duplicate_spec",
+    "input_hash": "sha256:5392af860f2563a660da68b69a82ad917c0ce7c7e79a791566536794d43f0879",
+    "intent_class": "argument",
+    "summary": "The artifact argues for Output Assay through duplicated doctrine language, repeated claims, and high-confidence framing with limited internal support.",
+    "observed_units": [
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_101_u001",
+            "unit_type": "claim",
+            "source_role": "assertion",
+            "artifact_span": {
+                "text": "Output Assay evaluates any artifact: human, AI, committee, Slack thread, pitch deck, strategy memo, model response, whatever.",
+                "start_char": 89,
+                "end_char": 214
+            },
+            "normalized_text": "Output Assay evaluates any artifact: human, AI, committee, Slack thread, pitch deck, strategy memo, model response, whatever.",
+            "observation_status": "guardian_warned",
+            "promotion_eligibility": {
+                "status": "ineligible",
+                "reason": "insufficient_evidence"
+            }
+        },
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_101_u002",
+            "unit_type": "claim",
+            "source_role": "assertion",
+            "artifact_span": {
+                "text": "The system does not judge who wrote the text.",
+                "start_char": 216,
+                "end_char": 261
+            },
+            "normalized_text": "The system does not judge who wrote the text.",
+            "observation_status": "guardian_warned",
+            "promotion_eligibility": {
+                "status": "ineligible",
+                "reason": "insufficient_evidence"
+            }
+        },
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_101_u003",
+            "unit_type": "claim",
+            "source_role": "assertion",
+            "artifact_span": {
+                "text": "The primitive is claim -> support gap.",
+                "start_char": 385,
+                "end_char": 423
+            },
+            "normalized_text": "The primitive is claim -> support gap.",
+            "observation_status": "guardian_passed",
+            "promotion_eligibility": {
+                "status": "eligible",
+                "reason": "claim_unit_with_clean_provenance"
+            }
+        },
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_101_u004",
+            "unit_type": "claim",
+            "source_role": "assertion",
+            "artifact_span": {
+                "text": "Output Assay evaluates any artifact: human, AI, committee, Slack thread, pitch deck, strategy memo, model response, whatever.",
+                "start_char": 533,
+                "end_char": 658
+            },
+            "normalized_text": "Output Assay evaluates any artifact: human, AI, committee, Slack thread, pitch deck, strategy memo, model response, whatever.",
+            "observation_status": "guardian_warned",
+            "promotion_eligibility": {
+                "status": "ineligible",
+                "reason": "redundancy_padding"
+            }
+        },
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_101_u005",
+            "unit_type": "claim",
+            "source_role": "assertion",
+            "artifact_span": {
+                "text": "This should obviously become a first-class Episode type.",
+                "start_char": 794,
+                "end_char": 850
+            },
+            "normalized_text": "This should obviously become a first-class Episode type.",
+            "observation_status": "guardian_warned",
+            "promotion_eligibility": {
+                "status": "ineligible",
+                "reason": "unearned_confidence"
+            }
+        },
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_101_u006",
+            "unit_type": "instruction",
+            "source_role": "instruction",
+            "artifact_span": {
+                "text": "Build the local-only, fixture-backed CLI first.",
+                "start_char": 894,
+                "end_char": 941
+            },
+            "normalized_text": "Build the local-only, fixture-backed CLI first.",
+            "observation_status": "guardian_passed",
+            "promotion_eligibility": {
+                "status": "ineligible",
+                "reason": "non_claim_unit"
+            }
+        }
+    ],
+    "guardian_verdict": {
+        "run_status": "warn",
+        "observation_counts": {
+            "guardian_passed": 2,
+            "guardian_warned": 4,
+            "guardian_blocked": 0
+        },
+        "failure_modes": [
+            "redundancy_padding",
+            "inflated_fluency",
+            "unearned_confidence"
+        ],
+        "warnings": [
+            "duplicate_assertion_surface",
+            "support_gap_present"
+        ],
+        "block_reasons": []
+    },
+    "compression": {
+        "status": "compress",
+        "compressed_summary": "The duplicated proposal argues that Output Assay should evaluate artifacts by claim-support gaps, but repetition and high-confidence rhetoric reduce promotion readiness for most observed claims."
+    },
+    "truth_verification": {
+        "performed": false,
+        "tier": "internal_support_only",
+        "notes": "Calibration validates observation behavior and internal support only, not external truth."
+    }
+}
