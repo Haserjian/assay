@@ -538,6 +538,27 @@ class TestProofPackBuilder:
         )
         assert any("experimental_verdict" in e.message for e in result.errors)
 
+    @pytest.mark.xfail(strict=True, reason="Counter-doctrine tripwire: generic non-loom namespaced receipt types are proof-pack-admissible by regex; only loom.* types are registry-gated by LOOM_RECEIPT_MAPPING_REGISTRY_V1")
+    def test_verify_proof_pack_rejects_unknown_main_chain_namespaced_type(
+        self, tmp_path, tmp_keys
+    ):
+        """Unknown receipt_pack.jsonl receipt types must not verify as PASS."""
+        out, manifest = _make_external_pack_with_unknown_type(
+            tmp_path,
+            tmp_keys,
+            unknown_type="partner.audit/v1",
+        )
+
+        result = verify_proof_pack(manifest, out, tmp_keys)
+
+        assert not result.passed
+        assert any(
+            e.code == E_SCHEMA_UNKNOWN
+            and e.field == "type"
+            and "partner.audit/v1" in e.message
+            for e in result.errors
+        )
+
     @pytest.mark.parametrize("receipt_type", ["loom.unknown/v1", "loom.dip/v1"])
     def test_verify_proof_pack_rejects_non_current_loom_receipt_type(
         self, tmp_path, tmp_keys, receipt_type
