@@ -65,6 +65,12 @@
             "path": "mixed_quality/oa_202_partial_evidence_brief"
         },
         {
+            "fixture_id": "oa_203_evidence_quote_boundary",
+            "category": "mixed_quality",
+            "status": "active",
+            "path": "mixed_quality/oa_203_evidence_quote_boundary"
+        },
+        {
             "fixture_id": "oa_301_status_update_mixed",
             "category": "business_artifact",
             "status": "active",
