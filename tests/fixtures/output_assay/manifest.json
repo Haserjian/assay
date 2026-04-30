@@ -77,6 +77,12 @@
             "path": "mixed_quality/oa_203_evidence_quote_boundary"
         },
         {
+            "fixture_id": "oa_204_ambiguous_stance_argument",
+            "category": "mixed_quality",
+            "status": "active",
+            "path": "mixed_quality/oa_204_ambiguous_stance_argument"
+        },
+        {
             "fixture_id": "oa_301_status_update_mixed",
             "category": "business_artifact",
             "status": "active",

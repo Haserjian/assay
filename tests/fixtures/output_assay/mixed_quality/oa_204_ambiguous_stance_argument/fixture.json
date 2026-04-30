@@ -1,0 +1,23 @@
+{
+    "fixture_id": "oa_204_ambiguous_stance_argument",
+    "title": "Mixed-quality argument with ambiguous stance, one supported promotion rule, and one overclaim",
+    "status": "active",
+    "category": "mixed_quality",
+    "artifact_path": "artifact.md",
+    "artifact_hash": "sha256:dc4059422850427ad73fe6678a85c92fd7a106aa8aa8e2e6d63c92bfbcae77e7",
+    "artifact_kind": "boundary_example",
+    "declared_intent_class": "argument",
+    "expected_run_disposition": "warn",
+    "expected_failure_modes": [
+        "unearned_confidence"
+    ],
+    "expected_compression_behavior": "preserve",
+    "promotion_surface": "claim_review_possible",
+    "labels": [
+        "seed",
+        "mixed_quality",
+        "source_role_unknown",
+        "argument"
+    ],
+    "notes": "Closes the mixed-quality source_role=unknown gap by keeping an ambiguous claim-like margin note observable but promotion-ineligible inside the same artifact as one clean rule claim and one warned overclaim."
+}
