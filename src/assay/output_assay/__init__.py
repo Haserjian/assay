@@ -35,6 +35,13 @@ from assay.output_assay.models import (
     TruthVerificationTier,
     UnitType,
 )
+from assay.output_assay.report import (
+    OutputAssayFailOn,
+    OutputAssayReportFormat,
+    output_assay_result_status,
+    render_output_assay_report,
+    should_fail_output_assay_result,
+)
 
 __all__ = [
     "ArtifactSpanDraft",
@@ -53,6 +60,8 @@ __all__ = [
     "OutputAssayPromotionEligibility",
     "OutputAssayRunEnvelope",
     "OutputAssayTruthVerification",
+    "OutputAssayFailOn",
+    "OutputAssayReportFormat",
     "ObserverKind",
     "PromotionEligibilityStatus",
     "SourceRole",
@@ -63,7 +72,10 @@ __all__ = [
     "guardian_validate_output_assay_run",
     "output_assay_analysis_draft_schema",
     "output_assay_analysis_draft_schema_errors",
+    "output_assay_result_status",
     "run_output_assay_locally",
+    "render_output_assay_report",
+    "should_fail_output_assay_result",
     "stamp_output_assay_run",
     "validate_output_assay_analysis_draft",
     "OutputAssayGuardianVerdict",
