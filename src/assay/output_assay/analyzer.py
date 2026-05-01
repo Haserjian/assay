@@ -20,11 +20,14 @@ from assay.output_assay.models import (
     ObservationStatus,
     ObserverKind,
     OutputAssayAnalysisDraft,
+    OutputAssayExtractionFailure,
     OutputAssayObservedUnit,
     OutputAssayObserver,
     OutputAssayPromotionEligibility,
     OutputAssayRunEnvelope,
+    OutputAssayTruthVerification,
     PromotionEligibilityStatus,
+    TruthVerificationTier,
     UnitType,
 )
 
@@ -33,6 +36,7 @@ DEFAULT_LOCAL_OBSERVER = OutputAssayObserver(
     provider="local",
     model="output_assay_scaffold",
 )
+DEFAULT_TRUTH_VERIFICATION_NOTES = "Calibration validates observation behavior and internal support only, not external truth."
 
 
 class OutputAssayDraftValidationError(ValueError):
@@ -124,6 +128,23 @@ def _deterministic_run_id(artifact_hash: str, draft: OutputAssayAnalysisDraft) -
     return f"oa_run_{digest[:16]}"
 
 
+def _deterministic_failure_id(
+    artifact_hash: str,
+    extraction_stage: str,
+    errors: list[str],
+) -> str:
+    digest = hashlib.sha256(
+        _stable_json_bytes(
+            {
+                "artifact_hash": artifact_hash,
+                "extraction_stage": extraction_stage,
+                "errors": errors,
+            }
+        )
+    ).hexdigest()
+    return f"oa_fail_{digest[:16]}"
+
+
 def _draft_promotion_eligibility(
     unit_type: UnitType,
 ) -> OutputAssayPromotionEligibility:
@@ -135,6 +156,43 @@ def _draft_promotion_eligibility(
     return OutputAssayPromotionEligibility(
         status=PromotionEligibilityStatus.INELIGIBLE,
         reason="non_claim_unit",
+    )
+
+
+def _default_truth_verification() -> OutputAssayTruthVerification:
+    return OutputAssayTruthVerification(
+        performed=False,
+        tier=TruthVerificationTier.INTERNAL_SUPPORT_ONLY,
+        notes=DEFAULT_TRUTH_VERIFICATION_NOTES,
+    )
+
+
+def build_output_assay_extraction_failure(
+    artifact_text: str,
+    errors: list[str],
+    *,
+    observer: OutputAssayObserver | None = None,
+    extraction_stage: str = "draft_validation",
+) -> OutputAssayExtractionFailure:
+    """Build a deterministic local extraction-failure receipt."""
+    artifact_hash = compute_output_assay_artifact_hash(artifact_text)
+    stamped_observer = observer or DEFAULT_LOCAL_OBSERVER
+
+    return OutputAssayExtractionFailure(
+        failure_id=_deterministic_failure_id(
+            artifact_hash,
+            extraction_stage,
+            errors,
+        ),
+        artifact_hash=artifact_hash,
+        extraction_stage=extraction_stage,
+        failure_modes=["schema_validation_failed"],
+        summary=(
+            "The system failed to produce a trustworthy Output Assay run artifact during local draft validation."
+        ),
+        errors=errors,
+        observer=stamped_observer,
+        truth_verification=_default_truth_verification(),
     )
 
 
@@ -181,6 +239,31 @@ def stamp_output_assay_run(
     )
 
 
+def run_output_assay_locally(
+    artifact_text: str,
+    payload: object,
+    *,
+    observer: OutputAssayObserver | None = None,
+) -> OutputAssayRunEnvelope | OutputAssayExtractionFailure:
+    """Run the local Output Assay scaffold or return deterministic failure."""
+    stamped_observer = observer or DEFAULT_LOCAL_OBSERVER
+
+    try:
+        stamped_run = stamp_output_assay_run(
+            artifact_text,
+            payload,
+            observer=stamped_observer,
+        )
+    except OutputAssayDraftValidationError as exc:
+        return build_output_assay_extraction_failure(
+            artifact_text,
+            exc.errors,
+            observer=stamped_observer,
+        )
+
+    return guardian_validate_output_assay_run(artifact_text, stamped_run)
+
+
 @dataclass(frozen=True)
 class OutputAssayAnalyzerScaffold:
     """Minimal analyzer entrypoint for local validation and stamping only."""
@@ -211,13 +294,43 @@ class OutputAssayAnalyzerScaffold:
     ) -> OutputAssayRunEnvelope:
         return guardian_validate_output_assay_run(artifact_text, run)
 
+    def build_extraction_failure(
+        self,
+        artifact_text: str,
+        errors: list[str],
+        *,
+        observer: OutputAssayObserver | None = None,
+        extraction_stage: str = "draft_validation",
+    ) -> OutputAssayExtractionFailure:
+        return build_output_assay_extraction_failure(
+            artifact_text,
+            errors,
+            observer=observer,
+            extraction_stage=extraction_stage,
+        )
+
+    def run_local_pipeline(
+        self,
+        artifact_text: str,
+        payload: object,
+        *,
+        observer: OutputAssayObserver | None = None,
+    ) -> OutputAssayRunEnvelope | OutputAssayExtractionFailure:
+        return run_output_assay_locally(
+            artifact_text,
+            payload,
+            observer=observer,
+        )
+
 
 __all__ = [
     "OutputAssayAnalyzerScaffold",
     "OutputAssayDraftValidationError",
+    "build_output_assay_extraction_failure",
     "compute_output_assay_artifact_hash",
     "output_assay_analysis_draft_schema",
     "output_assay_analysis_draft_schema_errors",
+    "run_output_assay_locally",
     "stamp_output_assay_run",
     "validate_output_assay_analysis_draft",
 ]

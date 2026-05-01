@@ -8,15 +8,20 @@ from copy import deepcopy
 import pytest
 
 from assay.output_assay import (
+    CompressionStatus,
     ObservationStatus,
     OutputAssayAnalyzerScaffold,
     OutputAssayDraftValidationError,
+    OutputAssayExtractionFailure,
     OutputAssayRunEnvelope,
     PromotionEligibilityStatus,
     RunDisposition,
+    TruthVerificationTier,
+    build_output_assay_extraction_failure,
     compute_output_assay_artifact_hash,
     guardian_validate_output_assay_run,
     output_assay_analysis_draft_schema,
+    run_output_assay_locally,
     stamp_output_assay_run,
     validate_output_assay_analysis_draft,
 )
@@ -260,6 +265,15 @@ def test_guardian_validate_output_assay_run_passes_clean_assertive_claims() -> N
 
     assert guarded_run.guardian_verdict is not None
     assert guarded_run.guardian_verdict.run_status == RunDisposition.PASS
+    assert guarded_run.compression is not None
+    assert guarded_run.compression.status == CompressionStatus.PRESERVE
+    assert guarded_run.compression.compressed_summary == stamped_run.summary
+    assert guarded_run.truth_verification is not None
+    assert guarded_run.truth_verification.performed is False
+    assert (
+        guarded_run.truth_verification.tier
+        == TruthVerificationTier.INTERNAL_SUPPORT_ONLY
+    )
     assert guarded_run.guardian_verdict.observation_counts == {
         "guardian_passed": 2,
         "guardian_warned": 0,
@@ -295,6 +309,11 @@ def test_guardian_validate_output_assay_run_blocks_artifact_hash_mismatch() -> N
     }
     assert guarded_run.guardian_verdict.failure_modes == ["receipt_gap"]
     assert guarded_run.guardian_verdict.block_reasons == ["artifact_hash_mismatch"]
+    assert guarded_run.compression is not None
+    assert guarded_run.compression.status == CompressionStatus.QUARANTINE
+    assert "artifact hash mismatch" in guarded_run.compression.compressed_summary
+    assert guarded_run.truth_verification is not None
+    assert guarded_run.truth_verification.performed is False
     assert all(
         observed_unit.observation_status == ObservationStatus.GUARDIAN_BLOCKED
         for observed_unit in guarded_run.observed_units
@@ -312,6 +331,28 @@ def test_guardian_validate_output_assay_run_blocks_artifact_hash_mismatch() -> N
         observed_unit.promotion_eligibility.reasons == ["receipt_gap"]
         for observed_unit in guarded_run.observed_units
     )
+
+
+def test_output_assay_run_rejects_guardian_compression_status_mismatch() -> None:
+    pass_run = guardian_validate_output_assay_run(
+        _artifact_text(),
+        stamp_output_assay_run(_artifact_text(), _valid_payload()),
+    )
+    pass_payload = pass_run.model_dump(mode="json")
+    pass_payload["compression"]["status"] = "quarantine"
+
+    with pytest.raises(ValueError, match="pass runs must preserve compression"):
+        OutputAssayRunEnvelope.model_validate(pass_payload)
+
+    block_run = guardian_validate_output_assay_run(
+        _artifact_text(),
+        stamp_output_assay_run(_artifact_text(), _blocked_payload()),
+    )
+    block_payload = block_run.model_dump(mode="json")
+    block_payload["compression"]["status"] = "preserve"
+
+    with pytest.raises(ValueError, match="blocked runs must use quarantine"):
+        OutputAssayRunEnvelope.model_validate(block_payload)
 
 
 def test_guardian_validate_output_assay_run_keeps_non_assertive_claim_ineligible() -> (
@@ -356,6 +397,10 @@ def test_guardian_validate_output_assay_run_warns_support_gap_claims() -> None:
 
     assert guarded_run.guardian_verdict is not None
     assert guarded_run.guardian_verdict.run_status == RunDisposition.WARN
+    assert guarded_run.compression is not None
+    assert guarded_run.compression.status == CompressionStatus.PRESERVE
+    assert guarded_run.truth_verification is not None
+    assert guarded_run.truth_verification.performed is False
     assert guarded_run.guardian_verdict.failure_modes == ["unearned_confidence"]
     assert guarded_run.guardian_verdict.warnings == ["support_gap_present"]
     assert (
@@ -381,6 +426,14 @@ def test_guardian_validate_output_assay_run_blocks_unanchorable_spans_and_closes
 
     assert guarded_run.guardian_verdict is not None
     assert guarded_run.guardian_verdict.run_status == RunDisposition.BLOCK
+    assert guarded_run.compression is not None
+    assert guarded_run.compression.status == CompressionStatus.QUARANTINE
+    assert (
+        "blocked observation not traceable to artifact"
+        in guarded_run.compression.compressed_summary
+    )
+    assert guarded_run.truth_verification is not None
+    assert guarded_run.truth_verification.performed is False
     assert guarded_run.guardian_verdict.failure_modes == [
         "unanchorable_extraction",
         "invented_span",
@@ -418,3 +471,62 @@ def test_output_assay_analyzer_scaffold_can_apply_guardian() -> None:
 
     assert guarded_run.guardian_verdict is not None
     assert guarded_run.guardian_verdict.run_status == RunDisposition.PASS
+
+
+def test_build_output_assay_extraction_failure_is_deterministic() -> None:
+    errors = ["observed_units: Field required"]
+
+    failure_one = build_output_assay_extraction_failure(_artifact_text(), errors)
+    failure_two = build_output_assay_extraction_failure(_artifact_text(), errors)
+
+    assert isinstance(failure_one, OutputAssayExtractionFailure)
+    assert failure_one.failure_id == failure_two.failure_id
+    assert failure_one.receipt_type == "output_assay.extraction_failure"
+    assert failure_one.artifact_hash == compute_output_assay_artifact_hash(
+        _artifact_text()
+    )
+    assert failure_one.failure_modes == ["schema_validation_failed"]
+    assert failure_one.errors == errors
+    assert failure_one.truth_verification.performed is False
+    assert (
+        failure_one.truth_verification.tier
+        == TruthVerificationTier.INTERNAL_SUPPORT_ONLY
+    )
+
+
+def test_run_output_assay_locally_returns_guarded_run_for_valid_payload() -> None:
+    result = run_output_assay_locally(_artifact_text(), _valid_payload())
+
+    assert isinstance(result, OutputAssayRunEnvelope)
+    assert result.guardian_verdict is not None
+    assert result.compression is not None
+    assert result.truth_verification is not None
+    assert result.guardian_verdict.run_status == RunDisposition.PASS
+
+
+def test_run_output_assay_locally_returns_extraction_failure_for_invalid_payload() -> (
+    None
+):
+    invalid_payload = {
+        "intent_class": "technical_answer",
+        "summary": "Missing observed units",
+    }
+
+    result = run_output_assay_locally(_artifact_text(), invalid_payload)
+
+    assert isinstance(result, OutputAssayExtractionFailure)
+    assert result.receipt_type == "output_assay.extraction_failure"
+    assert result.failure_modes == ["schema_validation_failed"]
+    assert result.extraction_stage == "draft_validation"
+    assert result.artifact_hash == compute_output_assay_artifact_hash(_artifact_text())
+    assert any("observed_units" in error for error in result.errors)
+
+
+def test_output_assay_analyzer_scaffold_can_run_local_pipeline() -> None:
+    scaffold = OutputAssayAnalyzerScaffold()
+    result = scaffold.run_local_pipeline(_artifact_text(), _valid_payload())
+
+    assert isinstance(result, OutputAssayRunEnvelope)
+    assert result.guardian_verdict is not None
+    assert result.compression is not None
+    assert result.truth_verification is not None

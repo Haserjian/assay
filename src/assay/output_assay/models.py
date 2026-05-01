@@ -66,6 +66,16 @@ class RunDisposition(str, Enum):
     BLOCK = "block"
 
 
+class CompressionStatus(str, Enum):
+    PRESERVE = "preserve"
+    COMPRESS = "compress"
+    QUARANTINE = "quarantine"
+
+
+class TruthVerificationTier(str, Enum):
+    INTERNAL_SUPPORT_ONLY = "internal_support_only"
+
+
 class ArtifactSpanDraft(BaseModel):
     model_config = ConfigDictLike(extra="forbid", protected_namespaces=())
 
@@ -181,6 +191,71 @@ class OutputAssayGuardianVerdict(BaseModel):
         return self
 
 
+class OutputAssayCompression(BaseModel):
+    model_config = ConfigDictLike(extra="forbid", protected_namespaces=())
+
+    status: CompressionStatus
+    compressed_summary: str
+
+    @model_validator(mode="after")
+    def _validate_compression(self) -> "OutputAssayCompression":
+        if not self.compressed_summary:
+            raise ValueError("compression.compressed_summary must be non-empty")
+        return self
+
+
+class OutputAssayTruthVerification(BaseModel):
+    model_config = ConfigDictLike(extra="forbid", protected_namespaces=())
+
+    performed: bool = Field(default=False)
+    tier: TruthVerificationTier = Field(
+        default=TruthVerificationTier.INTERNAL_SUPPORT_ONLY
+    )
+    notes: str
+
+    @model_validator(mode="after")
+    def _validate_truth_verification(self) -> "OutputAssayTruthVerification":
+        if self.performed:
+            raise ValueError(
+                "truth_verification.performed must remain false in the local scaffold"
+            )
+        if not self.notes:
+            raise ValueError("truth_verification.notes must be non-empty")
+        return self
+
+
+class OutputAssayExtractionFailure(BaseModel):
+    model_config = ConfigDictLike(extra="forbid", protected_namespaces=())
+
+    receipt_type: str = Field(default="output_assay.extraction_failure")
+    failure_id: str
+    artifact_hash: str
+    extraction_stage: str
+    failure_modes: list[str]
+    summary: str
+    errors: list[str]
+    observer: OutputAssayObserver
+    truth_verification: OutputAssayTruthVerification
+
+    @model_validator(mode="after")
+    def _validate_extraction_failure(self) -> "OutputAssayExtractionFailure":
+        if self.receipt_type != "output_assay.extraction_failure":
+            raise ValueError("receipt_type must be output_assay.extraction_failure")
+        if not self.failure_id:
+            raise ValueError("failure_id must be non-empty")
+        if not self.artifact_hash.startswith("sha256:"):
+            raise ValueError("artifact_hash must start with sha256:")
+        if not self.extraction_stage:
+            raise ValueError("extraction_stage must be non-empty")
+        if not self.failure_modes:
+            raise ValueError("failure_modes must not be empty")
+        if not self.summary:
+            raise ValueError("summary must be non-empty")
+        if not self.errors:
+            raise ValueError("errors must not be empty")
+        return self
+
+
 class OutputAssayObservedUnit(BaseModel):
     model_config = ConfigDictLike(extra="forbid", protected_namespaces=())
 
@@ -222,6 +297,8 @@ class OutputAssayRunEnvelope(BaseModel):
     summary: str
     observed_units: list[OutputAssayObservedUnit]
     guardian_verdict: OutputAssayGuardianVerdict | None = None
+    compression: OutputAssayCompression | None = None
+    truth_verification: OutputAssayTruthVerification | None = None
 
     @model_validator(mode="after")
     def _validate_run_envelope(self) -> "OutputAssayRunEnvelope":
@@ -276,23 +353,49 @@ class OutputAssayRunEnvelope(BaseModel):
                     raise ValueError(
                         "blocked runs must not contain promotion-eligible observations"
                     )
+            if self.compression is None:
+                raise ValueError("runs with guardian_verdict must include compression")
+            if self.truth_verification is None:
+                raise ValueError(
+                    "runs with guardian_verdict must include truth_verification"
+                )
+            if (
+                self.guardian_verdict.run_status == RunDisposition.PASS
+                and self.compression.status != CompressionStatus.PRESERVE
+            ):
+                raise ValueError("pass runs must preserve compression")
+            if (
+                self.guardian_verdict.run_status == RunDisposition.WARN
+                and self.compression.status == CompressionStatus.QUARANTINE
+            ):
+                raise ValueError("warn runs must not use quarantine compression")
+            if (
+                self.guardian_verdict.run_status == RunDisposition.BLOCK
+                and self.compression.status != CompressionStatus.QUARANTINE
+            ):
+                raise ValueError("blocked runs must use quarantine compression")
         return self
 
 
 __all__ = [
     "ArtifactSpanDraft",
+    "CompressionStatus",
     "IntentClass",
     "ObservationStatus",
     "OutputAssayAnalysisDraft",
+    "OutputAssayCompression",
+    "OutputAssayExtractionFailure",
     "OutputAssayGuardianVerdict",
     "OutputAssayObservedUnit",
     "OutputAssayObservedUnitDraft",
     "OutputAssayObserver",
     "OutputAssayPromotionEligibility",
     "OutputAssayRunEnvelope",
+    "OutputAssayTruthVerification",
     "ObserverKind",
     "PromotionEligibilityStatus",
     "RunDisposition",
     "SourceRole",
+    "TruthVerificationTier",
     "UnitType",
 ]

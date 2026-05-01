@@ -6,14 +6,18 @@ import hashlib
 from typing import Iterable
 
 from assay.output_assay.models import (
+    CompressionStatus,
     ObservationStatus,
+    OutputAssayCompression,
     OutputAssayGuardianVerdict,
     OutputAssayObservedUnit,
     OutputAssayPromotionEligibility,
     OutputAssayRunEnvelope,
+    OutputAssayTruthVerification,
     PromotionEligibilityStatus,
     RunDisposition,
     SourceRole,
+    TruthVerificationTier,
     UnitType,
 )
 
@@ -37,6 +41,7 @@ UNANCHORABLE_REASONS = [
     "invented_span",
     "receipt_gap",
 ]
+TRUTH_VERIFICATION_NOTES = "Calibration validates observation behavior and internal support only, not external truth."
 
 
 def _artifact_hash(artifact_text: str) -> str:
@@ -79,6 +84,34 @@ def _eligible() -> OutputAssayPromotionEligibility:
     return OutputAssayPromotionEligibility(
         status=PromotionEligibilityStatus.ELIGIBLE,
         reason="claim_unit_with_clean_provenance",
+    )
+
+
+def _default_truth_verification() -> OutputAssayTruthVerification:
+    return OutputAssayTruthVerification(
+        performed=False,
+        tier=TruthVerificationTier.INTERNAL_SUPPORT_ONLY,
+        notes=TRUTH_VERIFICATION_NOTES,
+    )
+
+
+def _derive_compression(
+    run_summary: str,
+    run_status: RunDisposition,
+    block_reasons: list[str],
+) -> OutputAssayCompression:
+    if run_status == RunDisposition.BLOCK:
+        reason = block_reasons[0] if block_reasons else "guardian_blocked_run"
+        return OutputAssayCompression(
+            status=CompressionStatus.QUARANTINE,
+            compressed_summary=(
+                f"The run is quarantined because {reason.replace('_', ' ')}."
+            ),
+        )
+
+    return OutputAssayCompression(
+        status=CompressionStatus.PRESERVE,
+        compressed_summary=run_summary,
     )
 
 
@@ -189,10 +222,17 @@ def guardian_validate_output_assay_run(
             warnings=[],
             block_reasons=["artifact_hash_mismatch"],
         )
+        compression = _derive_compression(
+            run.summary,
+            RunDisposition.BLOCK,
+            ["artifact_hash_mismatch"],
+        )
         return run.model_copy(
             update={
                 "observed_units": updated_units,
                 "guardian_verdict": guardian_verdict,
+                "compression": compression,
+                "truth_verification": _default_truth_verification(),
             }
         )
 
@@ -259,11 +299,14 @@ def guardian_validate_output_assay_run(
         warnings=warnings,
         block_reasons=block_reasons,
     )
+    compression = _derive_compression(run.summary, run_status, block_reasons)
 
     return run.model_copy(
         update={
             "observed_units": updated_units,
             "guardian_verdict": guardian_verdict,
+            "compression": compression,
+            "truth_verification": _default_truth_verification(),
         }
     )
 
