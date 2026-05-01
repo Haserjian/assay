@@ -13,6 +13,7 @@ from assay.output_assay import (
     OutputAssayAnalyzerScaffold,
     OutputAssayDraftValidationError,
     OutputAssayExtractionFailure,
+    OutputAssayExtractionStage,
     OutputAssayRunEnvelope,
     PromotionEligibilityStatus,
     RunDisposition,
@@ -485,6 +486,7 @@ def test_build_output_assay_extraction_failure_is_deterministic() -> None:
     assert failure_one.artifact_hash == compute_output_assay_artifact_hash(
         _artifact_text()
     )
+    assert failure_one.extraction_stage == OutputAssayExtractionStage.DRAFT_VALIDATION
     assert failure_one.failure_modes == ["schema_validation_failed"]
     assert failure_one.errors == errors
     assert failure_one.truth_verification.performed is False
@@ -492,6 +494,52 @@ def test_build_output_assay_extraction_failure_is_deterministic() -> None:
         failure_one.truth_verification.tier
         == TruthVerificationTier.INTERNAL_SUPPORT_ONLY
     )
+
+
+def test_build_output_assay_extraction_failure_supports_guardian_validation_stage() -> (
+    None
+):
+    errors = ["guardian_verdict.run_status must match observed unit statuses"]
+
+    failure = build_output_assay_extraction_failure(
+        _artifact_text(),
+        errors,
+        extraction_stage=OutputAssayExtractionStage.GUARDIAN_VALIDATION,
+    )
+
+    assert failure.extraction_stage == OutputAssayExtractionStage.GUARDIAN_VALIDATION
+    assert failure.failure_modes == ["guardian_validation_failed"]
+    assert "Guardian validation" in failure.summary
+    assert failure.errors == errors
+
+
+def test_build_output_assay_extraction_failure_supports_provider_unavailable_stage() -> (
+    None
+):
+    errors = ["provider local_stub unavailable"]
+
+    failure = build_output_assay_extraction_failure(
+        _artifact_text(),
+        errors,
+        extraction_stage=OutputAssayExtractionStage.PROVIDER_UNAVAILABLE,
+    )
+
+    assert failure.extraction_stage == OutputAssayExtractionStage.PROVIDER_UNAVAILABLE
+    assert failure.failure_modes == ["provider_unavailable"]
+    assert "no provider call was attempted" in failure.summary
+    assert failure.errors == errors
+
+
+def test_output_assay_extraction_failure_rejects_failure_mode_stage_mismatch() -> None:
+    failure_payload = build_output_assay_extraction_failure(
+        _artifact_text(),
+        ["provider local_stub unavailable"],
+        extraction_stage=OutputAssayExtractionStage.PROVIDER_UNAVAILABLE,
+    ).model_dump(mode="json")
+    failure_payload["failure_modes"] = ["schema_validation_failed"]
+
+    with pytest.raises(ValueError, match="failure_modes must match extraction_stage"):
+        OutputAssayExtractionFailure.model_validate(failure_payload)
 
 
 def test_run_output_assay_locally_returns_guarded_run_for_valid_payload() -> None:
@@ -517,9 +565,31 @@ def test_run_output_assay_locally_returns_extraction_failure_for_invalid_payload
     assert isinstance(result, OutputAssayExtractionFailure)
     assert result.receipt_type == "output_assay.extraction_failure"
     assert result.failure_modes == ["schema_validation_failed"]
-    assert result.extraction_stage == "draft_validation"
+    assert result.extraction_stage == OutputAssayExtractionStage.DRAFT_VALIDATION
     assert result.artifact_hash == compute_output_assay_artifact_hash(_artifact_text())
     assert any("observed_units" in error for error in result.errors)
+
+
+def test_run_output_assay_locally_returns_guardian_validation_failure_when_guardian_raises(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def _raise_guardian_failure(
+        artifact_text: str,
+        run: OutputAssayRunEnvelope,
+    ) -> OutputAssayRunEnvelope:
+        raise ValueError("guardian pipeline failed")
+
+    monkeypatch.setattr(
+        "assay.output_assay.analyzer.guardian_validate_output_assay_run",
+        _raise_guardian_failure,
+    )
+
+    result = run_output_assay_locally(_artifact_text(), _valid_payload())
+
+    assert isinstance(result, OutputAssayExtractionFailure)
+    assert result.extraction_stage == OutputAssayExtractionStage.GUARDIAN_VALIDATION
+    assert result.failure_modes == ["guardian_validation_failed"]
+    assert result.errors == ["guardian pipeline failed"]
 
 
 def test_output_assay_analyzer_scaffold_can_run_local_pipeline() -> None:

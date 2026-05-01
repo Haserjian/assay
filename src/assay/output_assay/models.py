@@ -76,6 +76,12 @@ class TruthVerificationTier(str, Enum):
     INTERNAL_SUPPORT_ONLY = "internal_support_only"
 
 
+class OutputAssayExtractionStage(str, Enum):
+    DRAFT_VALIDATION = "draft_validation"
+    GUARDIAN_VALIDATION = "guardian_validation"
+    PROVIDER_UNAVAILABLE = "provider_unavailable"
+
+
 class ArtifactSpanDraft(BaseModel):
     model_config = ConfigDictLike(extra="forbid", protected_namespaces=())
 
@@ -230,7 +236,7 @@ class OutputAssayExtractionFailure(BaseModel):
     receipt_type: str = Field(default="output_assay.extraction_failure")
     failure_id: str
     artifact_hash: str
-    extraction_stage: str
+    extraction_stage: OutputAssayExtractionStage
     failure_modes: list[str]
     summary: str
     errors: list[str]
@@ -245,14 +251,21 @@ class OutputAssayExtractionFailure(BaseModel):
             raise ValueError("failure_id must be non-empty")
         if not self.artifact_hash.startswith("sha256:"):
             raise ValueError("artifact_hash must start with sha256:")
-        if not self.extraction_stage:
-            raise ValueError("extraction_stage must be non-empty")
         if not self.failure_modes:
             raise ValueError("failure_modes must not be empty")
         if not self.summary:
             raise ValueError("summary must be non-empty")
         if not self.errors:
             raise ValueError("errors must not be empty")
+        expected_failure_modes = {
+            OutputAssayExtractionStage.DRAFT_VALIDATION: ["schema_validation_failed"],
+            OutputAssayExtractionStage.GUARDIAN_VALIDATION: [
+                "guardian_validation_failed"
+            ],
+            OutputAssayExtractionStage.PROVIDER_UNAVAILABLE: ["provider_unavailable"],
+        }
+        if self.failure_modes != expected_failure_modes[self.extraction_stage]:
+            raise ValueError("failure_modes must match extraction_stage")
         return self
 
 
@@ -385,6 +398,7 @@ __all__ = [
     "OutputAssayAnalysisDraft",
     "OutputAssayCompression",
     "OutputAssayExtractionFailure",
+    "OutputAssayExtractionStage",
     "OutputAssayGuardianVerdict",
     "OutputAssayObservedUnit",
     "OutputAssayObservedUnitDraft",

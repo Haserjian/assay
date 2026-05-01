@@ -21,6 +21,7 @@ from assay.output_assay.models import (
     ObserverKind,
     OutputAssayAnalysisDraft,
     OutputAssayExtractionFailure,
+    OutputAssayExtractionStage,
     OutputAssayObservedUnit,
     OutputAssayObserver,
     OutputAssayPromotionEligibility,
@@ -37,6 +38,26 @@ DEFAULT_LOCAL_OBSERVER = OutputAssayObserver(
     model="output_assay_scaffold",
 )
 DEFAULT_TRUTH_VERIFICATION_NOTES = "Calibration validates observation behavior and internal support only, not external truth."
+EXTRACTION_FAILURE_DETAILS = {
+    OutputAssayExtractionStage.DRAFT_VALIDATION: {
+        "failure_modes": ["schema_validation_failed"],
+        "summary": (
+            "The system failed to produce a trustworthy Output Assay run artifact during local draft validation."
+        ),
+    },
+    OutputAssayExtractionStage.GUARDIAN_VALIDATION: {
+        "failure_modes": ["guardian_validation_failed"],
+        "summary": (
+            "The system failed to finalize a trustworthy Output Assay run artifact during local Guardian validation."
+        ),
+    },
+    OutputAssayExtractionStage.PROVIDER_UNAVAILABLE: {
+        "failure_modes": ["provider_unavailable"],
+        "summary": (
+            "The system could not continue toward provider-backed extraction because the requested provider was unavailable; no provider call was attempted."
+        ),
+    },
+}
 
 
 class OutputAssayDraftValidationError(ValueError):
@@ -130,7 +151,7 @@ def _deterministic_run_id(artifact_hash: str, draft: OutputAssayAnalysisDraft) -
 
 def _deterministic_failure_id(
     artifact_hash: str,
-    extraction_stage: str,
+    extraction_stage: OutputAssayExtractionStage,
     errors: list[str],
 ) -> str:
     digest = hashlib.sha256(
@@ -143,6 +164,14 @@ def _deterministic_failure_id(
         )
     ).hexdigest()
     return f"oa_fail_{digest[:16]}"
+
+
+def _normalize_extraction_stage(
+    extraction_stage: OutputAssayExtractionStage | str,
+) -> OutputAssayExtractionStage:
+    if isinstance(extraction_stage, OutputAssayExtractionStage):
+        return extraction_stage
+    return OutputAssayExtractionStage(extraction_stage)
 
 
 def _draft_promotion_eligibility(
@@ -172,24 +201,25 @@ def build_output_assay_extraction_failure(
     errors: list[str],
     *,
     observer: OutputAssayObserver | None = None,
-    extraction_stage: str = "draft_validation",
+    extraction_stage: OutputAssayExtractionStage
+    | str = OutputAssayExtractionStage.DRAFT_VALIDATION,
 ) -> OutputAssayExtractionFailure:
     """Build a deterministic local extraction-failure receipt."""
     artifact_hash = compute_output_assay_artifact_hash(artifact_text)
     stamped_observer = observer or DEFAULT_LOCAL_OBSERVER
+    normalized_stage = _normalize_extraction_stage(extraction_stage)
+    failure_details = EXTRACTION_FAILURE_DETAILS[normalized_stage]
 
     return OutputAssayExtractionFailure(
         failure_id=_deterministic_failure_id(
             artifact_hash,
-            extraction_stage,
+            normalized_stage,
             errors,
         ),
         artifact_hash=artifact_hash,
-        extraction_stage=extraction_stage,
-        failure_modes=["schema_validation_failed"],
-        summary=(
-            "The system failed to produce a trustworthy Output Assay run artifact during local draft validation."
-        ),
+        extraction_stage=normalized_stage,
+        failure_modes=failure_details["failure_modes"],
+        summary=failure_details["summary"],
         errors=errors,
         observer=stamped_observer,
         truth_verification=_default_truth_verification(),
@@ -259,9 +289,18 @@ def run_output_assay_locally(
             artifact_text,
             exc.errors,
             observer=stamped_observer,
+            extraction_stage=OutputAssayExtractionStage.DRAFT_VALIDATION,
         )
 
-    return guardian_validate_output_assay_run(artifact_text, stamped_run)
+    try:
+        return guardian_validate_output_assay_run(artifact_text, stamped_run)
+    except ValueError as exc:
+        return build_output_assay_extraction_failure(
+            artifact_text,
+            [str(exc)],
+            observer=stamped_observer,
+            extraction_stage=OutputAssayExtractionStage.GUARDIAN_VALIDATION,
+        )
 
 
 @dataclass(frozen=True)
@@ -300,7 +339,8 @@ class OutputAssayAnalyzerScaffold:
         errors: list[str],
         *,
         observer: OutputAssayObserver | None = None,
-        extraction_stage: str = "draft_validation",
+        extraction_stage: OutputAssayExtractionStage
+        | str = OutputAssayExtractionStage.DRAFT_VALIDATION,
     ) -> OutputAssayExtractionFailure:
         return build_output_assay_extraction_failure(
             artifact_text,
