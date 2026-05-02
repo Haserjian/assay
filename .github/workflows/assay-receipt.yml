@@ -21,6 +21,8 @@ jobs:
       ASSAY_PROOF_TIER: "tier3_ci_pytest_sigstore_bundle_v1"
 
     steps:
+      # Intentionally use the current checkout/setup-python majors for this
+      # new workflow. Aligning older repo workflows is a separate cleanup.
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
@@ -45,7 +47,7 @@ jobs:
       - name: Run pytest without losing failure evidence
         run: |
           set +e
-          PYTHONHASHSEED=0 pytest -q --maxfail=1 --tb=short --junitxml=results.xml > pytest.log 2>&1
+          bash -o pipefail -c "$ASSAY_PYTEST_COMMAND" > pytest.log 2>&1
           EC=$?
           set -e
           echo "$EC" > pytest-exit-code.txt
@@ -130,7 +132,6 @@ jobs:
             receipt-status.txt
             signature-status.txt
             verification-status.txt
-            upload-status.txt
 
       - name: Mark upload status
         if: ${{ always() }}
@@ -164,6 +165,11 @@ jobs:
           require_status signature-status.txt ok
           require_status verification-status.txt ok
           require_status upload-status.txt ok
-          test -f pytest-exit-code.txt
+
+          test -s receipt.json
+          test -s receipt.json.sigstore.json
+          test -s results.xml
+          test -s pytest.log
+          test -s pytest-exit-code.txt
 
           exit "$(cat pytest-exit-code.txt)"

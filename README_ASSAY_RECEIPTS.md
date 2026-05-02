@@ -8,7 +8,6 @@ This repository emits a portable pytest evidence pack:
 - `receipt-status.txt` - receipt generation status
 - `signature-status.txt` - Sigstore signing status
 - `verification-status.txt` - Sigstore verification status
-- `upload-status.txt` - upload status used by the final gate
 - `receipt.json` - the signed receipt blob
 - `receipt.json.sigstore.json` - the Sigstore bundle for the signed blob
 
@@ -20,11 +19,12 @@ exact artifacts, and the receipt can be independently verified later."
 
 `PASS` means pytest exited `0`, receipt generation succeeded, the Sigstore
 bundle was created, the bundle verified against the expected GitHub Actions
-workflow identity, and the evidence upload step succeeded.
+workflow identity, and GitHub accepted the evidence artifact upload.
 
 `HONEST_FAIL` means pytest exited nonzero, but `receipt-status.txt`,
-`signature-status.txt`, `verification-status.txt`, and `upload-status.txt` are
-all `ok`. This is a trusted receipt for a failed test run.
+`signature-status.txt`, and `verification-status.txt` are all `ok`, and the
+workflow's final gate observed a successful `actions/upload-artifact` outcome.
+This is a trusted receipt for a failed test run.
 
 `TAMPERED_OR_BROKEN` means receipt generation, signing, verification, upload, or
 artifact hash verification failed. Treat this as an integrity failure, not a
@@ -34,10 +34,9 @@ Pytest failure is allowed to be honest. Receipt, signature, verification, and
 upload failure is not.
 
 One operational detail: upload success is only knowable after the evidence pack
-has already been sent. The workflow therefore includes the status breadcrumbs in
-the uploaded evidence pack, then updates the workspace copy of
-`upload-status.txt` from the `actions/upload-artifact` outcome before the final
-gate runs.
+has already been sent. The portable evidence pack therefore does not include an
+`upload-status.txt` claim. The workflow keeps that as workspace-only final-gate
+state, derived from the `actions/upload-artifact` step outcome.
 
 ## Signed Blob and Bundle
 
@@ -67,6 +66,10 @@ https://github.com/Haserjian/assay/.github/workflows/assay-receipt.yml@refs/head
 
 For pull requests or release branches, replace the final ref with the workflow
 ref stored in `receipt.json` at `workflow.workflow_ref`.
+
+For pull request events, the receipt subject is the exact tree GitHub checked
+out for that event. Depending on the event configuration, that may be a PR merge
+ref rather than only the contributor head commit.
 
 ## Proof Tier
 
