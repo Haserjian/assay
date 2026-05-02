@@ -152,6 +152,11 @@ class MockInvoker:
 # ---------------------------------------------------------------------------
 
 class TestReceiptBridge:
+    @pytest.fixture(autouse=True)
+    def _isolate_default_store(self, tmp_path: Path, monkeypatch):
+        monkeypatch.setattr(store_mod, "_default_store", AssayStore(base_dir=tmp_path / "assay_store"))
+        monkeypatch.delenv("ASSAY_TRACE_ID", raising=False)
+
     def _make_bridge(self, tmp_path: Path, **invoker_kwargs) -> tuple[ReceiptBridge, MockInvoker]:
         cfg = BridgeConfig(artifacts_dir=tmp_path / "artifacts", cwd=str(tmp_path))
         invoker = MockInvoker(**invoker_kwargs)

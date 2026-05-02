@@ -25,6 +25,12 @@ ROOT = Path(__file__).resolve().parents[2]
 EXAMPLES_DIR = ROOT / "docs" / "examples" / "checkpoints"
 runner = CliRunner()
 PACK_TS = "2026-03-19T13:00:00+00:00"
+PACK_VALID_FOR = "P3650D"
+
+
+def _packet_overrides(packet_id: str) -> dict:
+    # Keep static packet timestamps from aging into freshness failures.
+    return {"generated_at": PACK_TS, "packet_id": packet_id, "valid_for": PACK_VALID_FOR}
 
 
 @pytest.fixture
@@ -161,7 +167,7 @@ def test_checkpoint_reviewer_packet_happy_path_verifies(tmp_path: Path, tmp_stor
         checkpoint_attempt_id=template["checkpoint_id"],
         out_dir=packet_dir,
         decision_receipts=[decision],
-        packet_overrides={"generated_at": PACK_TS, "packet_id": "rp_checkpoint_happy"},
+        packet_overrides=_packet_overrides("rp_checkpoint_happy"),
     )
 
     assert result["packet_profile"] == CHECKPOINT_REVIEWER_PACKET_PROFILE
@@ -185,7 +191,7 @@ def test_checkpoint_reviewer_packet_degrades_without_canonical_decisions(tmp_pat
         proof_pack_dir=proof_pack_dir,
         checkpoint_attempt_id=template["checkpoint_id"],
         out_dir=packet_dir,
-        packet_overrides={"generated_at": PACK_TS, "packet_id": "rp_checkpoint_degraded"},
+        packet_overrides=_packet_overrides("rp_checkpoint_degraded"),
     )
 
     authority_row = next(row for row in result["coverage_rows"] if row["Claim / Question"].startswith("Is the authority"))
@@ -216,7 +222,7 @@ def test_checkpoint_reviewer_packet_legacy_resolution_compatibility(tmp_path: Pa
         checkpoint_attempt_id=template["checkpoint_id"],
         out_dir=packet_dir,
         decision_receipts=[decision],
-        packet_overrides={"generated_at": PACK_TS, "packet_id": "rp_checkpoint_legacy"},
+        packet_overrides=_packet_overrides("rp_checkpoint_legacy"),
     )
 
     posture_row = next(row for row in result["coverage_rows"] if row["Claim / Question"].startswith("Which evaluation"))
@@ -256,7 +262,7 @@ def test_checkpoint_packet_uses_carried_forward_evaluation_not_latest(tmp_path: 
         checkpoint_attempt_id=template["checkpoint_id"],
         out_dir=packet_dir,
         decision_receipts=[decision],
-        packet_overrides={"generated_at": PACK_TS, "packet_id": "rp_checkpoint_multieval"},
+        packet_overrides=_packet_overrides("rp_checkpoint_multieval"),
     )
 
     assert result["settlement_state"] == "VERIFIED"
@@ -281,7 +287,7 @@ def test_checkpoint_reviewer_packet_invalid_lifecycle_settles_incomplete(tmp_pat
         checkpoint_attempt_id=template["checkpoint_id"],
         out_dir=packet_dir,
         decision_receipts=[bad_decision],
-        packet_overrides={"generated_at": PACK_TS, "packet_id": "rp_checkpoint_incomplete"},
+        packet_overrides=_packet_overrides("rp_checkpoint_incomplete"),
     )
 
     assert result["settlement_state"] == "INCOMPLETE_EVIDENCE"
@@ -306,7 +312,7 @@ def test_checkpoint_export_reviewer_rejects_unresolved_attempt(tmp_path: Path, t
             proof_pack_dir=proof_pack_dir,
             checkpoint_attempt_id=template["checkpoint_id"],
             out_dir=packet_dir,
-            packet_overrides={"generated_at": PACK_TS, "packet_id": "rp_checkpoint_unresolved"},
+            packet_overrides=_packet_overrides("rp_checkpoint_unresolved"),
         )
 
     assert not packet_dir.exists()
@@ -321,7 +327,7 @@ def test_checkpoint_reviewer_packet_detects_tampered_nested_proof_pack(tmp_path:
         checkpoint_attempt_id=template["checkpoint_id"],
         out_dir=packet_dir,
         decision_receipts=[decision],
-        packet_overrides={"generated_at": PACK_TS, "packet_id": "rp_checkpoint_tamper_pack"},
+        packet_overrides=_packet_overrides("rp_checkpoint_tamper_pack"),
     )
 
     receipt_path = packet_dir / "proof_pack" / "receipt_pack.jsonl"
@@ -344,7 +350,7 @@ def test_checkpoint_reviewer_packet_detects_tampered_packaged_decision_receipt(t
         checkpoint_attempt_id=template["checkpoint_id"],
         out_dir=packet_dir,
         decision_receipts=[decision],
-        packet_overrides={"generated_at": PACK_TS, "packet_id": "rp_checkpoint_tamper_decision"},
+        packet_overrides=_packet_overrides("rp_checkpoint_tamper_decision"),
     )
 
     decision_file = next((packet_dir / "decision_receipts").glob("*.json"))
@@ -383,7 +389,7 @@ def test_checkpoint_reviewer_packet_sanitizes_adversarial_decision_receipt_ids(t
         checkpoint_attempt_id=template["checkpoint_id"],
         out_dir=packet_dir,
         decision_receipts=[malicious_decision],
-        packet_overrides={"generated_at": PACK_TS, "packet_id": "rp_checkpoint_sanitized"},
+        packet_overrides=_packet_overrides("rp_checkpoint_sanitized"),
     )
 
     decision_dir = packet_dir / "decision_receipts"

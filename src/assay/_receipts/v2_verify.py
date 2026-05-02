@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import warnings
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
@@ -128,6 +129,13 @@ def _shim_v1_signatures(receipt: Dict[str, Any]) -> List[Dict[str, Any]]:
     - algorithm         → "ed25519" (v1 was always Ed25519)
     """
     if "signatures" in receipt:
+        if "signature" in receipt:
+            warnings.warn(
+                "Receipt contains both flat v1 'signature' and v2 'signatures'; "
+                "using v2 'signatures' and ignoring flat 'signature'.",
+                UserWarning,
+                stacklevel=2,
+            )
         sigs = receipt["signatures"]
         return sigs if isinstance(sigs, list) else []
     if "signature" not in receipt:
@@ -143,7 +151,6 @@ def _shim_v1_signatures(receipt: Dict[str, Any]) -> List[Dict[str, Any]]:
 def _verify_ed25519(pubkey_bytes: bytes, message: bytes, sig_bytes: bytes) -> bool:
     try:
         from nacl.signing import VerifyKey
-        from nacl.exceptions import BadSignatureError
         vk = VerifyKey(pubkey_bytes)
         vk.verify(message, sig_bytes)
         return True

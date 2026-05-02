@@ -2,10 +2,8 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
-
-import pytest
 
 from assay.passport_lifecycle import (
     PassportState,
@@ -20,7 +18,7 @@ def _make_passport(**overrides) -> dict:
     base = {
         "passport_version": "0.1",
         "issued_at": "2026-03-14T00:00:00+00:00",
-        "valid_until": "2026-04-13T00:00:00+00:00",
+        "valid_until": "2036-04-13T00:00:00+00:00",
         "status": {"state": "FRESH", "reason": "ok", "checked_at": "2026-03-14T00:00:00+00:00"},
         "relationships": {
             "supersedes": None,
