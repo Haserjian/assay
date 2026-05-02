@@ -120,7 +120,6 @@ ALGORITHM_STATUS: Dict[str, str] = {
 
 OPERATIONAL_ALGORITHMS: frozenset = frozenset({
     "ed25519",
-    "ml-dsa-44", "ml-dsa-65", "ml-dsa-87",
 })
 
 ARCHIVAL_ALGORITHMS: frozenset = frozenset({
@@ -132,7 +131,11 @@ ARCHIVAL_ALGORITHMS: frozenset = frozenset({
 # Algorithms recognized by this spec but not implemented in this build.
 # Verifier MUST return status="unsupported_algorithm" for these,
 # not a cryptographic failure.
-UNSUPPORTED_ALGORITHMS: frozenset = frozenset()
+UNSUPPORTED_ALGORITHMS: frozenset = frozenset({
+    "ml-dsa-44", "ml-dsa-65", "ml-dsa-87",
+    "slh-dsa-sha2-128s", "slh-dsa-sha2-128f",
+    "slh-dsa-sha2-192s", "slh-dsa-sha2-256s",
+})
 
 
 __all__ = [

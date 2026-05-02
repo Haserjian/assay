@@ -857,16 +857,14 @@ class TestAdversarialProjection:
         result = verify_v2(receipt, key_resolver=key_resolver)
         assert result.operational_valid is True
 
-    def test_unicode_in_custom_field_key(self, sk, key_resolver):
-        """Unicode field keys in the receipt are valid attested content."""
+    def test_unicode_in_custom_field_key(self, sk):
+        """Unicode field keys are rejected by the receipt field-name policy."""
         base = build_v2_base_receipt("t",
             receipt_id="r1", timestamp="2026-01-01T00:00:00Z",
             **{"résumé": "non-ascii key"},
         )
-        receipt = emit_v2_receipt(base, signing_key=sk, signer_id="s", add_signed_at=False)
-        result = verify_v2(receipt, key_resolver=key_resolver)
-        assert result.operational_valid is True
-        assert "résumé" in receipt["verification_bundle"]["covers"]
+        with pytest.raises(ValueError, match="ASCII-only"):
+            emit_v2_receipt(base, signing_key=sk, signer_id="s", add_signed_at=False)
 
     def test_unicode_normalization_stability(self, sk):
         """Same logical unicode string must produce the same digest regardless

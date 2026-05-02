@@ -17,6 +17,7 @@ from assay.vendorq_models import load_json
 runner = CliRunner()
 
 _TS = "2026-03-11T12:00:00+00:00"
+_TEST_VALID_FOR = "P3650D"
 
 
 def _fixture_dir() -> Path:
@@ -73,7 +74,7 @@ def _base_boundary() -> dict[str, object]:
         "controls_declared": ["Signed proof pack"],
         "excluded_components": [],
         "boundary_notes": [],
-        "freshness_policy": {"valid_for": "P30D"},
+        "freshness_policy": {"valid_for": _TEST_VALID_FOR},
         "signed_by": "assay reviewer-packet compiler",
     }
 

@@ -44,7 +44,7 @@ def unsigned_passport(tmp_path: Path) -> Path:
     passport = {
         "passport_version": "0.1",
         "issued_at": "2026-03-14T00:00:00+00:00",
-        "valid_until": "2026-04-13T00:00:00+00:00",
+        "valid_until": "2036-04-13T00:00:00+00:00",
         "status": {"state": "FRESH", "reason": "ok", "checked_at": "2026-03-14T00:00:00+00:00"},
         "reliance": {"class": "R0", "label": "Unsigned"},
         "subject": {

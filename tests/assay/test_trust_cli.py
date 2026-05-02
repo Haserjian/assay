@@ -37,8 +37,10 @@ def _build_pack(tmp_path: Path, ks: AssayKeyStore, signer_id: str = "test-signer
     from datetime import datetime, timezone
     receipt = {
         "receipt_id": "r1",
-        "type": "test",
+        "type": "model_call",
         "timestamp": datetime.now(timezone.utc).isoformat(),
+        "provider": "openai",
+        "model_id": "gpt-4o",
     }
     pack = ProofPack(run_id="trust-cli-test", entries=[receipt], signer_id=signer_id)
     return pack.build(tmp_path / "pack", keystore=ks)

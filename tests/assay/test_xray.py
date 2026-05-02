@@ -2,13 +2,12 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
 
 from assay.keystore import AssayKeyStore
-from assay.xray import XRayFinding, XRayResult, xray_passport
+from assay.xray import XRayResult, xray_passport
 
 
 @pytest.fixture
@@ -34,7 +33,7 @@ def _make_passport(**overrides) -> dict:
     base = {
         "passport_version": "0.1",
         "issued_at": "2026-03-14T00:00:00+00:00",
-        "valid_until": "2026-04-13T00:00:00+00:00",
+        "valid_until": "2036-04-13T00:00:00+00:00",
         "status": {"state": "FRESH", "reason": "ok"},
         "reliance": {"class": "R2", "label": "Signed, partial"},
         "trust_posture": {
