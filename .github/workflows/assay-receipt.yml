@@ -1,0 +1,175 @@
+name: assay-receipt
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+  artifact-metadata: write
+
+jobs:
+  receipt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      ASSAY_PYTEST_COMMAND: "PYTHONHASHSEED=0 pytest -q --maxfail=1 --tb=short --junitxml=results.xml"
+      ASSAY_PROOF_TIER: "tier3_ci_pytest_sigstore_bundle_v1"
+
+    steps:
+      # Intentionally use the current checkout/setup-python majors for this
+      # new workflow. Aligning older repo workflows is a separate cleanup.
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11.15"
+
+      - name: Initialize evidence status files
+        run: |
+          echo "not-run" > receipt-status.txt
+          echo "not-run" > signature-status.txt
+          echo "not-run" > verification-status.txt
+          echo "not-run" > upload-status.txt
+
+      - name: Install test deps
+        run: |
+          python -m pip install -U pip
+          python -m pip install -e .[dev]
+
+      - name: Run pytest without losing failure evidence
+        run: |
+          set +e
+          bash -o pipefail -c "$ASSAY_PYTEST_COMMAND" > pytest.log 2>&1
+          EC=$?
+          set -e
+          echo "$EC" > pytest-exit-code.txt
+
+      - name: Emit Assay receipt
+        run: |
+          set +e
+          python scripts/assay_emit_receipt.py \
+            --pytest-exit-code "$(cat pytest-exit-code.txt)" \
+            --out receipt.json \
+            --artifact results.xml \
+            --artifact pytest.log \
+            --artifact pytest-exit-code.txt
+          EC=$?
+          set -e
+
+          if [ "$EC" -eq 0 ] && [ -s receipt.json ]; then
+            echo "ok" > receipt-status.txt
+          else
+            echo "failed" > receipt-status.txt
+            exit "$EC"
+          fi
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v4.0.0
+
+      - name: Sign receipt with GitHub OIDC keyless identity
+        run: |
+          set +e
+          cosign sign-blob \
+            --yes \
+            --bundle receipt.json.sigstore.json \
+            receipt.json
+          EC=$?
+          set -e
+
+          if [ "$EC" -eq 0 ] && [ -s receipt.json.sigstore.json ]; then
+            echo "ok" > signature-status.txt
+          else
+            echo "failed" > signature-status.txt
+            exit "$EC"
+          fi
+
+      - name: Verify receipt signature
+        run: |
+          CERT_ID="https://github.com/${GITHUB_WORKFLOW_REF}"
+
+          set +e
+          cosign verify-blob receipt.json \
+            --bundle receipt.json.sigstore.json \
+            --certificate-identity "$CERT_ID" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com"
+          EC=$?
+          set -e
+
+          if [ "$EC" -eq 0 ]; then
+            echo "ok" > verification-status.txt
+          else
+            echo "failed" > verification-status.txt
+            exit "$EC"
+          fi
+
+      - name: Generate GitHub artifact attestation
+        uses: actions/attest@v4
+        continue-on-error: true
+        with:
+          subject-path: receipt.json
+
+      - name: Upload evidence pack
+        id: upload_evidence
+        uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: assay-evidence
+          if-no-files-found: warn
+          path: |
+            receipt.json
+            receipt.json.sigstore.json
+            results.xml
+            pytest.log
+            pytest-exit-code.txt
+            receipt-status.txt
+            signature-status.txt
+            verification-status.txt
+
+      - name: Mark upload status
+        if: ${{ always() }}
+        run: |
+          if [ "${{ steps.upload_evidence.outcome }}" = "success" ]; then
+            echo "ok" > upload-status.txt
+          else
+            echo "failed" > upload-status.txt
+          fi
+
+      - name: Enforce evidence pipeline and pytest result
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+
+          require_status() {
+            path="$1"
+            expected="$2"
+            if [ ! -f "$path" ]; then
+              echo "missing status file: $path" >&2
+              exit 1
+            fi
+            actual="$(cat "$path")"
+            if [ "$actual" != "$expected" ]; then
+              echo "$path was $actual, expected $expected" >&2
+              exit 1
+            fi
+          }
+
+          require_status receipt-status.txt ok
+          require_status signature-status.txt ok
+          require_status verification-status.txt ok
+          require_status upload-status.txt ok
+
+          test -s receipt.json
+          test -s receipt.json.sigstore.json
+          test -s results.xml
+          test -s pytest.log
+          test -s pytest-exit-code.txt
+
+          exit "$(cat pytest-exit-code.txt)"

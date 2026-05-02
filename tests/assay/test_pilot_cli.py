@@ -160,6 +160,24 @@ def _write_pilot_bundle(
     return bundle
 
 
+def _pilot_command_options(command_name: str) -> set[str]:
+    """Return Click option names for a pilot subcommand.
+
+    Help text rendering is presentation: Rich/Typer may wrap or style option
+    names differently across versions and terminals. The Click command object is
+    the authority surface for whether an option is registered.
+    """
+    from typer.main import get_command
+
+    root = get_command(assay_app)
+    pilot = root.commands["pilot"]
+    command = pilot.commands[command_name]
+    options: set[str] = set()
+    for param in command.params:
+        options.update(getattr(param, "opts", ()))
+    return options
+
+
 # ---------------------------------------------------------------------------
 # Config loading tests
 # ---------------------------------------------------------------------------
@@ -225,20 +243,23 @@ class TestPilotHelp:
     def test_pilot_run_help(self) -> None:
         result = runner.invoke(assay_app, ["pilot", "run", "--help"])
         assert result.exit_code == 0
-        assert "--test-cmd" in result.output
-        assert "--dry-run" in result.output
+        options = _pilot_command_options("run")
+        assert "--test-cmd" in options
+        assert "--dry-run" in options
 
     def test_pilot_verify_help(self) -> None:
         result = runner.invoke(assay_app, ["pilot", "verify", "--help"])
         assert result.exit_code == 0
-        assert "--profile" in result.output
-        assert "--self-test" in result.output
+        options = _pilot_command_options("verify")
+        assert "--profile" in options
+        assert "--self-test" in options
 
     def test_pilot_closeout_help(self) -> None:
         result = runner.invoke(assay_app, ["pilot", "closeout", "--help"])
         assert result.exit_code == 0
-        assert "--dry-run" in result.output
-        assert "--json-output" in result.output
+        options = _pilot_command_options("closeout")
+        assert "--dry-run" in options
+        assert "--json-output" in options
 
 
 # ---------------------------------------------------------------------------
@@ -413,9 +434,9 @@ class TestCloseout:
         row = run_pilot_closeout(bundle, log_path=log_path)
         assert log_path.exists()
         lines = [
-            json.loads(l)
-            for l in log_path.read_text(encoding="utf-8").splitlines()
-            if l.strip()
+            json.loads(line)
+            for line in log_path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
         ]
         assert len(lines) == 1
         assert lines[0]["bundle_id"] == row["bundle_id"]
