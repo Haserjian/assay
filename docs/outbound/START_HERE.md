@@ -9,7 +9,7 @@ surviving runs into auditable evidence.
 
 ### Engineering lead / VP Eng
 
-Watch the 60-second demo. It shows an apparent +11.1% gain get denied because the
+Run the 60-second demo. It shows an apparent +11.1% gain get denied because the
 judge drifted, then a rerun under pinned config reveals the real improvement is +4.7%.
 
 ```bash
