@@ -60,6 +60,11 @@ artifacts/
 # Local Assay runtime state
 .assay/
 
+# Local smoke/demo outputs
+.assay-ci-smoke/
+assay_quickstart_report.html
+demo/constitutional_verification/demo_output/
+
 # Internal commercial docs (not public)
 docs/commercial/
 docs/STRATEGY_STACK_HIERARCHY.md

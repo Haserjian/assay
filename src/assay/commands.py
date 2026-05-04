@@ -59,6 +59,7 @@ from typing import Any, Dict, List, Optional
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import typer
+from assay.derived.cli import derived_app
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -14299,6 +14300,10 @@ def _render_constitutional_diff(diff, contract) -> None:
         )
 
     console.print()
+
+assay_app.add_typer(
+    derived_app, name="derived", hidden=True, rich_help_panel="Advanced"
+)
 
 
 def main():
