@@ -40,6 +40,7 @@ Commands:
   assay status        - One-screen operational dashboard
   assay score         - Evidence Readiness Score for this repository
   assay report        - Unified Evidence Readiness Report (HTML/SARIF/markdown)
+  assay output-assay  - Render a local Output Assay report from artifact + draft
   assay start demo    - See Assay in action (quickstart flow)
   assay start ci      - Set up CI evidence gating
   assay start mcp     - Set up MCP tool call auditing
@@ -2932,6 +2933,107 @@ def report_cmd(
         f"Report written: {html_path} "
         f"(Grade: {score_data['grade']}, Score: {score_data['score']:.1f})"
     )
+
+
+@assay_app.command("output-assay", rich_help_panel="Operate")
+def output_assay_cmd(
+    artifact_path: str = typer.Argument(..., help="Artifact text file to assay"),
+    draft_path: str = typer.Option(
+        ..., "--draft", help="Path to explicit Output Assay draft JSON"
+    ),
+    output_path: Optional[str] = typer.Option(
+        None,
+        "--output",
+        "-o",
+        help="Write rendered output to a file instead of stdout",
+    ),
+    output_format: str = typer.Option(
+        "report",
+        "--format",
+        help="Output format: report or json",
+        case_sensitive=False,
+    ),
+    fail_on: Optional[str] = typer.Option(
+        None,
+        "--fail-on",
+        help="Exit non-zero on status: block or extraction_failure",
+    ),
+):
+    """Render a local Output Assay report from artifact text and explicit draft JSON.
+
+    This command stays provider-neutral: it reads artifact text plus an explicit
+    draft payload, runs the local Output Assay pipeline, and renders either a
+    deterministic Markdown report or structured JSON.
+    """
+    from pathlib import Path as P
+
+    from assay.output_assay import run_output_assay_locally
+    from assay.output_assay.report import (
+        OutputAssayFailOn,
+        OutputAssayReportFormat,
+        render_output_assay_report,
+        should_fail_output_assay_result,
+    )
+
+    try:
+        normalized_format = OutputAssayReportFormat(output_format.lower())
+    except ValueError:
+        console.print(f"[red]Error:[/] Unsupported output format: {output_format}")
+        raise typer.Exit(3)
+
+    normalized_fail_on: OutputAssayFailOn | None = None
+    if fail_on is not None:
+        try:
+            normalized_fail_on = OutputAssayFailOn(fail_on.lower())
+        except ValueError:
+            console.print(f"[red]Error:[/] Unsupported fail-on status: {fail_on}")
+            raise typer.Exit(3)
+
+    artifact = P(artifact_path)
+    if not artifact.exists() or not artifact.is_file():
+        console.print(f"[red]Error:[/] Artifact file not found: {artifact_path}")
+        raise typer.Exit(3)
+
+    draft = P(draft_path)
+    if not draft.exists() or not draft.is_file():
+        console.print(f"[red]Error:[/] Draft file not found: {draft_path}")
+        raise typer.Exit(3)
+
+    try:
+        artifact_text = artifact.read_text(encoding="utf-8")
+    except OSError as exc:
+        console.print(f"[red]Error:[/] Could not read artifact file: {exc}")
+        raise typer.Exit(3) from exc
+
+    try:
+        payload = json.loads(draft.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        console.print(f"[red]Error:[/] Draft JSON is invalid: {exc}")
+        raise typer.Exit(3) from exc
+    except OSError as exc:
+        console.print(f"[red]Error:[/] Could not read draft file: {exc}")
+        raise typer.Exit(3) from exc
+
+    result = run_output_assay_locally(artifact_text, payload)
+
+    if normalized_format == OutputAssayReportFormat.JSON:
+        rendered_output = json.dumps(result.model_dump(mode="json"), indent=2)
+    else:
+        rendered_output = render_output_assay_report(result)
+
+    if output_path is not None:
+        destination = P(output_path)
+        try:
+            destination.write_text(rendered_output + "\n", encoding="utf-8")
+        except OSError as exc:
+            console.print(f"[red]Error:[/] Could not write output file: {exc}")
+            raise typer.Exit(2) from exc
+        typer.echo(f"Output Assay {normalized_format.value} written: {destination}")
+    else:
+        typer.echo(rendered_output)
+
+    if should_fail_output_assay_result(result, normalized_fail_on):
+        raise typer.Exit(2)
 
 
 # ---------------------------------------------------------------------------

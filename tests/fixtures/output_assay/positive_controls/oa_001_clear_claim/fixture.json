@@ -1,0 +1,19 @@
+{
+    "fixture_id": "oa_001_clear_claim",
+    "title": "Positive control with a clear promotable claim",
+    "status": "active",
+    "category": "positive_control",
+    "artifact_path": "artifact.md",
+    "artifact_hash": "sha256:1ae43ea00fae48e95a278b38ffb2f0bb0ca6a47f85b298c24d42e060ec144169",
+    "declared_intent_class": "technical_answer",
+    "expected_run_disposition": "pass",
+    "expected_failure_modes": [],
+    "expected_compression_behavior": "preserve",
+    "promotion_surface": "claim_review_possible",
+    "labels": [
+        "seed",
+        "positive_control",
+        "clear_claim"
+    ],
+    "notes": "Single explicit claim with clean provenance and no expected failure modes."
+}

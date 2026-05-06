@@ -1,0 +1,79 @@
+{
+    "fixture_id": "oa_401_support_note",
+    "input_hash": "sha256:0571c6a01018b44f722486f5703c837f6fa227a681451b32615ccb4a72c8acbd",
+    "intent_class": "emotional_support",
+    "summary": "The artifact offers apology, gratitude, and rest-oriented guidance without asserting a promotable claim.",
+    "observed_units": [
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "unit_001",
+            "unit_type": "emotion",
+            "source_role": "context",
+            "artifact_span": {
+                "text": "I'm sorry the review loop dragged.",
+                "start_char": 0,
+                "end_char": 34
+            },
+            "normalized_text": "I'm sorry the review loop dragged.",
+            "observation_status": "guardian_passed",
+            "promotion_eligibility": {
+                "status": "ineligible",
+                "reason": "non_claim_unit"
+            }
+        },
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "unit_002",
+            "unit_type": "emotion",
+            "source_role": "context",
+            "artifact_span": {
+                "text": "Thank you for carrying it.",
+                "start_char": 35,
+                "end_char": 61
+            },
+            "normalized_text": "Thank you for carrying it.",
+            "observation_status": "guardian_passed",
+            "promotion_eligibility": {
+                "status": "ineligible",
+                "reason": "non_claim_unit"
+            }
+        },
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "unit_003",
+            "unit_type": "instruction",
+            "source_role": "instruction",
+            "artifact_span": {
+                "text": "Take a break before the next pass; this can wait until tomorrow.",
+                "start_char": 62,
+                "end_char": 126
+            },
+            "normalized_text": "Take a break before the next pass; this can wait until tomorrow.",
+            "observation_status": "guardian_passed",
+            "promotion_eligibility": {
+                "status": "ineligible",
+                "reason": "non_claim_unit"
+            }
+        }
+    ],
+    "guardian_verdict": {
+        "run_status": "pass",
+        "observation_counts": {
+            "guardian_passed": 3,
+            "guardian_warned": 0,
+            "guardian_blocked": 0
+        },
+        "failure_modes": [],
+        "warnings": [],
+        "block_reasons": []
+    },
+    "compression": {
+        "status": "preserve",
+        "compressed_summary": "Supportive language and rest guidance remain observable but non-promotable in v0."
+    },
+    "truth_verification": {
+        "performed": false,
+        "tier": "internal_support_only",
+        "notes": "Calibration validates observation behavior and internal support only, not external truth."
+    }
+}

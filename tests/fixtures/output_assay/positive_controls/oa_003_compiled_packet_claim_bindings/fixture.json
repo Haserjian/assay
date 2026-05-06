@@ -1,0 +1,20 @@
+{
+    "fixture_id": "oa_003_compiled_packet_claim_bindings",
+    "title": "Positive control derived from compiled packet claim-binding rules",
+    "status": "active",
+    "category": "positive_control",
+    "artifact_kind": "spec_proposal",
+    "artifact_path": "artifact.md",
+    "artifact_hash": "sha256:79b0a200473976ae55827bd98e2106acdba71e7e8e92478f85c2b60dadfacf9b",
+    "declared_intent_class": "technical_answer",
+    "expected_run_disposition": "pass",
+    "expected_failure_modes": [],
+    "expected_compression_behavior": "preserve",
+    "promotion_surface": "claim_review_possible",
+    "labels": [
+        "seed",
+        "positive_control",
+        "compiled_packet_spec"
+    ],
+    "notes": "Anchored packet-model claims that cleanly distinguish proof packs, compiled packets, and compiler scope."
+}

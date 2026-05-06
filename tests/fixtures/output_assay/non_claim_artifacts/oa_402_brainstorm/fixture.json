@@ -1,0 +1,19 @@
+{
+    "fixture_id": "oa_402_brainstorm",
+    "title": "Non-claim brainstorm with question, action, and constraint units",
+    "status": "active",
+    "category": "non_claim_artifact",
+    "artifact_path": "artifact.md",
+    "artifact_hash": "sha256:6317e96e6227d944ce00c0446d2d635a20c60895018957c121b8bc7ffa0c013e",
+    "declared_intent_class": "brainstorm",
+    "expected_run_disposition": "pass",
+    "expected_failure_modes": [],
+    "expected_compression_behavior": "preserve",
+    "promotion_surface": "observation_only",
+    "labels": [
+        "seed",
+        "non_claim_artifact",
+        "brainstorm"
+    ],
+    "notes": "Valuable observed units remain non-claim material in v0 and must not become promotion-safe just because they are useful."
+}

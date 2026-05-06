@@ -1,0 +1,22 @@
+{
+    "fixture_id": "oa_301_status_update_mixed",
+    "title": "Mixed-quality business status update with factual, strategic, risk, and action units",
+    "status": "active",
+    "category": "business_artifact",
+    "artifact_path": "artifact.md",
+    "artifact_hash": "sha256:fef89ca9afccf601eef8a685314bc943c837565e54c0c79779200539cbe70056",
+    "declared_intent_class": "status_update",
+    "expected_run_disposition": "warn",
+    "expected_failure_modes": [
+        "unearned_confidence"
+    ],
+    "expected_compression_behavior": "preserve",
+    "promotion_surface": "claim_review_possible",
+    "labels": [
+        "seed",
+        "business_artifact",
+        "mixed_quality",
+        "status_update"
+    ],
+    "notes": "Combines one clean factual claim, one vague strategic claim, and non-claim operational units so the run is warn-level rather than globally blessed or blocked."
+}

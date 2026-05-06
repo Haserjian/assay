@@ -1,0 +1,110 @@
+{
+    "fixture_id": "oa_301_status_update_mixed",
+    "input_hash": "sha256:fef89ca9afccf601eef8a685314bc943c837565e54c0c79779200539cbe70056",
+    "intent_class": "status_update",
+    "summary": "The status update mixes a clear factual claim with one overconfident strategic claim and two useful operational non-claim units.",
+    "observed_units": [
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_301_u001",
+            "unit_type": "claim",
+            "source_role": "assertion",
+            "artifact_span": {
+                "text": "The corpus already covers positive, negative, mixed-quality, and non-claim categories.",
+                "start_char": 0,
+                "end_char": 86
+            },
+            "normalized_text": "The corpus already covers positive, negative, mixed-quality, and non-claim categories.",
+            "observation_status": "guardian_passed",
+            "promotion_eligibility": {
+                "status": "eligible",
+                "reason": "claim_unit_with_clean_provenance"
+            }
+        },
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_301_u002",
+            "unit_type": "claim",
+            "source_role": "assertion",
+            "artifact_span": {
+                "text": "This status update will clearly make adoption easy for every reviewer next week.",
+                "start_char": 87,
+                "end_char": 167
+            },
+            "normalized_text": "This status update will clearly make adoption easy for every reviewer next week.",
+            "observation_status": "guardian_warned",
+            "promotion_eligibility": {
+                "status": "ineligible",
+                "reason": "support_gap_requires_review",
+                "reasons": [
+                    "unearned_confidence",
+                    "support_gap_requires_review"
+                ]
+            }
+        },
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_301_u003",
+            "unit_type": "risk",
+            "source_role": "assertion",
+            "artifact_span": {
+                "text": "Risk: if business artifacts stay uncovered, the corpus will overfit to doctrine-heavy examples.",
+                "start_char": 168,
+                "end_char": 263
+            },
+            "normalized_text": "Risk: if business artifacts stay uncovered, the corpus will overfit to doctrine-heavy examples.",
+            "observation_status": "guardian_passed",
+            "promotion_eligibility": {
+                "status": "ineligible",
+                "reason": "non_claim_unit",
+                "reasons": [
+                    "non_claim_unit"
+                ]
+            }
+        },
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_301_u004",
+            "unit_type": "action",
+            "source_role": "instruction",
+            "artifact_span": {
+                "text": "Next step: add two more business artifacts before discussing launch.",
+                "start_char": 264,
+                "end_char": 332
+            },
+            "normalized_text": "Next step: add two more business artifacts before discussing launch.",
+            "observation_status": "guardian_passed",
+            "promotion_eligibility": {
+                "status": "ineligible",
+                "reason": "non_claim_unit",
+                "reasons": [
+                    "non_claim_unit"
+                ]
+            }
+        }
+    ],
+    "guardian_verdict": {
+        "run_status": "warn",
+        "observation_counts": {
+            "guardian_passed": 3,
+            "guardian_warned": 1,
+            "guardian_blocked": 0
+        },
+        "failure_modes": [
+            "unearned_confidence"
+        ],
+        "warnings": [
+            "support_gap_present"
+        ],
+        "block_reasons": []
+    },
+    "compression": {
+        "status": "preserve",
+        "compressed_summary": "The status update contains one promotable factual claim, one warned strategic claim, and two valid non-claim operational units."
+    },
+    "truth_verification": {
+        "performed": false,
+        "tier": "internal_support_only",
+        "notes": "Calibration validates observation behavior and internal support only, not external truth."
+    }
+}

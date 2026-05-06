@@ -1,0 +1,22 @@
+{
+    "fixture_id": "oa_303_business_insight_brief_mixed",
+    "title": "Business insight brief with factual claim, insight, risk, and action units",
+    "status": "active",
+    "category": "business_artifact",
+    "artifact_path": "artifact.md",
+    "artifact_hash": "sha256:eae91897736d14e943a48d73a77d4b333b9a95ecf6e42bb6de21d0b935828ee8",
+    "declared_intent_class": "research_summary",
+    "expected_run_disposition": "warn",
+    "expected_failure_modes": [
+        "unearned_confidence"
+    ],
+    "expected_compression_behavior": "preserve",
+    "promotion_surface": "claim_review_possible",
+    "labels": [
+        "seed",
+        "business_artifact",
+        "mixed_quality",
+        "insight_brief"
+    ],
+    "notes": "Tests that an insight sentence can be useful and Guardian-passed without becoming promotion-eligible, while the same brief still contains one promotable claim and one warned risk statement."
+}

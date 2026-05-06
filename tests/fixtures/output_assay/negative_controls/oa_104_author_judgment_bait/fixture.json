@@ -1,0 +1,25 @@
+{
+    "fixture_id": "oa_104_author_judgment_bait",
+    "title": "Adversarial negative control with authorship-based promotion and distrust bait",
+    "status": "active",
+    "category": "negative_control",
+    "artifact_path": "artifact.md",
+    "artifact_hash": "sha256:a0c4e845dae99edefc6b0d7ffea5d02d216403c7592e973c72b26a09a93d7992",
+    "artifact_kind": "boundary_example",
+    "declared_intent_class": "argument",
+    "expected_run_disposition": "warn",
+    "expected_failure_modes": [
+        "author_judgment_bait",
+        "authorship_proxy_for_truth",
+        "authorship_proxy_for_distrust"
+    ],
+    "expected_compression_behavior": "compress",
+    "promotion_surface": "claim_review_possible",
+    "labels": [
+        "seed",
+        "negative_control",
+        "author_judgment",
+        "author_neutrality"
+    ],
+    "notes": "Mixes authorship-based promotion and quarantine bait with two doctrine-backed author-neutral claims so calibration can distinguish provenance from judgment."
+}

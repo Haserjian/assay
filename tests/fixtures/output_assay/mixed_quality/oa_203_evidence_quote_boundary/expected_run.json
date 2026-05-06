@@ -1,0 +1,107 @@
+{
+    "fixture_id": "oa_203_evidence_quote_boundary",
+    "input_hash": "sha256:72ff8627b6ea6f53b372514d1e2c5569760342ddced8f7d16a29193abdfb7e1a",
+    "intent_class": "technical_answer",
+    "summary": "The technical answer mixes quoted evidence, one promotion-safe boundary claim, one overclaimed defense claim, and one open question.",
+    "observed_units": [
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_203_u001",
+            "unit_type": "claim",
+            "source_role": "evidence",
+            "artifact_span": {
+                "text": "Evidence excerpt: \"The proxy evaluates tool name and arguments, not response content.\"",
+                "start_char": 0,
+                "end_char": 86
+            },
+            "normalized_text": "The proxy evaluates tool name and arguments, not response content.",
+            "observation_status": "guardian_passed",
+            "promotion_eligibility": {
+                "status": "ineligible",
+                "reason": "source_role_not_assertive"
+            }
+        },
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_203_u002",
+            "unit_type": "claim",
+            "source_role": "assertion",
+            "artifact_span": {
+                "text": "That boundary supports attribution claims about tool calls, not claims that returned text was semantically inspected.",
+                "start_char": 87,
+                "end_char": 204
+            },
+            "normalized_text": "That boundary supports attribution claims about tool calls, not claims that returned text was semantically inspected.",
+            "observation_status": "guardian_passed",
+            "promotion_eligibility": {
+                "status": "eligible",
+                "reason": "claim_unit_with_clean_provenance"
+            }
+        },
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_203_u003",
+            "unit_type": "claim",
+            "source_role": "assertion",
+            "artifact_span": {
+                "text": "This boundary already proves general prompt-injection defense for downstream models.",
+                "start_char": 205,
+                "end_char": 289
+            },
+            "normalized_text": "This boundary already proves general prompt-injection defense for downstream models.",
+            "observation_status": "guardian_warned",
+            "promotion_eligibility": {
+                "status": "ineligible",
+                "reason": "support_gap_requires_review",
+                "reasons": [
+                    "unearned_confidence",
+                    "support_gap_requires_review"
+                ]
+            }
+        },
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_203_u004",
+            "unit_type": "question",
+            "source_role": "context",
+            "artifact_span": {
+                "text": "Question: should result-content inspection live in a later layer instead?",
+                "start_char": 290,
+                "end_char": 363
+            },
+            "normalized_text": "Question: should result-content inspection live in a later layer instead?",
+            "observation_status": "guardian_passed",
+            "promotion_eligibility": {
+                "status": "ineligible",
+                "reason": "non_claim_unit",
+                "reasons": [
+                    "non_claim_unit"
+                ]
+            }
+        }
+    ],
+    "guardian_verdict": {
+        "run_status": "warn",
+        "observation_counts": {
+            "guardian_passed": 3,
+            "guardian_warned": 1,
+            "guardian_blocked": 0
+        },
+        "failure_modes": [
+            "unearned_confidence"
+        ],
+        "warnings": [
+            "support_gap_present"
+        ],
+        "block_reasons": []
+    },
+    "compression": {
+        "status": "preserve",
+        "compressed_summary": "The answer preserves one quoted evidence unit, one promotable boundary claim, one warned overclaim, and one open question about a later layer."
+    },
+    "truth_verification": {
+        "performed": false,
+        "tier": "internal_support_only",
+        "notes": "Calibration validates observation behavior and internal support only, not external truth."
+    }
+}

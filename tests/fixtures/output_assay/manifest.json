@@ -1,0 +1,134 @@
+{
+    "schema_version": "0.1",
+    "status": "v0_complete",
+    "fixture_root": "tests/fixtures/output_assay",
+    "categories": [
+        "positive_controls",
+        "negative_controls",
+        "mixed_quality",
+        "business_artifacts",
+        "non_claim_artifacts"
+    ],
+    "fixtures": [
+        {
+            "fixture_id": "oa_001_clear_claim",
+            "category": "positive_control",
+            "status": "active",
+            "path": "positive_controls/oa_001_clear_claim"
+        },
+        {
+            "fixture_id": "oa_002_kernel_constitutional_rules",
+            "category": "positive_control",
+            "status": "active",
+            "path": "positive_controls/oa_002_kernel_constitutional_rules"
+        },
+        {
+            "fixture_id": "oa_003_compiled_packet_claim_bindings",
+            "category": "positive_control",
+            "status": "active",
+            "path": "positive_controls/oa_003_compiled_packet_claim_bindings"
+        },
+        {
+            "fixture_id": "oa_004_observation_not_assertion_boundary",
+            "category": "positive_control",
+            "status": "active",
+            "path": "positive_controls/oa_004_observation_not_assertion_boundary"
+        },
+        {
+            "fixture_id": "oa_005_verification_order_plan",
+            "category": "positive_control",
+            "status": "active",
+            "path": "positive_controls/oa_005_verification_order_plan"
+        },
+        {
+            "fixture_id": "oa_101_output_assay_duplicate_spec",
+            "category": "negative_control",
+            "status": "active",
+            "path": "negative_controls/oa_101_output_assay_duplicate_spec"
+        },
+        {
+            "fixture_id": "oa_102_unanchorable_extraction",
+            "category": "negative_control",
+            "status": "active",
+            "path": "negative_controls/oa_102_unanchorable_extraction"
+        },
+        {
+            "fixture_id": "oa_103_prompt_injection_bait",
+            "category": "negative_control",
+            "status": "active",
+            "path": "negative_controls/oa_103_prompt_injection_bait"
+        },
+        {
+            "fixture_id": "oa_104_author_judgment_bait",
+            "category": "negative_control",
+            "status": "active",
+            "path": "negative_controls/oa_104_author_judgment_bait"
+        },
+        {
+            "fixture_id": "oa_105_failed_extraction_refusal",
+            "category": "negative_control",
+            "status": "active",
+            "path": "negative_controls/oa_105_failed_extraction_refusal"
+        },
+        {
+            "fixture_id": "oa_201_claim_like_example",
+            "category": "mixed_quality",
+            "status": "active",
+            "path": "mixed_quality/oa_201_claim_like_example"
+        },
+        {
+            "fixture_id": "oa_202_partial_evidence_brief",
+            "category": "mixed_quality",
+            "status": "active",
+            "path": "mixed_quality/oa_202_partial_evidence_brief"
+        },
+        {
+            "fixture_id": "oa_203_evidence_quote_boundary",
+            "category": "mixed_quality",
+            "status": "active",
+            "path": "mixed_quality/oa_203_evidence_quote_boundary"
+        },
+        {
+            "fixture_id": "oa_204_ambiguous_stance_argument",
+            "category": "mixed_quality",
+            "status": "active",
+            "path": "mixed_quality/oa_204_ambiguous_stance_argument"
+        },
+        {
+            "fixture_id": "oa_205_verify_status_boundary",
+            "category": "mixed_quality",
+            "status": "active",
+            "path": "mixed_quality/oa_205_verify_status_boundary"
+        },
+        {
+            "fixture_id": "oa_301_status_update_mixed",
+            "category": "business_artifact",
+            "status": "active",
+            "path": "business_artifacts/oa_301_status_update_mixed"
+        },
+        {
+            "fixture_id": "oa_302_decision_memo_mixed",
+            "category": "business_artifact",
+            "status": "active",
+            "path": "business_artifacts/oa_302_decision_memo_mixed"
+        },
+        {
+            "fixture_id": "oa_303_business_insight_brief_mixed",
+            "category": "business_artifact",
+            "status": "active",
+            "path": "business_artifacts/oa_303_business_insight_brief_mixed"
+        },
+        {
+            "fixture_id": "oa_401_support_note",
+            "category": "non_claim_artifact",
+            "status": "active",
+            "path": "non_claim_artifacts/oa_401_support_note"
+        },
+        {
+            "fixture_id": "oa_402_brainstorm",
+            "category": "non_claim_artifact",
+            "status": "active",
+            "path": "non_claim_artifacts/oa_402_brainstorm"
+        }
+    ]
+}
