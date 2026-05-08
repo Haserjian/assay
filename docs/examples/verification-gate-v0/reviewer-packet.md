@@ -4,6 +4,12 @@ This packet summarizes the committed Verification Gate v0 sample for a
 reviewer. It is a worked example of the Reviewer Packet Lite template, not a
 claim of production authorization or legal compliance.
 
+Plain English: this sample is a signed inspection note, also called a
+verification report, for an evidence box. It proves the evidence box passed an
+integrity check and that the inspection note was signed by the expected GitHub
+workflow. It does not prove the software is secure, compliant,
+production-approved, or fully evaluated.
+
 ## Packet Metadata
 
 - Packet title: Verification Gate v0 signed report sample
@@ -60,6 +66,19 @@ judgment.
 | `unevaluated_channels` | `claim`, `replay`, `trust` |
 | `overall_reason` | `required_channels_passed; optional_channels_not_evaluated=claim,replay,trust` |
 
+## Verdict Channels
+
+| Channel | Result | Plain English |
+|---|---|---|
+| Integrity | `PASS` | The evidence pack matched its manifest. |
+| Claim | `NOT_EVALUATED` | This sample did not judge whether a claim was true. |
+| Replay | `NOT_RUN` | This sample did not rerun behavior. |
+| Trust | `NOT_EVALUATED` | This sample did not apply a trust policy. |
+| Overall | `PASS` | The required integrity channel passed. |
+
+Important: overall `PASS` only means the required integrity check passed. It
+does not mean every possible check was run.
+
 ## Scope: What This Covers
 
 - The committed sample report and manifest name the same pack root.
@@ -81,6 +100,15 @@ judgment.
 - Scorecard interpretation.
 - Upstream data authenticity beyond included evidence.
 
+## Do Not Say / Say This Instead
+
+| Do Not Say | Say This Instead |
+|---|---|
+| This proves the AI was right. | This proves the signed report passed the integrity-required verification profile. |
+| This proves the repo is secure. | This sample does not evaluate repository security. |
+| This proves compliance. | This sample is not a legal or compliance certification. |
+| Every claim passed. | Claim, replay, and trust channels were not evaluated in this sample. |
+
 ## Honest Failures / Missing Evidence
 
 | Item | Type | Explanation | Next Evidence Needed |
@@ -98,6 +126,14 @@ judgment.
   - `proof-pack/pack_manifest.json`
   - `signed-report/verify_report.json`
   - `signed-report/verify_report.sigstore.json`
+
+## What Would Make This Fail?
+
+- Changing the signed public report after signing.
+- Supplying a Sigstore bundle that does not match the report.
+- Verifying against the wrong GitHub Actions identity.
+- Changing proof-pack files so they no longer match `pack_manifest.json`.
+- Removing a file listed in the proof-pack manifest.
 
 ## How To Verify Locally
 

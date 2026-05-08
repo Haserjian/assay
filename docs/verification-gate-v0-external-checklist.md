@@ -25,6 +25,12 @@ gh auth status
 
 ## Option A: Verify The Committed Sample
 
+For a no-code introduction, read:
+
+```text
+docs/examples/verification-gate-v0/START-HERE.md
+```
+
 From the repository root:
 
 ```bash
@@ -34,7 +40,7 @@ bash scripts/verify_verification_gate_sample.sh
 Expected result:
 
 ```text
-Verified OK
+Result: VERIFIED OK
 ```
 
 The script also prints the report's verdict channels and confirms that

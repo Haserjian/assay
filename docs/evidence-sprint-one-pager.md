@@ -74,6 +74,14 @@ evidence.
 Stronger witnessing, independent anchoring, ledger acceptance, or scorecard
 interpretation are later maturity layers, not assumed in the base sprint.
 
+## Optional CI Integration
+
+If the review target lives in GitHub, the sprint can add an Assay verification
+workflow that emits `pack_manifest.json`, `verify_report.json`, and
+`verify_report.sigstore.json` as review artifacts. The CI integration is scoped
+to producing a repeatable verification packet; it does not imply production
+authorization or legal compliance.
+
 ## Example Artifact List
 
 ```text

@@ -86,3 +86,29 @@ cosign verify-blob "$REPORT" \
   --bundle "$BUNDLE" \
   --certificate-identity "$IDENTITY" \
   --certificate-oidc-issuer "$ISSUER"
+
+echo
+echo "Result: VERIFIED OK"
+echo
+echo "Human summary:"
+echo "  Evidence Box: $MANIFEST"
+echo "  Inspection Note / Verification Report: $REPORT"
+echo "  Signature Proof: $BUNDLE"
+echo "  Integrity: $(jq -r '.integrity_verdict' "$REPORT")"
+echo "  Claim correctness: $(jq -r '.claim_verdict' "$REPORT")"
+echo "  Replay: $(jq -r '.replay_verdict' "$REPORT")"
+echo "  Trust policy: $(jq -r '.trust_verdict' "$REPORT")"
+echo "  Overall: $(jq -r '.overall_verdict' "$REPORT") for $(jq -r '.evaluation_profile' "$REPORT") profile"
+echo "    This means the required integrity check passed."
+echo "    It does not mean every possible check was run."
+echo "  Signed by expected GitHub Actions identity:"
+echo "    $IDENTITY"
+echo
+echo "Plain English:"
+echo "  This proves the public verification report is intact, refers to the"
+echo "  right evidence pack, and was signed by the expected GitHub workflow."
+echo
+echo "Do NOT infer:"
+echo "  legal compliance, production approval, full claim correctness,"
+echo "  replay equivalence, trust-policy approval, ledger acceptance, or"
+echo "  scorecard interpretation."
