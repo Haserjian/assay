@@ -62,8 +62,10 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install assay
-        run: pip install "assay-ai==1.23.0"
+      - name: Install assay from checkout
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
 
       - name: Build proof pack
         run: |
@@ -86,6 +88,9 @@ jobs:
           require-claim-pass: "false"
           comment-on-pr: "false"
           upload-artifact: "false"
+
+      - name: Restore checkout Assay for public report
+        run: python -m pip install -e .
 
       - name: Write public verify report
         run: |
