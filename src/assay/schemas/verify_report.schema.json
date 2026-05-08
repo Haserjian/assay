@@ -16,10 +16,18 @@
     "trust_verdict",
     "evaluation_profile",
     "required_channels",
+    "optional_channels",
+    "unevaluated_channels",
     "overall_verdict",
+    "overall_reason",
+    "blocking_channel",
     "verified_at",
     "verifier",
+    "expectations",
     "evidence_refs",
+    "checks",
+    "errors",
+    "warnings",
     "summary"
   ],
   "properties": {
@@ -60,13 +68,16 @@
       "description": "Compact name for the verifier profile implied by the channels required to determine overall_verdict."
     },
     "required_channels": {
-      "type": "array",
-      "minItems": 1,
-      "uniqueItems": true,
-      "items": {
-        "enum": ["integrity", "claim", "replay", "trust"]
-      },
+      "$ref": "#/$defs/channel_array",
       "description": "Verdict channels required for this evaluation profile. PASS means these required channels passed; other channels may be optional or not evaluated."
+    },
+    "optional_channels": {
+      "$ref": "#/$defs/channel_array",
+      "description": "Verdict channels not required for this evaluation profile."
+    },
+    "unevaluated_channels": {
+      "$ref": "#/$defs/channel_array",
+      "description": "Verdict channels that were not evaluated or not run in this verification event."
     },
     "overall_verdict": {
       "enum": ["PASS", "HONEST_FAIL", "TAMPERED", "UNTRUSTED", "REPLAY_DIVERGED"]
@@ -173,6 +184,13 @@
         {"$ref": "#/$defs/sha256"},
         {"type": "null"}
       ]
+    },
+    "channel_array": {
+      "type": "array",
+      "items": {
+        "enum": ["integrity", "claim", "replay", "trust"]
+      },
+      "uniqueItems": true
     }
   }
 }

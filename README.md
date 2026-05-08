@@ -86,8 +86,8 @@ The public verification contract is `verify_report.json` plus
 
 `overall_verdict=PASS` means every channel listed in `required_channels`
 passed for the declared `evaluation_profile`. Optional channels may still be
-`NOT_EVALUATED` or `NOT_RUN`; the report states that explicitly in
-`overall_reason`.
+`NOT_EVALUATED` or `NOT_RUN`; the report lists them in
+`unevaluated_channels` and explains the collapse in `overall_reason`.
 
 Doctrine: **pack root proves the evidence object; ledger index proves
 accepted/citable position; scorecard explains interpretation.**

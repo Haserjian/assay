@@ -349,6 +349,20 @@ class AssayStore:
             "migrate_legacy_store_seq(store)`)."
         )
 
+    def _cleanup_created_empty_seq_file(
+        self,
+        seq_fd: int,
+        *,
+        existed_before: bool,
+    ) -> None:
+        if existed_before:
+            return
+        try:
+            if os.fstat(seq_fd).st_size == 0:
+                self._seq_file.unlink(missing_ok=True)
+        except OSError:
+            pass
+
     def _persist_entry_with_store_seq(self, data: Dict[str, Any]) -> None:
         """Atomically allocate the next ``_store_seq`` and write ``data``.
 
@@ -363,24 +377,18 @@ class AssayStore:
 
         ``.store_seq`` is NOT a health certificate. Its presence does not
         bypass corpus validation; the counter is only authoritative for a
-        corpus that has just passed strict classification.
+        corpus that has just passed strict classification under the same
+        cross-process lock that protects allocation and receipt persistence.
 
         Cross-process-safe: the durable ``<base_dir>/.store_seq`` file is
         opened under ``fcntl.flock(LOCK_EX)`` around allocation and
-        persistence. The strict classifier is also re-run under the lock
-        to close the narrow ToCTTOU window between the pre-check and
-        counter read.
+        persistence. The strict classifier runs under that lock so a
+        concurrent writer cannot expose a partially written JSONL line to
+        another writer's preflight scan.
         """
         self.base_dir.mkdir(parents=True, exist_ok=True)
 
-        # Strict full-corpus validation BEFORE touching ``.store_seq``.
-        # Fails closed on corrupt / mixed state. On PURE_LEGACY we still
-        # get here (no raise from the classifier) and refuse with a
-        # migration-pointer error — leaving ``.store_seq`` uncreated.
-        _, legacy_count = self._classify_store_for_write_strict()
-        if legacy_count > 0:
-            self._raise_migration_required()
-
+        seq_existed = self._seq_file.exists()
         seq_fd = os.open(
             str(self._seq_file),
             os.O_RDWR | os.O_CREAT,
@@ -390,13 +398,25 @@ class AssayStore:
             if _HAS_FCNTL:
                 fcntl.flock(seq_fd, fcntl.LOCK_EX)
             try:
-                # Defensive re-classification under the lock: closes a
-                # narrow window where another writer could have changed
-                # corpus state between the pre-check and here.
-                max_seq_in_corpus, legacy_count = (
-                    self._classify_store_for_write_strict()
-                )
+                # Strict full-corpus validation under the allocation lock.
+                # Fails closed on corrupt / mixed state. PURE_LEGACY is
+                # refused with a migration-pointer error before any counter
+                # bytes are written.
+                try:
+                    max_seq_in_corpus, legacy_count = (
+                        self._classify_store_for_write_strict()
+                    )
+                except Exception:
+                    self._cleanup_created_empty_seq_file(
+                        seq_fd,
+                        existed_before=seq_existed,
+                    )
+                    raise
                 if legacy_count > 0:
+                    self._cleanup_created_empty_seq_file(
+                        seq_fd,
+                        existed_before=seq_existed,
+                    )
                     self._raise_migration_required()
 
                 # Corpus is EMPTY or CURRENT. Allocate from the counter

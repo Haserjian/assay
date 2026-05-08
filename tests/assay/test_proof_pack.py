@@ -1789,6 +1789,8 @@ class TestClaimWiring:
         assert report["trust_verdict"] == "NOT_EVALUATED"
         assert report["evaluation_profile"] == "integrity_claim_required"
         assert report["required_channels"] == ["integrity", "claim"]
+        assert report["optional_channels"] == ["replay", "trust"]
+        assert report["unevaluated_channels"] == ["replay", "trust"]
         assert report["overall_verdict"] == "PASS"
         assert report["overall_reason"] == (
             "required_channels_passed; optional_channels_not_evaluated=replay,trust"
@@ -1910,6 +1912,8 @@ class TestClaimWiring:
         assert report["overall_verdict"] == "PASS"
         assert report["evaluation_profile"] == "integrity_required"
         assert report["required_channels"] == ["integrity"]
+        assert report["optional_channels"] == ["claim", "replay", "trust"]
+        assert report["unevaluated_channels"] == ["claim", "replay", "trust"]
         assert report["overall_reason"] == (
             "required_channels_passed; "
             "optional_channels_not_evaluated=claim,replay,trust"
@@ -1932,6 +1936,8 @@ class TestClaimWiring:
         verify_schema = json.loads((tmp_path / "verify_report.schema.json").read_text())
         assert "evaluation_profile" in verify_schema["required"]
         assert "required_channels" in verify_schema["required"]
+        assert "optional_channels" in verify_schema["required"]
+        assert "unevaluated_channels" in verify_schema["required"]
         assert verify_schema["properties"]["replay_verdict"]["enum"] == [
             "MATCH",
             "DIVERGE",
@@ -1973,6 +1979,12 @@ class TestClaimWiring:
         out = pack.build(tmp_path / "pack", keystore=tmp_keys)
         report = json.loads((out / "verify_report.json").read_text())
         assert "claim_verification" not in report
+        assert report["claim_verdict"] == "NOT_EVALUATED"
+        assert report["unevaluated_channels"] == ["claim", "replay", "trust"]
+        assert report["overall_reason"] == (
+            "required_channels_passed; "
+            "optional_channels_not_evaluated=claim,replay,trust"
+        )
 
     def test_claim_set_hash_auto_computed(self, tmp_path, tmp_keys, sample_receipts):
         """When claims are provided, claim_set_hash is computed from specs."""

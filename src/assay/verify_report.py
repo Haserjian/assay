@@ -52,22 +52,20 @@ def _replay_verdict(value: str) -> str:
     return "NOT_RUN"
 
 
-def _overall_verdict(
+def _unevaluated_channels(
     *,
-    integrity_verdict: str,
     claim_verdict: str,
     replay_verdict: str,
     trust_verdict: str,
-) -> tuple[str, Optional[str], str]:
-    if integrity_verdict == "TAMPERED":
-        return "TAMPERED", "integrity", "integrity_verdict=TAMPERED"
-    if trust_verdict == "UNTRUSTED":
-        return "UNTRUSTED", "trust", "trust_verdict=UNTRUSTED"
-    if replay_verdict == "DIVERGE":
-        return "REPLAY_DIVERGED", "replay", "replay_verdict=DIVERGE"
-    if claim_verdict == "HONEST_FAIL":
-        return "HONEST_FAIL", "claim", "claim_verdict=HONEST_FAIL"
-    return "PASS", None, "all_required_channels_passed"
+) -> tuple[str, ...]:
+    channels = []
+    if claim_verdict == "NOT_EVALUATED":
+        channels.append("claim")
+    if replay_verdict == "NOT_RUN":
+        channels.append("replay")
+    if trust_verdict == "NOT_EVALUATED":
+        channels.append("trust")
+    return tuple(channels)
 
 
 def _required_channels(
@@ -86,20 +84,41 @@ def _required_channels(
     return tuple(channels)
 
 
+def _optional_channels(required_channels: tuple[str, ...]) -> tuple[str, ...]:
+    return tuple(
+        channel for channel in _ALL_CHANNELS if channel not in required_channels
+    )
+
+
 def _evaluation_profile(required_channels: tuple[str, ...]) -> str:
     return "_".join(required_channels) + "_required"
 
 
-def _pass_reason(*, required_channels: tuple[str, ...]) -> str:
-    optional_not_evaluated = tuple(
-        channel for channel in _ALL_CHANNELS if channel not in required_channels
-    )
-    if not optional_not_evaluated:
+def _pass_reason(*, unevaluated_channels: tuple[str, ...]) -> str:
+    if not unevaluated_channels:
         return "required_channels_passed"
     return (
         "required_channels_passed; optional_channels_not_evaluated="
-        + ",".join(optional_not_evaluated)
+        + ",".join(unevaluated_channels)
     )
+
+
+def _overall_verdict(
+    *,
+    integrity_verdict: str,
+    claim_verdict: str,
+    replay_verdict: str,
+    trust_verdict: str,
+) -> tuple[str, Optional[str], str]:
+    if integrity_verdict == "TAMPERED":
+        return "TAMPERED", "integrity", "integrity_verdict=TAMPERED"
+    if trust_verdict == "UNTRUSTED":
+        return "UNTRUSTED", "trust", "trust_verdict=UNTRUSTED"
+    if replay_verdict == "DIVERGE":
+        return "REPLAY_DIVERGED", "replay", "replay_verdict=DIVERGE"
+    if claim_verdict == "HONEST_FAIL":
+        return "HONEST_FAIL", "claim", "claim_verdict=HONEST_FAIL"
+    return "PASS", None, "all_required_channels_passed"
 
 
 def _report_id(seed: Dict[str, Any]) -> str:
@@ -178,7 +197,9 @@ def build_verify_report(
             receipt_pack_sha256 = sha256_file(receipt_path)
 
     if claim_result is not None:
-        claim_verdict = "PASS" if getattr(claim_result, "passed", False) else "HONEST_FAIL"
+        claim_verdict = (
+            "PASS" if getattr(claim_result, "passed", False) else "HONEST_FAIL"
+        )
     else:
         claim_verdict = _legacy_claim_check(claim_check or attestation.get("claim_check"))
 
@@ -186,6 +207,12 @@ def build_verify_report(
     integrity_verdict = "PASS" if verify_result.passed else "TAMPERED"
     trust_verdict = _trust_verdict(trust_eval)
     required_channels = _required_channels(
+        claim_verdict=claim_verdict,
+        replay_verdict=replay_verdict,
+        trust_verdict=trust_verdict,
+    )
+    optional_channels = _optional_channels(required_channels)
+    unevaluated_channels = _unevaluated_channels(
         claim_verdict=claim_verdict,
         replay_verdict=replay_verdict,
         trust_verdict=trust_verdict,
@@ -198,7 +225,7 @@ def build_verify_report(
         trust_verdict=trust_verdict,
     )
     if overall == "PASS":
-        overall_reason = _pass_reason(required_channels=required_channels)
+        overall_reason = _pass_reason(unevaluated_channels=unevaluated_channels)
 
     evidence_refs = [
         _evidence_ref("pack_manifest", "pack_manifest.json", pack_manifest_sha256),
@@ -272,6 +299,8 @@ def build_verify_report(
         "trust_verdict": trust_verdict,
         "evaluation_profile": evaluation_profile,
         "required_channels": list(required_channels),
+        "optional_channels": list(optional_channels),
+        "unevaluated_channels": list(unevaluated_channels),
         "overall_verdict": overall,
         "overall_reason": overall_reason,
         "blocking_channel": blocking_channel,

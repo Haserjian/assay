@@ -11,6 +11,8 @@
   "trust_verdict": "NOT_EVALUATED",
   "evaluation_profile": "integrity_required",
   "required_channels": ["integrity"],
+  "optional_channels": ["claim", "replay", "trust"],
+  "unevaluated_channels": ["claim", "replay", "trust"],
   "overall_verdict": "TAMPERED",
   "overall_reason": "integrity_verdict=TAMPERED",
   "blocking_channel": "integrity",

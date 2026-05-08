@@ -11,6 +11,8 @@
   "trust_verdict": "PASS",
   "evaluation_profile": "integrity_claim_replay_trust_required",
   "required_channels": ["integrity", "claim", "replay", "trust"],
+  "optional_channels": [],
+  "unevaluated_channels": [],
   "overall_verdict": "HONEST_FAIL",
   "overall_reason": "claim_verdict=HONEST_FAIL",
   "blocking_channel": "claim",
