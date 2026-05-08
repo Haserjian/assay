@@ -22,6 +22,7 @@ You need three command-line tools:
 - `jq` - reads JSON
 - `cosign` - verifies the signature
 - `python3` - already installed on most Macs
+- `assay` - only needed for the optional tamper demo
 
 On macOS with Homebrew:
 
@@ -36,15 +37,24 @@ sudo apt-get update
 sudo apt-get install -y jq python3
 ```
 
-Install `cosign` using the current Sigstore instructions for your platform:
+For `cosign`, use Sigstore's official installation instructions for your
+platform:
 
 ```text
 https://docs.sigstore.dev/cosign/system_config/installation/
 ```
 
-On Linux, that usually means downloading the latest `cosign-linux-amd64` or
-matching architecture binary from Sigstore's release instructions, making it
-executable, and putting it somewhere on your `PATH`.
+If you use Linuxbrew, the macOS command also works:
+
+```bash
+brew install jq cosign
+```
+
+On Ubuntu/Debian without Linuxbrew, Sigstore documents release binaries and
+`.deb` packages. Follow that page for your CPU architecture, then put the
+`cosign` binary on your `PATH`. For stricter environments, verify the Cosign
+binary itself using Sigstore's release-verification instructions on the same
+page.
 
 Check your tools:
 
@@ -52,6 +62,13 @@ Check your tools:
 jq --version
 cosign version
 python3 --version
+```
+
+For the optional tamper demo, install the Assay CLI:
+
+```bash
+python3 -m pip install assay-ai
+assay --help
 ```
 
 If one of these commands is missing, install it first.
@@ -63,6 +80,11 @@ This sample answers one question:
 Can someone verify that a GitHub workflow produced a signed verification
 judgment about a specific evidence pack?
 
+GitHub and Sigstore can prove an artifact was produced by a workflow. Assay
+adds the reviewer packet around that proof: the evidence object, the
+verification judgment, separate verdict channels, scope language, and explicit
+caveats about what did and did not run.
+
 ## The Three Objects
 
 | Human Name | Technical File | Meaning |
@@ -70,16 +92,6 @@ judgment about a specific evidence pack?
 | Evidence Box | `proof-pack/pack_manifest.json` | The thing being checked. |
 | Verification Report | `signed-report/verify_report.json` | What verification decided. |
 | Signature Proof | `signed-report/verify_report.sigstore.json` | Who signed the decision. |
-
-There are two signatures in this sample:
-
-- `proof-pack/pack_signature.sig` belongs to the proof pack itself.
-- `signed-report/verify_report.sigstore.json` belongs to the public
-  Verification Report.
-
-This walkthrough focuses on the Sigstore-signed public Verification Report.
-The proof pack's Ed25519 signature is part of the artifact, but this script
-does not exercise that signature.
 
 ## Run One Command
 
@@ -106,10 +118,30 @@ Integrity: PASS
 Claim correctness: NOT_EVALUATED
 Replay: NOT_RUN
 Trust policy: NOT_EVALUATED
-Overall: PASS for integrity_required profile
+Overall: PASS (profile: integrity_required)
 ```
 
 The script prints more detail than this. These are the lines to look for first.
+
+## Optional: See Tamper Rejection
+
+This demo copies the sample to a temporary directory, changes it, and shows
+that verification rejects the changed copy:
+
+```bash
+bash scripts/demo_tamper_verification_gate_sample.sh
+```
+
+Expected result:
+
+```text
+Clean sample result: VERIFIED OK
+Report tamper result: REJECTED
+Pack tamper result: REJECTED
+```
+
+The report tamper changes the signed Verification Report. The pack tamper
+changes a file inside the Evidence Box while leaving the manifest behind.
 
 ## What "Verified OK" Means
 
@@ -119,13 +151,34 @@ It means:
 - The Evidence Box passed the required integrity check.
 - The Verification Report was signed by the expected GitHub Actions workflow.
 
-The workflow identity must match the expected
-`https://github.com/Haserjian/assay/.github/workflows/...` identity. This is
-an exact identity check, not a substring search; a workflow from another repo
-or fork would not satisfy the command.
+The certificate identity must exactly match:
+
+```text
+https://github.com/Haserjian/assay/.github/workflows/lineage.yml@refs/pull/116/merge
+```
+
+This is the workflow identity for this one sample. Future runs will have their
+own expected workflow identity. This is an exact identity check, not a
+substring search; a workflow from another repo or fork would not satisfy the
+command.
+
+There are two signature layers:
+
+- `proof-pack/pack_signature.sig` belongs to the proof pack itself.
+- `signed-report/verify_report.sigstore.json` belongs to the public
+  Verification Report.
+
+The main verification script checks the Sigstore signature on the public
+Verification Report and checks the proof-pack manifest hashes. The tamper demo
+also uses `assay verify-pack` to show that changing a file inside the proof
+pack is rejected. The proof pack's Ed25519 signature is present in this sample;
+the public reviewer walkthrough focuses on the signed Verification Report and
+does not make a trust claim about the proof-pack signer identity.
 
 Important: `overall_verdict=PASS` only means the required integrity check
-passed. It does not mean every possible check was run.
+passed for `evaluation_profile=integrity_required`. It does not mean every
+possible check was run. A screenshot of `overall_verdict=PASS` without the
+evaluation profile is incomplete.
 
 ## What Passed
 
@@ -141,7 +194,9 @@ judgment points to that same pack.
 - Trust policy: `NOT_EVALUATED`
 
 In plain English: this sample does not judge whether a claim is true, does not
-rerun behavior, and does not apply a trust policy.
+rerun behavior, and does not apply a trust policy. That is normal for this
+integrity-only sample; a stricter packet would need those channels turned on
+and documented.
 
 ## Do Not Infer
 

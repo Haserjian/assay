@@ -17,6 +17,40 @@ cosign version
 python3 --version
 ```
 
+Only needed for the optional tamper demo:
+
+```bash
+assay --help
+```
+
+On macOS or Linuxbrew:
+
+```bash
+brew install jq cosign
+```
+
+On Ubuntu/Debian:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y jq python3
+```
+
+Install `cosign` using Sigstore's official installation instructions:
+
+```text
+https://docs.sigstore.dev/cosign/system_config/installation/
+```
+
+For stricter environments, verify the Cosign binary itself using Sigstore's
+release-verification instructions before using it as the verifier.
+
+Install the Assay CLI only if you want to run the optional tamper demo:
+
+```bash
+python3 -m pip install assay-ai
+```
+
 Optional for downloading the live workflow artifact:
 
 ```bash
@@ -47,6 +81,20 @@ The script also prints the report's verdict channels and confirms that
 `signed-report/verify_report.json` and `proof-pack/pack_manifest.json` name the same
 `pack_root_sha256`.
 
+Optional tamper check:
+
+```bash
+bash scripts/demo_tamper_verification_gate_sample.sh
+```
+
+Expected result:
+
+```text
+Clean sample result: VERIFIED OK
+Report tamper result: REJECTED
+Pack tamper result: REJECTED
+```
+
 ## Option B: Download The Live Run Artifact
 
 The live proof run is:
@@ -55,6 +103,9 @@ The live proof run is:
 - Artifact: `assay-verify-report`
 - Certificate identity:
   `https://github.com/Haserjian/assay/.github/workflows/lineage.yml@refs/pull/116/merge`
+
+That certificate identity is exact for this one-shot PR proof run. Future runs
+will sign under their own expected workflow identity.
 
 Workflow artifacts are operational delivery objects and may expire according
 to repository retention settings. If this download fails because the artifact
@@ -111,6 +162,9 @@ cosign verify-blob verify_report.json \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
 
+The `--certificate-identity` value is an exact identity check, not a substring
+search. A workflow from another repo or fork would not satisfy this command.
+
 ## Questions The Reviewer Should Answer
 
 1. What is the evidence object?
@@ -132,8 +186,12 @@ cosign verify-blob verify_report.json \
    proves the judgment was signed by the expected GitHub Actions workflow
    identity for PR `#116`. For the live workflow download, this file is
    `verify_report.sigstore.json`.
-4. The integrity channel was evaluated and passed.
+4. The integrity channel was evaluated and passed for the
+   `integrity_required` profile.
 5. Claim, replay, and trust channels were not evaluated in this sample.
 6. The sample does not prove production authorization, legal compliance,
    ledger acceptance, scorecard interpretation, full claim evaluation, replay
    evaluation, or trust-policy evaluation.
+
+Important: a screenshot of `overall_verdict=PASS` without
+`evaluation_profile=integrity_required` is incomplete.

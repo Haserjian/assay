@@ -14,35 +14,66 @@ elif [[ $# -gt 0 ]]; then
   exit 2
 fi
 
-for command in cosign python3; do
+for command in assay cosign python3; do
   if ! command -v "$command" >/dev/null 2>&1; then
-    echo "missing required command: $command" >&2
+    if [[ "$command" == "assay" ]]; then
+      echo "missing required command: assay" >&2
+      echo "install it with: python3 -m pip install assay-ai" >&2
+      echo "assay is only needed for the optional proof-pack tamper demo." >&2
+    else
+      echo "missing required command: $command" >&2
+    fi
     exit 127
   fi
 done
 
-cp -R "$SOURCE_DIR" "$TMP_ROOT/verification-gate-v0"
-
-REPORT="$TMP_ROOT/verification-gate-v0/signed-report/verify_report.json"
-BUNDLE="$TMP_ROOT/verification-gate-v0/signed-report/verify_report.sigstore.json"
 IDENTITY="https://github.com/Haserjian/assay/.github/workflows/lineage.yml@refs/pull/116/merge"
 ISSUER="https://token.actions.githubusercontent.com"
 
+run_cosign_verify() {
+  local report="$1"
+  local bundle="$2"
+
+  if [[ "$VERBOSE" -eq 1 ]]; then
+    cosign verify-blob "$report" \
+      --bundle "$bundle" \
+      --certificate-identity "$IDENTITY" \
+      --certificate-oidc-issuer "$ISSUER"
+  else
+    cosign verify-blob "$report" \
+      --bundle "$bundle" \
+      --certificate-identity "$IDENTITY" \
+      --certificate-oidc-issuer "$ISSUER" >/dev/null 2>&1
+  fi
+}
+
+run_pack_verify() {
+  local pack_dir="$1"
+
+  if [[ "$VERBOSE" -eq 1 ]]; then
+    assay verify-pack "$pack_dir"
+  else
+    assay verify-pack "$pack_dir" >/dev/null 2>&1
+  fi
+}
+
+cp -R "$SOURCE_DIR" "$TMP_ROOT/clean"
+cp -R "$SOURCE_DIR" "$TMP_ROOT/report-tamper"
+cp -R "$SOURCE_DIR" "$TMP_ROOT/pack-tamper"
+
+CLEAN_REPORT="$TMP_ROOT/clean/signed-report/verify_report.json"
+CLEAN_BUNDLE="$TMP_ROOT/clean/signed-report/verify_report.sigstore.json"
+CLEAN_PACK="$TMP_ROOT/clean/proof-pack"
+
 echo "Clean sample:"
-if [[ "$VERBOSE" -eq 1 ]]; then
-  cosign verify-blob "$REPORT" \
-    --bundle "$BUNDLE" \
-    --certificate-identity "$IDENTITY" \
-    --certificate-oidc-issuer "$ISSUER"
-else
-  cosign verify-blob "$REPORT" \
-    --bundle "$BUNDLE" \
-    --certificate-identity "$IDENTITY" \
-    --certificate-oidc-issuer "$ISSUER" >/dev/null 2>&1
-fi
+run_cosign_verify "$CLEAN_REPORT" "$CLEAN_BUNDLE"
+run_pack_verify "$CLEAN_PACK"
 echo "Clean sample result: VERIFIED OK"
 
-python3 - "$REPORT" <<'PY'
+REPORT_TAMPER_REPORT="$TMP_ROOT/report-tamper/signed-report/verify_report.json"
+REPORT_TAMPER_BUNDLE="$TMP_ROOT/report-tamper/signed-report/verify_report.sigstore.json"
+
+python3 - "$REPORT_TAMPER_REPORT" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -54,31 +85,24 @@ path.write_text(json.dumps(data, indent=2) + "\n")
 PY
 
 echo
-echo "Tampered sample:"
-if [[ "$VERBOSE" -eq 1 ]]; then
-  if cosign verify-blob "$REPORT" \
-    --bundle "$BUNDLE" \
-    --certificate-identity "$IDENTITY" \
-    --certificate-oidc-issuer "$ISSUER"; then
-    status=0
-  else
-    status=$?
-  fi
-else
-  if cosign verify-blob "$REPORT" \
-    --bundle "$BUNDLE" \
-    --certificate-identity "$IDENTITY" \
-    --certificate-oidc-issuer "$ISSUER" >/dev/null 2>&1; then
-    status=0
-  else
-    status=$?
-  fi
-fi
-
-if [[ "$status" -eq 0 ]]; then
-  echo "Tampered sample unexpectedly verified." >&2
+echo "Report tamper:"
+if run_cosign_verify "$REPORT_TAMPER_REPORT" "$REPORT_TAMPER_BUNDLE"; then
+  echo "Report tamper unexpectedly verified." >&2
   exit 1
 else
-  echo "Tampered sample result: REJECTED"
+  echo "Report tamper result: REJECTED"
   echo "Reason: signature did not match the tampered report; this is expected."
+fi
+
+PACK_TAMPER_PACK="$TMP_ROOT/pack-tamper/proof-pack"
+printf '\nTAMPERED BY DEMO\n' >> "$PACK_TAMPER_PACK/verify_transcript.md"
+
+echo
+echo "Pack tamper:"
+if run_pack_verify "$PACK_TAMPER_PACK"; then
+  echo "Pack tamper unexpectedly verified." >&2
+  exit 1
+else
+  echo "Pack tamper result: REJECTED"
+  echo "Reason: proof-pack file hash no longer matches pack_manifest.json; this is expected."
 fi
