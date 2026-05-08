@@ -74,13 +74,13 @@ Expected result:
 Result: INTEGRITY VERIFIED
 ```
 
-The script also prints the report's verdict channels and confirms that
-`signed-report/verify_report.json` and `proof-pack/pack_manifest.json` name the same
-`pack_root_sha256`.
-
 A verdict channel is one kind of check. In this sample, only Integrity is
 required. Claim, replay, and trust are visible so reviewers can see they did
 not run.
+
+The script also prints the report's verdict channels and confirms that
+`signed-report/verify_report.json` and `proof-pack/pack_manifest.json` name the same
+`pack_root_sha256`.
 
 Optional tamper check:
 
@@ -198,6 +198,8 @@ search. A workflow from another repo or fork would not satisfy this command.
 4. The Integrity verdict channel was evaluated and passed for the
    `integrity_required` profile.
 5. Claim, replay, and trust channels were not evaluated in this sample.
+   `NOT_EVALUATED` and `NOT_RUN` both mean the channel did not contribute to
+   the sample passing; replay says `NOT_RUN` because no replay was attempted.
 6. The sample does not prove production authorization, legal compliance,
    ledger acceptance, scorecard interpretation, full claim evaluation, replay
    evaluation, or trust-policy evaluation.

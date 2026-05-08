@@ -47,6 +47,10 @@ docs/examples/verification-gate-v0/
 - `signed-report/verify_report.sigstore.json` is the provenance bundle for
   the judgment signature.
 
+A verdict channel is one kind of check. This sample shows four channels:
+Integrity, Claim, Replay, and Trust. Only Integrity is required for this
+sample.
+
 ## What This Proves
 
 - The signed public report and proof-pack manifest bind to the same
@@ -56,9 +60,9 @@ docs/examples/verification-gate-v0/
   workflow identity for PR `#116`.
 - The required integrity channel passed.
 
-A verdict channel is one kind of check. In this sample, only Integrity is
-required. Claim, replay, and trust-policy channels are visible so reviewers can
-see they did not run.
+Claim, replay, and trust-policy channels are visible so reviewers can see they
+did not run. `NOT_EVALUATED` and `NOT_RUN` both mean the channel did not
+contribute to the sample passing.
 
 The sample is tied to the historical PR `#116` workflow identity:
 

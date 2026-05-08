@@ -14,6 +14,10 @@ It also says nothing about whether any model, eval, or claim inside the
 Evidence Box is true. In this sample, claim correctness is explicitly
 `NOT_EVALUATED`.
 
+A verdict channel is one kind of check. This sample shows four channels:
+Integrity, Claim, Replay, and Trust. Only Integrity is required for this
+sample.
+
 ## Packet Metadata
 
 - Packet title: Verification Gate v0 signed report sample
@@ -31,7 +35,7 @@ Evidence Box is true. In this sample, claim correctness is explicitly
 | claim-001 | The PR workflow emitted a portable `verify_report.json` for one evidence pack. | Supported by sample artifact | The committed sample includes a complete `proof-pack/` and a signed public report under `signed-report/`. |
 | claim-002 | The public report and proof-pack manifest bind to the same pack root. | Passed | Both files name `88444482656580c864b9b879d877e82a05359c5f3970ec385b64f7777f73a053`. |
 | claim-003 | The public report signature verifies against the expected GitHub Actions workflow identity. | Passed | `cosign verify-blob` returns `Verified OK` for the PR `#116` workflow identity. |
-| claim-004 | Claim, replay, and trust-policy channels were evaluated. | Not evaluated | The sample explicitly reports `NOT_EVALUATED` / `NOT_RUN` for those channels. |
+| claim-004 | Claim, replay, and trust-policy channels were not evaluated. | Not evaluated | The sample explicitly reports `NOT_EVALUATED` / `NOT_RUN` for those channels. |
 
 ## Evidence Included
 
@@ -44,7 +48,7 @@ Evidence Box is true. In this sample, claim correctness is explicitly
 | evidence-005 | `proof-pack/receipt_pack.jsonl` | proof-pack integrity | Empty receipt pack for this zero-receipt sample. |
 | evidence-006 | `proof-pack/verify_report.json` | proof-pack integrity | Hash-covered report inside the proof pack. |
 | evidence-007 | `proof-pack/verify_transcript.md` | proof-pack integrity | Human-readable transcript inside the proof pack. |
-| evidence-008 | `proof-pack/pack_signature.sig` | proof-pack integrity | Detached Ed25519 proof-pack signature. |
+| evidence-008 | `proof-pack/pack_signature.sig` | proof-pack integrity | Detached Ed25519 proof-pack signature; not the Signature Proof for the public report. |
 
 ## Verification Result
 
@@ -55,9 +59,10 @@ Evidence Box is true. In this sample, claim correctness is explicitly
 `signed-report/verify_report.sigstore.json` is the provenance of that public
 judgment.
 
-There are two signatures in this sample. `proof-pack/pack_signature.sig`
-belongs to the proof pack itself. `signed-report/verify_report.sigstore.json`
-belongs to the public Verification Report.
+There are two signatures in this sample. The Signature Proof in this
+walkthrough is `signed-report/verify_report.sigstore.json`, which belongs to
+the public Verification Report. `proof-pack/pack_signature.sig` belongs to the
+proof pack itself.
 
 The sample script verifies the Sigstore signature on the public Verification
 Report and checks proof-pack manifest hashes. The tamper demo also uses
@@ -106,9 +111,8 @@ report to point at another pack would break the Sigstore signature.
 
 ## Verdict Channels
 
-A verdict channel is one kind of check. In this sample, only Integrity is
-required. Claim, replay, and trust are visible so reviewers can see they did
-not run.
+In this sample, only Integrity is required. Claim, replay, and trust are
+visible so reviewers can see they did not run.
 
 | Channel | Result | Plain English |
 |---|---|---|
@@ -117,6 +121,9 @@ not run.
 | Replay | `NOT_RUN` | This sample did not rerun behavior. |
 | Trust | `NOT_EVALUATED` | This sample did not apply a trust policy. |
 | Overall | `PASS` | The required integrity channel passed. |
+
+`NOT_EVALUATED` and `NOT_RUN` both mean the channel did not contribute to the
+sample passing. Replay says `NOT_RUN` because no replay was attempted.
 
 Important: overall `PASS` only means the required integrity check passed for
 the `integrity_required` profile. It does not mean every possible check was
