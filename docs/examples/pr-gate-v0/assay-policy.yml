@@ -1,0 +1,38 @@
+profile: coding_pr_v0
+
+risk_paths:
+  - "auth/**"
+  - "billing/**"
+  - ".github/workflows/**"
+  - "infra/**"
+  - "pyproject.toml"
+  - "package-lock.json"
+  - "requirements*.txt"
+
+required_checks:
+  - "tests"
+
+rules:
+  integrity_failed:
+    decision: BLOCK
+    recommended_action: block_integrity_failed
+
+  untrusted_signer:
+    decision: BLOCK
+    recommended_action: block_untrusted_signer
+
+  required_check_missing:
+    decision: NEEDS_REVIEW
+    recommended_action: rerun_required_check
+
+  required_check_failed:
+    decision: BLOCK
+    recommended_action: block_missing_evidence
+
+  risk_path_touched:
+    decision: NEEDS_REVIEW
+    recommended_action: require_human_approval
+
+default:
+  decision: PASS
+  recommended_action: proceed

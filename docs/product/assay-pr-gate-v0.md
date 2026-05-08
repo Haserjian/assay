@@ -1,154 +1,190 @@
-# Assay PR Gate v0
+# Assay PR Gate v0.1 Plan
 
-Assay PR Gate gives AI-assisted pull requests a signed review packet showing
-what changed, what checks ran, what passed, what did not run, and whether
-policy requires human review.
+Assay PR Gate produces a signed review decision for pull requests, binding
+evidence, policy, verdict channels, caveats, and recommended action to a
+specific commit.
 
 This is a product planning note. It does not claim that PR Gate is implemented
-today. The current implemented base is the Verification Gate v0 integrity
-sample: evidence pack, Verification Report, Sigstore Signature Proof, verdict
-channels, and conservative scope language.
+today. The current implemented base is Verification Gate v0: evidence pack,
+Verification Report, Sigstore Signature Proof, verdict channels, and
+conservative scope language.
 
-## Product Bet
+## Product Thesis
 
-Stop selling the primitive:
+The PR comment is not the product. The signed review decision is the product.
+The PR comment is where the product becomes visible.
 
-> Verify this signed artifact.
+Do not define Assay as a better PR comment. That puts it next to ordinary CI
+annotations. Define Assay PR Gate as a signed, scoped, policy-backed review
+decision bound to a PR commit.
 
-Sell the review moment:
+Buyer-facing sentence:
 
-> Before we merge AI-assisted code, we require an Assay Review Packet.
+> Before risky or AI-assisted code is merged, Assay produces a signed Review
+> Packet showing what changed, what was checked, what did not run, and what the
+> reviewer should do next.
 
-The buyer does not pay for signed JSON. The buyer pays for confidence that
-AI-assisted work can be reviewed, approved, escalated, audited, or defended
-without trusting a dashboard, screenshot, or verbal claim.
+Short positioning:
 
-## First Wedge
+> Signed review decisions for high-velocity PRs.
 
-Start with GitHub pull request review for AI-assisted code.
+AI-assisted pull requests are the beachhead because they create urgency. The
+substrate should also work for non-AI high-risk PRs where reviewer attention is
+the bottleneck.
 
-This wedge has a concrete buyer, workflow, and decision:
+## Product Contract
 
-| Item | v0 choice |
-|---|---|
-| Buyer | Engineering lead or security-minded team |
-| Workflow | GitHub pull request review |
-| Decision | Merge normally, require human approval, or block |
-| Artifact | Signed Assay Review Packet |
-| Pain | AI-assisted code is hard to trust blindly |
+Input:
 
-Do not start with generic AI governance. Do not start with dashboards. The
-first product surface is the pull request comment because it appears at the
-decision point.
+- repository
+- PR number
+- base SHA
+- head SHA
+- merge or ref SHA when applicable
+- changed files
+- diff hash
+- workflow and run identity
+- observed check results
+- policy profile
+- risk path matches
 
-## User Story
+Output:
 
-As an engineering lead, when an AI-assisted pull request is opened or updated,
-I want a signed review packet so I can see what happened, what evidence was
-captured, what checks ran, and whether policy says this needs human attention.
+- Assay Review Packet
+- evidence pack
+- Verification Report
+- Signature Proof
+- PR-visible review decision
+- local or CLI verifier result
 
-## Product Surface
+Primary user:
 
-The first surface is a GitHub PR comment.
+> Security-minded engineering lead at a 20-500 person software team using
+> GitHub and AI coding tools.
 
-Example:
+First policy:
+
+> AI-assisted PRs are allowed, but risky paths require a signed Assay Review
+> Packet and human approval.
+
+## Decision Vocabulary
+
+Keep the decision surface finite.
 
 ```text
-Assay PR Gate: NEEDS_REVIEW
-
-Profile: coding_pr_v0
-Recommended action: require human approval before merge
-
-Integrity: PASS
-Claim: PASS - observed CI check exited 0 for commit abc123
-Replay: NOT_RUN
-Trust policy: NEEDS_REVIEW - touched auth/**
-
-Evidence captured:
-- repo: Haserjian/example
-- PR: #42
-- commit: abc123
-- changed files: 4
-- risk paths touched: auth/session.py
-- signer: expected GitHub Actions workflow
-
-View signed review packet: <link>
-Download Verification Report: <link>
+overall_decision:
+  PASS
+  NEEDS_REVIEW
+  BLOCK
+  ERROR
 ```
 
-The wording must stay bounded. `Claim: PASS` for v0 means a specific observed
-claim was supported by captured evidence. It must not mean "the code is good"
-or "all relevant tests passed."
+`PASS` does not mean "merge automatically." It means Assay found no policy
+reason to stop normal review.
 
-## Decision Model
+Render it as:
 
-PR Gate should make the next action explicit:
-
-```json
-{
-  "overall_verdict": "NEEDS_REVIEW",
-  "recommended_action": "require_human_approval",
-  "blocking_reason": "touched_risk_path"
-}
+```text
+PASS - proceed to normal review
 ```
 
-The decision fields are product-facing summaries. They do not replace the
-underlying verdict channels; they make the review moment legible.
+Recommended actions are also fixed. Do not allow free-form action strings.
+Free-form action strings cannot aggregate, compare, dashboard, audit, or price.
+
+```text
+recommended_action:
+  proceed
+  require_human_approval
+  request_codeowner_review
+  rerun_required_check
+  block_missing_evidence
+  block_integrity_failed
+  block_untrusted_signer
+  manual_triage
+```
 
 ## Verdict Channels
 
-Use the existing Verification Gate channel discipline, but connect it to PR
-review decisions.
-
-| Channel | v0 meaning |
-|---|---|
-| Integrity | Evidence pack and Verification Report are intact and bound together. |
-| Claim | A narrow PR claim is checked against captured evidence. |
-| Replay | Not run in v0. Do not fake replay. |
-| Trust policy | Repo policy maps facts to PASS, NEEDS_REVIEW, or BLOCK. |
-
-For the first PR Gate demo:
+For PR Gate v0.1:
 
 ```text
-Integrity: PASS
-Claim: PASS - observed CI check exited 0 for commit abc123
+Integrity: PASS / FAIL
+Claim: PASS / FAIL / NOT_EVALUATED
 Replay: NOT_RUN
-Trust policy: NEEDS_REVIEW - touched auth/**
+Trust policy: PASS / NEEDS_REVIEW / BLOCK
 ```
 
-## Bounded Claim Gate
+Keep replay as `NOT_RUN`. Do not fake replay.
 
-The first claim gate should be painfully concrete.
-
-Good v0 claim:
+The first bounded claim should be brutally conservative:
 
 ```text
-Observed CI check exited 0 for commit abc123.
+Observed GitHub check run "<name>" had conclusion "<success|failure|...>" for commit "<sha>".
 ```
 
-Evidence required:
+If Assay itself runs a command:
 
-- CI job or check identifier
-- command or check name
-- exit code or check conclusion
-- commit SHA
-- timestamp
-- output or output hash when available
+```text
+Observed command "<cmd>" exited "<code>" inside workflow run "<run_id>" for commit "<sha>".
+```
 
-Avoid:
+Do not write:
 
 ```text
 Tests passed.
 ```
 
-That phrasing can imply all relevant tests passed. PR Gate v0 should only
-claim that a specific observed check passed for a specific commit.
+That phrase implies too much. The Assay claim is only that a specific observed
+check or command had a specific result for a specific commit.
 
-## Trust Policy Gate
+## Comment Contract
 
-Trust policy is the first money gate because it tells a reviewer what to do.
+The PR comment is the product face. It must show the binding in the comment
+body, not only in linked docs.
 
-Initial policy shape:
+Canonical shape:
+
+```text
+Assay PR Gate: NEEDS_REVIEW
+
+Recommended action: require_human_approval
+Reason: touched risk path auth/**
+
+Subject:
+- repo: Haserjian/assay
+- PR: #123
+- head commit: abc123
+- diff hash: sha256:...
+
+Verdict channels:
+- Integrity: PASS
+- Claim: PASS - observed check "tests" concluded success for commit abc123
+- Replay: NOT_RUN
+- Trust policy: NEEDS_REVIEW - touched auth/session.py
+
+Evidence:
+- Evidence Box: proof-pack/pack_manifest.json
+- Verification Report: signed-report/verify_report.json
+- Signature Proof: signed-report/verify_report.sigstore.json
+
+Do not infer:
+- code is secure
+- all possible tests passed
+- AI made a good design decision
+- replay was performed
+- production approval was granted
+
+Signed by expected workflow:
+Haserjian/assay/.github/workflows/assay-pr-gate.yml@refs/heads/main
+```
+
+Detailed rendering rules live in:
+
+- `docs/product/assay-pr-gate-comment-v0.md`
+
+## Policy Contract
+
+Initial policy profile:
 
 ```yaml
 profile: coding_pr_v0
@@ -157,147 +193,427 @@ risk_paths:
   - "auth/**"
   - "billing/**"
   - ".github/workflows/**"
+  - "infra/**"
+  - "pyproject.toml"
+  - "package-lock.json"
+  - "requirements*.txt"
+
+required_checks:
+  - "tests"
 
 rules:
-  tests_missing:
-    verdict: NEEDS_REVIEW
-    action: require_human_approval
+  integrity_failed:
+    decision: BLOCK
+    recommended_action: block_integrity_failed
+
+  untrusted_signer:
+    decision: BLOCK
+    recommended_action: block_untrusted_signer
+
+  required_check_missing:
+    decision: NEEDS_REVIEW
+    recommended_action: rerun_required_check
+
+  required_check_failed:
+    decision: BLOCK
+    recommended_action: block_missing_evidence
 
   risk_path_touched:
-    verdict: NEEDS_REVIEW
-    action: require_human_approval
+    decision: NEEDS_REVIEW
+    recommended_action: require_human_approval
 
-  report_signature_invalid:
-    verdict: BLOCK
-    action: do_not_merge
-
-  evidence_integrity_failed:
-    verdict: BLOCK
-    action: do_not_merge
+default:
+  decision: PASS
+  recommended_action: proceed
 ```
 
-This policy is intentionally small. It should be easy for a reviewer to
-explain why a PR received PASS, NEEDS_REVIEW, or BLOCK.
+Detailed policy semantics live in:
 
-## Evidence Captured
+- `docs/product/assay-pr-gate-policy-v0.md`
+- `docs/examples/pr-gate-v0/assay-policy.yml`
 
-PR Gate v0 should capture the boring facts needed for review:
+## GitHub Security Model
 
-- repository
-- PR number
-- branch or ref
-- commit SHA
-- changed files
-- diff hash
-- risk path matches
-- actor and workflow identity
-- relevant CI check names and conclusions
-- observed command, exit code, and output hash when available
-- policy profile and policy hash
-- timestamps
+Do not accidentally create the thing Assay is meant to defend against.
 
-Do not make users manually assemble this evidence. The packet should be
-generated as a side effect of the normal pull request workflow.
+The dogfood path can start with a simple same-repo workflow. Production shape
+needs a two-lane model:
 
-## MVP Flow
+Lane A, untrusted collector:
+
+- trigger: `pull_request`
+- permissions: read-only
+- no secrets
+- no privileged token
+- collect PR metadata and check evidence
+- upload unsigned or minimally signed capture artifact
+
+Lane B, trusted signer and publisher:
+
+- trigger: trusted event such as `workflow_run` or a controlled same-repo path
+- permissions: write PR comment and request OIDC signing identity
+- never checks out untrusted PR code
+- validates capture artifact shape
+- evaluates, signs, publishes, and comments
+
+Security ADRs:
+
+- `docs/adr/ADR-pr-gate-two-lane-github-security.md`
+- `docs/adr/ADR-pr-gate-trust-root.md`
+
+## Evidence Object
+
+PR Gate evidence should be separate from generic pack internals.
+
+Suggested shape:
+
+```json
+{
+  "schema_version": "assay.pr_gate.evidence.v0.1",
+  "subject": {
+    "repo": "Haserjian/assay",
+    "pr_number": 123,
+    "base_sha": "...",
+    "head_sha": "...",
+    "diff_sha256": "sha256:..."
+  },
+  "capture": {
+    "provider": "github_actions",
+    "workflow_ref": "...",
+    "workflow_sha": "...",
+    "run_id": "...",
+    "run_attempt": "...",
+    "actor": "..."
+  },
+  "changed_files": [
+    {
+      "path": "auth/session.py",
+      "status": "modified",
+      "sha256_after": "..."
+    }
+  ],
+  "observed_checks": [
+    {
+      "name": "tests",
+      "provider": "github_checks",
+      "head_sha": "...",
+      "conclusion": "success",
+      "observed_at": "..."
+    }
+  ],
+  "policy": {
+    "profile": "coding_pr_v0",
+    "policy_sha256": "..."
+  }
+}
+```
+
+Acceptance condition:
+
+> This object can be hashed, included in an evidence pack, and referenced by
+> the Verification Report.
+
+## Milestones
+
+### Milestone 0: Product Constitution
+
+Create and keep current:
+
+- `docs/product/assay-pr-gate-v0.md`
+- `docs/product/assay-pr-gate-comment-v0.md`
+- `docs/product/assay-pr-gate-policy-v0.md`
+- `docs/adr/ADR-pr-gate-trust-root.md`
+- `docs/adr/ADR-pr-gate-two-lane-github-security.md`
+
+Acceptance condition:
+
+> A reviewer can read the docs and understand exactly what PR Gate claims and
+> does not claim.
+
+### Milestone 1: Policy Profile
+
+Create:
+
+- `docs/examples/pr-gate-v0/assay-policy.yml`
+
+Acceptance condition:
+
+> Given changed files and observed checks, the evaluator returns deterministic
+> PASS, NEEDS_REVIEW, BLOCK, or ERROR.
+
+### Milestone 2: Capture Adapter
+
+Planned module:
 
 ```text
-1. Developer or agent opens/updates a PR.
-2. GitHub Action runs.
-3. Assay captures PR metadata, changed files, risk path matches, and observed checks.
-4. Assay applies coding_pr_v0 policy.
-5. Assay emits proof-pack/.
-6. Assay emits signed-report/verify_report.json.
-7. Assay signs the public Verification Report.
-8. Assay uploads the packet as a workflow artifact.
-9. Assay posts or updates a PR comment.
-10. Reviewer reads the comment and opens the signed review packet if needed.
+assay/pr_gate/github_capture.py
 ```
 
-## Demo Scenario
+Planned CLI:
 
-Use a deliberately obvious PR:
+```bash
+assay pr-gate capture \
+  --repo "$GITHUB_REPOSITORY" \
+  --pr "$PR_NUMBER" \
+  --head-sha "$GITHUB_SHA" \
+  --out .assay/pr-gate/evidence.json
+```
+
+Acceptance condition:
+
+> Running capture on a PR produces stable JSON and a deterministic diff hash.
+
+### Milestone 3: Policy Evaluator
+
+Planned module:
 
 ```text
-AI-assisted change modifies auth/session.py.
-CI check exits 0 for the commit.
-Assay records changed files and the observed check result.
-Policy flags auth/** as high-risk.
-PR comment says NEEDS_REVIEW.
-Evidence pack and signed Verification Report are attached.
-Tampering breaks verification.
+assay/pr_gate/policy.py
 ```
 
-This demo should make the review value visible in seconds:
+Planned CLI:
+
+```bash
+assay pr-gate evaluate \
+  --evidence .assay/pr-gate/evidence.json \
+  --policy docs/examples/pr-gate-v0/assay-policy.yml \
+  --out .assay/pr-gate/decision.json
+```
+
+Decision output:
+
+```json
+{
+  "overall_decision": "NEEDS_REVIEW",
+  "recommended_action": "require_human_approval",
+  "reasons": [
+    {
+      "rule": "risk_path_touched",
+      "path": "auth/session.py",
+      "matched_pattern": "auth/**"
+    }
+  ],
+  "channels": {
+    "integrity": "PASS",
+    "claim": "PASS",
+    "replay": "NOT_RUN",
+    "trust_policy": "NEEDS_REVIEW"
+  }
+}
+```
+
+Acceptance condition:
+
+> Tests cover risk path, missing check, failed check, untrusted signer, and
+> clean PR.
+
+### Milestone 4: Packet Generator
+
+Planned module:
 
 ```text
-The code may be fine, but policy requires a human because auth/** changed.
+assay/pr_gate/packet.py
 ```
 
-## Tamper Demonstrations
+Planned output:
 
-Keep the existing tamper discipline and apply it to the PR packet:
+```text
+proof-pack/
+  pack_manifest.json
+  pr_gate_evidence.json
+  pr_gate_decision.json
+  changed_files.json
+  observed_checks.json
+  policy.yml
+  verify_transcript.md
 
-| Tamper | Expected result |
-|---|---|
-| Change Verification Report verdict | Signature verification fails. |
-| Change evidence pack file | Pack integrity fails. |
-| Swap evidence pack | Pack root mismatch fails. |
-| Remove risk path evidence | Policy/report consistency fails. |
+signed-report/
+  verify_report.json
+  verify_report.sigstore.json
+```
 
-## Out Of Scope For v0
+Acceptance condition:
 
-- Proving the code is secure.
-- Proving the AI made a good design decision.
-- Replaying the agent run.
-- Full static analysis.
-- Full supply-chain attestation.
+> The Verification Report points to the evidence pack root hash and names all
+> verdict channels.
+
+### Milestone 5: Stable Signing Identity
+
+Graduate from the historical PR sample identity to:
+
+```text
+Haserjian/assay/.github/workflows/assay-pr-gate.yml@refs/heads/main
+```
+
+Acceptance condition:
+
+> Clean report verifies. Report tamper fails. Wrong expected identity fails.
+
+### Milestone 6: Comment Renderer
+
+Planned module:
+
+```text
+assay/pr_gate/render_comment.py
+```
+
+Planned snapshots:
+
+```text
+tests/pr_gate/snapshots/comment_pass.md
+tests/pr_gate/snapshots/comment_needs_review.md
+tests/pr_gate/snapshots/comment_block.md
+```
+
+Acceptance condition:
+
+> The PR comment is stable, readable, and includes the three objects: Evidence
+> Box, Verification Report, Signature Proof.
+
+### Milestone 7: GitHub Workflow
+
+Dogfood workflow:
+
+```text
+.github/workflows/assay-pr-gate.yml
+```
+
+Acceptance condition:
+
+> A real Assay PR gets a comment backed by uploaded evidence pack and signed
+> report artifacts.
+
+### Milestone 8: Verification CLI
+
+Planned CLI:
+
+```bash
+assay pr-gate verify \
+  --pack proof-pack \
+  --report signed-report/verify_report.json \
+  --sigstore signed-report/verify_report.sigstore.json \
+  --expected-identity "Haserjian/assay/.github/workflows/assay-pr-gate.yml@refs/heads/main"
+```
+
+Expected output:
+
+```text
+Result: ASSAY PR GATE VERIFIED
+Decision: NEEDS_REVIEW
+Recommended action: require_human_approval
+Integrity: PASS
+Claim: PASS
+Replay: NOT_RUN
+Trust policy: NEEDS_REVIEW
+```
+
+Acceptance condition:
+
+> Clean packet verifies. Report tamper rejects. Pack tamper rejects. Wrong
+> signer rejects. Policy hash mismatch rejects or downgrades to manual_triage.
+
+### Milestone 9: Demo PR
+
+Create a deliberately obvious dogfood PR:
+
+```text
+touches auth/session.py
+has observed check success
+triggers risk path policy
+receives NEEDS_REVIEW
+packet verifies locally
+tamper demo fails
+```
+
+Acceptance condition:
+
+> A skeptical engineering lead can watch one PR and understand the value in
+> under five minutes.
+
+## Agent Workstreams
+
+Use parallel agents only after the interfaces above are fixed.
+
+| Agent | Ownership | Output |
+|---|---|---|
+| Product/spec | Product docs and non-claims | Updated product contract and examples |
+| Policy engine | `assay/pr_gate/policy.py` | Deterministic `decision.json` and tests |
+| GitHub capture | `assay/pr_gate/github_capture.py` | Stable `evidence.json` and tests |
+| Packet/report | `assay/pr_gate/packet.py` | Evidence pack and Verification Report |
+| Signing/verification | PR Gate verify CLI | clean/tamper/wrong-identity tests |
+| Comment renderer | `assay/pr_gate/render_comment.py` | Markdown snapshots |
+| GitHub workflow | `.github/workflows/assay-pr-gate.yml` | Dogfood PR comments |
+| Demo/docs | `docs/examples/pr-gate-v0/` | Cold-reader walkthrough and tamper demo |
+
+## Out Of Scope For v0.1
+
 - Hosted dashboard.
 - Ledger.
-- Scorecards.
+- Scorecard interpretation.
 - MemoryGraph.
 - Quintet.
+- Full agent replay.
+- Full static analysis.
+- Full vulnerability scanner.
+- Automatic AI-authorship detection.
+- Enterprise compliance mapping.
 - Multi-witness verification.
-- General AI governance platform.
 
-## Open Implementation Questions
+These stay out until a named buyer conversation asks for them.
 
-- Should the first runnable slice live in this repo or in
-  `assay-verify-action`?
-- Should PR comment creation be implemented directly or delegated to an
-  existing comment action?
-- Which CI checks should v0 observe: named checks, local commands, or both?
-- Where should `coding_pr_v0` policy live in a consumer repo?
-- Should hosted verification wait until the PR comment proves useful, or
-  should the first demo use a static verifier page?
+## Buyer Test
 
-## First Build Target
-
-Build the smallest runnable PR Gate slice as a GitHub Action, wherever it can
-be proven fastest.
-
-Minimum successful demo:
+First uncomfortable demo:
 
 ```text
-A GitHub PR receives an Assay comment saying PASS / NEEDS_REVIEW / BLOCK,
-backed by a signed evidence pack and public Verification Report.
+Here is a real PR.
+Here is what changed.
+Here is why Assay marked NEEDS_REVIEW.
+Here is the signed packet.
+Here is what it does not claim.
+Here is what happens if I tamper with it.
+Would this reduce review ambiguity on your team?
+What would make this required in your workflow?
 ```
 
-Do not block this prototype on final package boundaries, hosted dashboards, or
-general trace ingestion. Prove the review loop first.
+The sales question is not:
 
-## Positioning
+```text
+Do you like provenance?
+```
 
-Short:
+The sales question is:
 
-> Signed review packets for AI-assisted pull requests.
+```text
+Would you require this before merging AI-assisted changes to auth, billing,
+infra, or workflows?
+```
 
-Buyer sentence:
+## Real Success Conditions
 
-> Assay PR Gate shows what changed, what checks ran, what passed, what did not
-> run, and what policy says the reviewer should do next.
+1. A real Assay PR receives a signed Assay PR Gate comment saying
+   `NEEDS_REVIEW` for a concrete reason.
+2. The linked evidence pack verifies locally.
+3. Tampering with the report, pack, policy, or signer breaks verification.
+4. A skeptical engineering lead can read the comment and say: "I understand
+   what this is for."
 
-Boundary sentence:
+## Research Anchors
 
-> Assay does not prove AI work is correct. It makes AI-assisted work
-> inspectable, attributable, tamper-evident, and bounded enough to review.
+- GitHub Actions contexts expose run, workflow, ref, actor, SHA, and retention
+  metadata useful for capture:
+  <https://docs.github.com/en/actions/reference/workflows-and-actions/contexts>
+- GitHub Checks API supports listing check runs for a Git reference:
+  <https://docs.github.com/en/rest/reference/checks>
+- GitHub artifact attestations already provide signed build provenance; Assay
+  should add review semantics, not compete on raw signing:
+  <https://docs.github.com/actions/concepts/security/artifact-attestations>
+- GitHub secure-use guidance warns about privileged triggers with untrusted PR
+  checkout:
+  <https://docs.github.com/en/enterprise-server@3.16/actions/reference/security/secure-use>
+- GitHub Security Lab's pwn-request guidance motivates the two-lane model:
+  <https://securitylab.github.com/resources/github-actions-preventing-pwn-requests/>
+- OpenTelemetry GenAI conventions include agent/workflow/tool spans but remain
+  development-stage; PR Gate should be trace-compatible without depending on
+  one final trace schema:
+  <https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-agent-spans/>
