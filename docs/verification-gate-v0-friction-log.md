@@ -26,7 +26,7 @@ claim fix.
 
 - Did the command complete?
 - Final output or error:
-- Was `Result: VERIFIED OK` reached?
+- Was `Result: INTEGRITY VERIFIED` reached?
 
 ## Failure Or Confusion
 
@@ -51,8 +51,8 @@ What did the reviewer think the artifact did not prove?
 | What is the evidence object? |  |  |
 | What is the verification judgment? |  |  |
 | What identity signed it? |  |  |
-| Which channels were evaluated? |  |  |
-| Which channels were not evaluated? |  |  |
+| Which verdict channels were evaluated? |  |  |
+| Which verdict channels were not evaluated? |  |  |
 | What should not be inferred? |  |  |
 
 ## Fix Category

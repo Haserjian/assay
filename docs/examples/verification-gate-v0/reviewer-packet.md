@@ -10,6 +10,10 @@ Verification Report was signed by the expected GitHub workflow. It does not
 prove the software is secure, compliant, production-approved, or fully
 evaluated.
 
+It also says nothing about whether any model, eval, or claim inside the
+Evidence Box is true. In this sample, claim correctness is explicitly
+`NOT_EVALUATED`.
+
 ## Packet Metadata
 
 - Packet title: Verification Gate v0 signed report sample
@@ -56,13 +60,34 @@ belongs to the proof pack itself. `signed-report/verify_report.sigstore.json`
 belongs to the public Verification Report.
 
 The sample script verifies the Sigstore signature on the public Verification
-Report. The proof pack's Ed25519 signature, `proof-pack/pack_signature.sig`, is
-part of the artifact but is not exercised by that script.
+Report and checks proof-pack manifest hashes. The tamper demo also uses
+`assay verify-pack` to show that changing a file inside the proof pack is
+rejected. The proof pack's Ed25519 signature,
+`proof-pack/pack_signature.sig`, is present in this sample; the public reviewer
+walkthrough focuses on the signed Verification Report and does not make a
+trust claim about the proof-pack signer identity.
 
-The expected GitHub workflow identity must match the expected
-`https://github.com/Haserjian/assay/.github/workflows/...` identity. This is
-an exact identity check, not a substring search; a workflow from another repo
-or fork would not satisfy the command.
+The certificate identity must exactly match
+`https://github.com/Haserjian/assay/.github/workflows/lineage.yml@refs/pull/116/merge`.
+This is the workflow identity for this sample. This packet is a frozen
+snapshot, not a reproducible build target; future runs will have their own
+expected workflow identity. This is an exact identity check, not a substring
+search; a workflow from another repo or fork would not satisfy the command.
+
+Cosign verifies the report against the Sigstore bundle, including the
+transparency-log material carried by the bundle.
+
+The identity ends in `@refs/pull/116/merge` because this is a historical
+one-shot PR proof sample. The signature remains valid for this committed
+artifact, but this exact identity is not meant to be reproduced from `main` or
+a release tag. A future stable sample should be signed from its own stable
+workflow ref.
+
+Could someone replace the proof pack with a different pack and re-bind the
+report? Not without detection in this sample: the Verification Report contains
+`pack_root_sha256`, the script checks it matches the proof-pack manifest, and
+the script checks proof-pack file hashes against that manifest. Changing the
+report to point at another pack would break the Sigstore signature.
 
 | Field | Value |
 |---|---|
@@ -72,7 +97,7 @@ or fork would not satisfy the command.
 | `claim_verdict` | `NOT_EVALUATED` |
 | `replay_verdict` | `NOT_RUN` |
 | `trust_verdict` | `NOT_EVALUATED` |
-| `overall_verdict` | `PASS` |
+| `overall_verdict` | `PASS` for `integrity_required` |
 | `evaluation_profile` | `integrity_required` |
 | `required_channels` | `integrity` |
 | `optional_channels` | `claim`, `replay`, `trust` |
@@ -80,6 +105,10 @@ or fork would not satisfy the command.
 | `overall_reason` | `required_channels_passed; optional_channels_not_evaluated=claim,replay,trust` |
 
 ## Verdict Channels
+
+A verdict channel is one kind of check. In this sample, only Integrity is
+required. Claim, replay, and trust are visible so reviewers can see they did
+not run.
 
 | Channel | Result | Plain English |
 |---|---|---|
@@ -89,8 +118,15 @@ or fork would not satisfy the command.
 | Trust | `NOT_EVALUATED` | This sample did not apply a trust policy. |
 | Overall | `PASS` | The required integrity channel passed. |
 
-Important: overall `PASS` only means the required integrity check passed. It
-does not mean every possible check was run.
+Important: overall `PASS` only means the required integrity check passed for
+the `integrity_required` profile. It does not mean every possible check was
+run. A screenshot of `overall_verdict=PASS` without `evaluation_profile` is
+incomplete.
+
+The `integrity_required` profile means this sample requires only the Integrity
+channel to pass. This sample does not define or demonstrate stricter profiles;
+a stricter packet would need claim, replay, or trust channels turned on and
+documented.
 
 ## Scope: What This Covers
 
@@ -148,6 +184,10 @@ does not mean every possible check was run.
 - Changing proof-pack files so they no longer match `pack_manifest.json`.
 - Removing a file listed in the proof-pack manifest.
 
+The tamper demo shows two failure modes: changing the signed public report
+breaks Sigstore verification, and changing a file inside the proof pack causes
+`assay verify-pack` to reject the pack.
+
 ## How To Verify Locally
 
 From the repository root:
@@ -169,6 +209,21 @@ cosign verify-blob signed-report/verify_report.json \
 
 Use the exact workflow identity for the run being trusted. Do not verify only
 that some valid signer signed the report.
+
+To see the tamper checks:
+
+```bash
+python3 -m pip install assay-ai  # if the assay command is not installed
+bash scripts/demo_tamper_verification_gate_sample.sh
+```
+
+Expected result:
+
+```text
+Clean sample result: INTEGRITY VERIFIED
+Report tamper result: REJECTED
+Pack tamper result: REJECTED
+```
 
 ## Challenge Path / How To Dispute
 
@@ -207,4 +262,3 @@ that some valid signer signed the report.
   `signed-report/verify_report.json`.
 - Signature Proof: the Sigstore bundle in
   `signed-report/verify_report.sigstore.json`.
-- Inspection Note: older/internal wording for Verification Report.

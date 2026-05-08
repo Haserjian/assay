@@ -23,7 +23,7 @@ bash scripts/verify_verification_gate_sample.sh
 Expected result:
 
 ```text
-Result: VERIFIED OK
+Result: INTEGRITY VERIFIED
 ```
 
 ## Files Involved
@@ -56,6 +56,20 @@ docs/examples/verification-gate-v0/
   workflow identity for PR `#116`.
 - The required integrity channel passed.
 
+A verdict channel is one kind of check. In this sample, only Integrity is
+required. Claim, replay, and trust-policy channels are visible so reviewers can
+see they did not run.
+
+The sample is tied to the historical PR `#116` workflow identity:
+
+```text
+https://github.com/Haserjian/assay/.github/workflows/lineage.yml@refs/pull/116/merge
+```
+
+That signature remains valid for this committed artifact, but this exact
+identity is not meant to be reproduced from `main` or a release tag. Treat
+this packet as a frozen snapshot, not a reproducible build target.
+
 ## What This Does Not Prove
 
 - It does not prove production authorization.
@@ -63,12 +77,14 @@ docs/examples/verification-gate-v0/
 - It does not prove ledger acceptance or scorecard interpretation.
 - It does not prove full claim, replay, or trust-policy evaluation.
 - It does not prove upstream data authenticity beyond the included evidence.
+- It does not prove whether any model, eval, or claim inside the Evidence Box
+  is true.
 
 ## Questions To Answer Back
 
 1. What is the Evidence Box?
 2. What is the Verification Report?
 3. What is the Signature Proof?
-4. Which channel passed?
-5. Which channels were not evaluated?
+4. Which verdict channel passed?
+5. Which verdict channels were not evaluated?
 6. What should not be inferred from this sample?
