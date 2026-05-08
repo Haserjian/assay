@@ -1,0 +1,160 @@
+{
+  "schema_version": "assay.verify_report.v0.1",
+  "report_id": "vr_a71c4f4a986e14f2a1d9",
+  "pack_id": "pack_20260508T054247_62e3133a",
+  "run_id": "trace_20260508T054247_7940b45f",
+  "pack_root_sha256": "88444482656580c864b9b879d877e82a05359c5f3970ec385b64f7777f73a053",
+  "pack_manifest_sha256": "8cd434764e92546c279544d179b20c3c92922eeba52148655fb0820e1fe57c07",
+  "integrity_verdict": "PASS",
+  "claim_verdict": "NOT_EVALUATED",
+  "replay_verdict": "NOT_RUN",
+  "trust_verdict": "NOT_EVALUATED",
+  "evaluation_profile": "integrity_required",
+  "required_channels": [
+    "integrity"
+  ],
+  "optional_channels": [
+    "claim",
+    "replay",
+    "trust"
+  ],
+  "unevaluated_channels": [
+    "claim",
+    "replay",
+    "trust"
+  ],
+  "overall_verdict": "PASS",
+  "overall_reason": "required_channels_passed; optional_channels_not_evaluated=claim,replay,trust",
+  "blocking_channel": null,
+  "verified_at": "2026-05-08T05:42:58.912524+00:00",
+  "verifier": {
+    "name": "assay verify-pack",
+    "version": "1.23.0",
+    "policy_id": "assay.verify_policy.v0.1"
+  },
+  "expectations": {
+    "policy_id": "assay.verify_policy.v0.1",
+    "policy_sha256": "4791aaa760a131484e3c971c4f9b171ad1ef2f6fb9c2e4858fdad6d8fc8f6c0f",
+    "claim_set_id": "none",
+    "claim_set_hash": "140bedbf9c3f6d56a9846d2ba7088798683f4da0c248231336e6a05679e4fdfe"
+  },
+  "verification_inputs_sha256": "88444482656580c864b9b879d877e82a05359c5f3970ec385b64f7777f73a053",
+  "verifier_config_sha256": null,
+  "provenance": {
+    "provider": "github_actions",
+    "commit_sha": "6cbf794cf113c5dea1152886c70ba5bc9274ad62",
+    "repo": "Haserjian/assay",
+    "ref": "refs/pull/116/merge",
+    "run_id": "25539107447",
+    "run_attempt": "1",
+    "workflow_ref": "Haserjian/assay/.github/workflows/lineage.yml@refs/pull/116/merge",
+    "actor": "Haserjian"
+  },
+  "evidence_refs": [
+    {
+      "kind": "pack_manifest",
+      "path": "pack_manifest.json",
+      "sha256": "8cd434764e92546c279544d179b20c3c92922eeba52148655fb0820e1fe57c07"
+    },
+    {
+      "kind": "receipt_pack",
+      "path": "receipt_pack.jsonl",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "checks": [
+    {
+      "name": "validate_schema",
+      "verdict": "PASS"
+    },
+    {
+      "name": "validate_paths",
+      "verdict": "PASS"
+    },
+    {
+      "name": "validate_file_hashes",
+      "verdict": "PASS"
+    },
+    {
+      "name": "validate_receipts",
+      "verdict": "PASS"
+    },
+    {
+      "name": "validate_attestation",
+      "verdict": "PASS"
+    },
+    {
+      "name": "verify_signature",
+      "verdict": "PASS"
+    },
+    {
+      "name": "check_d12_invariant",
+      "verdict": "PASS"
+    },
+    {
+      "name": "claim_check",
+      "verdict": "NOT_EVALUATED"
+    },
+    {
+      "name": "replay",
+      "verdict": "NOT_RUN"
+    },
+    {
+      "name": "trust",
+      "verdict": "NOT_EVALUATED"
+    }
+  ],
+  "summary": {
+    "integrity": "Manifest, file hashes, and signatures verified.",
+    "claim": "No claim set was evaluated.",
+    "replay": "Replay was not run.",
+    "trust": "Trust policy was not evaluated."
+  },
+  "errors": [],
+  "warnings": [
+    "Signature valid for supplied key material; signer identity not pinned. Use --lock for trust-anchored verification."
+  ],
+  "passed": true,
+  "receipt_count": 0,
+  "head_hash": null,
+  "stages": [
+    {
+      "stage": "validate_schema",
+      "status": "ok"
+    },
+    {
+      "stage": "validate_paths",
+      "status": "ok",
+      "detail": {
+        "paths_checked": 8
+      }
+    },
+    {
+      "stage": "validate_file_hashes",
+      "status": "ok",
+      "detail": {
+        "files_checked": 3
+      }
+    },
+    {
+      "stage": "validate_receipts",
+      "status": "ok",
+      "detail": {
+        "receipt_count": 0,
+        "head_hash": null
+      }
+    },
+    {
+      "stage": "validate_attestation",
+      "status": "ok"
+    },
+    {
+      "stage": "verify_signature",
+      "status": "ok"
+    },
+    {
+      "stage": "check_d12_invariant",
+      "status": "ok"
+    }
+  ]
+}

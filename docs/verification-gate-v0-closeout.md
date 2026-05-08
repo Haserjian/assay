@@ -40,6 +40,30 @@ strict Sigstore identity constraints. Local verification returned:
 Verified OK
 ```
 
+This is a one-shot proof for PR `#116`. The issued certificate remains
+verifiable with the committed bundle, but future workflow runs will sign under
+their own workflow identities, usually including a different `refs/pull/...`
+or branch reference.
+
+## Durable Sample
+
+The live artifact is preserved as a small committed sample:
+
+```text
+docs/examples/verification-gate-v0/
+  pack_manifest.json
+  reviewer-packet.md
+  verify.stdout.json
+  verify_report.json
+  verify_report.sigstore.json
+```
+
+Verify the committed sample with:
+
+```bash
+bash scripts/verify_verification_gate_sample.sh
+```
+
 ## Report Semantics
 
 The live report proves the integrity-required gate path:
