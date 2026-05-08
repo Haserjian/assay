@@ -31,6 +31,7 @@ _SCHEMA_DIR = Path(__file__).resolve().parent / "schemas"
 
 _manifest_validator = None
 _attestation_validator = None
+_verify_report_validator = None
 
 _RFC3339_DATETIME_RE = re.compile(
     r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$"
@@ -67,27 +68,34 @@ def _check_date_time(value: Any) -> bool:
 
 def _load_validators() -> tuple:
     """Load and cache schema validators with $ref resolution."""
-    global _manifest_validator, _attestation_validator
+    global _manifest_validator, _attestation_validator, _verify_report_validator
     if _manifest_validator is not None:
-        return _manifest_validator, _attestation_validator
+        return _manifest_validator, _attestation_validator, _verify_report_validator
 
     att_path = _SCHEMA_DIR / "attestation.schema.json"
     manifest_path = _SCHEMA_DIR / "pack_manifest.schema.json"
+    verify_report_path = _SCHEMA_DIR / "verify_report.schema.json"
 
-    if not att_path.exists() or not manifest_path.exists():
+    if not att_path.exists() or not manifest_path.exists() or not verify_report_path.exists():
         raise FileNotFoundError(
             f"Schema files not found in {_SCHEMA_DIR}. "
-            f"Expected attestation.schema.json and pack_manifest.schema.json. "
+            "Expected attestation.schema.json, pack_manifest.schema.json, "
+            "and verify_report.schema.json. "
             f"This usually means the package was installed incorrectly."
         )
 
     att_schema = json.loads(att_path.read_text())
     manifest_schema = json.loads(manifest_path.read_text())
+    verify_report_schema = json.loads(verify_report_path.read_text())
 
     # Build registry for $ref resolution between schemas
     registry = referencing.Registry().with_resources([
         (att_schema["$id"], referencing.Resource.from_contents(att_schema)),
         (manifest_schema["$id"], referencing.Resource.from_contents(manifest_schema)),
+        (
+            verify_report_schema["$id"],
+            referencing.Resource.from_contents(verify_report_schema),
+        ),
     ])
 
     _manifest_validator = Draft202012Validator(
@@ -96,8 +104,11 @@ def _load_validators() -> tuple:
     _attestation_validator = Draft202012Validator(
         att_schema, registry=registry, format_checker=_format_checker
     )
+    _verify_report_validator = Draft202012Validator(
+        verify_report_schema, registry=registry, format_checker=_format_checker
+    )
 
-    return _manifest_validator, _attestation_validator
+    return _manifest_validator, _attestation_validator, _verify_report_validator
 
 
 # ---------------------------------------------------------------------------
@@ -110,7 +121,7 @@ def validate_manifest(manifest: Dict[str, Any]) -> List[str]:
     Returns a list of error messages (empty = valid).
     Raises FileNotFoundError if schemas are missing (fail closed).
     """
-    validator, _ = _load_validators()
+    validator, _, _ = _load_validators()
 
     errors = []
     for error in sorted(validator.iter_errors(manifest), key=lambda e: list(e.path)):
@@ -125,7 +136,7 @@ def validate_attestation(attestation: Dict[str, Any]) -> List[str]:
     Returns a list of error messages (empty = valid).
     Raises FileNotFoundError if schemas are missing (fail closed).
     """
-    _, validator = _load_validators()
+    _, validator, _ = _load_validators()
 
     errors = []
     for error in sorted(validator.iter_errors(attestation), key=lambda e: list(e.path)):
@@ -134,4 +145,20 @@ def validate_attestation(attestation: Dict[str, Any]) -> List[str]:
     return errors
 
 
-__all__ = ["parse_rfc3339_datetime", "validate_manifest", "validate_attestation"]
+def validate_verify_report(report: Dict[str, Any]) -> List[str]:
+    """Validate a public verify_report.json against its JSON schema."""
+    _, _, validator = _load_validators()
+
+    errors = []
+    for error in sorted(validator.iter_errors(report), key=lambda e: list(e.path)):
+        path = ".".join(str(p) for p in error.absolute_path) or "(root)"
+        errors.append(f"{path}: {error.message}")
+    return errors
+
+
+__all__ = [
+    "parse_rfc3339_datetime",
+    "validate_manifest",
+    "validate_attestation",
+    "validate_verify_report",
+]

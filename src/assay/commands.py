@@ -19,6 +19,7 @@ Commands:
   assay demo-challenge- CTF-style good + tampered pack pair
   assay demo-pack     - Build + verify a demo pack
   assay proof-pack    - Build a signed Proof Pack from an existing trace
+  assay expose-schema - Export bundled JSON schemas
   assay lock init     - Create a lockfile with sane defaults
   assay lock write    - Write a lockfile with explicit card list
   assay lock check    - Validate an existing lockfile
@@ -3192,6 +3193,7 @@ def proof_pack_cmd(
                 "status": "ok",
                 "pack_id": att.get("pack_id"),
                 "trace_id": trace_id,
+                "pack_root_sha256": manifest.get("pack_root_sha256"),
                 "output_dir": str(result_dir),
                 "receipt_integrity": att.get("receipt_integrity"),
                 "claim_check": att.get("claim_check"),
@@ -3224,6 +3226,60 @@ def proof_pack_cmd(
 
     console.print()
     console.print(f"Next: [bold]assay verify-pack {result_dir}[/]")
+
+
+@assay_app.command("expose-schema", rich_help_panel="Build & Verify")
+def expose_schema_cmd(
+    name: str = typer.Argument(
+        ..., help="Schema name to export: pack_manifest or verify_report"
+    ),
+    out: str = typer.Option(
+        "docs/schemas",
+        "--out",
+        "-o",
+        help="Output directory for the exported schema",
+    ),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Export a bundled Assay JSON schema into a docs directory."""
+    from pathlib import Path
+    import shutil
+
+    schema_files = {
+        "pack_manifest": "pack_manifest.schema.json",
+        "verify_report": "verify_report.schema.json",
+    }
+    if name not in schema_files:
+        msg = f"unknown schema: {name}"
+        if output_json:
+            _output_json(
+                {
+                    "command": "expose-schema",
+                    "status": "error",
+                    "error": msg,
+                    "available": sorted(schema_files),
+                },
+                exit_code=3,
+            )
+        console.print(f"[red]Error:[/] {msg}")
+        raise typer.Exit(3)
+
+    schema_dir = Path(__file__).resolve().parent / "schemas"
+    src = schema_dir / schema_files[name]
+    dst = Path(out) / schema_files[name]
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(src, dst)
+
+    if output_json:
+        _output_json(
+            {
+                "command": "expose-schema",
+                "status": "ok",
+                "schema": name,
+                "path": str(dst),
+            }
+        )
+    console.print(str(dst))
 
 
 @assay_app.command("verify-pack", rich_help_panel="Build & Verify")
@@ -3283,6 +3339,11 @@ def verify_pack_cmd(
         None,
         "--badge",
         help="Write an SVG verification badge to this path.",
+    ),
+    report_out: Optional[str] = typer.Option(
+        None,
+        "--out",
+        help="Write the public verify_report.json judgment envelope to this path.",
     ),
     trust_target: Optional[str] = typer.Option(
         None,
@@ -3730,6 +3791,57 @@ def verify_pack_cmd(
     except Exception:
         pass  # Posture display is best-effort
 
+    # Public verification judgment envelope. This is the buyer-facing contract
+    # that separates evidence integrity, claim success, replay, and trust.
+    from datetime import datetime as _dt
+    from datetime import timezone as _tz
+
+    from assay.manifest_schema import validate_verify_report
+    from assay.verify_report import build_verify_report, sha256_file
+
+    _verifier_config_sha256 = None
+    if lock:
+        _lock_path = Path(lock)
+        if _lock_path.exists():
+            _verifier_config_sha256 = sha256_file(_lock_path)
+
+    verify_report = build_verify_report(
+        verify_result=result,
+        verified_at=_dt.now(_tz.utc).isoformat(),
+        verifier_name="assay verify-pack",
+        verifier_version=str(att.get("verifier_version") or "unknown"),
+        manifest=manifest,
+        pack_dir=pack_path,
+        claim_check=claim_check,
+        trust_eval=trust_eval,
+        verifier_config_sha256=_verifier_config_sha256,
+    )
+    _report_schema_errors = validate_verify_report(verify_report)
+    if _report_schema_errors:
+        if output_json:
+            _output_json(
+                {
+                    "command": "verify-pack",
+                    "status": "error",
+                    "error": "verify_report_schema_validation_failed",
+                    "details": _report_schema_errors,
+                },
+                exit_code=2,
+            )
+        console.print("[red]Verify report schema validation failed:[/]")
+        for se in _report_schema_errors[:10]:
+            console.print(f"  {se}")
+        raise typer.Exit(2)
+
+    if report_out:
+        report_path = Path(report_out)
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(
+            json.dumps(verify_report, indent=2, default=str) + "\n",
+            encoding="utf-8",
+        )
+        _artifact_paths["verify_report"] = str(report_path)
+
     if output_json:
         from assay.verification_status import classify_verdict
 
@@ -3747,7 +3859,7 @@ def verify_pack_cmd(
             "status": overall_status,
             "verdict": _verdict,
             "claim_check": claim_check,
-            **result.to_dict(),
+            **verify_report,
         }
         if max_age_hours is not None:
             out["max_age_hours"] = max_age_hours
@@ -5373,6 +5485,7 @@ def run_cmd(
                 "exit_code": exit_code,
                 "trace_id": trace_id,
                 "pack_id": att.get("pack_id"),
+                "pack_root_sha256": manifest.get("pack_root_sha256"),
                 "signer_id": signer_id,
                 "output_dir": str(result_dir),
                 "receipt_integrity": att.get("receipt_integrity"),

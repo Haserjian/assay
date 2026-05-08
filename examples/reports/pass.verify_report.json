@@ -1,0 +1,72 @@
+{
+  "schema_version": "assay.verify_report.v0.1",
+  "report_id": "vr_11111111111111111111",
+  "pack_id": "pack_example_pass",
+  "run_id": "run_example_pass",
+  "pack_root_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+  "pack_manifest_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+  "integrity_verdict": "PASS",
+  "claim_verdict": "PASS",
+  "replay_verdict": "MATCH",
+  "trust_verdict": "PASS",
+  "evaluation_profile": "integrity_claim_replay_trust_required",
+  "required_channels": ["integrity", "claim", "replay", "trust"],
+  "overall_verdict": "PASS",
+  "overall_reason": "required_channels_passed",
+  "blocking_channel": null,
+  "verified_at": "2026-05-07T00:00:00Z",
+  "verifier": {
+    "name": "assay verify-pack",
+    "version": "0.1.0",
+    "policy_id": "assay.verify_policy.v0.1"
+  },
+  "expectations": {
+    "policy_id": "assay.verify_policy.v0.1",
+    "policy_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+    "claim_set_id": "claim_set_example_pass",
+    "claim_set_hash": "4444444444444444444444444444444444444444444444444444444444444444"
+  },
+  "verification_inputs_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+  "verifier_config_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+  "provenance": {
+    "source_repo": "Haserjian/assay",
+    "commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "workflow_ref": "Haserjian/assay/.github/workflows/assay.yml@refs/heads/main",
+    "run_id": "1234567890",
+    "event_name": "pull_request"
+  },
+  "evidence_refs": [
+    {
+      "kind": "pack_manifest",
+      "path": "pack_manifest.json",
+      "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+    },
+    {
+      "kind": "receipt_pack",
+      "path": "receipt_pack.jsonl",
+      "sha256": "6666666666666666666666666666666666666666666666666666666666666666"
+    }
+  ],
+  "checks": [
+    {
+      "name": "manifest_schema",
+      "verdict": "PASS"
+    },
+    {
+      "name": "file_hashes",
+      "verdict": "PASS"
+    },
+    {
+      "name": "claim_check",
+      "verdict": "PASS"
+    }
+  ],
+  "errors": [],
+  "warnings": [],
+  "summary": {
+    "integrity": "Manifest, file hashes, and signatures verified.",
+    "claim": "Evidence satisfied the evaluated claim set.",
+    "replay": "Replay matched prior trace.",
+    "trust": "Signer and workflow matched policy."
+  }
+}
