@@ -6,6 +6,37 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.23.0] - 2026-05-08
+
+### Added
+
+- **Public `verify_report.json` contract** — `assay verify-pack --json
+  --out verify_report.json` now emits a portable verification judgment with
+  separate verdict channels for integrity, claim, replay, trust, and overall
+  result.
+- **Evaluation profile semantics** — reports include `evaluation_profile` and
+  `required_channels` so `overall_verdict=PASS` means the required channels
+  passed, while optional channels may still be `NOT_EVALUATED` or `NOT_RUN`.
+- **Pack root exposure** — public reports include `pack_root_sha256` and
+  `pack_manifest_sha256` so a buyer can bind the judgment back to the evidence
+  object.
+- **Retrievable schema** — `assay expose-schema verify_report --out <dir>`
+  exports the bundled `verify_report.schema.json` contract.
+
+### Changed
+
+- **Release truth now checks the public report schema** — the release matrix
+  verifies that `verify_report.schema.json` is packaged alongside the existing
+  proof-pack schemas.
+- **README now names the buyer-facing report contract** — the quick path shows
+  how to write `verify_report.json` as a standalone artifact.
+
+### Notes
+
+- This release does not make Assay a production authorization system and does
+  not independently witness signer identity. It makes the verification judgment
+  more portable and explicit.
+
 ## [1.20.1] - 2026-04-03
 
 ### Fixed

@@ -464,7 +464,7 @@ assay score               # evidence readiness (0-100, A-F)
 
 | Command | Purpose |
 |---------|---------|
-| `assay verify-pack` | Verify integrity + claims (the 4 exit codes) |
+| `assay verify-pack` | Verify integrity + claims; write portable `verify_report.json` with `--json --out` |
 | `assay explain` | Plain-English summary of an evidence pack |
 | `assay analyze` | Cost, latency, error breakdown from pack or `--history` |
 | `assay diff` | Compare packs: claims, cost, latency (`--against-previous`, `--why`) |

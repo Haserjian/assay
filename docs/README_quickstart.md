@@ -62,6 +62,17 @@ What happens under the hood:
 3. Assay packages those receipts into `proof_pack_<trace_id>/`
 4. the manifest is signed and the pack can be verified offline
 
+For a portable buyer-facing judgment, write the public verification report:
+
+```bash
+assay verify-pack ./proof_pack_*/ --json --out verify_report.json
+```
+
+The report separates `integrity_verdict`, `claim_verdict`,
+`replay_verdict`, `trust_verdict`, and `overall_verdict`. A `PASS` overall
+verdict applies to the report's declared `required_channels`; optional channels
+may still be `NOT_EVALUATED` or `NOT_RUN`.
+
 ## See It Work (No API Key Required)
 
 ```bash
