@@ -33,14 +33,15 @@ brew install cosign
 
 ## Download the live artifact
 
-The first live signed Verification Gate artifact was produced by Assay PR
-`#114`, workflow run `25538860666`.
+The live signed Verification Gate artifact used here was produced by Assay PR
+`#116`, workflow run `25539107447`. That run generates the final
+`verify_report.json` from the checkout's Assay code before signing it.
 
 ```bash
 rm -rf /tmp/assay-verify-artifact
 mkdir -p /tmp/assay-verify-artifact
 
-gh run download 25538860666 \
+gh run download 25539107447 \
   -R Haserjian/assay \
   -n assay-verify-report \
   -D /tmp/assay-verify-artifact
@@ -79,11 +80,13 @@ jq '{
   overall_verdict,
   evaluation_profile,
   required_channels,
+  optional_channels,
+  unevaluated_channels,
   overall_reason
 }' verify_report.json
 ```
 
-For the first live artifact, the important fields were:
+For this live artifact, the important fields were:
 
 ```text
 integrity_verdict=PASS
@@ -93,6 +96,8 @@ trust_verdict=NOT_EVALUATED
 overall_verdict=PASS
 evaluation_profile=integrity_required
 required_channels=integrity
+optional_channels=claim,replay,trust
+unevaluated_channels=claim,replay,trust
 ```
 
 That means the evidence object was intact under the `integrity_required`
@@ -123,10 +128,10 @@ PY
 
 ## Verify the signature
 
-For the first live PR artifact, the Sigstore certificate identity was:
+For this live PR artifact, the Sigstore certificate identity was:
 
 ```text
-https://github.com/Haserjian/assay/.github/workflows/lineage.yml@refs/pull/114/merge
+https://github.com/Haserjian/assay/.github/workflows/lineage.yml@refs/pull/116/merge
 ```
 
 Verify the report with that exact identity and the GitHub Actions OIDC issuer:
@@ -134,7 +139,7 @@ Verify the report with that exact identity and the GitHub Actions OIDC issuer:
 ```bash
 cosign verify-blob verify_report.json \
   --bundle verify_report.sigstore.json \
-  --certificate-identity "https://github.com/Haserjian/assay/.github/workflows/lineage.yml@refs/pull/114/merge" \
+  --certificate-identity "https://github.com/Haserjian/assay/.github/workflows/lineage.yml@refs/pull/116/merge" \
   --certificate-oidc-issuer "https://token.actions.githubusercontent.com"
 ```
 
