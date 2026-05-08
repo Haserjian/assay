@@ -8210,6 +8210,55 @@ def baseline_get_cmd(
 
 
 # ---------------------------------------------------------------------------
+# PR Gate subcommands
+# ---------------------------------------------------------------------------
+
+pr_gate_app = typer.Typer(
+    name="pr-gate",
+    help="Assay PR Gate commands",
+    no_args_is_help=True,
+)
+assay_app.add_typer(pr_gate_app, name="pr-gate", hidden=True, rich_help_panel="Advanced")
+
+
+@pr_gate_app.command("evaluate")
+def pr_gate_evaluate_cmd(
+    evidence: str = typer.Option(
+        ..., "--evidence", help="Path to PR Gate evidence JSON"
+    ),
+    policy: str = typer.Option(
+        ..., "--policy", help="Path to PR Gate policy YAML"
+    ),
+    out: Optional[str] = typer.Option(
+        None, "--out", help="Write decision JSON to this path"
+    ),
+) -> None:
+    """Evaluate PR Gate evidence against a policy profile."""
+    from pathlib import Path as P
+
+    from assay.pr_gate.policy import PolicyEvaluationError, evaluate_policy_files
+
+    try:
+        decision = evaluate_policy_files(
+            P(evidence),
+            P(policy),
+            out_path=P(out) if out else None,
+        )
+    except (OSError, PolicyEvaluationError) as exc:
+        _output_json(
+            {
+                "command": "assay pr-gate evaluate",
+                "status": "error",
+                "error": str(exc),
+            },
+            exit_code=3,
+        )
+
+    if out is None:
+        print(json.dumps(decision, indent=2))
+
+
+# ---------------------------------------------------------------------------
 # gate subcommands
 # ---------------------------------------------------------------------------
 
