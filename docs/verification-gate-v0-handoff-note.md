@@ -88,3 +88,5 @@ this packet as a frozen snapshot, not a reproducible build target.
 4. Which verdict channel passed?
 5. Which verdict channels were not evaluated?
 6. What should not be inferred from this sample?
+7. If you ran the script, what certificate identity was printed under "Signed
+   by expected GitHub Actions identity"?
