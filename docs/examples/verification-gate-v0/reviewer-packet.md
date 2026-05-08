@@ -18,27 +18,32 @@ claim of production authorization or legal compliance.
 
 | Claim ID | Claim | Status | Notes |
 |---|---|---|---|
-| claim-001 | The PR workflow emitted a portable `verify_report.json` for one evidence pack. | Supported by sample artifact | The committed sample includes `verify_report.json` and `pack_manifest.json`. |
-| claim-002 | The report and manifest bind to the same pack root. | Passed | Both files name `88444482656580c864b9b879d877e82a05359c5f3970ec385b64f7777f73a053`. |
-| claim-003 | The report signature verifies against the expected GitHub Actions workflow identity. | Passed | `cosign verify-blob` returns `Verified OK` for the PR `#116` workflow identity. |
+| claim-001 | The PR workflow emitted a portable `verify_report.json` for one evidence pack. | Supported by sample artifact | The committed sample includes a complete `proof-pack/` and a signed public report under `signed-report/`. |
+| claim-002 | The public report and proof-pack manifest bind to the same pack root. | Passed | Both files name `88444482656580c864b9b879d877e82a05359c5f3970ec385b64f7777f73a053`. |
+| claim-003 | The public report signature verifies against the expected GitHub Actions workflow identity. | Passed | `cosign verify-blob` returns `Verified OK` for the PR `#116` workflow identity. |
 | claim-004 | Claim, replay, and trust-policy channels were evaluated. | Not evaluated | The sample explicitly reports `NOT_EVALUATED` / `NOT_RUN` for those channels. |
 
 ## Evidence Included
 
 | Evidence ID | Artifact | Supports Claim | Notes |
 |---|---|---|---|
-| evidence-001 | `pack_manifest.json` | claim-001, claim-002 | Evidence object manifest. |
-| evidence-002 | `verify_report.json` | claim-001, claim-002, claim-004 | Verification judgment. |
-| evidence-003 | `verify_report.sigstore.json` | claim-003 | Provenance bundle for the judgment signature. |
-| evidence-004 | `verify.stdout.json` | operator diagnostics | Included for traceability, not the portable public contract. |
+| evidence-001 | `proof-pack/pack_manifest.json` | claim-001, claim-002 | Evidence object manifest. |
+| evidence-002 | `signed-report/verify_report.json` | claim-001, claim-002, claim-004 | Public verification judgment. |
+| evidence-003 | `signed-report/verify_report.sigstore.json` | claim-003 | Provenance bundle for the judgment signature. |
+| evidence-004 | `signed-report/verify.stdout.json` | operator diagnostics | Included for traceability, not the portable public contract. |
+| evidence-005 | `proof-pack/receipt_pack.jsonl` | proof-pack integrity | Empty receipt pack for this zero-receipt sample. |
+| evidence-006 | `proof-pack/verify_report.json` | proof-pack integrity | Hash-covered report inside the proof pack. |
+| evidence-007 | `proof-pack/verify_transcript.md` | proof-pack integrity | Human-readable transcript inside the proof pack. |
+| evidence-008 | `proof-pack/pack_signature.sig` | proof-pack integrity | Detached Ed25519 proof-pack signature. |
 
 ## Verification Result
 
-`pack_manifest.json` is the evidence object manifest.
+`proof-pack/pack_manifest.json` is the evidence object manifest.
 
-`verify_report.json` is the verification judgment.
+`signed-report/verify_report.json` is the public verification judgment.
 
-`verify_report.sigstore.json` is the provenance of that judgment.
+`signed-report/verify_report.sigstore.json` is the provenance of that public
+judgment.
 
 | Field | Value |
 |---|---|
@@ -58,10 +63,12 @@ claim of production authorization or legal compliance.
 ## Scope: What This Covers
 
 - The committed sample report and manifest name the same pack root.
-- The report states separate verdict channels.
+- The committed `proof-pack/` directory contains every file listed in
+  `proof-pack/pack_manifest.json`.
+- The public report states separate verdict channels.
 - The integrity-required channel passed.
-- The report signature verifies against the expected GitHub Actions workflow
-  identity for PR `#116`.
+- The public report signature verifies against the expected GitHub Actions
+  workflow identity for PR `#116`.
 
 ## Scope: What This Does Not Cover
 
@@ -85,12 +92,12 @@ claim of production authorization or legal compliance.
 ## Tamper Checks
 
 - Pack root: `88444482656580c864b9b879d877e82a05359c5f3970ec385b64f7777f73a053`
-- Manifest status: report and manifest pack roots match
+- Manifest status: public report and proof-pack manifest pack roots match
 - Signature status: `cosign verify-blob` returns `Verified OK`
 - Files checked:
-  - `pack_manifest.json`
-  - `verify_report.json`
-  - `verify_report.sigstore.json`
+  - `proof-pack/pack_manifest.json`
+  - `signed-report/verify_report.json`
+  - `signed-report/verify_report.sigstore.json`
 
 ## How To Verify Locally
 
@@ -101,11 +108,12 @@ bash scripts/verify_verification_gate_sample.sh
 ```
 
 That script prints the verdict channels, confirms the report/manifest pack
-root match, and verifies the Sigstore bundle with:
+root match, confirms the proof-pack file set is present, and verifies the
+Sigstore bundle with:
 
 ```bash
-cosign verify-blob verify_report.json \
-  --bundle verify_report.sigstore.json \
+cosign verify-blob signed-report/verify_report.json \
+  --bundle signed-report/verify_report.sigstore.json \
   --certificate-identity "https://github.com/Haserjian/assay/.github/workflows/lineage.yml@refs/pull/116/merge" \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
@@ -125,11 +133,20 @@ that some valid signer signed the report.
   and state which field disagrees.
 - Owner or contact: Assay project maintainer.
 
-## Appendix: Artifact Hashes
+## Appendix: Public Report Artifact Hashes
 
 | Artifact | SHA-256 |
 |---|---|
-| `pack_manifest.json` | `8cd434764e92546c279544d179b20c3c92922eeba52148655fb0820e1fe57c07` |
-| `verify.stdout.json` | `55d8bd7622a4a94fb6e600d36d8dfa2e9f33f647c4c8b83e8a4c0dcd6c58a53d` |
-| `verify_report.json` | `049cc59c974ca39b05e7ee891af6a02649c51395bafde8ad86388756d242c3a5` |
-| `verify_report.sigstore.json` | `39ebaf034048010ff86ece88720d64161269959b5b980a707f76e3f9c057a15c` |
+| `signed-report/verify.stdout.json` | `55d8bd7622a4a94fb6e600d36d8dfa2e9f33f647c4c8b83e8a4c0dcd6c58a53d` |
+| `signed-report/verify_report.json` | `049cc59c974ca39b05e7ee891af6a02649c51395bafde8ad86388756d242c3a5` |
+| `signed-report/verify_report.sigstore.json` | `39ebaf034048010ff86ece88720d64161269959b5b980a707f76e3f9c057a15c` |
+
+## Appendix: Proof-Pack File Hashes
+
+| Artifact | SHA-256 |
+|---|---|
+| `proof-pack/pack_manifest.json` | `8cd434764e92546c279544d179b20c3c92922eeba52148655fb0820e1fe57c07` |
+| `proof-pack/pack_signature.sig` | `81816affc8aac43f15f032ee4820b4ebbe504801a017ad7ccd8c0d6b4ed58904` |
+| `proof-pack/receipt_pack.jsonl` | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` |
+| `proof-pack/verify_report.json` | `1ace3f4aae77aaa5c34272a5ab9c4fde3921673936aec186052547f513b5da75` |
+| `proof-pack/verify_transcript.md` | `d2ba93896ba683fc51159a3bed158f8f65f2923f710f91b35c87120cd1ab4fc2` |

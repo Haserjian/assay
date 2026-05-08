@@ -3,9 +3,9 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SAMPLE_DIR="$ROOT_DIR/docs/examples/verification-gate-v0"
-REPORT="$SAMPLE_DIR/verify_report.json"
-BUNDLE="$SAMPLE_DIR/verify_report.sigstore.json"
-MANIFEST="$SAMPLE_DIR/pack_manifest.json"
+REPORT="$SAMPLE_DIR/signed-report/verify_report.json"
+BUNDLE="$SAMPLE_DIR/signed-report/verify_report.sigstore.json"
+MANIFEST="$SAMPLE_DIR/proof-pack/pack_manifest.json"
 IDENTITY="https://github.com/Haserjian/assay/.github/workflows/lineage.yml@refs/pull/116/merge"
 ISSUER="https://token.actions.githubusercontent.com"
 
@@ -24,6 +24,7 @@ for path in "$REPORT" "$BUNDLE" "$MANIFEST"; do
 done
 
 echo "Assay Verification Gate v0 sample"
+echo "This verifies the signed public report and checks it binds to the proof-pack manifest."
 echo
 echo "Verdict channels:"
 jq '{
@@ -58,6 +59,25 @@ print(f"manifest_pack_root = {manifest_root}")
 
 if report_root != manifest_root:
     raise SystemExit("pack root mismatch")
+PY
+
+echo
+echo "Checking proof-pack manifest file set..."
+python3 - "$SAMPLE_DIR/proof-pack" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+pack_dir = Path(sys.argv[1])
+manifest = json.loads((pack_dir / "pack_manifest.json").read_text())
+missing = [
+    name
+    for name in manifest["expected_files"]
+    if not (pack_dir / name).exists()
+]
+if missing:
+    raise SystemExit("missing proof-pack file(s): " + ", ".join(missing))
+print("proof_pack_files = " + ", ".join(manifest["expected_files"]))
 PY
 
 echo

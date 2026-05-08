@@ -89,10 +89,16 @@ For the current Verification Gate v0 sample, see:
 
 ```text
 docs/examples/verification-gate-v0/
-  pack_manifest.json
-  verify.stdout.json
-  verify_report.json
-  verify_report.sigstore.json
+  proof-pack/
+    pack_manifest.json
+    pack_signature.sig
+    receipt_pack.jsonl
+    verify_report.json
+    verify_transcript.md
+  signed-report/
+    verify.stdout.json
+    verify_report.json
+    verify_report.sigstore.json
 ```
 
 ## Verification Command

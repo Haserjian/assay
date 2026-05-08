@@ -38,7 +38,7 @@ Verified OK
 ```
 
 The script also prints the report's verdict channels and confirms that
-`verify_report.json` and `pack_manifest.json` name the same
+`signed-report/verify_report.json` and `proof-pack/pack_manifest.json` name the same
 `pack_root_sha256`.
 
 ## Option B: Download The Live Run Artifact
@@ -52,7 +52,10 @@ The live proof run is:
 
 Workflow artifacts are operational delivery objects and may expire according
 to repository retention settings. If this download fails because the artifact
-is no longer available, use Option A with the committed sample artifact.
+is no longer available, use Option A with the committed sample artifact. The
+committed sample keeps the complete proof pack under
+`docs/examples/verification-gate-v0/proof-pack/` and the signed public report
+under `docs/examples/verification-gate-v0/signed-report/`.
 
 ```bash
 rm -rf /tmp/assay-buyer-check
@@ -113,10 +116,16 @@ cosign verify-blob verify_report.json \
 
 ## Expected Answers
 
-1. `pack_manifest.json` identifies the evidence object.
-2. `verify_report.json` states the verification judgment.
-3. `verify_report.sigstore.json` proves the judgment was signed by the
-   expected GitHub Actions workflow identity for PR `#116`.
+1. For the committed sample, `proof-pack/pack_manifest.json` identifies the
+   evidence object. For the live workflow download, this file is
+   `pack_manifest.json`.
+2. For the committed sample, `signed-report/verify_report.json` states the
+   verification judgment. For the live workflow download, this file is
+   `verify_report.json`.
+3. For the committed sample, `signed-report/verify_report.sigstore.json`
+   proves the judgment was signed by the expected GitHub Actions workflow
+   identity for PR `#116`. For the live workflow download, this file is
+   `verify_report.sigstore.json`.
 4. The integrity channel was evaluated and passed.
 5. Claim, replay, and trust channels were not evaluated in this sample.
 6. The sample does not prove production authorization, legal compliance,

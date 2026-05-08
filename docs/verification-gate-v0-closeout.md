@@ -51,11 +51,17 @@ The live artifact is preserved as a small committed sample:
 
 ```text
 docs/examples/verification-gate-v0/
-  pack_manifest.json
+  proof-pack/
+    pack_manifest.json
+    pack_signature.sig
+    receipt_pack.jsonl
+    verify_report.json
+    verify_transcript.md
   reviewer-packet.md
-  verify.stdout.json
-  verify_report.json
-  verify_report.sigstore.json
+  signed-report/
+    verify.stdout.json
+    verify_report.json
+    verify_report.sigstore.json
 ```
 
 Verify the committed sample with:
@@ -63,6 +69,14 @@ Verify the committed sample with:
 ```bash
 bash scripts/verify_verification_gate_sample.sh
 ```
+
+The `proof-pack/` directory is the complete proof pack named by
+`pack_manifest.json`. The `signed-report/` directory contains the public
+`verify_report.json` generated from that proof pack and signed by GitHub
+Actions. Those are separate files because the proof pack's own
+`verify_report.json` is hash-covered by `pack_manifest.json`, while the public
+report includes the final `pack_manifest_sha256` and is the Sigstore-signed
+judgment artifact.
 
 ## Report Semantics
 
