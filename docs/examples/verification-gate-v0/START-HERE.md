@@ -1,23 +1,60 @@
-# Signed Verification Report - Sample
-
-Internal milestone name: Verification Gate v0.
+# Start Here: Verify an Assay Evidence Pack
 
 You do not need to read code or JSON to understand this sample.
 
-## One-Minute Version
+## What This Is
 
-This sample checks whether a GitHub workflow signed a verification report about
-a specific evidence pack. The sample passed the integrity check. It did not
-evaluate claim correctness, replay, or trust policy.
+This folder is a small public sample for Assay.
 
-Correct summary:
+Assay helps teams turn AI and agent work into evidence packs that another
+person can inspect and verify without trusting a dashboard, screenshot, or
+verbal claim.
 
-> The evidence pack passed integrity verification, and the verification report
+This sample demonstrates one specific verification gate: integrity.
+
+Internal milestone name: Verification Gate v0.
+
+## What You Will Prove
+
+You will verify that:
+
+1. a specific evidence pack still matches its recorded hashes,
+2. a Verification Report points to that same evidence pack,
+3. the Verification Report was signed by the expected GitHub Actions workflow.
+
+That means the evidence pack and the public judgment about it were not quietly
+swapped or edited.
+
+Expected plain-English result:
+
+> The evidence pack passed integrity verification, and the Verification Report
 > was signed by the expected GitHub workflow.
 
-This sample says nothing about whether any model, eval, or claim inside the
-Evidence Box is true. It only proves the box was not altered under the
-integrity check and that the report came from the expected workflow.
+## What You Will Not Prove
+
+This sample does not mean the AI claim inside the evidence is true. It does
+not mean the original behavior was replayed. It does not mean a production
+trust policy approved it.
+
+Those are separate verdict channels, and this sample intentionally leaves them
+off so the integrity gate is easy to inspect first.
+
+A verdict channel is one kind of check. This sample shows four channels:
+Integrity, Claim correctness, Replay, and Trust policy. Only Integrity is
+required for this sample.
+
+GitHub and Sigstore can prove an artifact was produced by a workflow. Assay
+adds reviewer-facing context around that proof: the evidence object, the
+Verification Report, separate verdict channels, scope language, and explicit
+caveats about what did and did not run.
+
+## The Three Objects
+
+| Human Name | Technical File | Meaning |
+|---|---|---|
+| Evidence Box | `proof-pack/pack_manifest.json` | The thing being checked. |
+| Verification Report | `signed-report/verify_report.json` | What verification decided. |
+| Signature Proof | `signed-report/verify_report.sigstore.json` | Who signed the public Verification Report. This is not `proof-pack/pack_signature.sig`. |
 
 ## Before You Start
 
@@ -77,40 +114,6 @@ assay --help
 
 If one of these commands is missing, install it first.
 
-## What This Sample Answers
-
-This sample answers one question:
-
-Can someone verify that a GitHub workflow produced a signed verification
-judgment about a specific evidence pack?
-
-A verdict channel is one kind of check. This sample shows four channels:
-Integrity, Claim correctness, Replay, and Trust policy. Only Integrity is
-required for this sample.
-
-GitHub and Sigstore can prove an artifact was produced by a workflow. Assay
-adds the reviewer packet around that proof: the evidence object, the
-verification judgment, separate verdict channels, scope language, and explicit
-caveats about what did and did not run.
-
-## The Three Objects
-
-| Human Name | Technical File | Meaning |
-|---|---|---|
-| Evidence Box | `proof-pack/pack_manifest.json` | The thing being checked. |
-| Verification Report | `signed-report/verify_report.json` | What verification decided. |
-| Signature Proof | `signed-report/verify_report.sigstore.json` | Who signed the public Verification Report. This is not `proof-pack/pack_signature.sig`. |
-
-## Why Does The Identity Mention PR #116?
-
-This committed sample is a frozen snapshot from a historical PR `#116`
-workflow run, so the certificate identity ends in `@refs/pull/116/merge`.
-That is expected.
-
-The signature remains valid for this committed artifact, but this exact sample
-is not meant to be reproduced from `main` or a release tag. Future stable
-samples should be signed from their own stable workflow ref.
-
 ## Run One Command
 
 From the repository root:
@@ -161,6 +164,16 @@ Pack tamper result: REJECTED
 The report tamper changes the signed Verification Report. The pack tamper
 changes a file inside the Evidence Box while leaving the manifest behind.
 
+## Why Does The Identity Mention PR #116?
+
+This committed sample is a frozen snapshot from a historical PR `#116`
+workflow run, so the certificate identity ends in `@refs/pull/116/merge`.
+That is expected.
+
+The signature remains valid for this committed artifact, but this exact sample
+is not meant to be reproduced from `main` or a release tag. Future stable
+samples should be signed from their own stable workflow ref.
+
 ## What "Integrity Verified" Means
 
 It means:
@@ -209,7 +222,7 @@ evaluation profile is incomplete.
 
 The `integrity_required` profile means this sample requires only the Integrity
 channel to pass. This sample does not define or demonstrate stricter profiles;
-a stricter packet would need claim, replay, or trust channels turned on and
+a stricter sample would need claim, replay, or trust channels turned on and
 documented.
 
 ## What Passed
@@ -227,7 +240,7 @@ judgment points to that same pack.
 
 In plain English: this sample does not judge whether a claim is true, does not
 rerun behavior, and does not apply a trust policy. That is normal for this
-integrity-only sample; a stricter packet would need those channels turned on
+integrity-only sample; a stricter sample would need those channels turned on
 and documented.
 
 `NOT_EVALUATED` and `NOT_RUN` both mean the channel did not contribute to the
@@ -248,7 +261,7 @@ Do not infer that this sample proves:
 ## Correct One-Sentence Summary
 
 This sample proves that the evidence pack passed integrity verification and
-that the verification judgment was signed by the expected GitHub workflow.
+that the Verification Report was signed by the expected GitHub workflow.
 
 ## If You Are Reviewing This Sample
 
