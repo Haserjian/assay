@@ -12,6 +12,10 @@
   "overall_verdict": "TAMPERED",
   "overall_reason": "integrity_verdict=TAMPERED",
   "blocking_channel": "integrity",
+  "evaluation_profile": "assay.verify_profile.integrity_required.v0.1",
+  "required_channels": ["integrity"],
+  "optional_channels": ["claim", "replay", "trust"],
+  "unevaluated_channels": ["claim", "replay", "trust"],
   "verified_at": "2026-05-07T00:00:00Z",
   "verifier": {
     "name": "assay verify-pack",

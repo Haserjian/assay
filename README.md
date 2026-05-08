@@ -84,6 +84,10 @@ The public verification contract is `verify_report.json` plus
 - `trust_verdict`: whether signer/workflow policy was accepted
 - `overall_verdict`: buyer-readable collapse of those channels
 
+`overall_verdict: PASS` means every required channel in the report's
+`evaluation_profile` passed. Optional channels that were not evaluated
+are listed in `unevaluated_channels` and explained by `overall_reason`.
+
 Doctrine: **pack root proves the evidence object; ledger index proves
 accepted/citable position; scorecard explains interpretation.**
 

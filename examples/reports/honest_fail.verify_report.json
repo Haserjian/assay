@@ -12,6 +12,10 @@
   "overall_verdict": "HONEST_FAIL",
   "overall_reason": "claim_verdict=HONEST_FAIL",
   "blocking_channel": "claim",
+  "evaluation_profile": "assay.verify_profile.integrity_required.v0.1",
+  "required_channels": ["integrity"],
+  "optional_channels": ["claim", "replay", "trust"],
+  "unevaluated_channels": [],
   "verified_at": "2026-05-07T00:00:00Z",
   "verifier": {
     "name": "assay verify-pack",

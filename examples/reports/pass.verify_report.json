@@ -10,8 +10,12 @@
   "replay_verdict": "MATCH",
   "trust_verdict": "PASS",
   "overall_verdict": "PASS",
-  "overall_reason": "all_required_channels_passed",
+  "overall_reason": "all_evaluated_channels_passed",
   "blocking_channel": null,
+  "evaluation_profile": "assay.verify_profile.integrity_required.v0.1",
+  "required_channels": ["integrity"],
+  "optional_channels": ["claim", "replay", "trust"],
+  "unevaluated_channels": [],
   "verified_at": "2026-05-07T00:00:00Z",
   "verifier": {
     "name": "assay verify-pack",

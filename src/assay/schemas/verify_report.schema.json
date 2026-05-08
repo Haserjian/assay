@@ -15,9 +15,19 @@
     "replay_verdict",
     "trust_verdict",
     "overall_verdict",
+    "overall_reason",
+    "blocking_channel",
+    "evaluation_profile",
+    "required_channels",
+    "optional_channels",
+    "unevaluated_channels",
     "verified_at",
     "verifier",
+    "expectations",
     "evidence_refs",
+    "checks",
+    "errors",
+    "warnings",
     "summary"
   ],
   "properties": {
@@ -62,6 +72,19 @@
     "blocking_channel": {
       "type": ["string", "null"],
       "enum": ["integrity", "claim", "replay", "trust", null]
+    },
+    "evaluation_profile": {
+      "type": "string",
+      "minLength": 1
+    },
+    "required_channels": {
+      "$ref": "#/$defs/channel_array"
+    },
+    "optional_channels": {
+      "$ref": "#/$defs/channel_array"
+    },
+    "unevaluated_channels": {
+      "$ref": "#/$defs/channel_array"
     },
     "verified_at": {
       "type": "string",
@@ -157,6 +180,13 @@
         {"$ref": "#/$defs/sha256"},
         {"type": "null"}
       ]
+    },
+    "channel_array": {
+      "type": "array",
+      "items": {
+        "enum": ["integrity", "claim", "replay", "trust"]
+      },
+      "uniqueItems": true
     }
   }
 }

@@ -9,6 +9,9 @@ from assay._receipts.jcs import canonicalize as jcs_canonicalize
 
 VERIFY_REPORT_SCHEMA_VERSION = "assay.verify_report.v0.1"
 DEFAULT_VERIFY_POLICY_ID = "assay.verify_policy.v0.1"
+DEFAULT_EVALUATION_PROFILE = "assay.verify_profile.integrity_required.v0.1"
+DEFAULT_REQUIRED_CHANNELS = ["integrity"]
+DEFAULT_OPTIONAL_CHANNELS = ["claim", "replay", "trust"]
 _PUBLIC_REPLAY_VERDICTS = {"MATCH", "DIVERGE", "NOT_RUN"}
 
 
@@ -51,12 +54,29 @@ def _replay_verdict(value: str) -> str:
     return "NOT_RUN"
 
 
+def _unevaluated_channels(
+    *,
+    claim_verdict: str,
+    replay_verdict: str,
+    trust_verdict: str,
+) -> list[str]:
+    channels = []
+    if claim_verdict == "NOT_EVALUATED":
+        channels.append("claim")
+    if replay_verdict == "NOT_RUN":
+        channels.append("replay")
+    if trust_verdict == "NOT_EVALUATED":
+        channels.append("trust")
+    return channels
+
+
 def _overall_verdict(
     *,
     integrity_verdict: str,
     claim_verdict: str,
     replay_verdict: str,
     trust_verdict: str,
+    unevaluated_channels: list[str],
 ) -> tuple[str, Optional[str], str]:
     if integrity_verdict == "TAMPERED":
         return "TAMPERED", "integrity", "integrity_verdict=TAMPERED"
@@ -66,7 +86,9 @@ def _overall_verdict(
         return "REPLAY_DIVERGED", "replay", "replay_verdict=DIVERGE"
     if claim_verdict == "HONEST_FAIL":
         return "HONEST_FAIL", "claim", "claim_verdict=HONEST_FAIL"
-    return "PASS", None, "all_required_channels_passed"
+    if unevaluated_channels:
+        return "PASS", None, "integrity_passed_optional_channels_not_evaluated"
+    return "PASS", None, "all_evaluated_channels_passed"
 
 
 def _report_id(seed: Dict[str, Any]) -> str:
@@ -152,11 +174,17 @@ def build_verify_report(
     replay_verdict = _replay_verdict(replay_verdict)
     integrity_verdict = "PASS" if verify_result.passed else "TAMPERED"
     trust_verdict = _trust_verdict(trust_eval)
+    unevaluated_channels = _unevaluated_channels(
+        claim_verdict=claim_verdict,
+        replay_verdict=replay_verdict,
+        trust_verdict=trust_verdict,
+    )
     overall, blocking_channel, overall_reason = _overall_verdict(
         integrity_verdict=integrity_verdict,
         claim_verdict=claim_verdict,
         replay_verdict=replay_verdict,
         trust_verdict=trust_verdict,
+        unevaluated_channels=unevaluated_channels,
     )
 
     evidence_refs = [
@@ -232,6 +260,10 @@ def build_verify_report(
         "overall_verdict": overall,
         "overall_reason": overall_reason,
         "blocking_channel": blocking_channel,
+        "evaluation_profile": DEFAULT_EVALUATION_PROFILE,
+        "required_channels": list(DEFAULT_REQUIRED_CHANNELS),
+        "optional_channels": list(DEFAULT_OPTIONAL_CHANNELS),
+        "unevaluated_channels": unevaluated_channels,
         "verified_at": verified_at,
         "verifier": {
             "name": verifier_name,

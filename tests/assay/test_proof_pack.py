@@ -1788,7 +1788,17 @@ class TestClaimWiring:
         assert report["replay_verdict"] == "NOT_RUN"
         assert report["trust_verdict"] == "NOT_EVALUATED"
         assert report["overall_verdict"] == "PASS"
+        assert (
+            report["overall_reason"]
+            == "integrity_passed_optional_channels_not_evaluated"
+        )
         assert report["blocking_channel"] is None
+        assert report["evaluation_profile"] == (
+            "assay.verify_profile.integrity_required.v0.1"
+        )
+        assert report["required_channels"] == ["integrity"]
+        assert report["optional_channels"] == ["claim", "replay", "trust"]
+        assert report["unevaluated_channels"] == ["replay", "trust"]
         assert report["passed"] is True  # legacy compatibility field
         assert all(
             row["verdict"] == "PASS"
@@ -1876,6 +1886,10 @@ class TestClaimWiring:
         assert report["pack_manifest_sha256"] == manifest_sha256
         assert report["integrity_verdict"] == "PASS"
         assert report["overall_verdict"] == "PASS"
+        assert "claim" in report["unevaluated_channels"]
+        assert report["overall_reason"] == (
+            "integrity_passed_optional_channels_not_evaluated"
+        )
         assert "command" not in report
 
     def test_expose_schema_exports_public_contracts(self, tmp_path):
@@ -1934,6 +1948,11 @@ class TestClaimWiring:
         out = pack.build(tmp_path / "pack", keystore=tmp_keys)
         report = json.loads((out / "verify_report.json").read_text())
         assert "claim_verification" not in report
+        assert report["claim_verdict"] == "NOT_EVALUATED"
+        assert report["unevaluated_channels"] == ["claim", "replay", "trust"]
+        assert report["overall_reason"] == (
+            "integrity_passed_optional_channels_not_evaluated"
+        )
 
     def test_claim_set_hash_auto_computed(self, tmp_path, tmp_keys, sample_receipts):
         """When claims are provided, claim_set_hash is computed from specs."""
