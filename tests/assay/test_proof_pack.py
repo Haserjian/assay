@@ -1787,18 +1787,15 @@ class TestClaimWiring:
         assert report["claim_verdict"] == "PASS"
         assert report["replay_verdict"] == "NOT_RUN"
         assert report["trust_verdict"] == "NOT_EVALUATED"
+        assert report["evaluation_profile"] == "integrity_claim_required"
+        assert report["required_channels"] == ["integrity", "claim"]
+        assert report["optional_channels"] == ["replay", "trust"]
+        assert report["unevaluated_channels"] == ["replay", "trust"]
         assert report["overall_verdict"] == "PASS"
-        assert (
-            report["overall_reason"]
-            == "integrity_passed_optional_channels_not_evaluated"
+        assert report["overall_reason"] == (
+            "required_channels_passed; optional_channels_not_evaluated=replay,trust"
         )
         assert report["blocking_channel"] is None
-        assert report["evaluation_profile"] == (
-            "assay.verify_profile.integrity_required.v0.1"
-        )
-        assert report["required_channels"] == ["integrity"]
-        assert report["optional_channels"] == ["claim", "replay", "trust"]
-        assert report["unevaluated_channels"] == ["replay", "trust"]
         assert report["passed"] is True  # legacy compatibility field
         assert all(
             row["verdict"] == "PASS"
@@ -1886,11 +1883,41 @@ class TestClaimWiring:
         assert report["pack_manifest_sha256"] == manifest_sha256
         assert report["integrity_verdict"] == "PASS"
         assert report["overall_verdict"] == "PASS"
-        assert "claim" in report["unevaluated_channels"]
-        assert report["overall_reason"] == (
-            "integrity_passed_optional_channels_not_evaluated"
-        )
         assert "command" not in report
+
+    def test_verify_report_pass_declares_required_channels_when_optional_not_run(
+        self, tmp_path, tmp_keys, sample_receipts
+    ):
+        """PASS is scoped to required channels, not unevaluated optional channels."""
+        pack = ProofPack(
+            run_id="test_report_integrity_only_pass",
+            entries=sample_receipts,
+            signer_id="test-signer",
+        )
+        out = pack.build(tmp_path / "pack", keystore=tmp_keys)
+        report_out = tmp_path / "verify_report.json"
+
+        result = runner.invoke(
+            assay_app,
+            ["verify-pack", str(out), "--json", "--out", str(report_out)],
+        )
+
+        assert result.exit_code == 0
+        report = json.loads(report_out.read_text())
+        assert validate_verify_report(report) == []
+        assert report["integrity_verdict"] == "PASS"
+        assert report["claim_verdict"] == "NOT_EVALUATED"
+        assert report["replay_verdict"] == "NOT_RUN"
+        assert report["trust_verdict"] == "NOT_EVALUATED"
+        assert report["overall_verdict"] == "PASS"
+        assert report["evaluation_profile"] == "integrity_required"
+        assert report["required_channels"] == ["integrity"]
+        assert report["optional_channels"] == ["claim", "replay", "trust"]
+        assert report["unevaluated_channels"] == ["claim", "replay", "trust"]
+        assert report["overall_reason"] == (
+            "required_channels_passed; "
+            "optional_channels_not_evaluated=claim,replay,trust"
+        )
 
     def test_expose_schema_exports_public_contracts(self, tmp_path):
         """expose-schema makes pack and verify-report contracts retrievable."""
@@ -1907,6 +1934,10 @@ class TestClaimWiring:
             assert (tmp_path / file_name).exists()
 
         verify_schema = json.loads((tmp_path / "verify_report.schema.json").read_text())
+        assert "evaluation_profile" in verify_schema["required"]
+        assert "required_channels" in verify_schema["required"]
+        assert "optional_channels" in verify_schema["required"]
+        assert "unevaluated_channels" in verify_schema["required"]
         assert verify_schema["properties"]["replay_verdict"]["enum"] == [
             "MATCH",
             "DIVERGE",
@@ -1951,7 +1982,8 @@ class TestClaimWiring:
         assert report["claim_verdict"] == "NOT_EVALUATED"
         assert report["unevaluated_channels"] == ["claim", "replay", "trust"]
         assert report["overall_reason"] == (
-            "integrity_passed_optional_channels_not_evaluated"
+            "required_channels_passed; "
+            "optional_channels_not_evaluated=claim,replay,trust"
         )
 
     def test_claim_set_hash_auto_computed(self, tmp_path, tmp_keys, sample_receipts):
