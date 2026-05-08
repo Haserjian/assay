@@ -26,7 +26,7 @@ claim fix.
 
 - Did the command complete?
 - Final output or error:
-- Was `Verified OK` reached?
+- Was `Result: VERIFIED OK` reached?
 
 ## Failure Or Confusion
 

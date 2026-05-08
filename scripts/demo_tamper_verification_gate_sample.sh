@@ -6,7 +6,7 @@ SOURCE_DIR="$ROOT_DIR/docs/examples/verification-gate-v0"
 TMP_ROOT="$(mktemp -d)"
 trap 'rm -rf "$TMP_ROOT"' EXIT
 
-for command in jq cosign python3; do
+for command in cosign python3; do
   if ! command -v "$command" >/dev/null 2>&1; then
     echo "missing required command: $command" >&2
     exit 127
