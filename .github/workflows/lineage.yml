@@ -17,6 +17,7 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  id-token: write
 
 jobs:
   lineage:
@@ -62,9 +63,9 @@ jobs:
           python-version: "3.12"
 
       - name: Install assay
-        run: pip install "assay-ai>=1.10.1"
+        run: pip install "assay-ai==1.23.0"
 
-      - name: Build and verify proof pack
+      - name: Build proof pack
         run: |
           set -euo pipefail
           mkdir -p .assay-verify
@@ -76,13 +77,64 @@ jobs:
             -- echo "proof-carrying-pr canary" \
             | tee ".assay-verify/run.json"
 
-          assay verify-pack ".assay-verify/proof_pack_ci" --json \
-            | tee ".assay-verify/verify.json"
+      - name: Verify proof pack with public action
+        id: assay_action
+        uses: Haserjian/assay-verify-action@v1
+        with:
+          assay-version: "1.23.0"
+          pack-path: ".assay-verify/proof_pack_ci"
+          require-claim-pass: "false"
+          comment-on-pr: "false"
+          upload-artifact: "false"
+
+      - name: Write public verify report
+        run: |
+          set -euo pipefail
+
+          assay verify-pack ".assay-verify/proof_pack_ci" \
+            --json \
+            --out ".assay-verify/verify_report.json" \
+            | tee ".assay-verify/verify.stdout.json"
+
+          cp ".assay-verify/proof_pack_ci/pack_manifest.json" \
+            ".assay-verify/pack_manifest.json"
+
+          mkdir -p "assay-verification-report"
+          cp ".assay-verify/verify_report.json" \
+            "assay-verification-report/verify_report.json"
+          cp ".assay-verify/verify.stdout.json" \
+            "assay-verification-report/verify.stdout.json"
+          cp ".assay-verify/pack_manifest.json" \
+            "assay-verification-report/pack_manifest.json"
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign verify report
+        run: |
+          set -euo pipefail
+
+          cosign sign-blob \
+            --yes \
+            --bundle ".assay-verify/verify_report.sigstore.json" \
+            ".assay-verify/verify_report.json"
+
+          cp ".assay-verify/verify_report.sigstore.json" \
+            "assay-verification-report/verify_report.sigstore.json"
+
+      - name: Verify signed report
+        run: |
+          set -euo pipefail
+
+          cosign verify-blob ".assay-verify/verify_report.json" \
+            --bundle ".assay-verify/verify_report.sigstore.json" \
+            --certificate-identity "https://github.com/${GITHUB_WORKFLOW_REF}" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com"
 
       - name: Upload verify artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: assay-verify-report
-          path: .assay-verify
+          path: assay-verification-report
           if-no-files-found: warn
