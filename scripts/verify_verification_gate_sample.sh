@@ -26,20 +26,14 @@ done
 echo "Assay Verification Gate v0 sample"
 echo "This verifies the signed public report, checks it binds to the proof-pack manifest, and asserts the report verdict."
 echo
-echo "Verdict channels:"
-jq '{
-  pack_root_sha256,
-  integrity_verdict,
-  claim_verdict,
-  replay_verdict,
-  trust_verdict,
-  overall_verdict,
-  evaluation_profile,
-  required_channels,
-  optional_channels,
-  unevaluated_channels,
-  overall_reason
-}' "$REPORT"
+echo "Declared verdict channels:"
+echo "  Integrity: $(jq -r '.integrity_verdict' "$REPORT")"
+echo "  Claim correctness: $(jq -r '.claim_verdict' "$REPORT")"
+echo "  Replay: $(jq -r '.replay_verdict' "$REPORT")"
+echo "  Trust policy: $(jq -r '.trust_verdict' "$REPORT")"
+echo "  Overall: $(jq -r '.overall_verdict' "$REPORT") (profile: $(jq -r '.evaluation_profile' "$REPORT"))"
+echo "  Required channels: $(jq -r '.required_channels | join(", ")' "$REPORT")"
+echo "  Unevaluated channels: $(jq -r '.unevaluated_channels | join(", ")' "$REPORT")"
 
 echo
 echo "Checking report/manifest pack root..."
@@ -113,7 +107,7 @@ cosign verify-blob "$REPORT" \
   --certificate-oidc-issuer "$ISSUER"
 
 echo
-echo "Result: VERIFIED OK"
+echo "Result: INTEGRITY VERIFIED"
 echo
 echo "Human summary:"
 echo "  Evidence Box: $MANIFEST"
@@ -133,6 +127,8 @@ echo
 echo "Plain English:"
 echo "  This proves the public verification report is intact, refers to the"
 echo "  right evidence pack, and was signed by the expected GitHub workflow."
+echo "  It says nothing about whether any model, eval, or claim inside the"
+echo "  evidence pack is true."
 echo
 echo "Do NOT infer:"
 echo "  legal compliance, production approval, full claim correctness,"

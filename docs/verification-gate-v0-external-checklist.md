@@ -74,12 +74,16 @@ bash scripts/verify_verification_gate_sample.sh
 Expected result:
 
 ```text
-Result: VERIFIED OK
+Result: INTEGRITY VERIFIED
 ```
 
 The script also prints the report's verdict channels and confirms that
 `signed-report/verify_report.json` and `proof-pack/pack_manifest.json` name the same
 `pack_root_sha256`.
+
+A verdict channel is one kind of check. In this sample, only Integrity is
+required. Claim, replay, and trust are visible so reviewers can see they did
+not run.
 
 Optional tamper check:
 
@@ -90,7 +94,7 @@ bash scripts/demo_tamper_verification_gate_sample.sh
 Expected result:
 
 ```text
-Clean sample result: VERIFIED OK
+Clean sample result: INTEGRITY VERIFIED
 Report tamper result: REJECTED
 Pack tamper result: REJECTED
 ```
@@ -104,8 +108,14 @@ The live proof run is:
 - Certificate identity:
   `https://github.com/Haserjian/assay/.github/workflows/lineage.yml@refs/pull/116/merge`
 
-That certificate identity is exact for this one-shot PR proof run. Future runs
-will sign under their own expected workflow identity.
+That certificate identity is exact for this one-shot PR proof run. This packet
+is a frozen snapshot, not a reproducible build target; future runs will sign
+under their own expected workflow identity.
+
+The identity ends in `@refs/pull/116/merge` because this sample is tied to a
+historical PR workflow run, not a stable `main` or tag workflow. The signature
+remains valid for this committed artifact; a future stable sample should be
+signed from its own stable workflow ref.
 
 Workflow artifacts are operational delivery objects and may expire according
 to repository retention settings. If this download fails because the artifact
@@ -186,7 +196,7 @@ search. A workflow from another repo or fork would not satisfy this command.
    proves the judgment was signed by the expected GitHub Actions workflow
    identity for PR `#116`. For the live workflow download, this file is
    `verify_report.sigstore.json`.
-4. The integrity channel was evaluated and passed for the
+4. The Integrity verdict channel was evaluated and passed for the
    `integrity_required` profile.
 5. Claim, replay, and trust channels were not evaluated in this sample.
 6. The sample does not prove production authorization, legal compliance,
@@ -195,3 +205,7 @@ search. A workflow from another repo or fork would not satisfy this command.
 
 Important: a screenshot of `overall_verdict=PASS` without
 `evaluation_profile=integrity_required` is incomplete.
+
+The `integrity_required` profile means only the Integrity channel is required
+for this sample. This checklist does not define or demonstrate stricter
+profiles.

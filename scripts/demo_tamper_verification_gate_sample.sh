@@ -68,7 +68,7 @@ CLEAN_PACK="$TMP_ROOT/clean/proof-pack"
 echo "Clean sample:"
 run_cosign_verify "$CLEAN_REPORT" "$CLEAN_BUNDLE"
 run_pack_verify "$CLEAN_PACK"
-echo "Clean sample result: VERIFIED OK"
+echo "Clean sample result: INTEGRITY VERIFIED"
 
 REPORT_TAMPER_REPORT="$TMP_ROOT/report-tamper/signed-report/verify_report.json"
 REPORT_TAMPER_BUNDLE="$TMP_ROOT/report-tamper/signed-report/verify_report.sigstore.json"

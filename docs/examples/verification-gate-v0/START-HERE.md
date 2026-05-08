@@ -15,9 +15,14 @@ Correct summary:
 > The evidence pack passed integrity verification, and the verification report
 > was signed by the expected GitHub workflow.
 
+This sample says nothing about whether any model, eval, or claim inside the
+Evidence Box is true. It only proves the box was not altered under the
+integrity check and that the report came from the expected workflow.
+
 ## Before You Start
 
-You need three command-line tools:
+You need three required command-line tools, plus one optional tool for the
+tamper demo:
 
 - `jq` - reads JSON
 - `cosign` - verifies the signature
@@ -104,16 +109,16 @@ bash scripts/verify_verification_gate_sample.sh
 Expected result:
 
 ```text
-Result: VERIFIED OK
+Result: INTEGRITY VERIFIED
 ```
 
-If you see extra technical output from `cosign`, that is normal. The important
-final line is `Result: VERIFIED OK`.
+If you see `Verified OK` from `cosign`, that is the signature check. The
+important final line from this walkthrough is `Result: INTEGRITY VERIFIED`.
 
 Expected output summary:
 
 ```text
-Result: VERIFIED OK
+Result: INTEGRITY VERIFIED
 Integrity: PASS
 Claim correctness: NOT_EVALUATED
 Replay: NOT_RUN
@@ -135,7 +140,7 @@ bash scripts/demo_tamper_verification_gate_sample.sh
 Expected result:
 
 ```text
-Clean sample result: VERIFIED OK
+Clean sample result: INTEGRITY VERIFIED
 Report tamper result: REJECTED
 Pack tamper result: REJECTED
 ```
@@ -143,13 +148,19 @@ Pack tamper result: REJECTED
 The report tamper changes the signed Verification Report. The pack tamper
 changes a file inside the Evidence Box while leaving the manifest behind.
 
-## What "Verified OK" Means
+## What "Integrity Verified" Means
 
 It means:
 
 - The Verification Report refers to the same Evidence Box.
 - The Evidence Box passed the required integrity check.
 - The Verification Report was signed by the expected GitHub Actions workflow.
+- Cosign verified the report against the Sigstore bundle, including the
+  transparency-log material carried by the bundle.
+
+A verdict channel is one kind of check. In this sample, the only required
+channel is Integrity. Claim correctness, replay, and trust policy are visible
+so reviewers can see they did not run.
 
 The certificate identity must exactly match:
 
@@ -157,10 +168,16 @@ The certificate identity must exactly match:
 https://github.com/Haserjian/assay/.github/workflows/lineage.yml@refs/pull/116/merge
 ```
 
-This is the workflow identity for this one sample. Future runs will have their
-own expected workflow identity. This is an exact identity check, not a
-substring search; a workflow from another repo or fork would not satisfy the
-command.
+This is the workflow identity for this one sample. This packet is a frozen
+snapshot, not a reproducible build target; future runs will have their own
+expected workflow identity. This is an exact identity check, not a substring
+search; a workflow from another repo or fork would not satisfy the command.
+
+This identity ends in `@refs/pull/116/merge` because this is a historical
+one-shot PR proof sample. The signature remains valid for this committed
+artifact, but this exact identity is not meant to be reproduced from `main` or
+a release tag. A future stable sample should be signed from its own stable
+workflow ref.
 
 There are two signature layers:
 
@@ -175,10 +192,21 @@ pack is rejected. The proof pack's Ed25519 signature is present in this sample;
 the public reviewer walkthrough focuses on the signed Verification Report and
 does not make a trust claim about the proof-pack signer identity.
 
+Could someone swap in a different proof pack? Not without detection here: the
+Verification Report contains `pack_root_sha256`, the script checks it matches
+the Evidence Box manifest, and the script checks the files against that
+manifest. Changing the report to point at another pack would break the
+Sigstore signature.
+
 Important: `overall_verdict=PASS` only means the required integrity check
 passed for `evaluation_profile=integrity_required`. It does not mean every
 possible check was run. A screenshot of `overall_verdict=PASS` without the
 evaluation profile is incomplete.
+
+The `integrity_required` profile means this sample requires only the Integrity
+channel to pass. This sample does not define or demonstrate stricter profiles;
+a stricter packet would need claim, replay, or trust channels turned on and
+documented.
 
 ## What Passed
 
@@ -219,7 +247,7 @@ that the verification judgment was signed by the expected GitHub workflow.
 
 Send back:
 
-- I got `Result: VERIFIED OK` / I did not get `Result: VERIFIED OK`.
+- I got `Result: INTEGRITY VERIFIED` / I did not get it.
 - I think the Evidence Box is:
 - I think the Verification Report is:
 - I think the Signature Proof is:
@@ -232,18 +260,6 @@ Send back:
 1. What is the Evidence Box?
 2. What is the Verification Report?
 3. What is the Signature Proof?
-4. Which channel passed?
-5. Which channels were not evaluated?
+4. Which verdict channel passed?
+5. Which verdict channels were not evaluated?
 6. What should not be inferred from this sample?
-
-## Glossary
-
-Some internal notes used the phrase "Inspection Note." In this sample, the
-public name is Verification Report.
-
-## Want This For Your Own Repo?
-
-This sample is part of an Evidence Sprint: a fixed-scope pilot that turns one
-AI/software claim set into a reviewer-ready evidence packet.
-
-See [Evidence Sprint one-pager](../../evidence-sprint-one-pager.md).

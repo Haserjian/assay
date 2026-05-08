@@ -1,7 +1,7 @@
 ASSAY VERIFICATION CARD
 Sample: Signed Verification Report
 Internal milestone: Verification Gate v0
-Result: VERIFIED OK
+Result: INTEGRITY VERIFIED
 
 Evidence object:
   proof-pack/pack_manifest.json
@@ -37,8 +37,11 @@ Not evaluated:
 What this proves:
   The evidence pack passed integrity verification.
   The verification judgment was signed by the expected GitHub workflow.
+  The report and Evidence Box point to the same pack root.
 
 What this does not prove:
   It does not prove legal compliance, production approval, full claim
   correctness, replay equivalence, trust-policy approval, ledger acceptance, or
   scorecard interpretation.
+  It says nothing about whether any model, eval, or claim inside the Evidence
+  Box is true.
