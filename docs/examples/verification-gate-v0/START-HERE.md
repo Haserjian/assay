@@ -21,13 +21,13 @@ integrity check and that the report came from the expected workflow.
 
 ## Before You Start
 
-You need three required command-line tools, plus one optional tool for the
-tamper demo:
+For the main verification script, you need three command-line tools:
 
 - `jq` - reads JSON
 - `cosign` - verifies the signature
 - `python3` - already installed on most Macs
-- `assay` - only needed for the optional tamper demo
+
+The optional tamper demo also needs `assay`.
 
 On macOS with Homebrew:
 
@@ -42,12 +42,11 @@ sudo apt-get update
 sudo apt-get install -y jq python3
 ```
 
-For `cosign`, use Sigstore's official installation instructions for your
-platform:
+`cosign` is not installed by the `apt-get` command above. Install it with the
+Sigstore instructions below.
 
-```text
-https://docs.sigstore.dev/cosign/system_config/installation/
-```
+For `cosign`, use Sigstore's official installation instructions for your
+platform: [Cosign installation](https://docs.sigstore.dev/cosign/system_config/installation/).
 
 If you use Linuxbrew, the macOS command also works:
 
@@ -97,6 +96,16 @@ caveats about what did and did not run.
 | Evidence Box | `proof-pack/pack_manifest.json` | The thing being checked. |
 | Verification Report | `signed-report/verify_report.json` | What verification decided. |
 | Signature Proof | `signed-report/verify_report.sigstore.json` | Who signed the decision. |
+
+## Why Does The Identity Mention PR #116?
+
+This committed sample is a frozen snapshot from a historical PR `#116`
+workflow run, so the certificate identity ends in `@refs/pull/116/merge`.
+That is expected.
+
+The signature remains valid for this committed artifact, but this exact sample
+is not meant to be reproduced from `main` or a release tag. Future stable
+samples should be signed from their own stable workflow ref.
 
 ## Run One Command
 
@@ -168,16 +177,8 @@ The certificate identity must exactly match:
 https://github.com/Haserjian/assay/.github/workflows/lineage.yml@refs/pull/116/merge
 ```
 
-This is the workflow identity for this one sample. This packet is a frozen
-snapshot, not a reproducible build target; future runs will have their own
-expected workflow identity. This is an exact identity check, not a substring
-search; a workflow from another repo or fork would not satisfy the command.
-
-This identity ends in `@refs/pull/116/merge` because this is a historical
-one-shot PR proof sample. The signature remains valid for this committed
-artifact, but this exact identity is not meant to be reproduced from `main` or
-a release tag. A future stable sample should be signed from its own stable
-workflow ref.
+This is an exact identity check, not a substring search; a workflow from
+another repo or fork would not satisfy the command.
 
 There are two signature layers:
 
@@ -263,3 +264,5 @@ Send back:
 4. Which verdict channel passed?
 5. Which verdict channels were not evaluated?
 6. What should not be inferred from this sample?
+7. If you ran the script, what certificate identity was printed under "Signed
+   by expected GitHub Actions identity"?

@@ -54,6 +54,7 @@ What did the reviewer think the artifact did not prove?
 | Which verdict channels were evaluated? |  |  |
 | Which verdict channels were not evaluated? |  |  |
 | What should not be inferred? |  |  |
+| If they ran the script, what certificate identity was printed? |  |  |
 
 ## Fix Category
 

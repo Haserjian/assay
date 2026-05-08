@@ -36,11 +36,8 @@ sudo apt-get update
 sudo apt-get install -y jq python3
 ```
 
-Install `cosign` using Sigstore's official installation instructions:
-
-```text
-https://docs.sigstore.dev/cosign/system_config/installation/
-```
+`cosign` is not installed by the `apt-get` command above. Install it with
+Sigstore's official instructions: [Cosign installation](https://docs.sigstore.dev/cosign/system_config/installation/).
 
 For stricter environments, verify the Cosign binary itself using Sigstore's
 release-verification instructions before using it as the verifier.
@@ -183,6 +180,8 @@ search. A workflow from another repo or fork would not satisfy this command.
 4. Which verdict channels were evaluated?
 5. Which verdict channels were not evaluated?
 6. What should not be inferred from this sample?
+7. If the reviewer ran the script, what certificate identity was printed under
+   "Signed by expected GitHub Actions identity"?
 
 ## Expected Answers
 
@@ -202,6 +201,8 @@ search. A workflow from another repo or fork would not satisfy this command.
 6. The sample does not prove production authorization, legal compliance,
    ledger acceptance, scorecard interpretation, full claim evaluation, replay
    evaluation, or trust-policy evaluation.
+7. The script prints:
+   `https://github.com/Haserjian/assay/.github/workflows/lineage.yml@refs/pull/116/merge`.
 
 Important: a screenshot of `overall_verdict=PASS` without
 `evaluation_profile=integrity_required` is incomplete.
