@@ -1,0 +1,41 @@
+ASSAY VERIFICATION CARD
+Sample: Verification Gate v0
+Result: VERIFIED OK
+
+Evidence object:
+  proof-pack/pack_manifest.json
+
+Inspection Note / Verification Report:
+  signed-report/verify_report.json
+
+Signature proof:
+  signed-report/verify_report.sigstore.json
+
+Pack root:
+  88444482656580c864b9b879d877e82a05359c5f3970ec385b64f7777f73a053
+
+Signed by:
+  GitHub Actions workflow lineage.yml on Assay PR #116
+  https://github.com/Haserjian/assay/.github/workflows/lineage.yml@refs/pull/116/merge
+
+Evaluated channel:
+  integrity: PASS
+
+Overall result:
+  PASS for the integrity_required profile
+  This means the required integrity check passed.
+  It does not mean every possible check was run.
+
+Not evaluated:
+  claim correctness: NOT_EVALUATED
+  replay: NOT_RUN
+  trust policy: NOT_EVALUATED
+
+What this proves:
+  The evidence pack passed integrity verification.
+  The verification judgment was signed by the expected GitHub workflow.
+
+What this does not prove:
+  It does not prove legal compliance, production approval, full claim
+  correctness, replay equivalence, trust-policy approval, ledger acceptance, or
+  scorecard interpretation.

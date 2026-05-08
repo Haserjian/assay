@@ -24,7 +24,7 @@ for path in "$REPORT" "$BUNDLE" "$MANIFEST"; do
 done
 
 echo "Assay Verification Gate v0 sample"
-echo "This verifies the signed public report and checks it binds to the proof-pack manifest."
+echo "This verifies the signed public report, checks it binds to the proof-pack manifest, and asserts the report verdict."
 echo
 echo "Verdict channels:"
 jq '{
@@ -62,8 +62,9 @@ if report_root != manifest_root:
 PY
 
 echo
-echo "Checking proof-pack manifest file set..."
+echo "Checking proof-pack manifest file set and hashes..."
 python3 - "$SAMPLE_DIR/proof-pack" <<'PY'
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -77,12 +78,62 @@ missing = [
 ]
 if missing:
     raise SystemExit("missing proof-pack file(s): " + ", ".join(missing))
+
+hash_failures = []
+for file_info in manifest["files"]:
+    path = pack_dir / file_info["path"]
+    actual = hashlib.sha256(path.read_bytes()).hexdigest()
+    expected = file_info["sha256"]
+    if actual != expected:
+        hash_failures.append(f"{file_info['path']}: expected {expected}, got {actual}")
+
+if hash_failures:
+    raise SystemExit("proof-pack file hash mismatch: " + "; ".join(hash_failures))
+
 print("proof_pack_files = " + ", ".join(manifest["expected_files"]))
 PY
 
 echo
-echo "Verifying Sigstore bundle..."
+echo "Checking report verdict..."
+jq -e '
+  (.passed == true) and
+  (.overall_verdict == "PASS") and
+  (.integrity_verdict == "PASS") and
+  (.evaluation_profile == "integrity_required")
+' "$REPORT" >/dev/null || {
+  echo "verification report verdict is not PASS for integrity_required profile" >&2
+  exit 1
+}
+
+echo
+echo "Verifying Sigstore bundle and expected signer identity..."
 cosign verify-blob "$REPORT" \
   --bundle "$BUNDLE" \
   --certificate-identity "$IDENTITY" \
   --certificate-oidc-issuer "$ISSUER"
+
+echo
+echo "Result: VERIFIED OK"
+echo
+echo "Human summary:"
+echo "  Evidence Box: $MANIFEST"
+echo "  Inspection Note / Verification Report: $REPORT"
+echo "  Signature Proof: $BUNDLE"
+echo "  Integrity: $(jq -r '.integrity_verdict' "$REPORT")"
+echo "  Claim correctness: $(jq -r '.claim_verdict' "$REPORT")"
+echo "  Replay: $(jq -r '.replay_verdict' "$REPORT")"
+echo "  Trust policy: $(jq -r '.trust_verdict' "$REPORT")"
+echo "  Overall: $(jq -r '.overall_verdict' "$REPORT") for $(jq -r '.evaluation_profile' "$REPORT") profile"
+echo "    This means the required integrity check passed."
+echo "    It does not mean every possible check was run."
+echo "  Signed by expected GitHub Actions identity:"
+echo "    $IDENTITY"
+echo
+echo "Plain English:"
+echo "  This proves the public verification report is intact, refers to the"
+echo "  right evidence pack, and was signed by the expected GitHub workflow."
+echo
+echo "Do NOT infer:"
+echo "  legal compliance, production approval, full claim correctness,"
+echo "  replay equivalence, trust-policy approval, ledger acceptance, or"
+echo "  scorecard interpretation."
