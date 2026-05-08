@@ -117,7 +117,7 @@ echo "Result: VERIFIED OK"
 echo
 echo "Human summary:"
 echo "  Evidence Box: $MANIFEST"
-echo "  Inspection Note / Verification Report: $REPORT"
+echo "  Verification Report: $REPORT"
 echo "  Signature Proof: $BUNDLE"
 echo "  Integrity: $(jq -r '.integrity_verdict' "$REPORT")"
 echo "  Claim correctness: $(jq -r '.claim_verdict' "$REPORT")"

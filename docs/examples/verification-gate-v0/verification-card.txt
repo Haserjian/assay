@@ -1,11 +1,12 @@
 ASSAY VERIFICATION CARD
-Sample: Verification Gate v0
+Sample: Signed Verification Report
+Internal milestone: Verification Gate v0
 Result: VERIFIED OK
 
 Evidence object:
   proof-pack/pack_manifest.json
 
-Inspection Note / Verification Report:
+Verification Report:
   signed-report/verify_report.json
 
 Signature proof:

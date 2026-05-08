@@ -67,7 +67,7 @@ docs/examples/verification-gate-v0/
 ## Questions To Answer Back
 
 1. What is the Evidence Box?
-2. What is the Inspection Note / Verification Report?
+2. What is the Verification Report?
 3. What is the Signature Proof?
 4. Which channel passed?
 5. Which channels were not evaluated?
