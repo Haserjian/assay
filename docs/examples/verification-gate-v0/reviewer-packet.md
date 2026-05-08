@@ -1,14 +1,14 @@
-# Reviewer Packet Lite: Verification Gate v0 Sample
+# Reviewer Packet - Worked Example: Signed Verification Report
 
 This packet summarizes the committed Verification Gate v0 sample for a
 reviewer. It is a worked example of the Reviewer Packet Lite template, not a
 claim of production authorization or legal compliance.
 
-Plain English: this sample is a signed inspection note, also called a
-verification report, for an evidence box. It proves the evidence box passed an
-integrity check and that the inspection note was signed by the expected GitHub
-workflow. It does not prove the software is secure, compliant,
-production-approved, or fully evaluated.
+Plain English: this sample is a signed Verification Report for an Evidence
+Box. It proves the Evidence Box passed an integrity check and that the
+Verification Report was signed by the expected GitHub workflow. It does not
+prove the software is secure, compliant, production-approved, or fully
+evaluated.
 
 ## Packet Metadata
 
@@ -50,6 +50,19 @@ production-approved, or fully evaluated.
 
 `signed-report/verify_report.sigstore.json` is the provenance of that public
 judgment.
+
+There are two signatures in this sample. `proof-pack/pack_signature.sig`
+belongs to the proof pack itself. `signed-report/verify_report.sigstore.json`
+belongs to the public Verification Report.
+
+The sample script verifies the Sigstore signature on the public Verification
+Report. The proof pack's Ed25519 signature, `proof-pack/pack_signature.sig`, is
+part of the artifact but is not exercised by that script.
+
+The expected GitHub workflow identity must match the expected
+`https://github.com/Haserjian/assay/.github/workflows/...` identity. This is
+an exact identity check, not a substring search; a workflow from another repo
+or fork would not satisfy the command.
 
 | Field | Value |
 |---|---|
@@ -186,3 +199,12 @@ that some valid signer signed the report.
 | `proof-pack/receipt_pack.jsonl` | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` |
 | `proof-pack/verify_report.json` | `1ace3f4aae77aaa5c34272a5ab9c4fde3921673936aec186052547f513b5da75` |
 | `proof-pack/verify_transcript.md` | `d2ba93896ba683fc51159a3bed158f8f65f2923f710f91b35c87120cd1ab4fc2` |
+
+## Glossary
+
+- Evidence Box: the proof pack named by `proof-pack/pack_manifest.json`.
+- Verification Report: the signed public judgment in
+  `signed-report/verify_report.json`.
+- Signature Proof: the Sigstore bundle in
+  `signed-report/verify_report.sigstore.json`.
+- Inspection Note: older/internal wording for Verification Report.

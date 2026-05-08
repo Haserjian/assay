@@ -5,6 +5,14 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SOURCE_DIR="$ROOT_DIR/docs/examples/verification-gate-v0"
 TMP_ROOT="$(mktemp -d)"
 trap 'rm -rf "$TMP_ROOT"' EXIT
+VERBOSE=0
+
+if [[ "${1:-}" == "--verbose" ]]; then
+  VERBOSE=1
+elif [[ $# -gt 0 ]]; then
+  echo "usage: $0 [--verbose]" >&2
+  exit 2
+fi
 
 for command in cosign python3; do
   if ! command -v "$command" >/dev/null 2>&1; then
@@ -21,10 +29,17 @@ IDENTITY="https://github.com/Haserjian/assay/.github/workflows/lineage.yml@refs/
 ISSUER="https://token.actions.githubusercontent.com"
 
 echo "Clean sample:"
-cosign verify-blob "$REPORT" \
-  --bundle "$BUNDLE" \
-  --certificate-identity "$IDENTITY" \
-  --certificate-oidc-issuer "$ISSUER"
+if [[ "$VERBOSE" -eq 1 ]]; then
+  cosign verify-blob "$REPORT" \
+    --bundle "$BUNDLE" \
+    --certificate-identity "$IDENTITY" \
+    --certificate-oidc-issuer "$ISSUER"
+else
+  cosign verify-blob "$REPORT" \
+    --bundle "$BUNDLE" \
+    --certificate-identity "$IDENTITY" \
+    --certificate-oidc-issuer "$ISSUER" >/dev/null 2>&1
+fi
 echo "Clean sample result: VERIFIED OK"
 
 python3 - "$REPORT" <<'PY'
@@ -40,12 +55,30 @@ PY
 
 echo
 echo "Tampered sample:"
-if cosign verify-blob "$REPORT" \
-  --bundle "$BUNDLE" \
-  --certificate-identity "$IDENTITY" \
-  --certificate-oidc-issuer "$ISSUER"; then
+if [[ "$VERBOSE" -eq 1 ]]; then
+  if cosign verify-blob "$REPORT" \
+    --bundle "$BUNDLE" \
+    --certificate-identity "$IDENTITY" \
+    --certificate-oidc-issuer "$ISSUER"; then
+    status=0
+  else
+    status=$?
+  fi
+else
+  if cosign verify-blob "$REPORT" \
+    --bundle "$BUNDLE" \
+    --certificate-identity "$IDENTITY" \
+    --certificate-oidc-issuer "$ISSUER" >/dev/null 2>&1; then
+    status=0
+  else
+    status=$?
+  fi
+fi
+
+if [[ "$status" -eq 0 ]]; then
   echo "Tampered sample unexpectedly verified." >&2
   exit 1
 else
   echo "Tampered sample result: REJECTED"
+  echo "Reason: signature did not match the tampered report; this is expected."
 fi
