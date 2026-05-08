@@ -43,6 +43,7 @@ when they're stable and don't require private infrastructure.
 | packet init, compile | Init draft + compile sealed compiled packet from questionnaire + proof packs | Shipped |
 | packet verify (--json) | Two-axis offline verification: integrity_verdict × completeness_verdict + admissibility | Shipped |
 | Subject binding + admissibility contract | Cryptographic subject scope, structured reason codes, fail-closed gate script | Shipped |
+| verify_report.json public contract | Portable verification judgment: integrity, claim, replay, trust, overall, evaluation profile, required channels, pack root | Shipped (v1.23.0) |
 
 ### Passport Lifecycle (v1.17.0)
 
