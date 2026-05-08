@@ -11,6 +11,7 @@ import hashlib
 import json
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
@@ -38,6 +39,7 @@ from assay.integrity import (
     verify_receipt,
     verify_receipt_pack,
 )
+from assay.manifest_schema import validate_verify_report
 from assay.commands import assay_app
 from assay.keystore import AssayKeyStore
 from assay.proof_pack import (
@@ -57,6 +59,7 @@ from assay.run_cards import (
 )
 
 runner = CliRunner()
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 # ---------------------------------------------------------------------------
@@ -1754,6 +1757,170 @@ class TestClaimWiring:
         assert cv["n_passed"] == 1
         assert len(cv["results"]) == 1
         assert cv["results"][0]["claim_id"] == "c1"
+
+    def test_verify_report_public_contract_pass(
+        self, tmp_path, tmp_keys, sample_receipts
+    ):
+        """verify_report.json exposes separate public verdict channels."""
+        claims = [
+            ClaimSpec(
+                claim_id="c1",
+                description="check",
+                check="receipt_count_ge",
+                params={"min_count": 1},
+            ),
+        ]
+        pack = ProofPack(
+            run_id="test_report_contract_pass",
+            entries=sample_receipts,
+            signer_id="test-signer",
+            claims=claims,
+        )
+        out = pack.build(tmp_path / "pack", keystore=tmp_keys)
+        manifest = json.loads((out / "pack_manifest.json").read_text())
+        report = json.loads((out / "verify_report.json").read_text())
+
+        assert validate_verify_report(report) == []
+        assert report["schema_version"] == "assay.verify_report.v0.1"
+        assert report["pack_root_sha256"] == manifest["pack_root_sha256"]
+        assert report["integrity_verdict"] == "PASS"
+        assert report["claim_verdict"] == "PASS"
+        assert report["replay_verdict"] == "NOT_RUN"
+        assert report["trust_verdict"] == "NOT_EVALUATED"
+        assert report["overall_verdict"] == "PASS"
+        assert report["blocking_channel"] is None
+        assert report["passed"] is True  # legacy compatibility field
+        assert all(
+            row["verdict"] == "PASS"
+            for row in report["checks"]
+            if row["name"] not in {"claim_check", "replay", "trust"}
+        )
+        assert not (out / "receipt.json").exists()
+
+    def test_verify_report_public_contract_honest_fail(
+        self, tmp_path, tmp_keys, sample_receipts
+    ):
+        """Intact evidence with failing claims reports HONEST_FAIL, not tamper."""
+        claims = [
+            ClaimSpec(
+                claim_id="c1",
+                description="too many receipts required",
+                check="receipt_count_ge",
+                params={"min_count": 999},
+            ),
+        ]
+        pack = ProofPack(
+            run_id="test_report_contract_honest_fail",
+            entries=sample_receipts,
+            signer_id="test-signer",
+            claims=claims,
+        )
+        out = pack.build(tmp_path / "pack", keystore=tmp_keys)
+        report = json.loads((out / "verify_report.json").read_text())
+
+        assert validate_verify_report(report) == []
+        assert report["integrity_verdict"] == "PASS"
+        assert report["claim_verdict"] == "HONEST_FAIL"
+        assert report["overall_verdict"] == "HONEST_FAIL"
+        assert report["blocking_channel"] == "claim"
+        assert report["overall_reason"] == "claim_verdict=HONEST_FAIL"
+
+    def test_verify_pack_json_reports_tampered(
+        self, tmp_path, tmp_keys, sample_receipts, monkeypatch
+    ):
+        """CLI JSON keeps tamper distinct from honest claim failure."""
+        monkeypatch.setenv("ASSAY_KEYS_DIR", str(tmp_path / "keys"))
+        pack = ProofPack(
+            run_id="test_report_contract_tampered",
+            entries=sample_receipts,
+            signer_id="test-signer",
+        )
+        out = pack.build(tmp_path / "pack", keystore=tmp_keys)
+        report_path = out / "verify_report.json"
+        report_path.write_text(report_path.read_text() + "\n")
+
+        result = runner.invoke(assay_app, ["verify-pack", str(out), "--json"])
+
+        assert result.exit_code == 2
+        payload = json.loads(result.output)
+        assert validate_verify_report(payload) == []
+        assert payload["integrity_verdict"] == "TAMPERED"
+        assert payload["claim_verdict"] == "NOT_EVALUATED"
+        assert payload["overall_verdict"] == "TAMPERED"
+        assert payload["blocking_channel"] == "integrity"
+
+    def test_verify_pack_out_writes_public_report(
+        self, tmp_path, tmp_keys, sample_receipts
+    ):
+        """--out writes a pure public verify_report.json artifact."""
+        pack = ProofPack(
+            run_id="test_report_out",
+            entries=sample_receipts,
+            signer_id="test-signer",
+        )
+        out = pack.build(tmp_path / "pack", keystore=tmp_keys)
+        report_out = tmp_path / "verify_report.json"
+
+        result = runner.invoke(
+            assay_app,
+            ["verify-pack", str(out), "--json", "--out", str(report_out)],
+        )
+
+        assert result.exit_code == 0
+        assert report_out.exists()
+        report = json.loads(report_out.read_text())
+        manifest_sha256 = hashlib.sha256(
+            (out / "pack_manifest.json").read_bytes()
+        ).hexdigest()
+        assert validate_verify_report(report) == []
+        assert report["pack_manifest_sha256"] == manifest_sha256
+        assert report["integrity_verdict"] == "PASS"
+        assert report["overall_verdict"] == "PASS"
+        assert "command" not in report
+
+    def test_expose_schema_exports_public_contracts(self, tmp_path):
+        """expose-schema makes pack and verify-report contracts retrievable."""
+        for schema_name, file_name in (
+            ("pack_manifest", "pack_manifest.schema.json"),
+            ("verify_report", "verify_report.schema.json"),
+        ):
+            result = runner.invoke(
+                assay_app,
+                ["expose-schema", schema_name, "--out", str(tmp_path)],
+            )
+
+            assert result.exit_code == 0
+            assert (tmp_path / file_name).exists()
+
+        verify_schema = json.loads((tmp_path / "verify_report.schema.json").read_text())
+        assert verify_schema["properties"]["replay_verdict"]["enum"] == [
+            "MATCH",
+            "DIVERGE",
+            "NOT_RUN",
+        ]
+
+    def test_example_verify_reports_validate(self):
+        """Published PASS/HONEST_FAIL/TAMPERED samples match the schema."""
+        examples = sorted((REPO_ROOT / "examples" / "reports").glob("*.json"))
+        assert {p.name for p in examples} == {
+            "pass.verify_report.json",
+            "honest_fail.verify_report.json",
+            "tampered.verify_report.json",
+        }
+        by_name = {}
+        for path in examples:
+            report = json.loads(path.read_text())
+            assert validate_verify_report(report) == []
+            by_name[path.name] = report
+
+        assert by_name["pass.verify_report.json"]["overall_verdict"] == "PASS"
+        assert (
+            by_name["honest_fail.verify_report.json"]["overall_verdict"]
+            == "HONEST_FAIL"
+        )
+        assert by_name["honest_fail.verify_report.json"]["blocking_channel"] == "claim"
+        assert by_name["tampered.verify_report.json"]["overall_verdict"] == "TAMPERED"
+        assert by_name["tampered.verify_report.json"]["blocking_channel"] == "integrity"
 
     def test_no_claim_results_in_report_without_claims(
         self, tmp_path, tmp_keys, sample_receipts

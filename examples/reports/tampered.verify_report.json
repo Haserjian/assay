@@ -1,0 +1,77 @@
+{
+  "schema_version": "assay.verify_report.v0.1",
+  "report_id": "vr_33333333333333333333",
+  "pack_id": "pack_example_tampered",
+  "run_id": "run_example_tampered",
+  "pack_root_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "pack_manifest_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "integrity_verdict": "TAMPERED",
+  "claim_verdict": "NOT_EVALUATED",
+  "replay_verdict": "NOT_RUN",
+  "trust_verdict": "NOT_EVALUATED",
+  "overall_verdict": "TAMPERED",
+  "overall_reason": "integrity_verdict=TAMPERED",
+  "blocking_channel": "integrity",
+  "verified_at": "2026-05-07T00:00:00Z",
+  "verifier": {
+    "name": "assay verify-pack",
+    "version": "0.1.0",
+    "policy_id": "assay.verify_policy.v0.1"
+  },
+  "expectations": {
+    "policy_id": "assay.verify_policy.v0.1",
+    "policy_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "claim_set_id": "claim_set_example_tampered",
+    "claim_set_hash": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "verification_inputs_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "verifier_config_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+  "provenance": {
+    "source_repo": "Haserjian/assay",
+    "commit_sha": "cccccccccccccccccccccccccccccccccccccccc",
+    "workflow_ref": "Haserjian/assay/.github/workflows/assay.yml@refs/heads/main",
+    "run_id": "1234567892",
+    "event_name": "pull_request"
+  },
+  "evidence_refs": [
+    {
+      "kind": "pack_manifest",
+      "path": "pack_manifest.json",
+      "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    },
+    {
+      "kind": "receipt_pack",
+      "path": "receipt_pack.jsonl",
+      "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+    }
+  ],
+  "checks": [
+    {
+      "name": "manifest_schema",
+      "verdict": "PASS"
+    },
+    {
+      "name": "file_hashes",
+      "verdict": "TAMPERED",
+      "detail": "Hash mismatch for receipt_pack.jsonl."
+    },
+    {
+      "name": "claim_check",
+      "verdict": "NOT_EVALUATED"
+    }
+  ],
+  "errors": [
+    {
+      "code": "E_MANIFEST_TAMPER",
+      "message": "Hash mismatch for receipt_pack.jsonl.",
+      "field": "receipt_pack.jsonl"
+    }
+  ],
+  "warnings": [],
+  "summary": {
+    "integrity": "Evidence object integrity failed.",
+    "claim": "No claim set was evaluated.",
+    "replay": "Replay was not run.",
+    "trust": "Trust policy was not evaluated."
+  }
+}

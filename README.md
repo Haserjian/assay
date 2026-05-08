@@ -69,11 +69,23 @@ proof_pack/
   receipt_pack.jsonl      # One receipt per tool call, model invocation, or policy check
   pack_manifest.json      # SHA-256 hashes of every file + Ed25519 signature
   pack_signature.sig      # Raw signature bytes
-  verify_report.json      # Machine-readable verification result
+  verify_report.json      # Machine-readable verification judgment
   verify_transcript.md    # Human-readable transcript
 ```
 
 Change one byte in any file. Verification fails.
+
+The public verification contract is `verify_report.json` plus
+`pack_manifest.json`. The report keeps separate verdict channels:
+
+- `integrity_verdict`: whether the evidence object is intact
+- `claim_verdict`: whether intact evidence satisfies the claim
+- `replay_verdict`: whether replay matched, diverged, or was not run
+- `trust_verdict`: whether signer/workflow policy was accepted
+- `overall_verdict`: buyer-readable collapse of those channels
+
+Doctrine: **pack root proves the evidence object; ledger index proves
+accepted/citable position; scorecard explains interpretation.**
 
 ### Try more
 
@@ -90,6 +102,7 @@ assay scan . --report      # Find uninstrumented LLM call sites
 assay patch .              # Auto-insert SDK integration
 assay run -- python my.py  # Run + build signed proof pack
 assay verify-pack ./proof_pack_*/   # Verify offline
+assay verify-pack ./proof_pack_*/ --json --out verify_report.json
 ```
 
 > **Boundary:** Assay proves the evidence artifact has not been altered

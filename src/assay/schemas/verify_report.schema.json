@@ -1,0 +1,162 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://assay.local/schemas/verify_report.schema.json",
+  "title": "Assay Verify Report",
+  "description": "Public verification judgment envelope for an Assay proof pack. Compatibility fields from legacy VerifyResult output may also be present.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "report_id",
+    "pack_root_sha256",
+    "pack_manifest_sha256",
+    "integrity_verdict",
+    "claim_verdict",
+    "replay_verdict",
+    "trust_verdict",
+    "overall_verdict",
+    "verified_at",
+    "verifier",
+    "evidence_refs",
+    "summary"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "assay.verify_report.v0.1"
+    },
+    "report_id": {
+      "type": "string",
+      "pattern": "^vr_[a-f0-9]{20}$"
+    },
+    "pack_id": {
+      "type": ["string", "null"]
+    },
+    "run_id": {
+      "type": ["string", "null"]
+    },
+    "pack_root_sha256": {
+      "$ref": "#/$defs/sha256_nullable"
+    },
+    "pack_manifest_sha256": {
+      "$ref": "#/$defs/sha256_nullable"
+    },
+    "integrity_verdict": {
+      "enum": ["PASS", "TAMPERED"]
+    },
+    "claim_verdict": {
+      "enum": ["PASS", "HONEST_FAIL", "NOT_EVALUATED"]
+    },
+    "replay_verdict": {
+      "enum": ["MATCH", "DIVERGE", "NOT_RUN"]
+    },
+    "trust_verdict": {
+      "enum": ["PASS", "UNTRUSTED", "NOT_EVALUATED"]
+    },
+    "overall_verdict": {
+      "enum": ["PASS", "HONEST_FAIL", "TAMPERED", "UNTRUSTED", "REPLAY_DIVERGED"]
+    },
+    "overall_reason": {
+      "type": "string",
+      "minLength": 1
+    },
+    "blocking_channel": {
+      "type": ["string", "null"],
+      "enum": ["integrity", "claim", "replay", "trust", null]
+    },
+    "verified_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "verifier": {
+      "type": "object",
+      "required": ["name", "version", "policy_id"],
+      "additionalProperties": true,
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "version": {"type": "string", "minLength": 1},
+        "policy_id": {"type": "string", "minLength": 1}
+      }
+    },
+    "expectations": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "policy_id": {"type": ["string", "null"]},
+        "policy_sha256": {"$ref": "#/$defs/sha256_nullable"},
+        "claim_set_id": {"type": ["string", "null"]},
+        "claim_set_hash": {"$ref": "#/$defs/sha256_nullable"}
+      }
+    },
+    "verification_inputs_sha256": {
+      "$ref": "#/$defs/sha256_nullable"
+    },
+    "verifier_config_sha256": {
+      "$ref": "#/$defs/sha256_nullable"
+    },
+    "provenance": {
+      "type": "object"
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "path", "sha256"],
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": ["pack_manifest", "receipt_pack", "verify_report", "other"]
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sha256": {
+            "$ref": "#/$defs/sha256_nullable"
+          }
+        }
+      }
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "verdict"],
+        "additionalProperties": true,
+        "properties": {
+          "name": {"type": "string", "minLength": 1},
+          "verdict": {"type": "string", "minLength": 1},
+          "detail": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["integrity", "claim", "replay", "trust"],
+      "additionalProperties": false,
+      "properties": {
+        "integrity": {"type": "string"},
+        "claim": {"type": "string"},
+        "replay": {"type": "string"},
+        "trust": {"type": "string"}
+      }
+    },
+    "errors": {
+      "type": "array"
+    },
+    "warnings": {
+      "type": "array"
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "sha256_nullable": {
+      "anyOf": [
+        {"$ref": "#/$defs/sha256"},
+        {"type": "null"}
+      ]
+    }
+  }
+}
