@@ -19,7 +19,7 @@ for command in assay cosign python3; do
     if [[ "$command" == "assay" ]]; then
       echo "missing required command: assay" >&2
       echo "install it with: python3 -m pip install assay-ai" >&2
-      echo "assay is only needed for the optional proof-pack tamper demo." >&2
+      echo "assay is required for this script." >&2
     else
       echo "missing required command: $command" >&2
     fi
@@ -33,6 +33,8 @@ ISSUER="https://token.actions.githubusercontent.com"
 run_cosign_verify() {
   local report="$1"
   local bundle="$2"
+  local print_failure="${3:-1}"
+  local output
 
   if [[ "$VERBOSE" -eq 1 ]]; then
     cosign verify-blob "$report" \
@@ -40,20 +42,32 @@ run_cosign_verify() {
       --certificate-identity "$IDENTITY" \
       --certificate-oidc-issuer "$ISSUER"
   else
-    cosign verify-blob "$report" \
+    output="$(cosign verify-blob "$report" \
       --bundle "$bundle" \
       --certificate-identity "$IDENTITY" \
-      --certificate-oidc-issuer "$ISSUER" >/dev/null 2>&1
+      --certificate-oidc-issuer "$ISSUER" 2>&1)" || {
+      if [[ "$print_failure" -eq 1 ]]; then
+        printf '%s\n' "$output" >&2
+      fi
+      return 1
+    }
   fi
 }
 
 run_pack_verify() {
   local pack_dir="$1"
+  local print_failure="${2:-1}"
+  local output
 
   if [[ "$VERBOSE" -eq 1 ]]; then
     assay verify-pack "$pack_dir"
   else
-    assay verify-pack "$pack_dir" >/dev/null 2>&1
+    output="$(assay verify-pack "$pack_dir" 2>&1)" || {
+      if [[ "$print_failure" -eq 1 ]]; then
+        printf '%s\n' "$output" >&2
+      fi
+      return 1
+    }
   fi
 }
 
@@ -86,7 +100,7 @@ PY
 
 echo
 echo "Report tamper:"
-if run_cosign_verify "$REPORT_TAMPER_REPORT" "$REPORT_TAMPER_BUNDLE"; then
+if run_cosign_verify "$REPORT_TAMPER_REPORT" "$REPORT_TAMPER_BUNDLE" 0; then
   echo "Report tamper unexpectedly verified." >&2
   exit 1
 else
@@ -99,7 +113,7 @@ printf '\nTAMPERED BY DEMO\n' >> "$PACK_TAMPER_PACK/verify_transcript.md"
 
 echo
 echo "Pack tamper:"
-if run_pack_verify "$PACK_TAMPER_PACK"; then
+if run_pack_verify "$PACK_TAMPER_PACK" 0; then
   echo "Pack tamper unexpectedly verified." >&2
   exit 1
 else
