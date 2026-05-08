@@ -84,6 +84,10 @@ This sample answers one question:
 Can someone verify that a GitHub workflow produced a signed verification
 judgment about a specific evidence pack?
 
+A verdict channel is one kind of check. This sample shows four channels:
+Integrity, Claim correctness, Replay, and Trust policy. Only Integrity is
+required for this sample.
+
 GitHub and Sigstore can prove an artifact was produced by a workflow. Assay
 adds the reviewer packet around that proof: the evidence object, the
 verification judgment, separate verdict channels, scope language, and explicit
@@ -95,7 +99,7 @@ caveats about what did and did not run.
 |---|---|---|
 | Evidence Box | `proof-pack/pack_manifest.json` | The thing being checked. |
 | Verification Report | `signed-report/verify_report.json` | What verification decided. |
-| Signature Proof | `signed-report/verify_report.sigstore.json` | Who signed the decision. |
+| Signature Proof | `signed-report/verify_report.sigstore.json` | Who signed the public Verification Report. This is not `proof-pack/pack_signature.sig`. |
 
 ## Why Does The Identity Mention PR #116?
 
@@ -167,9 +171,8 @@ It means:
 - Cosign verified the report against the Sigstore bundle, including the
   transparency-log material carried by the bundle.
 
-A verdict channel is one kind of check. In this sample, the only required
-channel is Integrity. Claim correctness, replay, and trust policy are visible
-so reviewers can see they did not run.
+Claim correctness, replay, and trust policy are visible so reviewers can see
+they did not run.
 
 The certificate identity must exactly match:
 
@@ -226,6 +229,9 @@ In plain English: this sample does not judge whether a claim is true, does not
 rerun behavior, and does not apply a trust policy. That is normal for this
 integrity-only sample; a stricter packet would need those channels turned on
 and documented.
+
+`NOT_EVALUATED` and `NOT_RUN` both mean the channel did not contribute to the
+sample passing. Replay says `NOT_RUN` because no replay was attempted.
 
 ## Do Not Infer
 

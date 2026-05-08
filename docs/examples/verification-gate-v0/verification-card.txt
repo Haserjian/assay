@@ -11,6 +11,7 @@ Verification Report:
 
 Signature proof:
   signed-report/verify_report.sigstore.json
+  Not proof-pack/pack_signature.sig
 
 Pack root:
   88444482656580c864b9b879d877e82a05359c5f3970ec385b64f7777f73a053
@@ -33,6 +34,8 @@ Not evaluated:
   claim correctness: NOT_EVALUATED
   replay: NOT_RUN
   trust policy: NOT_EVALUATED
+  NOT_EVALUATED and NOT_RUN both mean the channel did not contribute to this
+  sample passing.
 
 What this proves:
   The evidence pack passed integrity verification.
