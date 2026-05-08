@@ -92,6 +92,9 @@ passed for the declared `evaluation_profile`. Optional channels may still be
 Doctrine: **pack root proves the evidence object; ledger index proves
 accepted/citable position; scorecard explains interpretation.**
 
+To verify a signed PR verification artifact, see
+[Verify an Assay PR Verification Report](docs/verify-report-runbook.md).
+
 ### Try more
 
 ```bash
