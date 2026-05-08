@@ -43,6 +43,7 @@ from assay.integrity import (
     verify_receipt_pack,
 )
 from assay.keystore import DEFAULT_SIGNER_ID, AssayKeyStore, get_default_keystore
+from assay.verify_report import build_verify_report
 
 try:
     from assay import __version__ as _assay_version
@@ -629,20 +630,9 @@ class ProofPack:
                 suite_hash=self.suite_hash,
             )
 
-        # 3. Build verify_report.json
-        report: Dict[str, Any] = {
-            "pack_id": pack_id,
-            "run_id": self.run_id,
-            **verify_result.to_dict(),
-            "verified_at": build_ts,
-            "verifier_version": _assay_version,
-        }
-        if claim_result is not None:
-            report["claim_verification"] = claim_result.to_dict()
-        report_bytes = json.dumps(report, indent=2).encode("utf-8")
-        (staging_dir / "verify_report.json").write_bytes(report_bytes)
-
-        # 4. Build attestation object
+        # 3. Build attestation object. The pack root is the JCS hash of this
+        # attestation, so it can be referenced by the verification report
+        # without creating a hash cycle with pack_manifest.json.
         timestamps: List[str] = []
         for entry in sorted_entries:
             ts = entry.get("timestamp") or entry.get("_stored_at")
@@ -687,6 +677,38 @@ class ProofPack:
             "superseded_by": self.superseded_by,
         }
 
+        attestation_bytes = jcs_canonicalize(attestation)
+        attestation_sha256 = _sha256_hex(attestation_bytes)
+        pack_root_sha256 = attestation_sha256
+
+        # 4. Build verify_report.json. pack_manifest_sha256 is intentionally
+        # null inside the hash-covered report: the final manifest includes the
+        # report hash, so the report cannot also include the final manifest hash.
+        report = build_verify_report(
+            verify_result=verify_result,
+            claim_result=claim_result,
+            verified_at=build_ts,
+            verifier_name="assay",
+            verifier_version=_assay_version,
+            pack_id=pack_id,
+            run_id=self.run_id,
+            pack_root_sha256=pack_root_sha256,
+            pack_manifest_sha256=None,
+            receipt_pack_sha256=_sha256_hex(receipt_pack_bytes),
+            policy_sha256=self.policy_hash,
+            claim_set_id=self.claim_set_id,
+            claim_set_hash=self.claim_set_hash,
+        )
+        from assay.manifest_schema import validate_verify_report
+
+        report_errors = validate_verify_report(report)
+        if report_errors:
+            raise ValueError(
+                f"Built verify report fails schema validation: {report_errors[0]}"
+            )
+        report_bytes = json.dumps(report, indent=2).encode("utf-8")
+        (staging_dir / "verify_report.json").write_bytes(report_bytes)
+
         # 5. Build verify_transcript.md
         transcript = _generate_transcript(
             pack_id,
@@ -700,9 +722,6 @@ class ProofPack:
         (staging_dir / "verify_transcript.md").write_bytes(transcript_bytes)
 
         # 6. Build unsigned manifest
-        attestation_bytes = jcs_canonicalize(attestation)
-        attestation_sha256 = _sha256_hex(attestation_bytes)
-
         files_list = [
             {
                 "path": "receipt_pack.jsonl",
@@ -786,7 +805,6 @@ class ProofPack:
         # 8. Create signed manifest.
         # D12: pack_root_sha256 = attestation_sha256, making the attestation
         # the single immutable identifier for the evidence unit.
-        pack_root_sha256 = attestation_sha256
         signed_manifest = {
             **unsigned_manifest,
             "signature": signature_b64,
