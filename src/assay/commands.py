@@ -8258,6 +8258,67 @@ def pr_gate_evaluate_cmd(
         print(json.dumps(decision, indent=2))
 
 
+@pr_gate_app.command("capture")
+def pr_gate_capture_cmd(
+    repo: Optional[str] = typer.Option(
+        None, "--repo", help="GitHub repository in owner/name form"
+    ),
+    pr: Optional[int] = typer.Option(
+        None, "--pr", help="Pull request number"
+    ),
+    head_sha: Optional[str] = typer.Option(
+        None, "--head-sha", help="Expected pull request head SHA"
+    ),
+    policy: Optional[str] = typer.Option(
+        None, "--policy", help="Optional PR Gate policy YAML to hash into evidence"
+    ),
+    out: str = typer.Option(
+        ..., "--out", help="Write PR Gate evidence JSON to this path"
+    ),
+    git_cwd: str = typer.Option(
+        ".", "--git-cwd", help="Repository checkout used for git diff/show"
+    ),
+    github_api_url: Optional[str] = typer.Option(
+        None, "--github-api-url", help="GitHub API base URL"
+    ),
+) -> None:
+    """Capture GitHub PR metadata and bounded evidence."""
+    from pathlib import Path as P
+
+    from assay.pr_gate.github_capture import (
+        CaptureError,
+        capture_github_pr,
+        resolve_pr_number,
+    )
+
+    try:
+        repo_value = repo or os.environ.get("GITHUB_REPOSITORY")
+        if not repo_value:
+            raise CaptureError("--repo is required outside GitHub Actions")
+        pr_value = pr if pr is not None else resolve_pr_number(os.environ)
+        if pr_value is None:
+            raise CaptureError("--pr is required outside a pull_request event")
+        capture_github_pr(
+            repo=repo_value,
+            pr_number=pr_value,
+            head_sha=head_sha,
+            out_path=P(out),
+            policy_path=P(policy) if policy else None,
+            env=os.environ,
+            git_cwd=P(git_cwd),
+            api_url=github_api_url,
+        )
+    except (OSError, CaptureError) as exc:
+        _output_json(
+            {
+                "command": "assay pr-gate capture",
+                "status": "error",
+                "error": str(exc),
+            },
+            exit_code=3,
+        )
+
+
 # ---------------------------------------------------------------------------
 # gate subcommands
 # ---------------------------------------------------------------------------
