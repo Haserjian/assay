@@ -33,15 +33,18 @@ source /tmp/assay-witness/bin/activate
 python -m pip install --upgrade pip
 
 # Install from public index only
-pip install assay-ai==1.17.0
+pip install assay-ai==1.23.0
 
 # Version check
 python -c "import assay; print(assay.__version__)"
-# Expected: 1.17.0
+# Expected: 1.23.0
 
 # CLI entrypoints
 assay --help
 assay passport --help
+assay verify-pack --help
+assay expose-schema verify_report --out /tmp/assay-witness-schemas
+python -m json.tool /tmp/assay-witness-schemas/verify_report.schema.json >/dev/null
 
 # Canonical proof corridor
 assay passport demo --output-dir /tmp/assay-witness-demo
@@ -51,7 +54,7 @@ assay passport demo --output-dir /tmp/assay-witness-demo
 
 ### Version
 ```
-1.17.0
+1.23.0
 ```
 
 ### passport --help
@@ -74,6 +77,8 @@ challenge, supersede, revoke, diff, demo.
 | Install | No errors | Any install error |
 | Version | Reports target version | Wrong version or 0.0.0-dev |
 | passport --help | Shows 12 commands | Missing commands or import error |
+| verify-pack --help | Shows `--json` and `--out` options | Missing public report options |
+| verify_report schema | Exports valid JSON schema | Missing or invalid schema |
 | Demo | Exits 0, 10 steps complete | Any step fails |
 | v1 signed | Has `signature` and `passport_id` | Missing fields |
 | v1 != v2 | Different `passport_id` values | Identical IDs |
