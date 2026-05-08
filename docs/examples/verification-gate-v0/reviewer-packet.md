@@ -55,9 +55,14 @@ There are two signatures in this sample. `proof-pack/pack_signature.sig`
 belongs to the proof pack itself. `signed-report/verify_report.sigstore.json`
 belongs to the public Verification Report.
 
-The expected GitHub workflow identity includes `github.com/Haserjian/assay`, so
-the report signature is tied to this repository's workflow, not just any GitHub
-workflow.
+The sample script verifies the Sigstore signature on the public Verification
+Report. The proof pack's Ed25519 signature, `proof-pack/pack_signature.sig`, is
+part of the artifact but is not exercised by that script.
+
+The expected GitHub workflow identity must match the expected
+`https://github.com/Haserjian/assay/.github/workflows/...` identity. This is
+an exact identity check, not a substring search; a workflow from another repo
+or fork would not satisfy the command.
 
 | Field | Value |
 |---|---|

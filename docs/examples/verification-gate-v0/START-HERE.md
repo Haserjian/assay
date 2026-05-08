@@ -42,6 +42,10 @@ Install `cosign` using the current Sigstore instructions for your platform:
 https://docs.sigstore.dev/cosign/system_config/installation/
 ```
 
+On Linux, that usually means downloading the latest `cosign-linux-amd64` or
+matching architecture binary from Sigstore's release instructions, making it
+executable, and putting it somewhere on your `PATH`.
+
 Check your tools:
 
 ```bash
@@ -51,6 +55,8 @@ python3 --version
 ```
 
 If one of these commands is missing, install it first.
+
+## What This Sample Answers
 
 This sample answers one question:
 
@@ -72,6 +78,8 @@ There are two signatures in this sample:
   Verification Report.
 
 This walkthrough focuses on the Sigstore-signed public Verification Report.
+The proof pack's Ed25519 signature is part of the artifact, but this script
+does not exercise that signature.
 
 ## Run One Command
 
@@ -98,7 +106,10 @@ Integrity: PASS
 Claim correctness: NOT_EVALUATED
 Replay: NOT_RUN
 Trust policy: NOT_EVALUATED
+Overall: PASS for integrity_required profile
 ```
+
+The script prints more detail than this. These are the lines to look for first.
 
 ## What "Verified OK" Means
 
@@ -108,8 +119,10 @@ It means:
 - The Evidence Box passed the required integrity check.
 - The Verification Report was signed by the expected GitHub Actions workflow.
 
-The workflow identity includes `github.com/Haserjian/assay`, so the check is
-tied to this repository's workflow, not just any GitHub workflow.
+The workflow identity must match the expected
+`https://github.com/Haserjian/assay/.github/workflows/...` identity. This is
+an exact identity check, not a substring search; a workflow from another repo
+or fork would not satisfy the command.
 
 Important: `overall_verdict=PASS` only means the required integrity check
 passed. It does not mean every possible check was run.
@@ -178,8 +191,4 @@ public name is Verification Report.
 This sample is part of an Evidence Sprint: a fixed-scope pilot that turns one
 AI/software claim set into a reviewer-ready evidence packet.
 
-See:
-
-```text
-docs/evidence-sprint-one-pager.md
-```
+See [Evidence Sprint one-pager](../../evidence-sprint-one-pager.md).
