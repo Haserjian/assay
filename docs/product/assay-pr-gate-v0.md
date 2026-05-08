@@ -98,6 +98,7 @@ recommended_action:
   request_codeowner_review
   rerun_required_check
   block_missing_evidence
+  block_required_check_failed
   block_integrity_failed
   block_untrusted_signer
   manual_triage
@@ -210,13 +211,13 @@ rules:
     decision: BLOCK
     recommended_action: block_untrusted_signer
 
+  required_check_failed:
+    decision: BLOCK
+    recommended_action: block_required_check_failed
+
   required_check_missing:
     decision: NEEDS_REVIEW
     recommended_action: rerun_required_check
-
-  required_check_failed:
-    decision: BLOCK
-    recommended_action: block_missing_evidence
 
   risk_path_touched:
     decision: NEEDS_REVIEW
@@ -289,7 +290,7 @@ Suggested shape:
     {
       "path": "auth/session.py",
       "status": "modified",
-      "sha256_after": "..."
+      "sha256_after": "sha256:..."
     }
   ],
   "observed_checks": [
@@ -303,10 +304,24 @@ Suggested shape:
   ],
   "policy": {
     "profile": "coding_pr_v0",
-    "policy_sha256": "..."
+    "policy_sha256": "sha256:..."
   }
 }
 ```
+
+Hash contracts:
+
+- `diff_sha256` hashes the exact bytes emitted by
+  `git diff --binary --full-index <base_sha> <head_sha>` in a checkout where
+  both SHAs are present. The capture object must record a different
+  `diff_source` before any future implementation may hash GitHub API response
+  bytes instead.
+- `sha256_after` hashes the raw file bytes at `head_sha`. Deleted files must
+  set `sha256_after` to `null` and keep `status: "deleted"`.
+- `policy_sha256` hashes the parsed policy object after RFC 8785/JCS
+  canonical JSON serialization, using Assay's existing canonicalization helper
+  if available. Formatting changes in the YAML must not change this hash.
+- PR Gate hash fields render as `sha256:<64 lowercase hex chars>`.
 
 Acceptance condition:
 
@@ -338,15 +353,18 @@ Create:
 
 Acceptance condition:
 
-> Given changed files and observed checks, the evaluator returns deterministic
-> PASS, NEEDS_REVIEW, BLOCK, or ERROR.
+> The policy file parses as YAML, declares the `coding_pr_v0` profile, and uses
+> only fixed decision and recommended action identifiers in its rules and
+> default. It must include risk paths, required checks, rule keys, and a default
+> decision. It does not require evaluator behavior yet.
 
 ### Milestone 2: Capture Adapter
 
 Planned module:
 
 ```text
-assay/pr_gate/github_capture.py
+Python module: assay.pr_gate.github_capture
+File path: src/assay/pr_gate/github_capture.py
 ```
 
 Planned CLI:
@@ -368,7 +386,8 @@ Acceptance condition:
 Planned module:
 
 ```text
-assay/pr_gate/policy.py
+Python module: assay.pr_gate.policy
+File path: src/assay/pr_gate/policy.py
 ```
 
 Planned CLI:
@@ -412,7 +431,8 @@ Acceptance condition:
 Planned module:
 
 ```text
-assay/pr_gate/packet.py
+Python module: assay.pr_gate.packet
+File path: src/assay/pr_gate/packet.py
 ```
 
 Planned output:
@@ -454,7 +474,8 @@ Acceptance condition:
 Planned module:
 
 ```text
-assay/pr_gate/render_comment.py
+Python module: assay.pr_gate.render_comment
+File path: src/assay/pr_gate/render_comment.py
 ```
 
 Planned snapshots:
@@ -537,11 +558,11 @@ Use parallel agents only after the interfaces above are fixed.
 | Agent | Ownership | Output |
 |---|---|---|
 | Product/spec | Product docs and non-claims | Updated product contract and examples |
-| Policy engine | `assay/pr_gate/policy.py` | Deterministic `decision.json` and tests |
-| GitHub capture | `assay/pr_gate/github_capture.py` | Stable `evidence.json` and tests |
-| Packet/report | `assay/pr_gate/packet.py` | Evidence pack and Verification Report |
+| Policy engine | `src/assay/pr_gate/policy.py` | Deterministic `decision.json` and tests |
+| GitHub capture | `src/assay/pr_gate/github_capture.py` | Stable `evidence.json` and tests |
+| Packet/report | `src/assay/pr_gate/packet.py` | Evidence pack and Verification Report |
 | Signing/verification | PR Gate verify CLI | clean/tamper/wrong-identity tests |
-| Comment renderer | `assay/pr_gate/render_comment.py` | Markdown snapshots |
+| Comment renderer | `src/assay/pr_gate/render_comment.py` | Markdown snapshots |
 | GitHub workflow | `.github/workflows/assay-pr-gate.yml` | Dogfood PR comments |
 | Demo/docs | `docs/examples/pr-gate-v0/` | Cold-reader walkthrough and tamper demo |
 

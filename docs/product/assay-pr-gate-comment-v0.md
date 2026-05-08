@@ -89,6 +89,7 @@ require_human_approval
 request_codeowner_review
 rerun_required_check
 block_missing_evidence
+block_required_check_failed
 block_integrity_failed
 block_untrusted_signer
 manual_triage

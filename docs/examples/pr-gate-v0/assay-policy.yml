@@ -21,13 +21,13 @@ rules:
     decision: BLOCK
     recommended_action: block_untrusted_signer
 
+  required_check_failed:
+    decision: BLOCK
+    recommended_action: block_required_check_failed
+
   required_check_missing:
     decision: NEEDS_REVIEW
     recommended_action: rerun_required_check
-
-  required_check_failed:
-    decision: BLOCK
-    recommended_action: block_missing_evidence
 
   risk_path_touched:
     decision: NEEDS_REVIEW

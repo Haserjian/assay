@@ -29,22 +29,27 @@ require_human_approval
 request_codeowner_review
 rerun_required_check
 block_missing_evidence
+block_required_check_failed
 block_integrity_failed
 block_untrusted_signer
 manual_triage
 ```
 
-No free-form action identifiers in v0.
+No free-form action identifiers in v0. `block_missing_evidence` means a
+required evidence item was absent. `block_required_check_failed` means the
+required check was observed and concluded unsuccessfully.
 
 ## Initial Rules
 
-Rules are evaluated from most severe to least severe.
+Rules are evaluated from most severe to least severe. Evaluator severity order
+is fixed by the implementation; YAML order is illustrative and must not affect
+the output.
 
 | Rule | Decision | Recommended action |
 |---|---|---|
 | `integrity_failed` | `BLOCK` | `block_integrity_failed` |
 | `untrusted_signer` | `BLOCK` | `block_untrusted_signer` |
-| `required_check_failed` | `BLOCK` | `block_missing_evidence` |
+| `required_check_failed` | `BLOCK` | `block_required_check_failed` |
 | `required_check_missing` | `NEEDS_REVIEW` | `rerun_required_check` |
 | `risk_path_touched` | `NEEDS_REVIEW` | `require_human_approval` |
 | default | `PASS` | `proceed` |
@@ -86,6 +91,17 @@ It is not:
 ```text
 All tests passed.
 ```
+
+## Hash Inputs
+
+`policy_sha256` is the SHA-256 hash of the parsed policy object after RFC
+8785/JCS canonical JSON serialization. YAML formatting changes must not change
+the hash.
+
+`diff_sha256` belongs to capture, not policy evaluation. The PR Gate capture
+contract defines it as the SHA-256 hash of the exact bytes emitted by
+`git diff --binary --full-index <base_sha> <head_sha>` unless the evidence
+explicitly records a different `diff_source`.
 
 ## Output Shape
 
