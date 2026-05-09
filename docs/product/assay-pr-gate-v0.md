@@ -176,7 +176,7 @@ Do not infer:
 - production approval was granted
 
 Signed by expected workflow:
-Haserjian/assay/.github/workflows/assay-pr-gate.yml@refs/heads/main
+https://github.com/Haserjian/assay/.github/workflows/assay-pr-gate.yml@refs/heads/main
 ```
 
 Detailed rendering rules live in:
@@ -462,7 +462,7 @@ Acceptance condition:
 Graduate from the historical PR sample identity to:
 
 ```text
-Haserjian/assay/.github/workflows/assay-pr-gate.yml@refs/heads/main
+https://github.com/Haserjian/assay/.github/workflows/assay-pr-gate.yml@refs/heads/main
 ```
 
 Acceptance condition:
@@ -513,7 +513,7 @@ assay pr-gate verify \
   --pack proof-pack \
   --report signed-report/verify_report.json \
   --sigstore signed-report/verify_report.sigstore.json \
-  --expected-identity "Haserjian/assay/.github/workflows/assay-pr-gate.yml@refs/heads/main"
+  --expected-identity "https://github.com/Haserjian/assay/.github/workflows/assay-pr-gate.yml@refs/heads/main"
 ```
 
 Expected output:
