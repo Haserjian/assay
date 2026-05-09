@@ -1,11 +1,18 @@
 """Tests for PR Gate comment upsert behavior."""
 from __future__ import annotations
 
+from io import BytesIO
 from pathlib import Path
 from typing import Any, Dict, List
+from urllib.error import HTTPError
 
+import pytest
+
+from assay.pr_gate import comment_upsert
 from assay.pr_gate.comment_upsert import (
     COMMENT_MARKER,
+    CommentUpsertError,
+    GitHubIssueCommentClient,
     ensure_comment_marker,
     find_marked_comment,
     upsert_pr_gate_comment,
@@ -111,3 +118,30 @@ def test_upsert_pr_gate_comment_file_reads_body_and_inserts_marker(tmp_path: Pat
 
     assert result["action"] == "created"
     assert client.created[0]["body"].startswith(f"{COMMENT_MARKER}\n")
+
+
+def test_github_client_http_errors_include_response_body(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_urlopen(request: Any, timeout: int) -> None:
+        raise HTTPError(
+            request.full_url,
+            403,
+            "Forbidden",
+            {},
+            BytesIO(
+                b'{"message":"Resource not accessible by integration",'
+                b'"documentation_url":"https://docs.github.com/rest"}'
+            ),
+        )
+
+    monkeypatch.setattr(comment_upsert, "urlopen", fake_urlopen)
+    client = GitHubIssueCommentClient(token="token")
+
+    with pytest.raises(CommentUpsertError) as exc_info:
+        client.list_issue_comments(repo="Haserjian/assay", issue_number=134)
+
+    message = str(exc_info.value)
+    assert "GET /repos/Haserjian/assay/issues/134/comments" in message
+    assert "HTTP 403 Forbidden" in message
+    assert "Resource not accessible by integration" in message

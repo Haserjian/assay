@@ -123,8 +123,11 @@ class GitHubIssueCommentClient:
             with urlopen(request, timeout=self.timeout_sec) as response:
                 raw = response.read().decode("utf-8")
         except HTTPError as exc:
+            detail = _http_error_detail(exc.read().decode("utf-8", errors="replace"))
+            suffix = f": {detail}" if detail else ""
             raise CommentUpsertError(
-                f"GitHub comment request failed: HTTP {exc.code} {exc.reason}"
+                "GitHub comment request failed: "
+                f"{method} {path} -> HTTP {exc.code} {exc.reason}{suffix}"
             ) from exc
         except URLError as exc:
             raise CommentUpsertError(
@@ -245,6 +248,26 @@ def _json_object(raw: Any, label: str) -> Dict[str, Any]:
     if not isinstance(raw, dict):
         raise CommentUpsertError(f"{label} was not a JSON object")
     return raw
+
+
+def _http_error_detail(raw: str) -> str:
+    text = raw.strip()
+    if not text:
+        return ""
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError:
+        return text[:500]
+    if not isinstance(parsed, Mapping):
+        return text[:500]
+    fields: List[str] = []
+    message = parsed.get("message")
+    if isinstance(message, str) and message:
+        fields.append(message)
+    documentation_url = parsed.get("documentation_url")
+    if isinstance(documentation_url, str) and documentation_url:
+        fields.append(f"docs: {documentation_url}")
+    return "; ".join(fields)[:500]
 
 
 __all__ = [
