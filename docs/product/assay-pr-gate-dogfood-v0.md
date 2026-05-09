@@ -9,6 +9,9 @@ signed review packet and posts a single marked PR comment. The comment is the
 review surface. The product object is the signed review decision bound to the
 evidence pack, policy, verdict channels, caveats, and PR commit.
 
+This document is also the stable smoke target for validating PR Gate comment
+changes against a live pull request.
+
 ## Workflow
 
 The workflow is `.github/workflows/assay-pr-gate.yml`.
