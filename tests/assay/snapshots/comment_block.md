@@ -11,7 +11,7 @@ Subject:
 
 Verdict channels:
 - Integrity: PASS
-- Claim: FAIL - observed check "tests" concluded failure for commit head-block
+- Claim: FAIL - required check "tests" failed
 - Replay: NOT_RUN
 - Trust policy: BLOCK - required check "tests" failed
 

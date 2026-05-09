@@ -156,6 +156,8 @@ def _reason_summary(reasons: List[Mapping[str, Any]]) -> str:
 def _claim_line(*, report: Mapping[str, Any], evidence: Mapping[str, Any]) -> str:
     channels = _mapping(report.get("channels"), "report.channels")
     claim = channels.get("claim")
+    if claim != "PASS":
+        return _non_pass_claim_line(report=report, claim=str(claim))
     subject = _mapping(report.get("subject"), "report.subject")
     head_sha = subject.get("head_sha")
     checks = evidence.get("observed_checks") or []
@@ -172,6 +174,16 @@ def _claim_line(*, report: Mapping[str, Any], evidence: Mapping[str, Any]) -> st
                     f"{conclusion} for commit {head_sha}"
                 )
     return str(claim)
+
+
+def _non_pass_claim_line(*, report: Mapping[str, Any], claim: str) -> str:
+    for reason in _reasons(report):
+        rule = reason.get("rule")
+        if rule == "required_check_missing":
+            return f"{claim} - required check \"{reason.get('check')}\" was not observed"
+        if rule == "required_check_failed":
+            return f"{claim} - required check \"{reason.get('check')}\" failed"
+    return claim
 
 
 def _trust_policy_line(*, report: Mapping[str, Any]) -> str:

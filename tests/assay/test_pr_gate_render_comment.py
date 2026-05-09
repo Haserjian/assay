@@ -146,6 +146,37 @@ def test_render_comment_block_snapshot(tmp_path: Path) -> None:
     assert comment == _snapshot("comment_block.md")
 
 
+def test_render_comment_missing_required_check_does_not_quote_unrelated_check(
+    tmp_path: Path,
+) -> None:
+    evidence = _evidence(
+        head_sha="head-missing-check",
+        changed_files=[
+            {
+                "path": "README.md",
+                "status": "modified",
+                "sha256_after": "sha256:" + "b" * 64,
+            }
+        ],
+        conclusion="success",
+    )
+    evidence["observed_checks"] = [
+        {
+            "name": "Prepare",
+            "provider": "github_checks",
+            "head_sha": "head-missing-check",
+            "status": "completed",
+            "conclusion": "success",
+            "observed_at": "2026-05-08T12:00:00Z",
+        }
+    ]
+
+    comment = _render_case(tmp_path, evidence)
+
+    assert 'Claim: NOT_EVALUATED - required check "tests" was not observed' in comment
+    assert 'observed check "Prepare"' not in comment
+
+
 def test_pr_gate_render_comment_cli_writes_comment(tmp_path: Path) -> None:
     _render_case(
         tmp_path,
