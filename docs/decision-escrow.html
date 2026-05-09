@@ -309,7 +309,9 @@
       <span class="pill"><strong>Next:</strong> T1 (time-anchored)</span>
     </div>
     <div class="audience-note">
-      This page describes the protocol model underlying Assay. For the getting-started product story and the evidence-compiler workflow shipping today, start on <a href="./">the main page</a>.
+      This page describes the protocol model underlying Assay. For the
+      getting-started product story, signed review packets, and the workflow
+      shipping today, start on <a href="./">the main page</a>.
     </div>
   </div>
 </section>
@@ -504,7 +506,10 @@ assay diff ./baseline_pack/ ./proof_pack_*/ --gate-cost-pct 25 --gate-errors 0 -
     <div class="cta-band">
       <h2>Start with the shipping workflow.</h2>
       <p>
-        Decision Escrow is the model. The production on-ramp is still the evidence-compiler flow shipping today: instrument supported SDK calls, generate proof packs, and verify them independently.
+        Decision Escrow is the model. The production on-ramp is the shipping
+        review-packet workflow: capture evidence, generate proof packs, sign a
+        bounded verification report, and let another reviewer verify it
+        independently.
       </p>
       <div class="cta-actions">
         <a class="btn btn-primary" href="./">Open the main page</a>

@@ -1,0 +1,70 @@
+{
+  "canonicalization": "jcs-rfc8785",
+  "decision_ref": {
+    "channels": {
+      "claim": "NOT_EVALUATED",
+      "integrity": "PASS",
+      "replay": "NOT_RUN",
+      "trust_policy": "NEEDS_REVIEW"
+    },
+    "overall_decision": "NEEDS_REVIEW",
+    "recommended_action": "require_human_approval"
+  },
+  "expected_files": [
+    "pr_gate_evidence.json",
+    "pr_gate_decision.json",
+    "changed_files.json",
+    "observed_checks.json",
+    "policy.yml",
+    "verify_transcript.md",
+    "pack_manifest.json"
+  ],
+  "files": [
+    {
+      "bytes": 3605,
+      "path": "pr_gate_evidence.json",
+      "sha256": "sha256:cea44444c6559ce2719b0f321b2d5bc7bff2a7998733cb0679bd1d4fbda7bb6b"
+    },
+    {
+      "bytes": 439,
+      "path": "pr_gate_decision.json",
+      "sha256": "sha256:c38945541b3c0719e07a8bef04394cf1047f3817634d3af18de08c6cb21f2095"
+    },
+    {
+      "bytes": 188,
+      "path": "changed_files.json",
+      "sha256": "sha256:8b5204c2a6f23e564a4ab5e965c65ab60d7784a2d618caf80cabf38b90ea2f26"
+    },
+    {
+      "bytes": 2251,
+      "path": "observed_checks.json",
+      "sha256": "sha256:99399cbf4dccb75607064388eb32faae24283ccdf1152c4035a0e29848468907"
+    },
+    {
+      "bytes": 715,
+      "path": "policy.yml",
+      "sha256": "sha256:17e6cd6a5c43a2201f11c1c438189e97fcbd1c26e7075c3c285751c0cf16417c"
+    },
+    {
+      "bytes": 687,
+      "path": "verify_transcript.md",
+      "sha256": "sha256:f2dbedb3de9c93a04fd3580361a1da21cbcdd1c1e2549a2f029e9c00caba1dab"
+    }
+  ],
+  "hash_alg": "sha256",
+  "pack_id": "prgate_pack_a2032f7ab331ccb6",
+  "pack_root_sha256": "sha256:20dcb61c3c0c28793f89d0e1ea674e43ef0698eef1c4a4fc7735d9f55032e7d0",
+  "policy": {
+    "policy_sha256": "sha256:f4c3d96a81252fe1c2c96127218b2e3c3828c7acc44f4b8e4a6f1d49459087c5",
+    "profile": "coding_pr_v0"
+  },
+  "schema_version": "assay.pr_gate.pack_manifest.v0.1",
+  "subject": {
+    "base_sha": "be09e956faab54eb753545552430abbfad3e9565",
+    "diff_sha256": "sha256:8638a7f053588b12d63ca82a9abf0485d69dd041096005cf269bed60c5426bf1",
+    "diff_source": "git diff --binary --full-index <base_sha> <head_sha>",
+    "head_sha": "330f90c1e2616f4937c778bae3f6f197e1fdfa7d",
+    "pr_number": 138,
+    "repo": "Haserjian/assay"
+  }
+}

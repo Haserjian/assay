@@ -1,0 +1,114 @@
+{
+  "capture": {
+    "actor": "Haserjian",
+    "event_name": "pull_request_target",
+    "github_sha": "be09e956faab54eb753545552430abbfad3e9565",
+    "provider": "github_actions",
+    "run_attempt": "1",
+    "run_id": "25590313283",
+    "workflow_ref": "Haserjian/assay/.github/workflows/assay-pr-gate.yml@refs/heads/main",
+    "workflow_sha": "be09e956faab54eb753545552430abbfad3e9565"
+  },
+  "changed_files": [
+    {
+      "path": "docs/product/assay-pr-gate-dogfood-v0.md",
+      "sha256_after": "sha256:71555699942d43db50e17c601ffad2541e79bc5496b3bda8a5cabdf4a152cf1c",
+      "status": "modified"
+    }
+  ],
+  "observed_checks": [
+    {
+      "conclusion": null,
+      "head_sha": "330f90c1e2616f4937c778bae3f6f197e1fdfa7d",
+      "name": "Agent",
+      "observed_at": "2026-05-09T03:21:48Z",
+      "provider": "github_checks",
+      "status": "in_progress"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "330f90c1e2616f4937c778bae3f6f197e1fdfa7d",
+      "name": "Prepare",
+      "observed_at": "2026-05-09T03:21:40Z",
+      "provider": "github_checks",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "330f90c1e2616f4937c778bae3f6f197e1fdfa7d",
+      "name": "assay-gate",
+      "observed_at": "2026-05-09T03:21:47Z",
+      "provider": "github_checks",
+      "status": "completed"
+    },
+    {
+      "conclusion": null,
+      "head_sha": "330f90c1e2616f4937c778bae3f6f197e1fdfa7d",
+      "name": "assay-verify",
+      "observed_at": "2026-05-09T03:21:35Z",
+      "provider": "github_checks",
+      "status": "in_progress"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "330f90c1e2616f4937c778bae3f6f197e1fdfa7d",
+      "name": "lineage",
+      "observed_at": "2026-05-09T03:21:45Z",
+      "provider": "github_checks",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "330f90c1e2616f4937c778bae3f6f197e1fdfa7d",
+      "name": "qa-contract",
+      "observed_at": "2026-05-09T03:21:44Z",
+      "provider": "github_checks",
+      "status": "completed"
+    },
+    {
+      "conclusion": null,
+      "head_sha": "330f90c1e2616f4937c778bae3f6f197e1fdfa7d",
+      "name": "receipt",
+      "observed_at": "2026-05-09T03:21:20Z",
+      "provider": "github_checks",
+      "status": "in_progress"
+    },
+    {
+      "conclusion": null,
+      "head_sha": "330f90c1e2616f4937c778bae3f6f197e1fdfa7d",
+      "name": "receipt",
+      "observed_at": "2026-05-09T03:21:35Z",
+      "provider": "github_checks",
+      "status": "in_progress"
+    },
+    {
+      "conclusion": null,
+      "head_sha": "330f90c1e2616f4937c778bae3f6f197e1fdfa7d",
+      "name": "shared-corpus-parity",
+      "observed_at": "2026-05-09T03:21:29Z",
+      "provider": "github_checks",
+      "status": "in_progress"
+    },
+    {
+      "conclusion": null,
+      "head_sha": "330f90c1e2616f4937c778bae3f6f197e1fdfa7d",
+      "name": "signed review packet",
+      "observed_at": "2026-05-09T03:21:35Z",
+      "provider": "github_checks",
+      "status": "in_progress"
+    }
+  ],
+  "policy": {
+    "policy_sha256": "sha256:f4c3d96a81252fe1c2c96127218b2e3c3828c7acc44f4b8e4a6f1d49459087c5",
+    "profile": "coding_pr_v0"
+  },
+  "schema_version": "assay.pr_gate.evidence.v0.1",
+  "subject": {
+    "base_sha": "be09e956faab54eb753545552430abbfad3e9565",
+    "diff_sha256": "sha256:8638a7f053588b12d63ca82a9abf0485d69dd041096005cf269bed60c5426bf1",
+    "diff_source": "git diff --binary --full-index <base_sha> <head_sha>",
+    "head_sha": "330f90c1e2616f4937c778bae3f6f197e1fdfa7d",
+    "pr_number": 138,
+    "repo": "Haserjian/assay"
+  }
+}

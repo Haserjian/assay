@@ -284,9 +284,11 @@
   <div class="container hero-grid">
     <div class="article" style="max-width: none; margin: 0;">
       <div class="eyebrow">Compliance &amp; audit handoff</div>
-      <h1>Portable evidence for what an AI system actually did.</h1>
+      <h1>Reviewable evidence packets for AI system claims.</h1>
       <p class="lede">
-        When someone asks “show me evidence of what your AI system did,” Assay produces a proof pack a reviewer can inspect independently. No server access required.
+        When someone asks "show me evidence for this AI claim," Assay produces
+        a signed packet a reviewer can inspect, verify, forward, and challenge.
+        No server access required.
       </p>
       <div class="banner">
         <strong>Regulatory timing:</strong> EU AI Act obligations for Article 12 logging on high-risk systems apply from <strong>August 2, 2026</strong>. Assay helps with tamper-evident checkpoint evidence and traceability, but it supplements operational logging rather than replacing it.
@@ -390,9 +392,8 @@
     </p>
 
     <h2>What an auditor review looks like</h2>
-<pre>python3 -m pip install assay-ai
-assay verify-pack ./proof_pack_*/
-assay explain ./proof_pack_*/</pre>
+<pre>uvx --from assay-ai assay verify-pack ./proof_pack_*/
+uvx --from assay-ai assay explain ./proof_pack_*/</pre>
     <p>
       The reviewer does not need access to the original server, database, or API keys. The pack is designed to travel.
     </p>

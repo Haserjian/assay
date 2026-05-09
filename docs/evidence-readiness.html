@@ -570,16 +570,13 @@
     <h3>15-second demo</h3>
 
     <p>
-      Install Assay and run <code>assay try</code>. It builds a proof pack (2 receipts, 2 claims, Ed25519 signed), verifies it, changes one byte, and verifies again. The tampered pack fails. No server, no API key, no setup.
+      Run Assay's challenge demo. It builds a good proof pack and a tampered copy, verifies both, and shows the tampered pack fail. No server, no API key, no setup.
     </p>
 
-    <pre style="background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: 16px; font-family: var(--mono); font-size: 14px; overflow-x: auto; line-height: 1.7; margin-bottom: 24px;"><span style="color: var(--green);">$ pip install assay-ai</span>
-<span style="color: var(--green);">$ assay try</span>
+    <pre style="background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: 16px; font-family: var(--mono); font-size: 14px; overflow-x: auto; line-height: 1.7; margin-bottom: 24px;"><span style="color: var(--green);">$ uvx --from assay-ai assay demo-challenge</span>
 
-<span style="color: var(--text2);">  1. Built a proof pack (2 receipts, 2 claims, Ed25519 signed)</span>
-<span style="color: var(--text2);">  2. Verified it:</span> <span style="color: var(--green); font-weight: 700;">PASS</span>
-<span style="color: var(--text2);">  3. Changed one byte (gpt-4o → gpt-5x)</span>
-<span style="color: var(--text2);">  4. Verified again:</span> <span style="color: var(--red); font-weight: 700;">FAIL</span> <span style="color: var(--text2);">— Hash mismatch</span></pre>
+<span style="color: var(--text2);">  good/:</span> <span style="color: var(--green); font-weight: 700;">VERIFICATION PASSED</span>
+<span style="color: var(--text2);">  tampered/:</span> <span style="color: var(--red); font-weight: 700;">VERIFICATION FAILED</span> <span style="color: var(--text2);">-- hash mismatch</span></pre>
 
     <h3>What's inside a proof pack</h3>
 
@@ -713,7 +710,7 @@
   <div class="container" style="max-width: 960px;">
     <p>
       <a href="./">Assay</a> is open-source (Apache-2.0) and available on <a href="https://pypi.org/project/assay-ai/">PyPI</a>.
-      <code style="font-family: var(--mono); font-size: 12px; background: var(--bg2); padding: 2px 6px; border-radius: 3px; color: var(--green);">pip install assay-ai && assay try</code>
+      <code style="font-family: var(--mono); font-size: 12px; background: var(--bg2); padding: 2px 6px; border-radius: 3px; color: var(--green);">uvx --from assay-ai assay demo-challenge</code>
     </p>
     <p style="margin-top: 8px;">
       <a href="https://github.com/Haserjian/assay">Source</a> &middot;

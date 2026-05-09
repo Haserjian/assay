@@ -1,0 +1,12 @@
+{
+  "channels": {
+    "claim": "NOT_EVALUATED",
+    "integrity": "PASS",
+    "replay": "NOT_RUN",
+    "trust_policy": "PASS"
+  },
+  "check_observations": [],
+  "overall_decision": "PASS",
+  "reasons": [],
+  "recommended_action": "proceed"
+}

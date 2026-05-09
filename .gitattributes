@@ -1,2 +1,3 @@
 tests/fixtures/reviewer_packet/sample_proof_pack/** -text
 docs/examples/verification-gate-v0/** -text
+docs/examples/pr-gate-live/** -text
