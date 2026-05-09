@@ -1,0 +1,96 @@
+{
+    "fixture_id": "oa_004_observation_not_assertion_boundary",
+    "input_hash": "sha256:a52e9e2a44a4892706d0b76598bd2b5a5a324e68e1140cd263894ce9c2323e8f",
+    "intent_class": "argument",
+    "summary": "The reconciliation spec argues that observation cannot directly mutate kernel belief and that explicit promotion remains required.",
+    "observed_units": [
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_004_u001",
+            "unit_type": "claim",
+            "source_role": "assertion",
+            "artifact_span": {
+                "text": "Observation is not assertion.",
+                "start_char": 0,
+                "end_char": 29
+            },
+            "normalized_text": "Observation is not assertion.",
+            "observation_status": "guardian_passed",
+            "promotion_eligibility": {
+                "status": "eligible",
+                "reason": "claim_unit_with_clean_provenance"
+            }
+        },
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_004_u002",
+            "unit_type": "claim",
+            "source_role": "assertion",
+            "artifact_span": {
+                "text": "No `artifact.unit_observed` receipt may create, modify, strengthen, weaken, or delete a kernel claim.",
+                "start_char": 30,
+                "end_char": 131
+            },
+            "normalized_text": "No `artifact.unit_observed` receipt may create, modify, strengthen, weaken, or delete a kernel claim.",
+            "observation_status": "guardian_passed",
+            "promotion_eligibility": {
+                "status": "eligible",
+                "reason": "claim_unit_with_clean_provenance"
+            }
+        },
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_004_u003",
+            "unit_type": "claim",
+            "source_role": "assertion",
+            "artifact_span": {
+                "text": "Kernel belief-state mutation requires an explicit transition receipt.",
+                "start_char": 132,
+                "end_char": 201
+            },
+            "normalized_text": "Kernel belief-state mutation requires an explicit transition receipt.",
+            "observation_status": "guardian_passed",
+            "promotion_eligibility": {
+                "status": "eligible",
+                "reason": "claim_unit_with_clean_provenance"
+            }
+        },
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_004_u004",
+            "unit_type": "claim",
+            "source_role": "assertion",
+            "artifact_span": {
+                "text": "Output Assay cannot emit this receipt directly from LLM extraction. It can only supply provenance for a later promotion.",
+                "start_char": 202,
+                "end_char": 322
+            },
+            "normalized_text": "Output Assay cannot emit this receipt directly from LLM extraction. It can only supply provenance for a later promotion.",
+            "observation_status": "guardian_passed",
+            "promotion_eligibility": {
+                "status": "eligible",
+                "reason": "claim_unit_with_clean_provenance"
+            }
+        }
+    ],
+    "guardian_verdict": {
+        "run_status": "pass",
+        "observation_counts": {
+            "guardian_passed": 4,
+            "guardian_warned": 0,
+            "guardian_blocked": 0
+        },
+        "failure_modes": [],
+        "warnings": [],
+        "block_reasons": []
+    },
+    "compression": {
+        "status": "preserve",
+        "compressed_summary": "Observation-not-assertion boundary claims preserve a clean argument that witness-layer extraction cannot directly mutate kernel belief or bypass promotion."
+    },
+    "truth_verification": {
+        "performed": false,
+        "tier": "internal_support_only",
+        "notes": "Calibration validates observation behavior and internal support only, not external truth."
+    }
+}

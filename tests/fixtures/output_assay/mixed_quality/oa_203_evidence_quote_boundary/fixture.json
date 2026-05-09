@@ -1,0 +1,23 @@
+{
+    "fixture_id": "oa_203_evidence_quote_boundary",
+    "title": "Mixed-quality technical answer with quoted evidence, one supported claim, one overclaim, and one open question",
+    "status": "active",
+    "category": "mixed_quality",
+    "artifact_path": "artifact.md",
+    "artifact_hash": "sha256:72ff8627b6ea6f53b372514d1e2c5569760342ddced8f7d16a29193abdfb7e1a",
+    "artifact_kind": "boundary_example",
+    "declared_intent_class": "technical_answer",
+    "expected_run_disposition": "warn",
+    "expected_failure_modes": [
+        "unearned_confidence"
+    ],
+    "expected_compression_behavior": "preserve",
+    "promotion_surface": "claim_review_possible",
+    "labels": [
+        "seed",
+        "mixed_quality",
+        "source_role_evidence",
+        "technical_answer"
+    ],
+    "notes": "Closes the source_role=evidence gap by keeping quoted evidence observable but promotion-ineligible inside the same artifact as one supported assertion and one warned overclaim."
+}

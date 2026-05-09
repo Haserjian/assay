@@ -1,0 +1,25 @@
+{
+    "fixture_id": "oa_105_failed_extraction_refusal",
+    "title": "Negative control with refused extraction followed by an invented continuation",
+    "status": "active",
+    "category": "negative_control",
+    "artifact_path": "artifact.md",
+    "artifact_hash": "sha256:87c1772473acca664d5a56e0c3037ce52a6de3bc71bb43812e89c1301fc70c9c",
+    "artifact_kind": "boundary_example",
+    "declared_intent_class": "argument",
+    "expected_run_disposition": "block",
+    "expected_failure_modes": [
+        "unanchorable_extraction",
+        "invented_span",
+        "receipt_gap"
+    ],
+    "expected_compression_behavior": "quarantine",
+    "promotion_surface": "observation_only",
+    "labels": [
+        "seed",
+        "negative_control",
+        "block_disposition",
+        "failed_extraction"
+    ],
+    "notes": "Exercises the blocked-run cascade when extraction should stop but an invented continuation claim is still produced."
+}

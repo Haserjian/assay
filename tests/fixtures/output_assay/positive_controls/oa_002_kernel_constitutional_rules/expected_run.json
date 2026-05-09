@@ -1,0 +1,79 @@
+{
+    "fixture_id": "oa_002_kernel_constitutional_rules",
+    "input_hash": "sha256:12bdc8fa985744576042d470d429e6cc8bffa3ef300e1764945d14a435549e87",
+    "intent_class": "technical_answer",
+    "summary": "The kernel spec states that consequential boundaries require explicit claim, denial, and citation-bearing artifacts.",
+    "observed_units": [
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_002_u001",
+            "unit_type": "claim",
+            "source_role": "assertion",
+            "artifact_span": {
+                "text": "No consequential action or refusal boundary is complete without a Claim bundle and a ProofBudgetSnapshot.",
+                "start_char": 0,
+                "end_char": 105
+            },
+            "normalized_text": "No consequential action or refusal boundary is complete without a Claim bundle and a ProofBudgetSnapshot.",
+            "observation_status": "guardian_passed",
+            "promotion_eligibility": {
+                "status": "eligible",
+                "reason": "claim_unit_with_clean_provenance"
+            }
+        },
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_002_u002",
+            "unit_type": "claim",
+            "source_role": "assertion",
+            "artifact_span": {
+                "text": "No negative consequential boundary is complete without a Denial.",
+                "start_char": 106,
+                "end_char": 170
+            },
+            "normalized_text": "No negative consequential boundary is complete without a Denial.",
+            "observation_status": "guardian_passed",
+            "promotion_eligibility": {
+                "status": "eligible",
+                "reason": "claim_unit_with_clean_provenance"
+            }
+        },
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_002_u003",
+            "unit_type": "claim",
+            "source_role": "assertion",
+            "artifact_span": {
+                "text": "State-of-world or shipped-status claims in repo docs must cite a code path, schema, or test.",
+                "start_char": 171,
+                "end_char": 263
+            },
+            "normalized_text": "State-of-world or shipped-status claims in repo docs must cite a code path, schema, or test.",
+            "observation_status": "guardian_passed",
+            "promotion_eligibility": {
+                "status": "eligible",
+                "reason": "claim_unit_with_clean_provenance"
+            }
+        }
+    ],
+    "guardian_verdict": {
+        "run_status": "pass",
+        "observation_counts": {
+            "guardian_passed": 3,
+            "guardian_warned": 0,
+            "guardian_blocked": 0
+        },
+        "failure_modes": [],
+        "warnings": [],
+        "block_reasons": []
+    },
+    "compression": {
+        "status": "preserve",
+        "compressed_summary": "Kernel constitutional rules preserve three clean promotable claims covering consequential boundary completeness and citation requirements."
+    },
+    "truth_verification": {
+        "performed": false,
+        "tier": "internal_support_only",
+        "notes": "Calibration validates observation behavior and internal support only, not external truth."
+    }
+}

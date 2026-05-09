@@ -1,0 +1,62 @@
+{
+    "fixture_id": "oa_201_claim_like_example",
+    "input_hash": "sha256:5832564c5c7d211c42e91db2e9c713941743058a9fa1e19c4dbd8e8b2b52a5af",
+    "intent_class": "technical_answer",
+    "summary": "The artifact supplies a quoted boundary-case claim as an example and explicitly blocks product-claim interpretation.",
+    "observed_units": [
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "unit_001",
+            "unit_type": "claim",
+            "source_role": "example",
+            "artifact_span": {
+                "text": "\"This framework guarantees perfect safety.\"",
+                "start_char": 14,
+                "end_char": 57
+            },
+            "normalized_text": "This framework guarantees perfect safety.",
+            "observation_status": "guardian_passed",
+            "promotion_eligibility": {
+                "status": "ineligible",
+                "reason": "source_role_not_assertive"
+            }
+        },
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "unit_002",
+            "unit_type": "instruction",
+            "source_role": "instruction",
+            "artifact_span": {
+                "text": "Use that sentence as a boundary case in the calibration set, not as a product claim.",
+                "start_char": 58,
+                "end_char": 142
+            },
+            "normalized_text": "Use that sentence as a boundary case in the calibration set, not as a product claim.",
+            "observation_status": "guardian_passed",
+            "promotion_eligibility": {
+                "status": "ineligible",
+                "reason": "non_claim_unit"
+            }
+        }
+    ],
+    "guardian_verdict": {
+        "run_status": "pass",
+        "observation_counts": {
+            "guardian_passed": 2,
+            "guardian_warned": 0,
+            "guardian_blocked": 0
+        },
+        "failure_modes": [],
+        "warnings": [],
+        "block_reasons": []
+    },
+    "compression": {
+        "status": "preserve",
+        "compressed_summary": "Quoted example remains observable but promotion-ineligible because it is not asserted as a product claim."
+    },
+    "truth_verification": {
+        "performed": false,
+        "tier": "internal_support_only",
+        "notes": "Calibration validates observation behavior and internal support only, not external truth."
+    }
+}

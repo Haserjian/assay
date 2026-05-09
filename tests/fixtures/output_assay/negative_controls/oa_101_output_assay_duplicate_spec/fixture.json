@@ -1,0 +1,25 @@
+{
+    "fixture_id": "oa_101_output_assay_duplicate_spec",
+    "title": "Self-test negative control with duplicated Output Assay proposal text",
+    "status": "active",
+    "category": "negative_control",
+    "artifact_path": "artifact.md",
+    "artifact_hash": "sha256:5392af860f2563a660da68b69a82ad917c0ce7c7e79a791566536794d43f0879",
+    "artifact_kind": "spec_proposal",
+    "declared_intent_class": "argument",
+    "expected_run_disposition": "warn",
+    "expected_failure_modes": [
+        "redundancy_padding",
+        "inflated_fluency",
+        "unearned_confidence"
+    ],
+    "expected_compression_behavior": "compress",
+    "promotion_surface": "claim_review_possible",
+    "labels": [
+        "seed",
+        "negative_control",
+        "self_test",
+        "duplicated_proposal"
+    ],
+    "notes": "Preserves duplicated doctrine-style sections so redundancy_padding is part of the artifact evidence rather than cleaned away."
+}

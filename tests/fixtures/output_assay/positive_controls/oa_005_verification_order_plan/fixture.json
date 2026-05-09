@@ -1,0 +1,21 @@
+{
+    "fixture_id": "oa_005_verification_order_plan",
+    "title": "Positive control derived from the integrity verification order plan",
+    "status": "active",
+    "category": "positive_control",
+    "artifact_kind": "spec_proposal",
+    "artifact_path": "artifact.md",
+    "artifact_hash": "sha256:7ff76450dbeee2cc9b3c3758dd4d38e5361e4d09ed9e543ef8525f62c9a7aeb9",
+    "declared_intent_class": "plan",
+    "expected_run_disposition": "pass",
+    "expected_failure_modes": [],
+    "expected_compression_behavior": "preserve",
+    "promotion_surface": "claim_review_possible",
+    "labels": [
+        "seed",
+        "positive_control",
+        "verification_order",
+        "plan"
+    ],
+    "notes": "Anchored verification-order claims from the integrity spec preserve a clean plan where structural and hash checks precede trust decisions."
+}

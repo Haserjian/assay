@@ -1,0 +1,88 @@
+{
+    "fixture_id": "oa_402_brainstorm",
+    "input_hash": "sha256:6317e96e6227d944ce00c0446d2d635a20c60895018957c121b8bc7ffa0c013e",
+    "intent_class": "brainstorm",
+    "summary": "The artifact captures a clean brainstorm with question, action, and constraint units that are useful to observe but not promotable as claims.",
+    "observed_units": [
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_402_u001",
+            "unit_type": "question",
+            "source_role": "unknown",
+            "artifact_span": {
+                "text": "What if Output Assay starts as a notebook-only internal tool?",
+                "start_char": 0,
+                "end_char": 61
+            },
+            "normalized_text": "What if Output Assay starts as a notebook-only internal tool?",
+            "observation_status": "guardian_passed",
+            "promotion_eligibility": {
+                "status": "ineligible",
+                "reason": "non_claim_unit",
+                "reasons": [
+                    "non_claim_unit"
+                ]
+            }
+        },
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_402_u002",
+            "unit_type": "action",
+            "source_role": "instruction",
+            "artifact_span": {
+                "text": "Collect ten artifacts from memos, status updates, and support notes.",
+                "start_char": 62,
+                "end_char": 130
+            },
+            "normalized_text": "Collect ten artifacts from memos, status updates, and support notes.",
+            "observation_status": "guardian_passed",
+            "promotion_eligibility": {
+                "status": "ineligible",
+                "reason": "non_claim_unit",
+                "reasons": [
+                    "non_claim_unit"
+                ]
+            }
+        },
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_402_u003",
+            "unit_type": "constraint",
+            "source_role": "instruction",
+            "artifact_span": {
+                "text": "Keep buyer language out of this brainstorm until calibration coverage improves.",
+                "start_char": 131,
+                "end_char": 210
+            },
+            "normalized_text": "Keep buyer language out of this brainstorm until calibration coverage improves.",
+            "observation_status": "guardian_passed",
+            "promotion_eligibility": {
+                "status": "ineligible",
+                "reason": "non_claim_unit",
+                "reasons": [
+                    "non_claim_unit"
+                ]
+            }
+        }
+    ],
+    "guardian_verdict": {
+        "run_status": "pass",
+        "observation_counts": {
+            "guardian_passed": 3,
+            "guardian_warned": 0,
+            "guardian_blocked": 0
+        },
+        "failure_modes": [],
+        "warnings": [],
+        "block_reasons": []
+    },
+    "compression": {
+        "status": "preserve",
+        "compressed_summary": "The brainstorm keeps useful non-claim units visible without projecting any of them into promotion-eligible claim space."
+    },
+    "truth_verification": {
+        "performed": false,
+        "tier": "internal_support_only",
+        "notes": "Calibration validates observation behavior and internal support only, not external truth."
+    }
+}

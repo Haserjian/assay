@@ -1,0 +1,22 @@
+{
+    "fixture_id": "oa_302_decision_memo_mixed",
+    "title": "Mixed-quality decision memo with factual claim, strategic claim, decision, and commitment units",
+    "status": "active",
+    "category": "business_artifact",
+    "artifact_path": "artifact.md",
+    "artifact_hash": "sha256:dea72cc4991c3690f0297955f3685e5cfeeb294722b157def9dc522c7d60f8f9",
+    "declared_intent_class": "decision_memo",
+    "expected_run_disposition": "warn",
+    "expected_failure_modes": [
+        "unearned_confidence"
+    ],
+    "expected_compression_behavior": "preserve",
+    "promotion_surface": "claim_review_possible",
+    "labels": [
+        "seed",
+        "business_artifact",
+        "mixed_quality",
+        "decision_memo"
+    ],
+    "notes": "Tests that decision and commitment units pass Guardian but remain promotion-ineligible because they are not truth-bearing claims, while a supporting factual claim in the same memo can be eligible."
+}

@@ -1,0 +1,79 @@
+{
+    "fixture_id": "oa_003_compiled_packet_claim_bindings",
+    "input_hash": "sha256:79b0a200473976ae55827bd98e2106acdba71e7e8e92478f85c2b60dadfacf9b",
+    "intent_class": "technical_answer",
+    "summary": "The compiled packet spec cleanly states the reviewer-facing packet role, the retained proof-pack substrate, and the compiler's validation-only scope.",
+    "observed_units": [
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_003_u001",
+            "unit_type": "claim",
+            "source_role": "assertion",
+            "artifact_span": {
+                "text": "A compiled packet is a reviewer-facing artifact that binds questionnaire items to specific claims backed by specific proof material.",
+                "start_char": 0,
+                "end_char": 132
+            },
+            "normalized_text": "A compiled packet is a reviewer-facing artifact that binds questionnaire items to specific claims backed by specific proof material.",
+            "observation_status": "guardian_passed",
+            "promotion_eligibility": {
+                "status": "eligible",
+                "reason": "claim_unit_with_clean_provenance"
+            }
+        },
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_003_u002",
+            "unit_type": "claim",
+            "source_role": "assertion",
+            "artifact_span": {
+                "text": "Proof packs remain the evidentiary substrate.",
+                "start_char": 133,
+                "end_char": 178
+            },
+            "normalized_text": "Proof packs remain the evidentiary substrate.",
+            "observation_status": "guardian_passed",
+            "promotion_eligibility": {
+                "status": "eligible",
+                "reason": "claim_unit_with_clean_provenance"
+            }
+        },
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_003_u003",
+            "unit_type": "claim",
+            "source_role": "assertion",
+            "artifact_span": {
+                "text": "The compiler is a validator and packager, not an inference engine.",
+                "start_char": 179,
+                "end_char": 245
+            },
+            "normalized_text": "The compiler is a validator and packager, not an inference engine.",
+            "observation_status": "guardian_passed",
+            "promotion_eligibility": {
+                "status": "eligible",
+                "reason": "claim_unit_with_clean_provenance"
+            }
+        }
+    ],
+    "guardian_verdict": {
+        "run_status": "pass",
+        "observation_counts": {
+            "guardian_passed": 3,
+            "guardian_warned": 0,
+            "guardian_blocked": 0
+        },
+        "failure_modes": [],
+        "warnings": [],
+        "block_reasons": []
+    },
+    "compression": {
+        "status": "preserve",
+        "compressed_summary": "Compiled packet claims preserve a clean boundary between reviewer-facing packet bindings, proof-pack evidence, and compiler scope."
+    },
+    "truth_verification": {
+        "performed": false,
+        "tier": "internal_support_only",
+        "notes": "Calibration validates observation behavior and internal support only, not external truth."
+    }
+}
