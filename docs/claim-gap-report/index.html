@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A Green Check Is Not a Trust Decision | Assay Claim Gap Report</title>
+<meta name="description" content="A static Assay Claim Gap Report showing how an intact packet can still sit below the proof floor for a customer security review.">
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg2: #161b22;
+    --bg3: #1c2128;
+    --border: #30363d;
+    --border2: #3d4652;
+    --text: #e6edf3;
+    --text2: #9aa7b4;
+    --muted: #6e7681;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --yellow: #d29922;
+    --red: #f85149;
+    --mono: "SF Mono", "Cascadia Code", "Fira Code", Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code { font-family: var(--mono); }
+
+  .wrap {
+    width: min(1120px, calc(100vw - 40px));
+    margin: 0 auto;
+  }
+
+  nav {
+    border-bottom: 1px solid var(--border);
+    background: rgba(13, 17, 23, 0.96);
+  }
+
+  .nav-inner {
+    min-height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+  }
+
+  .brand {
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 18px;
+    font-weight: 700;
+  }
+
+  .nav-links {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 16px;
+    font-size: 14px;
+  }
+
+  .nav-links a { color: var(--text2); }
+  .nav-links a:hover { color: var(--text); text-decoration: none; }
+
+  header {
+    padding: 76px 0 42px;
+  }
+
+  .eyebrow {
+    margin: 0 0 14px;
+    color: var(--text2);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  h1 {
+    max-width: 820px;
+    margin: 0;
+    font-size: clamp(42px, 7vw, 76px);
+    line-height: 0.98;
+    letter-spacing: -0.035em;
+  }
+
+  .lede {
+    max-width: 760px;
+    margin: 24px 0 0;
+    color: var(--text2);
+    font-size: clamp(18px, 2vw, 22px);
+  }
+
+  .spine {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1px;
+    margin: 34px 0 0;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--border);
+  }
+
+  .spine div {
+    background: var(--bg2);
+    padding: 18px;
+  }
+
+  .spine b {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--text);
+    font-size: 15px;
+  }
+
+  .spine span {
+    color: var(--text2);
+    font-size: 14px;
+  }
+
+  main { padding-bottom: 72px; }
+
+  .report-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 18px;
+    margin: 22px 0 18px;
+    padding-top: 36px;
+    border-top: 1px solid var(--border);
+  }
+
+  .report-head h2 {
+    margin: 0;
+    font-size: clamp(28px, 4vw, 44px);
+    line-height: 1.05;
+    letter-spacing: -0.025em;
+  }
+
+  .stamp {
+    display: inline-flex;
+    align-items: center;
+    min-height: 30px;
+    padding: 4px 10px;
+    border: 1px solid rgba(210, 153, 34, 0.52);
+    border-radius: 999px;
+    color: var(--yellow);
+    background: rgba(210, 153, 34, 0.08);
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  .report {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--bg2);
+  }
+
+  .summary {
+    display: grid;
+    grid-template-columns: 1.05fr 0.95fr;
+    gap: 1px;
+    background: var(--border);
+  }
+
+  .summary-panel {
+    background: var(--bg2);
+    padding: clamp(20px, 3vw, 30px);
+  }
+
+  .summary-panel h3,
+  .section h3 {
+    margin: 0 0 10px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .claim {
+    margin: 0;
+    font-size: clamp(24px, 3vw, 36px);
+    line-height: 1.16;
+    letter-spacing: -0.02em;
+  }
+
+  .claim-meta {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 18px;
+  }
+
+  .meta-chip {
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: var(--bg);
+    padding: 10px;
+  }
+
+  .meta-chip b {
+    display: block;
+    margin-bottom: 3px;
+    color: var(--muted);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .meta-chip span {
+    color: var(--text);
+    font-size: 13px;
+  }
+
+  .verdict {
+    margin: 0;
+    color: var(--yellow);
+    font-family: var(--mono);
+    font-size: clamp(28px, 4vw, 42px);
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+  }
+
+  .why {
+    margin: 16px 0 0;
+    color: var(--text2);
+    font-size: 16px;
+  }
+
+  .fact-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border-top: 1px solid var(--border);
+  }
+
+  .fact {
+    background: var(--bg3);
+    padding: 16px;
+  }
+
+  .fact b {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--muted);
+    font-size: 11px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+
+  .fact span {
+    color: var(--text);
+    font-size: 15px;
+  }
+
+  .sections {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border-top: 1px solid var(--border);
+  }
+
+  .section {
+    background: var(--bg2);
+    padding: clamp(20px, 3vw, 28px);
+  }
+
+  .section.full { grid-column: 1 / -1; }
+
+  ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  li {
+    position: relative;
+    padding-left: 24px;
+    margin: 9px 0;
+    color: var(--text2);
+  }
+
+  li::before {
+    position: absolute;
+    left: 0;
+    top: 0;
+    font-family: var(--mono);
+    font-weight: 700;
+  }
+
+  .supports li::before { content: "+"; color: var(--green); }
+  .limits li::before { content: "x"; color: var(--red); }
+  .gaps li::before { content: "-"; color: var(--yellow); }
+  .challenge li::before { content: ">"; color: var(--accent); }
+
+  .gap-line {
+    margin: 0;
+    color: var(--text);
+    font-size: clamp(21px, 3vw, 32px);
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+  }
+
+  .gap-line strong { color: var(--yellow); }
+
+  .proof-floor {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 18px;
+  }
+
+  .floor-box {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    padding: 14px;
+  }
+
+  .floor-box b {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--muted);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .floor-box span {
+    display: block;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 14px;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
+
+  .floor-box.result span { color: var(--yellow); }
+
+  blockquote {
+    margin: 0;
+    border-left: 4px solid var(--accent);
+    padding: 4px 0 4px 18px;
+    color: var(--text);
+    font-size: clamp(18px, 2vw, 22px);
+    line-height: 1.45;
+  }
+
+  .approval {
+    margin-top: 16px;
+    color: var(--text2);
+    font-size: 14px;
+  }
+
+  .approval code {
+    color: var(--yellow);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 2px 6px;
+  }
+
+  .rules {
+    margin-top: 34px;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 1px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--border);
+  }
+
+  .rule {
+    background: var(--bg2);
+    padding: 16px;
+  }
+
+  .rule b {
+    display: block;
+    color: var(--text);
+    font-size: 14px;
+    margin-bottom: 4px;
+  }
+
+  .rule span {
+    color: var(--text2);
+    font-size: 13px;
+  }
+
+  .note {
+    margin-top: 22px;
+    color: var(--text2);
+    font-size: 14px;
+    max-width: 760px;
+  }
+
+  .invariant {
+    margin-top: 22px;
+    border: 1px solid rgba(88, 166, 255, 0.38);
+    border-radius: 10px;
+    background: rgba(88, 166, 255, 0.07);
+    padding: 16px 18px;
+    color: var(--text2);
+    font-size: 14px;
+    max-width: 880px;
+  }
+
+  .invariant b {
+    display: block;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 28px 0;
+    color: var(--text2);
+    font-size: 13px;
+  }
+
+  @media (max-width: 820px) {
+    .spine,
+    .summary,
+    .claim-meta,
+    .fact-grid,
+    .sections,
+    .proof-floor,
+    .rules {
+      grid-template-columns: 1fr;
+    }
+
+    .section.full { grid-column: auto; }
+    header { padding-top: 52px; }
+  }
+
+  @media print {
+    body { background: #fff; color: #111; }
+    nav, footer { display: none; }
+    .report, .spine, .rules, .floor-box { border-color: #999; }
+    .summary, .fact-grid, .sections, .spine, .rules { background: #999; }
+    .summary-panel, .fact, .section, .spine div, .rule, .floor-box { background: #fff; }
+    .lede, .why, li, .note, .approval, .rule span, .spine span { color: #333; }
+  }
+</style>
+</head>
+<body>
+<nav>
+  <div class="wrap nav-inner">
+    <a class="brand" href="../">assay</a>
+    <div class="nav-links">
+      <a href="../packet-viewer/">Packet Viewer</a>
+      <a href="../evidence-readiness.html">Evidence Readiness</a>
+      <a href="https://github.com/Haserjian/assay" target="_blank" rel="noreferrer">GitHub</a>
+    </div>
+  </div>
+</nav>
+
+<header>
+  <div class="wrap">
+    <p class="eyebrow">Static Claim Gap Report</p>
+    <h1>A green check is not a trust decision.</h1>
+    <p class="lede">
+      A signature can prove bytes were not changed. A test can prove one check passed.
+      A log can prove one event happened. None of that tells you how far the claim is
+      allowed to travel.
+    </p>
+    <div class="spine" aria-label="Assay evidence spine">
+      <div>
+        <b>Integrity is about bytes.</b>
+        <span>Was the packet changed after signing?</span>
+      </div>
+      <div>
+        <b>Trust is about policy.</b>
+        <span>Is the signer and evidence source acceptable here?</span>
+      </div>
+      <div>
+        <b>Reliance is about context.</b>
+        <span>Can this evidence carry this claim for this decision?</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <div class="report-head">
+      <div>
+        <p class="eyebrow">Claim Gap Report</p>
+        <h2>Assay catches the moment evidence gets stretched into a promise.</h2>
+      </div>
+      <span class="stamp">BELOW PROOF FLOOR</span>
+    </div>
+
+    <article class="report">
+      <div class="summary">
+        <section class="summary-panel" aria-labelledby="original-claim">
+          <h3 id="original-claim">Original Claim</h3>
+          <p class="claim">&quot;This AI PR gate approved the change.&quot;</p>
+          <div class="claim-meta" aria-label="Claim approval metadata">
+            <div class="meta-chip">
+              <b>Claim Source</b>
+              <span>Synthetic demo claim</span>
+            </div>
+            <div class="meta-chip">
+              <b>Claimant</b>
+              <span>Anonymized example</span>
+            </div>
+            <div class="meta-chip">
+              <b>Approval Status</b>
+              <span>Not claimant-approved</span>
+            </div>
+          </div>
+        </section>
+        <section class="summary-panel" aria-labelledby="verdict">
+          <h3 id="verdict">Verdict</h3>
+          <p class="verdict">CLAIM EXCEEDS EVIDENCE</p>
+          <p class="why">
+            The packet is intact and the declared check result is supported, but the
+            evidence does not meet the proof floor for customer-facing assurance.
+          </p>
+        </section>
+      </div>
+
+      <div class="fact-grid" aria-label="Report facts">
+        <div class="fact">
+          <b>Evidence Provided</b>
+          <span>Signed packet for commit <code>abc123</code></span>
+        </div>
+        <div class="fact">
+          <b>Decision Profile</b>
+          <span>Example Buyer Security Review Profile</span>
+        </div>
+        <div class="fact">
+          <b>Report Status</b>
+          <span>Demo specimen, not claimant-approved</span>
+        </div>
+      </div>
+
+      <div class="sections">
+        <section class="section supports" aria-labelledby="supports">
+          <h3 id="supports">What The Evidence Supports</h3>
+          <ul>
+            <li>The packet is intact.</li>
+            <li>The declared check result applies to commit <code>abc123</code>.</li>
+            <li>The claim text was not modified after signing.</li>
+            <li>The stated policy version was attached to the packet.</li>
+          </ul>
+        </section>
+
+        <section class="section limits" aria-labelledby="does-not-support">
+          <h3 id="does-not-support">What It Does Not Support</h3>
+          <ul>
+            <li>Code is safe.</li>
+            <li>Production approval occurred.</li>
+            <li>Legal or compliance approval was granted.</li>
+            <li>Signer authority was independently established.</li>
+            <li>Replay confirmed the result.</li>
+          </ul>
+        </section>
+
+        <section class="section full" aria-labelledby="gap">
+          <h3 id="gap">Claim Gap</h3>
+          <p class="gap-line">
+            The original claim is broader than the evidence. The evidence supports an
+            intact declared check result, <strong>not</strong> customer-security reliance.
+          </p>
+        </section>
+
+        <section class="section full" aria-labelledby="proof-floor">
+          <h3 id="proof-floor">Proof Floor</h3>
+          <div class="proof-floor">
+            <div class="floor-box">
+              <b>Policy Owner</b>
+              <span>Example Buyer Security Review Profile</span>
+            </div>
+            <div class="floor-box">
+              <b>Required Proof Floor</b>
+              <span>T1_REPO_COMMITTED_SIGNER</span>
+            </div>
+            <div class="floor-box">
+              <b>Observed Proof Floor</b>
+              <span>T0_SELF_SIGNED</span>
+            </div>
+            <div class="floor-box result">
+              <b>Result</b>
+              <span>BELOW_PROOF_FLOOR</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="section full" aria-labelledby="shrinkwrapped-claim">
+          <h3 id="shrinkwrapped-claim">Assay-Suggested Defensible Claim, Not Claimant-Approved</h3>
+          <blockquote>
+            &quot;This packet is intact and supports the declared check result for commit
+            <code>abc123</code>. Signer authority and replay were not independently
+            evaluated.&quot;
+          </blockquote>
+          <p class="approval">
+            Claimant-approved: <code>no</code>. A claimant can accept this narrower claim,
+            dispute it, or provide stronger evidence.
+          </p>
+        </section>
+
+        <section class="section gaps" aria-labelledby="gaps">
+          <h3 id="gaps">Gaps Blocking The Broader Claim</h3>
+          <ul>
+            <li>SIGNER_GAP: CI-held signer or repo-committed key not established.</li>
+            <li>REPLAY_GAP: Independent replay evidence is absent.</li>
+            <li>SCOPE_GAP: PR gate result is being stretched into code safety.</li>
+            <li>AUTHORITY_GAP: Production approval authority is not shown.</li>
+          </ul>
+        </section>
+
+        <section class="section challenge" aria-labelledby="challenge">
+          <h3 id="challenge">Challenge</h3>
+          <ul>
+            <li>Provide CI-held signer evidence.</li>
+            <li>Commit the public key under branch protection.</li>
+            <li>Attach a replay transcript for the declared check.</li>
+            <li>Add an external anchor or transparency-log bundle.</li>
+          </ul>
+        </section>
+      </div>
+    </article>
+
+    <div class="rules" aria-label="Anti-gaming rules">
+      <div class="rule">
+        <b>Claim-specific</b>
+        <span>No global project rating.</span>
+      </div>
+      <div class="rule">
+        <b>Evidence-specific</b>
+        <span>No trust without receipts.</span>
+      </div>
+      <div class="rule">
+        <b>Profile-specific</b>
+        <span>The decision context sets the floor.</span>
+      </div>
+      <div class="rule">
+        <b>Time-bound</b>
+        <span>Artifacts can become stale.</span>
+      </div>
+      <div class="rule">
+        <b>Challengeable</b>
+        <span>Every gap has a repair path.</span>
+      </div>
+    </div>
+
+    <p class="note">
+      This report does not decide whether the original claim is true. It shows what
+      the available evidence can carry, what it cannot carry, and what evidence would
+      close the gap. That is the difference between a green check and a trust decision.
+    </p>
+
+    <div class="invariant">
+      <b>Renderer invariant</b>
+      Public reports must not display a named real-world claimant beside
+      <code>CLAIM EXCEEDS EVIDENCE</code> unless the claim wording is claimant-approved,
+      signed, or the report is private/internal.
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Assay Claim Gap Report demo</span>
+    <span aria-hidden="true"> &middot; </span>
+    <a href="../">Assay home</a>
+    <span aria-hidden="true"> &middot; </span>
+    <a href="../packet-viewer/">Packet Viewer</a>
+  </div>
+</footer>
+</body>
+</html>
