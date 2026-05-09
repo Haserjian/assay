@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Assay Packet Viewer</title>
+<meta name="description" content="Inspect Assay review packets: decision, evidence, reliance boundary, signer, verification path, and challenge options.">
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg2: #161b22;
+    --bg3: #1c2128;
+    --bg4: #222832;
+    --border: #30363d;
+    --border2: #3d4652;
+    --text: #e6edf3;
+    --text2: #9aa7b4;
+    --muted: #6e7681;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --yellow: #d29922;
+    --red: #f85149;
+    --purple: #a371f7;
+    --mono: "SF Mono", "Cascadia Code", "Fira Code", Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  code, pre { font-family: var(--mono); }
+
+  .shell {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 320px minmax(0, 1fr);
+  }
+
+  .sidebar {
+    border-right: 1px solid var(--border);
+    background: #0b0f14;
+    padding: 24px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+
+  .brand {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+
+  .brand a {
+    color: var(--text);
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 18px;
+  }
+
+  .brand span {
+    color: var(--muted);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .sidebar h1 {
+    font-size: 28px;
+    line-height: 1.08;
+    letter-spacing: -0.02em;
+    margin: 0 0 12px;
+  }
+
+  .sidebar .intro {
+    color: var(--text2);
+    font-size: 14px;
+    margin: 0 0 24px;
+  }
+
+  .packet-nav {
+    display: grid;
+    gap: 10px;
+  }
+
+  .packet-button {
+    width: 100%;
+    text-align: left;
+    border: 1px solid var(--border);
+    background: var(--bg2);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 12px;
+    cursor: pointer;
+    transition: border-color 0.18s, background 0.18s, transform 0.18s;
+  }
+
+  .packet-button:hover {
+    border-color: var(--border2);
+    background: var(--bg3);
+    transform: translateY(-1px);
+  }
+
+  .packet-button.active {
+    border-color: var(--accent);
+    background: rgba(88, 166, 255, 0.08);
+  }
+
+  .packet-button strong {
+    display: block;
+    font-size: 14px;
+    margin-bottom: 4px;
+  }
+
+  .packet-button span {
+    display: block;
+    color: var(--text2);
+    font-size: 12px;
+  }
+
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    border: 1px solid;
+    margin-bottom: 8px;
+  }
+
+  .status-pass { color: var(--green); border-color: rgba(63, 185, 80, 0.45); background: rgba(63, 185, 80, 0.08); }
+  .status-review { color: var(--yellow); border-color: rgba(210, 153, 34, 0.48); background: rgba(210, 153, 34, 0.08); }
+  .status-block { color: var(--red); border-color: rgba(248, 81, 73, 0.48); background: rgba(248, 81, 73, 0.08); }
+  .status-info { color: var(--accent); border-color: rgba(88, 166, 255, 0.48); background: rgba(88, 166, 255, 0.08); }
+
+  .main {
+    min-width: 0;
+    padding: 36px clamp(24px, 5vw, 64px) 64px;
+  }
+
+  .topline {
+    max-width: 1100px;
+    margin: 0 auto 32px;
+    color: var(--text2);
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 16px;
+    font-size: 14px;
+  }
+
+  .topline strong { color: var(--text); }
+
+  .packet-view,
+  .compare-view {
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .decision-banner {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.01));
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+
+  .decision-banner h2 {
+    margin: 0 0 10px;
+    font-size: clamp(30px, 4vw, 48px);
+    line-height: 1.02;
+    letter-spacing: -0.035em;
+  }
+
+  .decision-banner p {
+    margin: 0;
+    max-width: 760px;
+    color: var(--text2);
+    font-size: 16px;
+  }
+
+  .action-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin: 18px 0 0;
+  }
+
+  .fact {
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+  }
+
+  .fact b {
+    display: block;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+
+  .fact span {
+    color: var(--text);
+    overflow-wrap: anywhere;
+  }
+
+  .section {
+    margin-top: 34px;
+  }
+
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 16px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 10px;
+    margin-bottom: 16px;
+  }
+
+  .section-header h3 {
+    margin: 0;
+    font-size: 18px;
+  }
+
+  .section-header p {
+    margin: 0;
+    color: var(--text2);
+    font-size: 13px;
+  }
+
+  .boundary-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .boundary-panel,
+  .data-panel {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg2);
+    padding: 16px;
+  }
+
+  .boundary-panel h4,
+  .data-panel h4 {
+    margin: 0 0 10px;
+    color: var(--text);
+    font-size: 14px;
+  }
+
+  .boundary-panel ul,
+  .data-panel ul {
+    margin: 0;
+    padding-left: 18px;
+    color: var(--text2);
+    font-size: 14px;
+  }
+
+  .boundary-panel li,
+  .data-panel li {
+    margin: 6px 0;
+  }
+
+  .channel-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .channel {
+    border: 1px solid var(--border);
+    background: var(--bg2);
+    border-radius: 8px;
+    padding: 14px;
+    min-height: 92px;
+  }
+
+  .channel b {
+    display: block;
+    color: var(--muted);
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .channel span {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .data-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .kv {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+  }
+
+  .kv div {
+    display: grid;
+    grid-template-columns: 150px minmax(0, 1fr);
+    gap: 14px;
+    border-bottom: 1px solid rgba(48, 54, 61, 0.65);
+    padding-bottom: 8px;
+  }
+
+  .kv dt {
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  .kv dd {
+    margin: 0;
+    color: var(--text);
+    overflow-wrap: anywhere;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
+  .artifact-list {
+    display: grid;
+    gap: 10px;
+  }
+
+  .artifact {
+    display: grid;
+    grid-template-columns: minmax(150px, 0.8fr) minmax(0, 1.2fr) minmax(0, 1.4fr);
+    gap: 12px;
+    align-items: start;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg2);
+    padding: 12px;
+    font-size: 13px;
+  }
+
+  .artifact b { color: var(--text); }
+  .artifact span { color: var(--text2); overflow-wrap: anywhere; font-family: var(--mono); font-size: 12px; }
+
+  pre.command {
+    margin: 0;
+    padding: 16px;
+    background: #070b10;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--green);
+    font-size: 13px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+  }
+
+  details.raw {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg2);
+    overflow: hidden;
+  }
+
+  details.raw summary {
+    cursor: pointer;
+    padding: 13px 16px;
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  details.raw pre {
+    margin: 0;
+    padding: 16px;
+    border-top: 1px solid var(--border);
+    background: #070b10;
+    color: var(--text2);
+    font-size: 12px;
+    overflow-x: auto;
+  }
+
+  .compare-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+  }
+
+  .compare-card {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg2);
+    padding: 18px;
+  }
+
+  .compare-card h4 {
+    margin: 0 0 10px;
+    font-size: 18px;
+  }
+
+  .compare-card p {
+    color: var(--text2);
+    margin: 8px 0;
+    font-size: 14px;
+  }
+
+  .empty {
+    border: 1px dashed var(--border2);
+    border-radius: 8px;
+    padding: 18px;
+    color: var(--text2);
+  }
+
+  .footer-note {
+    max-width: 1100px;
+    margin: 48px auto 0;
+    color: var(--muted);
+    font-size: 13px;
+    border-top: 1px solid var(--border);
+    padding-top: 18px;
+  }
+
+  @media (max-width: 900px) {
+    .shell {
+      display: block;
+    }
+
+    .sidebar {
+      position: static;
+      height: auto;
+      border-right: 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .main {
+      padding: 24px 18px 42px;
+    }
+
+    .action-row,
+    .boundary-grid,
+    .channel-grid,
+    .data-grid,
+    .compare-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .artifact,
+    .kv div {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand">
+      <a href="../index.html">assay</a>
+      <span>Packet Viewer v0</span>
+    </div>
+    <h1>Inspect a signed review packet.</h1>
+    <p class="intro">
+      Agents and workflows produce work. Assay turns that work into packets a
+      reviewer can inspect, verify, and challenge.
+    </p>
+    <div class="packet-nav" id="packetNav"></div>
+  </aside>
+
+  <main class="main">
+    <div class="topline">
+      <span><strong>Product rule:</strong> provenance says where an artifact came from. Assay says what a reviewer may and may not rely on.</span>
+      <span>Static demo. No backend. No account.</span>
+    </div>
+
+    <article class="packet-view" id="packetView">
+      <div class="empty">Loading packet artifacts...</div>
+    </article>
+
+    <section class="compare-view section" id="compareView"></section>
+
+    <p class="footer-note">
+      This viewer is a static product surface over committed examples. It does
+      not replace `assay pr-gate verify` or `assay verify-pack`; it shows the
+      same packet in human-readable form.
+    </p>
+  </main>
+</div>
+
+<script>
+const STANDARD_CHALLENGES = [
+  "missing evidence",
+  "stale policy",
+  "signer trust objection",
+  "replay divergence",
+  "overbroad claim",
+  "contradictory evidence"
+];
+
+const PACKET_DEFS = [
+  {
+    id: "pr-pass",
+    title: "PR Gate PASS",
+    subtitle: "PR #139 proceeded to normal review",
+    type: "pr_gate",
+    base: "../examples/pr-gate-live/pass/",
+    reportPath: "signed-report/verify_report.json",
+    commentPath: "comment.md",
+    claim: "PR #139 is ready for normal review under the coding_pr_v0 policy.",
+    verifyCommand: `assay pr-gate verify \\
+  --pack docs/examples/pr-gate-live/pass/proof-pack \\
+  --report docs/examples/pr-gate-live/pass/signed-report/verify_report.json \\
+  --sigstore docs/examples/pr-gate-live/pass/signed-report/verify_report.sigstore.json \\
+  --expected-identity https://github.com/Haserjian/assay/.github/workflows/assay-pr-gate.yml@refs/heads/main`,
+    upgrade: [
+      "attach bounded claim checks for named CI checks",
+      "add replay evidence if behavior reproduction matters",
+      "attach a human approval receipt when review completes"
+    ],
+    extraRely: ["no dogfood risk path matched in the captured policy inputs"]
+  },
+  {
+    id: "pr-needs-review",
+    title: "PR Gate NEEDS_REVIEW",
+    subtitle: "PR #138 required human review",
+    type: "pr_gate",
+    base: "../examples/pr-gate-live/needs-review/",
+    reportPath: "signed-report/verify_report.json",
+    commentPath: "comment.md",
+    claim: "PR #138 is ready for review, but policy must decide whether normal review is enough.",
+    verifyCommand: `assay pr-gate verify \\
+  --pack docs/examples/pr-gate-live/needs-review/proof-pack \\
+  --report docs/examples/pr-gate-live/needs-review/signed-report/verify_report.json \\
+  --sigstore docs/examples/pr-gate-live/needs-review/signed-report/verify_report.sigstore.json \\
+  --expected-identity https://github.com/Haserjian/assay/.github/workflows/assay-pr-gate.yml@refs/heads/main`,
+    upgrade: [
+      "attach a human approval receipt for the risk path",
+      "add bounded claim checks for named CI checks",
+      "narrow or revise the policy if this path should not require review"
+    ],
+    extraRely: ["policy matched a configured risk path and returned NEEDS_REVIEW"]
+  },
+  {
+    id: "verification-gate",
+    title: "Verification Gate PASS",
+    subtitle: "Integrity-only sample",
+    type: "verification_gate",
+    base: "../examples/verification-gate-v0/",
+    reportPath: "signed-report/verify_report.json",
+    claim: "The evidence pack still matches its manifest and the signed report points to that exact pack.",
+    verifyCommand: `bash scripts/verify_verification_gate_sample.sh`,
+    upgrade: [
+      "run claim evaluation for a concrete claim set",
+      "run replay evaluation if behavior reproduction matters",
+      "run trust-policy evaluation for production authorization",
+      "pin the expected signer identity for trust-anchored verification"
+    ]
+  },
+  {
+    id: "tamper-rejected",
+    title: "Tamper Rejection",
+    subtitle: "Rejected sample outcome",
+    type: "tamper_demo",
+    base: "../examples/verification-gate-v0/",
+    claim: "A changed report or changed pack should be rejected instead of being treated as a valid packet.",
+    staticReport: {
+      overall_decision: "TAMPERED",
+      recommended_action: "do_not_rely",
+      channels: {
+        integrity: "FAIL",
+        claim: "NOT_EVALUATED",
+        replay: "NOT_RUN",
+        trust_policy: "NOT_EVALUATED"
+      },
+      do_not_infer: [
+        "the original AI claim is true",
+        "the tampered copy is acceptable evidence",
+        "production approval was granted",
+        "replay was performed"
+      ],
+      evidence_refs: [
+        { kind: "Tamper demo runbook", path: "START-HERE.md", sha256: null },
+        { kind: "Reviewer packet explanation", path: "reviewer-packet.md", sha256: null }
+      ],
+      reasons: [
+        { rule: "tamper_demo", path: "signed report or proof pack copy", matched_pattern: "byte changed after signing" }
+      ],
+      signature_policy: {
+        expected_certificate_identity: "demo rejection path",
+        certificate_oidc_issuer: "not applicable"
+      },
+      subject: {
+        repo: "Haserjian/assay",
+        pr_number: "sample",
+        head_sha: "not applicable",
+        diff_sha256: "not applicable"
+      }
+    },
+    verifyCommand: `bash scripts/demo_tamper_verification_gate_sample.sh`,
+    upgrade: [
+      "use the untampered signed packet",
+      "regenerate a new packet from original evidence",
+      "attach a counter-packet explaining the disputed artifact"
+    ],
+    extraRely: ["the documented tamper demo rejects modified report and pack copies"]
+  }
+];
+
+let packets = [];
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+async function fetchJson(path) {
+  const response = await fetch(path);
+  if (!response.ok) throw new Error(`Could not load ${path}`);
+  return response.json();
+}
+
+async function fetchText(path) {
+  const response = await fetch(path);
+  if (!response.ok) return "";
+  return response.text();
+}
+
+function compactSha(value) {
+  if (!value) return "not recorded";
+  const text = String(value);
+  const bare = text.replace(/^sha256:/, "");
+  if (bare.length <= 18) return text;
+  return `${text.startsWith("sha256:") ? "sha256:" : ""}${bare.slice(0, 12)}...${bare.slice(-8)}`;
+}
+
+function statusClass(decision) {
+  if (decision === "PASS") return "status-pass";
+  if (decision === "NEEDS_REVIEW") return "status-review";
+  if (decision === "BLOCK" || decision === "TAMPERED" || decision === "FAIL") return "status-block";
+  return "status-info";
+}
+
+function decisionText(packet) {
+  const decision = packet.decision;
+  if (decision === "PASS") return "PASS - proceed to normal review";
+  if (decision === "NEEDS_REVIEW") return "NEEDS_REVIEW - human review required";
+  if (decision === "BLOCK") return "BLOCK - do not proceed";
+  if (decision === "TAMPERED") return "TAMPERED - artifact rejected";
+  return `${decision} - inspect packet`;
+}
+
+function packetStatusLabel(packet) {
+  if (packet.type === "tamper_demo") return "Rejection path documented";
+  if (packet.type === "verification_gate") return "Integrity verification path available";
+  return "Signed verification path available";
+}
+
+function normalize(def, report, comment) {
+  const isVerification = def.type === "verification_gate";
+  const decision = report.overall_decision || report.overall_verdict || "UNKNOWN";
+  const channels = report.channels || {
+    integrity: report.integrity_verdict,
+    claim: report.claim_verdict,
+    replay: report.replay_verdict,
+    trust_policy: report.trust_verdict
+  };
+  const subject = report.subject || {};
+  const signer = report.signature_policy?.expected_certificate_identity ||
+    report.provenance?.workflow_ref ||
+    "not recorded";
+  const issuer = report.signature_policy?.certificate_oidc_issuer || "not recorded";
+  const evidenceRefs = report.evidence_refs || [];
+  const doNotInfer = report.do_not_infer || inferNonClaims(report, channels, isVerification);
+  const reasons = report.reasons || [];
+  const reason = reasonText(def, report, reasons, channels);
+  const mayRely = mayRelyText(def, report, channels, isVerification);
+  const rawLinks = rawArtifactLinks(def, evidenceRefs);
+
+  return {
+    def,
+    report,
+    comment,
+    id: def.id,
+    title: def.title,
+    subtitle: def.subtitle,
+    type: def.type,
+    decision,
+    recommendedAction: report.recommended_action || actionForDecision(decision, isVerification),
+    claim: def.claim,
+    reason,
+    channels,
+    subject,
+    signer,
+    issuer,
+    evidenceRefs,
+    doNotInfer,
+    mayRely,
+    upgrade: def.upgrade || [],
+    challenges: STANDARD_CHALLENGES,
+    verifyCommand: def.verifyCommand,
+    rawLinks
+  };
+}
+
+function inferNonClaims(report, channels, isVerification) {
+  const values = [
+    "global truth",
+    "production approval",
+    "full claim correctness unless the report says claim evaluation passed"
+  ];
+  if (channels.replay === "NOT_RUN") values.push("behavior replay was performed");
+  if (channels.trust_policy === "NOT_EVALUATED" || report.trust_verdict === "NOT_EVALUATED") {
+    values.push("trust-policy approval was granted");
+  }
+  if (isVerification) values.push("the signer identity was pinned by this sample");
+  return values;
+}
+
+function actionForDecision(decision, isVerification) {
+  if (decision === "PASS" && isVerification) return "inspect integrity-only result";
+  if (decision === "PASS") return "proceed";
+  if (decision === "NEEDS_REVIEW") return "require_human_approval";
+  if (decision === "TAMPERED") return "do_not_rely";
+  return "manual_triage";
+}
+
+function reasonText(def, report, reasons, channels) {
+  if (def.type === "verification_gate") {
+    return report.overall_reason || "required integrity channel passed";
+  }
+  if (def.type === "tamper_demo") {
+    return "report or pack tampering is rejected by the demo path";
+  }
+  if (reasons.length) {
+    return reasons.map((reason) => {
+      if (reason.rule === "risk_path_touched") {
+        return `touched risk path ${reason.path || reason.matched_pattern}`;
+      }
+      return reason.rule || "policy reason recorded";
+    }).join("; ");
+  }
+  if (channels.trust_policy === "PASS") return "no risk path matched";
+  return "no specific reason recorded";
+}
+
+function mayRelyText(def, report, channels, isVerification) {
+  if (def.type === "tamper_demo") {
+    return [
+      "the documented tamper demo rejects modified artifacts",
+      "a tampered copy should not be treated as a valid packet",
+      ...(def.extraRely || [])
+    ];
+  }
+
+  if (isVerification) {
+    return [
+      "the proof-pack files matched the manifest in this sample",
+      "the signed verification report points to this evidence pack",
+      "the required integrity channel passed",
+      "claim, replay, and trust channels were intentionally left unevaluated"
+    ];
+  }
+
+  return [
+    "captured PR evidence points to the recorded repository, PR, commit, and diff hash",
+    "the verification report points to the recorded proof pack",
+    "the expected GitHub workflow identity signed the review decision",
+    `policy returned ${channels.trust_policy || report.overall_decision} for the captured evidence`,
+    ...(def.extraRely || [])
+  ];
+}
+
+function rawArtifactLinks(def, evidenceRefs) {
+  const links = [];
+  if (def.commentPath) links.push({ label: "comment.md", path: def.commentPath });
+  if (def.reportPath) links.push({ label: "verify_report.json", path: def.reportPath });
+  links.push({ label: "pack_manifest.json", path: def.type === "verification_gate" ? "proof-pack/pack_manifest.json" : "proof-pack/pack_manifest.json" });
+  if (def.type !== "tamper_demo") links.push({ label: "verify_report.sigstore.json", path: "signed-report/verify_report.sigstore.json" });
+  for (const ref of evidenceRefs) {
+    if (ref.path && !links.some((link) => link.path === ref.path)) {
+      links.push({ label: ref.kind || ref.path, path: ref.path });
+    }
+  }
+  return links.map((link) => ({
+    label: link.label,
+    href: new URL(link.path, new URL(def.base, window.location.href)).toString()
+  }));
+}
+
+function renderNav() {
+  const nav = document.getElementById("packetNav");
+  nav.innerHTML = packets.map((packet) => `
+    <button class="packet-button" data-packet="${escapeHtml(packet.id)}">
+      <span class="status-pill ${statusClass(packet.decision)}">${escapeHtml(packet.decision)}</span>
+      <strong>${escapeHtml(packet.title)}</strong>
+      <span>${escapeHtml(packet.subtitle)}</span>
+    </button>
+  `).join("");
+
+  nav.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-packet]");
+    if (!button) return;
+    window.location.hash = button.dataset.packet;
+    renderPacket(button.dataset.packet);
+  });
+}
+
+function renderPacket(id) {
+  const packet = packets.find((item) => item.id === id) || packets[0];
+  document.querySelectorAll(".packet-button").forEach((button) => {
+    button.classList.toggle("active", button.dataset.packet === packet.id);
+  });
+  document.getElementById("packetView").innerHTML = packetHtml(packet);
+  document.getElementById("compareView").innerHTML = compareHtml();
+}
+
+function packetHtml(packet) {
+  const subject = packet.subject || {};
+  const subjectRows = [
+    ["Repo", subject.repo || "not recorded"],
+    ["PR", subject.pr_number ? `#${subject.pr_number}` : "not recorded"],
+    ["Head commit", compactSha(subject.head_sha)],
+    ["Diff hash", compactSha(subject.diff_sha256 || subject.diff_sha)],
+    ["Pack root", compactSha(packet.report.pack_root_sha256)]
+  ];
+
+  return `
+    <div class="decision-banner">
+      <span class="status-pill ${statusClass(packet.decision)}">${escapeHtml(packetStatusLabel(packet))}</span>
+      <h2>${escapeHtml(decisionText(packet))}</h2>
+      <p>${escapeHtml(packet.claim)}</p>
+      <div class="action-row">
+        <div class="fact"><b>Recommended action</b><span>${escapeHtml(packet.recommendedAction)}</span></div>
+        <div class="fact"><b>Reason</b><span>${escapeHtml(packet.reason)}</span></div>
+        <div class="fact"><b>Signed by</b><span>${escapeHtml(packet.signer)}</span></div>
+      </div>
+    </div>
+
+    <section class="section">
+      <div class="section-header">
+        <h3>Reliance Boundary</h3>
+        <p>What the packet permits and refuses to imply.</p>
+      </div>
+      <div class="boundary-grid">
+        ${boundaryPanel("You may rely on", packet.mayRely)}
+        ${boundaryPanel("Do not infer", packet.doNotInfer)}
+        ${boundaryPanel("To upgrade this packet", packet.upgrade)}
+        ${boundaryPanel("To challenge this packet", packet.challenges)}
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-header">
+        <h3>Verdict Channels</h3>
+        <p>Separate channels prevent one green word from carrying too much meaning.</p>
+      </div>
+      <div class="channel-grid">
+        ${channel("Integrity", packet.channels.integrity)}
+        ${channel("Claim", packet.channels.claim)}
+        ${channel("Replay", packet.channels.replay)}
+        ${channel("Trust policy", packet.channels.trust_policy || packet.channels.trust)}
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-header">
+        <h3>Subject and Evidence</h3>
+        <p>What this packet is bound to.</p>
+      </div>
+      <div class="data-grid">
+        <div class="data-panel">
+          <h4>Subject</h4>
+          <dl class="kv">
+            ${subjectRows.map(([key, value]) => `<div><dt>${escapeHtml(key)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("")}
+          </dl>
+        </div>
+        <div class="data-panel">
+          <h4>Signer and issuer</h4>
+          <dl class="kv">
+            <div><dt>Signer</dt><dd>${escapeHtml(packet.signer)}</dd></div>
+            <div><dt>OIDC issuer</dt><dd>${escapeHtml(packet.issuer)}</dd></div>
+            <div><dt>Report id</dt><dd>${escapeHtml(packet.report.report_id || "not recorded")}</dd></div>
+          </dl>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-header">
+        <h3>Evidence Included</h3>
+        <p>Raw objects the reviewer can inspect.</p>
+      </div>
+      <div class="artifact-list">
+        ${artifactRows(packet)}
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-header">
+        <h3>Verify Locally</h3>
+        <p>The viewer is readable; the CLI is the verifier.</p>
+      </div>
+      <pre class="command">${escapeHtml(packet.verifyCommand)}</pre>
+    </section>
+
+    <section class="section">
+      <div class="section-header">
+        <h3>Raw Artifacts</h3>
+        <p>Open the packet files behind this view.</p>
+      </div>
+      <div class="artifact-list">
+        ${packet.rawLinks.map((link) => `
+          <div class="artifact">
+            <b>${escapeHtml(link.label)}</b>
+            <a href="${escapeHtml(link.href)}" target="_blank">open artifact</a>
+            <span>${escapeHtml(link.href)}</span>
+          </div>
+        `).join("")}
+      </div>
+      <div style="margin-top: 14px;">
+        <details class="raw">
+          <summary>Show normalized report JSON</summary>
+          <pre>${escapeHtml(JSON.stringify(packet.report, null, 2))}</pre>
+        </details>
+      </div>
+    </section>
+  `;
+}
+
+function boundaryPanel(title, items) {
+  const values = items && items.length ? items : ["not recorded"];
+  return `
+    <div class="boundary-panel">
+      <h4>${escapeHtml(title)}</h4>
+      <ul>${values.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+    </div>
+  `;
+}
+
+function channel(label, value) {
+  const display = value || "NOT_RECORDED";
+  return `
+    <div class="channel">
+      <b>${escapeHtml(label)}</b>
+      <span class="${statusClass(display)} status-pill">${escapeHtml(display)}</span>
+    </div>
+  `;
+}
+
+function artifactRows(packet) {
+  const refs = packet.evidenceRefs && packet.evidenceRefs.length
+    ? packet.evidenceRefs
+    : [{ kind: "Packet artifact", path: "see raw artifact links", sha256: null }];
+  return refs.map((ref) => `
+    <div class="artifact">
+      <b>${escapeHtml(ref.kind || "artifact")}</b>
+      <span>${escapeHtml(ref.path || "not recorded")}</span>
+      <span>${escapeHtml(ref.sha256 || "hash not recorded in report")}</span>
+    </div>
+  `).join("");
+}
+
+function compareHtml() {
+  const pass = packets.find((packet) => packet.id === "pr-pass");
+  const review = packets.find((packet) => packet.id === "pr-needs-review");
+  if (!pass || !review) return "";
+
+  return `
+    <div class="section-header">
+      <h3>Compare PASS vs NEEDS_REVIEW</h3>
+      <p>Same packet model, different policy outcome.</p>
+    </div>
+    <div class="compare-grid">
+      ${compareCard(pass)}
+      ${compareCard(review)}
+    </div>
+  `;
+}
+
+function compareCard(packet) {
+  return `
+    <div class="compare-card">
+      <span class="status-pill ${statusClass(packet.decision)}">${escapeHtml(packet.decision)}</span>
+      <h4>${escapeHtml(packet.title)}</h4>
+      <p><strong>Action:</strong> ${escapeHtml(packet.recommendedAction)}</p>
+      <p><strong>Reason:</strong> ${escapeHtml(packet.reason)}</p>
+      <p><strong>Trust policy:</strong> ${escapeHtml(packet.channels.trust_policy || "not recorded")}</p>
+      <p><strong>Human next step:</strong> ${packet.decision === "PASS" ? "continue normal review; do not treat PASS as automatic merge approval" : "inspect the risk-path change and attach human approval if accepted"}</p>
+    </div>
+  `;
+}
+
+async function loadPackets() {
+  packets = await Promise.all(PACKET_DEFS.map(async (def) => {
+    const report = def.staticReport || await fetchJson(new URL(def.reportPath, new URL(def.base, window.location.href)).toString());
+    const comment = def.commentPath
+      ? await fetchText(new URL(def.commentPath, new URL(def.base, window.location.href)).toString())
+      : "";
+    return normalize(def, report, comment);
+  }));
+
+  renderNav();
+  const initialId = window.location.hash.replace("#", "") || packets[0].id;
+  renderPacket(initialId);
+}
+
+window.addEventListener("hashchange", () => {
+  const id = window.location.hash.replace("#", "") || packets[0]?.id;
+  if (id) renderPacket(id);
+});
+
+loadPackets().catch((error) => {
+  document.getElementById("packetView").innerHTML = `
+    <div class="empty">
+      <strong>Could not load packet artifacts.</strong><br>
+      ${escapeHtml(error.message)}<br><br>
+      If you opened this file directly, run a local server from the repo root:
+      <pre class="command">python3 -m http.server 8000</pre>
+      then open <code>http://localhost:8000/docs/packet-viewer/</code>.
+    </div>
+  `;
+});
+</script>
+</body>
+</html>
