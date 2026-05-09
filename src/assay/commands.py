@@ -8319,6 +8319,58 @@ def pr_gate_capture_cmd(
         )
 
 
+@pr_gate_app.command("pack")
+def pr_gate_pack_cmd(
+    evidence: str = typer.Option(
+        ..., "--evidence", help="Path to PR Gate evidence JSON"
+    ),
+    decision: str = typer.Option(
+        ..., "--decision", help="Path to PR Gate decision JSON"
+    ),
+    policy: str = typer.Option(
+        ..., "--policy", help="Path to PR Gate policy YAML"
+    ),
+    out: str = typer.Option(
+        ..., "--out", help="Artifact root; creates proof-pack/ and signed-report/"
+    ),
+) -> None:
+    """Build a PR Gate proof-pack and Verification Report."""
+    from pathlib import Path as P
+
+    from assay.pr_gate.packet import PacketError, build_pr_gate_packet_files
+    from assay.pr_gate.policy import PolicyEvaluationError
+
+    try:
+        result = build_pr_gate_packet_files(
+            evidence_path=P(evidence),
+            decision_path=P(decision),
+            policy_path=P(policy),
+            out_dir=P(out),
+        )
+    except (OSError, PacketError, PolicyEvaluationError) as exc:
+        _output_json(
+            {
+                "command": "assay pr-gate pack",
+                "status": "error",
+                "error": str(exc),
+            },
+            exit_code=3,
+        )
+
+    _output_json(
+        {
+            "command": "assay pr-gate pack",
+            "status": "ok",
+            "proof_pack_dir": result["proof_pack_dir"],
+            "signed_report_dir": result["signed_report_dir"],
+            "pack_root_sha256": result["pack_manifest"]["pack_root_sha256"],
+            "report_id": result["verify_report"]["report_id"],
+            "signature_status": result["signature_proof"]["signature_status"],
+        },
+        exit_code=0,
+    )
+
+
 # ---------------------------------------------------------------------------
 # gate subcommands
 # ---------------------------------------------------------------------------
