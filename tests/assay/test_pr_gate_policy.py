@@ -76,6 +76,15 @@ class TestPrGatePolicyEvaluator:
             "overall_decision": "PASS",
             "recommended_action": "proceed",
             "reasons": [],
+            "check_observations": [
+                {
+                    "name": "tests",
+                    "status": "OBSERVED_PASS",
+                    "head_sha": "head",
+                    "conclusion": "success",
+                    "observed_at": "2026-05-08T12:00:00Z",
+                }
+            ],
             "channels": {
                 "integrity": "PASS",
                 "claim": "PASS",
@@ -94,6 +103,15 @@ class TestPrGatePolicyEvaluator:
         assert decision["recommended_action"] == "require_human_approval"
         assert decision["channels"]["claim"] == "PASS"
         assert decision["channels"]["trust_policy"] == "NEEDS_REVIEW"
+        assert decision["check_observations"] == [
+            {
+                "name": "tests",
+                "status": "OBSERVED_PASS",
+                "head_sha": "head",
+                "conclusion": "success",
+                "observed_at": "2026-05-08T12:00:00Z",
+            }
+        ]
         assert decision["reasons"] == [
             {
                 "rule": "risk_path_touched",
@@ -116,6 +134,14 @@ class TestPrGatePolicyEvaluator:
             {
                 "rule": "required_check_missing",
                 "check": "tests",
+                "observation_status": "NOT_OBSERVED_YET",
+                "head_sha": "head",
+            }
+        ]
+        assert decision["check_observations"] == [
+            {
+                "name": "tests",
+                "status": "NOT_OBSERVED_YET",
                 "head_sha": "head",
             }
         ]
@@ -145,7 +171,17 @@ class TestPrGatePolicyEvaluator:
                 "rule": "required_check_failed",
                 "check": "tests",
                 "conclusion": "failure",
+                "observation_status": "OBSERVED_FAIL",
                 "head_sha": "head",
+            }
+        ]
+        assert decision["check_observations"] == [
+            {
+                "name": "tests",
+                "status": "OBSERVED_FAIL",
+                "head_sha": "head",
+                "conclusion": "failure",
+                "observed_at": "2026-05-08T12:00:00Z",
             }
         ]
 
@@ -207,6 +243,14 @@ class TestPrGatePolicyEvaluator:
             {
                 "rule": "required_check_missing",
                 "check": "tests",
+                "observation_status": "NOT_OBSERVED_YET",
+                "head_sha": "head",
+            }
+        ]
+        assert decision["check_observations"] == [
+            {
+                "name": "tests",
+                "status": "NOT_OBSERVED_YET",
                 "head_sha": "head",
             }
         ]
@@ -233,7 +277,52 @@ class TestPrGatePolicyEvaluator:
             {
                 "rule": "required_check_missing",
                 "check": "tests",
+                "observation_status": "OBSERVED_PENDING",
                 "head_sha": "head",
+            }
+        ]
+        assert decision["check_observations"] == [
+            {
+                "name": "tests",
+                "status": "OBSERVED_PENDING",
+                "head_sha": "head",
+                "observed_at": "2026-05-08T12:00:00Z",
+            }
+        ]
+
+    def test_mismatched_check_name_is_reported_without_overclaiming(self) -> None:
+        decision = evaluate_policy(
+            _evidence(
+                observed_checks=[
+                    {
+                        "name": "Prepare",
+                        "provider": "github_checks",
+                        "head_sha": "head",
+                        "conclusion": "success",
+                        "observed_at": "2026-05-08T12:00:00Z",
+                    }
+                ]
+            ),
+            _policy(),
+        )
+
+        assert decision["overall_decision"] == "NEEDS_REVIEW"
+        assert decision["channels"]["claim"] == "NOT_EVALUATED"
+        assert decision["reasons"] == [
+            {
+                "rule": "required_check_missing",
+                "check": "tests",
+                "observation_status": "NAME_MISMATCH_POSSIBLE",
+                "head_sha": "head",
+                "observed_check_names": ["Prepare"],
+            }
+        ]
+        assert decision["check_observations"] == [
+            {
+                "name": "tests",
+                "status": "NAME_MISMATCH_POSSIBLE",
+                "head_sha": "head",
+                "observed_check_names": ["Prepare"],
             }
         ]
 

@@ -15,7 +15,7 @@ from assay.pr_gate.packet import (
     PacketError,
     build_pr_gate_packet,
 )
-from assay.pr_gate.policy import compute_policy_sha256, load_policy
+from assay.pr_gate.policy import compute_policy_sha256, evaluate_policy, load_policy
 
 runner = CliRunner()
 
@@ -70,23 +70,7 @@ def _evidence() -> Dict[str, Any]:
 
 
 def _decision() -> Dict[str, Any]:
-    return {
-        "overall_decision": "NEEDS_REVIEW",
-        "recommended_action": "require_human_approval",
-        "reasons": [
-            {
-                "rule": "risk_path_touched",
-                "path": "auth/session.py",
-                "matched_pattern": "auth/**",
-            }
-        ],
-        "channels": {
-            "integrity": "PASS",
-            "claim": "PASS",
-            "replay": "NOT_RUN",
-            "trust_policy": "NEEDS_REVIEW",
-        },
-    }
+    return evaluate_policy(_evidence(), load_policy(POLICY_PATH))
 
 
 def test_build_pr_gate_packet_writes_expected_tree(tmp_path: Path) -> None:
@@ -125,6 +109,7 @@ def test_build_pr_gate_packet_writes_expected_tree(tmp_path: Path) -> None:
     assert report["pack_manifest_sha256"].startswith("sha256:")
     assert report["policy"] == manifest["policy"]
     assert report["channels"] == _decision()["channels"]
+    assert report["check_observations"] == _decision()["check_observations"]
     assert report["overall_decision"] == "NEEDS_REVIEW"
     assert report["recommended_action"] == "require_human_approval"
     assert report["signature_policy"] == {

@@ -217,7 +217,13 @@ def _verify_recomputed_decision(
     if decision_ref.get("channels") != decision.get("channels"):
         raise PRGateVerificationError("manifest decision_ref does not match decision")
 
-    for field in ("overall_decision", "recommended_action", "reasons", "channels"):
+    for field in (
+        "overall_decision",
+        "recommended_action",
+        "reasons",
+        "check_observations",
+        "channels",
+    ):
         if report.get(field) != decision.get(field):
             raise PRGateVerificationError(f"report {field} does not match decision")
 

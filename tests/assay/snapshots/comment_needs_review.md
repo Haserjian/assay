@@ -29,3 +29,9 @@ Do not infer:
 
 Signed by expected workflow:
 https://github.com/Haserjian/assay/.github/workflows/assay-pr-gate.yml@refs/heads/main
+
+How to verify:
+- Download `assay-pr-gate-report`, then run `assay pr-gate verify` against `proof-pack/` and `signed-report/`.
+
+How to challenge:
+- Comment with missing evidence, stale policy, signer trust, replay divergence, overbroad claim, or contradictory evidence.

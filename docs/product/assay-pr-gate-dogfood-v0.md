@@ -28,7 +28,7 @@ The workflow steps are:
 2. Fetch the PR head commit as passive git data.
 3. Install Assay from the trusted checkout.
 4. Capture PR evidence.
-5. Evaluate `coding_pr_v0` policy.
+5. Evaluate the dogfood `coding_pr_v0` policy.
 6. Build `proof-pack/` and `signed-report/`.
 7. Sign `signed-report/verify_report.json` with Cosign/Sigstore.
 8. Verify the signed PR Gate packet locally.
@@ -73,10 +73,22 @@ The comment includes:
 - Evidence Box, Verification Report, and Signature Proof paths
 - do-not-infer caveats
 - expected workflow signer identity
-- artifact name
+- workflow run link
+- artifact link
 
 Existing marked comments are updated in place so the workflow does not spam
 duplicate comments.
+
+## Dogfood Policy
+
+The workflow uses `docs/examples/pr-gate-v0/assay-dogfood-policy.yml`.
+
+That policy intentionally has no required check names. The first live dogfood
+surface should not report a missing `tests` check when this repository's checks
+use different names or report at different times. Required-check semantics are
+kept in `docs/examples/pr-gate-v0/assay-policy.yml` and remain part of PR Gate,
+but dogfood focuses on integrity, signing, artifact publication, comment
+upsert, and risk-path review.
 
 ## Signing Identity
 

@@ -62,6 +62,12 @@ def render_pr_gate_comment(
             "",
             "Signed by expected workflow:",
             _expected_identity(report),
+            "",
+            "How to verify:",
+            "- Download `assay-pr-gate-report`, then run `assay pr-gate verify` against `proof-pack/` and `signed-report/`.",
+            "",
+            "How to challenge:",
+            "- Comment with missing evidence, stale policy, signer trust, replay divergence, overbroad claim, or contradictory evidence.",
         ]
     )
     return "\n".join(lines) + "\n"
@@ -143,7 +149,7 @@ def _reason_summary(reasons: List[Mapping[str, Any]]) -> str:
         pattern = reason.get("matched_pattern")
         return f"touched risk path {pattern}" if pattern else "touched risk path"
     if rule == "required_check_missing":
-        return f"required check \"{reason.get('check')}\" was not observed"
+        return _missing_check_summary(reason)
     if rule == "required_check_failed":
         return f"required check \"{reason.get('check')}\" failed"
     if rule == "integrity_failed":
@@ -180,7 +186,7 @@ def _non_pass_claim_line(*, report: Mapping[str, Any], claim: str) -> str:
     for reason in _reasons(report):
         rule = reason.get("rule")
         if rule == "required_check_missing":
-            return f"{claim} - required check \"{reason.get('check')}\" was not observed"
+            return f"{claim} - {_missing_check_summary(reason)}"
         if rule == "required_check_failed":
             return f"{claim} - required check \"{reason.get('check')}\" failed"
     return claim
@@ -198,10 +204,31 @@ def _trust_policy_line(*, report: Mapping[str, Any]) -> str:
         if rule == "required_check_failed":
             return f"{trust_policy} - required check \"{reason.get('check')}\" failed"
         if rule == "required_check_missing":
-            return f"{trust_policy} - required check \"{reason.get('check')}\" missing"
+            return f"{trust_policy} - {_missing_check_summary(reason)}"
         if rule == "integrity_failed":
             return f"{trust_policy} - integrity failed"
     return str(trust_policy)
+
+
+def _missing_check_summary(reason: Mapping[str, Any]) -> str:
+    check = reason.get("check")
+    status = reason.get("observation_status")
+    if status == "OBSERVED_PENDING":
+        return f"required check \"{check}\" is still pending"
+    if status == "NAME_MISMATCH_POSSIBLE":
+        observed = reason.get("observed_check_names")
+        if isinstance(observed, list) and observed:
+            names = ", ".join(f'"{name}"' for name in observed if isinstance(name, str))
+            if names:
+                return (
+                    f"required check \"{check}\" was not observed; "
+                    f"observed checks used other names: {names}"
+                )
+        return (
+            f"required check \"{check}\" was not observed; "
+            "observed checks used other names"
+        )
+    return f"required check \"{check}\" was not observed yet"
 
 
 def _evidence_ref(report: Mapping[str, Any], kind: str, default: str) -> str:

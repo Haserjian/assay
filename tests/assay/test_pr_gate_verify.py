@@ -12,7 +12,7 @@ from typer.testing import CliRunner
 
 from assay.commands import assay_app
 from assay.pr_gate.packet import build_pr_gate_packet
-from assay.pr_gate.policy import compute_policy_sha256, load_policy
+from assay.pr_gate.policy import compute_policy_sha256, evaluate_policy, load_policy
 from assay.pr_gate.verify import (
     DEFAULT_CERTIFICATE_OIDC_ISSUER,
     DEFAULT_EXPECTED_SIGNER_IDENTITY,
@@ -74,23 +74,7 @@ def _evidence() -> Dict[str, Any]:
 
 
 def _decision() -> Dict[str, Any]:
-    return {
-        "overall_decision": "NEEDS_REVIEW",
-        "recommended_action": "require_human_approval",
-        "reasons": [
-            {
-                "rule": "risk_path_touched",
-                "path": "auth/session.py",
-                "matched_pattern": "auth/**",
-            }
-        ],
-        "channels": {
-            "integrity": "PASS",
-            "claim": "PASS",
-            "replay": "NOT_RUN",
-            "trust_policy": "NEEDS_REVIEW",
-        },
-    }
+    return evaluate_policy(_evidence(), load_policy(POLICY_PATH))
 
 
 def _build_signed_packet(tmp_path: Path) -> Dict[str, Any]:

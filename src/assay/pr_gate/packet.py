@@ -252,6 +252,7 @@ def _build_verify_report(
         "overall_decision": decision.get("overall_decision"),
         "recommended_action": decision.get("recommended_action"),
         "reasons": decision.get("reasons", []),
+        "check_observations": decision.get("check_observations", []),
         "channels": {
             "integrity": channels.get("integrity"),
             "claim": channels.get("claim"),
