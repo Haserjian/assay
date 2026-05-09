@@ -22,7 +22,7 @@ recommended action.
 The intended dogfood signer identity is:
 
 ```text
-Haserjian/assay/.github/workflows/assay-pr-gate.yml@refs/heads/main
+https://github.com/Haserjian/assay/.github/workflows/assay-pr-gate.yml@refs/heads/main
 ```
 
 The public Verification Report must be signed by the expected workflow

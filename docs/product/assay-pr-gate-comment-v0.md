@@ -62,7 +62,7 @@ Do not infer:
 - production approval was granted
 
 Signed by expected workflow:
-Haserjian/assay/.github/workflows/assay-pr-gate.yml@refs/heads/main
+https://github.com/Haserjian/assay/.github/workflows/assay-pr-gate.yml@refs/heads/main
 ```
 
 ## Decision Rendering

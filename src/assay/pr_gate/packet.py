@@ -18,6 +18,11 @@ from assay.pr_gate.policy import (
 PACK_SCHEMA_VERSION = "assay.pr_gate.pack_manifest.v0.1"
 VERIFY_REPORT_SCHEMA_VERSION = "assay.pr_gate.verify_report.v0.1"
 SIGNATURE_PROOF_SCHEMA_VERSION = "assay.pr_gate.signature_proof.v0.1"
+DEFAULT_EXPECTED_SIGNER_IDENTITY = (
+    "https://github.com/Haserjian/assay/.github/workflows/"
+    "assay-pr-gate.yml@refs/heads/main"
+)
+DEFAULT_CERTIFICATE_OIDC_ISSUER = "https://token.actions.githubusercontent.com"
 
 PACK_FILES = (
     "pr_gate_evidence.json",
@@ -47,6 +52,8 @@ def build_pr_gate_packet(
     decision: Mapping[str, Any],
     policy_path: Path,
     out_dir: Path,
+    expected_identity: str = DEFAULT_EXPECTED_SIGNER_IDENTITY,
+    certificate_oidc_issuer: str = DEFAULT_CERTIFICATE_OIDC_ISSUER,
 ) -> Dict[str, Any]:
     """Write a PR Gate proof-pack plus Verification Report.
 
@@ -55,6 +62,10 @@ def build_pr_gate_packet(
     """
     _validate_evidence(evidence)
     _validate_decision(decision)
+    expected_identity = _string(expected_identity, "expected_identity")
+    certificate_oidc_issuer = _string(
+        certificate_oidc_issuer, "certificate_oidc_issuer"
+    )
     policy = load_policy(policy_path)
     policy_ref = _policy_ref(policy)
     _validate_policy_binding(evidence, policy)
@@ -96,6 +107,8 @@ def build_pr_gate_packet(
         manifest=manifest,
         pack_manifest_sha256=pack_manifest_sha256,
         policy_ref=policy_ref,
+        expected_identity=expected_identity,
+        certificate_oidc_issuer=certificate_oidc_issuer,
     )
     _write_json(signed_report_dir / "verify_report.json", verify_report)
 
@@ -107,6 +120,8 @@ def build_pr_gate_packet(
         "signature_status": "NOT_SIGNED",
         "reason": "PR Gate signing is deferred to the stable signer milestone.",
         "signed_artifact": "verify_report.json",
+        "expected_certificate_identity": expected_identity,
+        "certificate_oidc_issuer": certificate_oidc_issuer,
         "verify_report_sha256": verify_report_sha256,
     }
     _write_json(signed_report_dir / "verify_report.sigstore.json", signature_proof)
@@ -126,6 +141,8 @@ def build_pr_gate_packet_files(
     decision_path: Path,
     policy_path: Path,
     out_dir: Path,
+    expected_identity: str = DEFAULT_EXPECTED_SIGNER_IDENTITY,
+    certificate_oidc_issuer: str = DEFAULT_CERTIFICATE_OIDC_ISSUER,
 ) -> Dict[str, Any]:
     """Load files and write a PR Gate packet/report artifact tree."""
     return build_pr_gate_packet(
@@ -133,6 +150,8 @@ def build_pr_gate_packet_files(
         decision=_load_decision(decision_path),
         policy_path=policy_path,
         out_dir=out_dir,
+        expected_identity=expected_identity,
+        certificate_oidc_issuer=certificate_oidc_issuer,
     )
 
 
@@ -210,6 +229,8 @@ def _build_verify_report(
     manifest: Mapping[str, Any],
     pack_manifest_sha256: str,
     policy_ref: Mapping[str, str],
+    expected_identity: str,
+    certificate_oidc_issuer: str,
 ) -> Dict[str, Any]:
     channels = _mapping(decision.get("channels"), "decision.channels")
     pack_root_sha256 = _string(manifest.get("pack_root_sha256"), "pack_root_sha256")
@@ -255,7 +276,12 @@ def _build_verify_report(
             },
         ],
         "do_not_infer": list(DO_NOT_INFER),
-        "signature_status": "NOT_SIGNED",
+        "signature_policy": {
+            "scheme": "sigstore_keyless",
+            "required": True,
+            "expected_certificate_identity": expected_identity,
+            "certificate_oidc_issuer": certificate_oidc_issuer,
+        },
         "generator": {
             "name": "assay pr-gate pack",
             "version": "v0.1",
@@ -382,6 +408,8 @@ def _sha256_hex(data: bytes) -> str:
 
 __all__ = [
     "DO_NOT_INFER",
+    "DEFAULT_CERTIFICATE_OIDC_ISSUER",
+    "DEFAULT_EXPECTED_SIGNER_IDENTITY",
     "PACK_FILES",
     "PACK_SCHEMA_VERSION",
     "PacketError",

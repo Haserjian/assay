@@ -127,8 +127,20 @@ def test_build_pr_gate_packet_writes_expected_tree(tmp_path: Path) -> None:
     assert report["channels"] == _decision()["channels"]
     assert report["overall_decision"] == "NEEDS_REVIEW"
     assert report["recommended_action"] == "require_human_approval"
-    assert report["signature_status"] == "NOT_SIGNED"
+    assert report["signature_policy"] == {
+        "scheme": "sigstore_keyless",
+        "required": True,
+        "expected_certificate_identity": (
+            "https://github.com/Haserjian/assay/.github/workflows/"
+            "assay-pr-gate.yml@refs/heads/main"
+        ),
+        "certificate_oidc_issuer": "https://token.actions.githubusercontent.com",
+    }
     assert signature_proof["signature_status"] == "NOT_SIGNED"
+    assert signature_proof["expected_certificate_identity"] == (
+        "https://github.com/Haserjian/assay/.github/workflows/"
+        "assay-pr-gate.yml@refs/heads/main"
+    )
     assert signature_proof["verify_report_sha256"].startswith("sha256:")
 
 

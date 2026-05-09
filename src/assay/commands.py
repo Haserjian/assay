@@ -8333,6 +8333,17 @@ def pr_gate_pack_cmd(
     out: str = typer.Option(
         ..., "--out", help="Artifact root; creates proof-pack/ and signed-report/"
     ),
+    expected_identity: str = typer.Option(
+        "https://github.com/Haserjian/assay/.github/workflows/"
+        "assay-pr-gate.yml@refs/heads/main",
+        "--expected-identity",
+        help="Expected GitHub Actions workflow identity for PR Gate signing",
+    ),
+    certificate_oidc_issuer: str = typer.Option(
+        "https://token.actions.githubusercontent.com",
+        "--certificate-oidc-issuer",
+        help="Expected OIDC issuer for Sigstore verification",
+    ),
 ) -> None:
     """Build a PR Gate proof-pack and Verification Report."""
     from pathlib import Path as P
@@ -8346,6 +8357,8 @@ def pr_gate_pack_cmd(
             decision_path=P(decision),
             policy_path=P(policy),
             out_dir=P(out),
+            expected_identity=expected_identity,
+            certificate_oidc_issuer=certificate_oidc_issuer,
         )
     except (OSError, PacketError, PolicyEvaluationError) as exc:
         _output_json(
@@ -8366,9 +8379,87 @@ def pr_gate_pack_cmd(
             "pack_root_sha256": result["pack_manifest"]["pack_root_sha256"],
             "report_id": result["verify_report"]["report_id"],
             "signature_status": result["signature_proof"]["signature_status"],
+            "expected_identity": expected_identity,
         },
         exit_code=0,
     )
+
+
+@pr_gate_app.command("verify")
+def pr_gate_verify_cmd(
+    pack: str = typer.Option(
+        ..., "--pack", help="Path to PR Gate proof-pack directory"
+    ),
+    report: str = typer.Option(
+        ..., "--report", help="Path to signed-report/verify_report.json"
+    ),
+    sigstore: str = typer.Option(
+        ..., "--sigstore", help="Path to signed-report/verify_report.sigstore.json"
+    ),
+    expected_identity: str = typer.Option(
+        "https://github.com/Haserjian/assay/.github/workflows/"
+        "assay-pr-gate.yml@refs/heads/main",
+        "--expected-identity",
+        help="Expected GitHub Actions workflow identity for PR Gate signing",
+    ),
+    certificate_oidc_issuer: str = typer.Option(
+        "https://token.actions.githubusercontent.com",
+        "--certificate-oidc-issuer",
+        help="Expected OIDC issuer for Sigstore verification",
+    ),
+    cosign_bin: str = typer.Option(
+        "cosign", "--cosign-bin", help="cosign executable to use"
+    ),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+) -> None:
+    """Verify a PR Gate packet, Verification Report, and Signature Proof."""
+    from pathlib import Path as P
+
+    from assay.pr_gate.verify import (
+        PRGateInputError,
+        PRGateVerificationError,
+        render_verification_text,
+        verify_pr_gate_packet,
+    )
+
+    try:
+        result = verify_pr_gate_packet(
+            pack_dir=P(pack),
+            report_path=P(report),
+            sigstore_path=P(sigstore),
+            expected_identity=expected_identity,
+            certificate_oidc_issuer=certificate_oidc_issuer,
+            cosign_bin=cosign_bin,
+        )
+    except PRGateInputError as exc:
+        if output_json:
+            _output_json(
+                {
+                    "command": "assay pr-gate verify",
+                    "status": "error",
+                    "error": str(exc),
+                },
+                exit_code=3,
+            )
+        console.print(f"[red]Error:[/] {exc}")
+        raise typer.Exit(3)
+    except PRGateVerificationError as exc:
+        if output_json:
+            _output_json(
+                {
+                    "command": "assay pr-gate verify",
+                    "status": "failed",
+                    "error": str(exc),
+                },
+                exit_code=2,
+            )
+        console.print(f"[red]PR Gate verification failed:[/] {exc}")
+        raise typer.Exit(2)
+
+    if output_json:
+        _output_json(result, exit_code=0)
+    console.print(render_verification_text(result))
+    raise typer.Exit(0)
 
 
 # ---------------------------------------------------------------------------
