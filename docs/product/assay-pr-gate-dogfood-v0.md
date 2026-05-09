@@ -4,6 +4,8 @@
 
 This dogfood workflow makes PR Gate visible on real Assay pull requests.
 
+Dogfood status: first same-repo workflow validation.
+
 For same-repository pull requests targeting `main`, Assay PR Gate produces a
 signed review packet and posts a single marked PR comment. The comment is the
 review surface. The product object is the signed review decision bound to the
