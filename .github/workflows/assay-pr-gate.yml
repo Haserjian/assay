@@ -1,0 +1,132 @@
+name: Assay PR Gate
+
+on:
+  pull_request_target:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  actions: read
+  checks: read
+  issues: write
+  pull-requests: read
+  id-token: write
+
+jobs:
+  assay-pr-gate:
+    name: signed review packet
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    env:
+      ASSAY_PR_GATE_DIR: .assay/pr-gate
+      ASSAY_PR_GATE_POLICY: docs/examples/pr-gate-v0/assay-policy.yml
+      ASSAY_PR_GATE_EXPECTED_IDENTITY: https://github.com/Haserjian/assay/.github/workflows/assay-pr-gate.yml@refs/heads/main
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Check out trusted base workflow code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          fetch-depth: 0
+
+      - name: Fetch pull request head as passive git data
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin "+refs/pull/${PR_NUMBER}/head:refs/remotes/assay-pr-gate/head"
+          test "$(git rev-parse refs/remotes/assay-pr-gate/head)" = "$PR_HEAD_SHA"
+          git cat-file -e "${PR_BASE_SHA}^{commit}"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install trusted Assay checkout
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v4.0.0
+
+      - name: Capture PR evidence
+        run: |
+          set -euo pipefail
+          mkdir -p "$ASSAY_PR_GATE_DIR"
+          assay pr-gate capture \
+            --repo "$GITHUB_REPOSITORY" \
+            --pr "$PR_NUMBER" \
+            --head-sha "$PR_HEAD_SHA" \
+            --policy "$ASSAY_PR_GATE_POLICY" \
+            --out "$ASSAY_PR_GATE_DIR/evidence.json" \
+            --git-cwd .
+
+      - name: Evaluate PR Gate policy
+        run: |
+          set -euo pipefail
+          assay pr-gate evaluate \
+            --evidence "$ASSAY_PR_GATE_DIR/evidence.json" \
+            --policy "$ASSAY_PR_GATE_POLICY" \
+            --out "$ASSAY_PR_GATE_DIR/decision.json"
+
+      - name: Build PR Gate packet
+        run: |
+          set -euo pipefail
+          assay pr-gate pack \
+            --evidence "$ASSAY_PR_GATE_DIR/evidence.json" \
+            --decision "$ASSAY_PR_GATE_DIR/decision.json" \
+            --policy "$ASSAY_PR_GATE_POLICY" \
+            --out "$ASSAY_PR_GATE_DIR" \
+            --expected-identity "$ASSAY_PR_GATE_EXPECTED_IDENTITY"
+
+      - name: Sign Verification Report
+        run: |
+          set -euo pipefail
+          rm -f "$ASSAY_PR_GATE_DIR/signed-report/verify_report.sigstore.json"
+          cosign sign-blob \
+            --yes \
+            --bundle "$ASSAY_PR_GATE_DIR/signed-report/verify_report.sigstore.json" \
+            "$ASSAY_PR_GATE_DIR/signed-report/verify_report.json"
+
+      - name: Verify signed PR Gate packet
+        run: |
+          set -euo pipefail
+          assay pr-gate verify \
+            --pack "$ASSAY_PR_GATE_DIR/proof-pack" \
+            --report "$ASSAY_PR_GATE_DIR/signed-report/verify_report.json" \
+            --sigstore "$ASSAY_PR_GATE_DIR/signed-report/verify_report.sigstore.json" \
+            --expected-identity "$ASSAY_PR_GATE_EXPECTED_IDENTITY"
+
+      - name: Render PR comment
+        run: |
+          set -euo pipefail
+          assay pr-gate render-comment \
+            --report "$ASSAY_PR_GATE_DIR/signed-report/verify_report.json" \
+            --pack "$ASSAY_PR_GATE_DIR/proof-pack/pack_manifest.json" \
+            --out "$ASSAY_PR_GATE_DIR/comment.md"
+          {
+            echo
+            echo "Artifact:"
+            echo "- assay-pr-gate-report"
+          } >> "$ASSAY_PR_GATE_DIR/comment.md"
+
+      - name: Upload PR Gate artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: assay-pr-gate-report
+          path: ${{ env.ASSAY_PR_GATE_DIR }}
+          if-no-files-found: error
+
+      - name: Upsert PR comment
+        run: |
+          set -euo pipefail
+          assay pr-gate upsert-comment \
+            --repo "$GITHUB_REPOSITORY" \
+            --pr "$PR_NUMBER" \
+            --body "$ASSAY_PR_GATE_DIR/comment.md"

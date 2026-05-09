@@ -8509,6 +8509,67 @@ def pr_gate_render_comment_cmd(
     )
 
 
+@pr_gate_app.command("upsert-comment")
+def pr_gate_upsert_comment_cmd(
+    body: str = typer.Option(
+        ..., "--body", help="Path to rendered PR Gate comment Markdown"
+    ),
+    repo: Optional[str] = typer.Option(
+        None, "--repo", help="GitHub repository in owner/name form"
+    ),
+    pr: Optional[int] = typer.Option(
+        None, "--pr", help="Pull request number"
+    ),
+    github_api_url: Optional[str] = typer.Option(
+        None, "--github-api-url", help="GitHub API base URL"
+    ),
+) -> None:
+    """Create or update the marked PR Gate pull request comment."""
+    from pathlib import Path as P
+
+    from assay.pr_gate.comment_upsert import (
+        CommentUpsertError,
+        upsert_pr_gate_comment_file,
+    )
+    from assay.pr_gate.github_capture import CaptureError, resolve_pr_number
+
+    try:
+        repo_value = repo or os.environ.get("GITHUB_REPOSITORY")
+        if not repo_value:
+            raise CommentUpsertError("--repo is required outside GitHub Actions")
+        pr_value = pr if pr is not None else resolve_pr_number(os.environ)
+        if pr_value is None:
+            raise CommentUpsertError("--pr is required outside a pull_request event")
+        token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+        if not token:
+            raise CommentUpsertError("GITHUB_TOKEN or GH_TOKEN is required")
+        result = upsert_pr_gate_comment_file(
+            repo=repo_value,
+            pr_number=pr_value,
+            body_path=P(body),
+            token=token,
+            api_url=github_api_url or os.environ.get("GITHUB_API_URL") or None,
+        )
+    except (OSError, CaptureError, CommentUpsertError) as exc:
+        _output_json(
+            {
+                "command": "assay pr-gate upsert-comment",
+                "status": "error",
+                "error": str(exc),
+            },
+            exit_code=3,
+        )
+
+    _output_json(
+        {
+            "command": "assay pr-gate upsert-comment",
+            "status": "ok",
+            **result,
+        },
+        exit_code=0,
+    )
+
+
 # ---------------------------------------------------------------------------
 # gate subcommands
 # ---------------------------------------------------------------------------
