@@ -8462,6 +8462,53 @@ def pr_gate_verify_cmd(
     raise typer.Exit(0)
 
 
+@pr_gate_app.command("render-comment")
+def pr_gate_render_comment_cmd(
+    report: str = typer.Option(
+        ..., "--report", help="Path to signed-report/verify_report.json"
+    ),
+    pack: str = typer.Option(
+        ..., "--pack", help="Path to proof-pack/pack_manifest.json"
+    ),
+    out: str = typer.Option(
+        ..., "--out", help="Write rendered PR comment Markdown to this path"
+    ),
+) -> None:
+    """Render a PR Gate pull request comment."""
+    from pathlib import Path as P
+
+    from assay.pr_gate.render_comment import (
+        CommentRenderError,
+        render_pr_gate_comment_files,
+    )
+
+    try:
+        comment = render_pr_gate_comment_files(
+            report_path=P(report),
+            pack_manifest_path=P(pack),
+            out_path=P(out),
+        )
+    except (OSError, CommentRenderError) as exc:
+        _output_json(
+            {
+                "command": "assay pr-gate render-comment",
+                "status": "error",
+                "error": str(exc),
+            },
+            exit_code=3,
+        )
+
+    _output_json(
+        {
+            "command": "assay pr-gate render-comment",
+            "status": "ok",
+            "out": out,
+            "bytes": len(comment.encode("utf-8")),
+        },
+        exit_code=0,
+    )
+
+
 # ---------------------------------------------------------------------------
 # gate subcommands
 # ---------------------------------------------------------------------------

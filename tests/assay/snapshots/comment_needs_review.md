@@ -1,0 +1,31 @@
+Assay PR Gate: NEEDS_REVIEW
+
+Recommended action: require_human_approval
+Reason: touched risk path auth/**
+
+Subject:
+- repo: Haserjian/assay
+- PR: #123
+- head commit: head-needs-review
+- diff hash: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+
+Verdict channels:
+- Integrity: PASS
+- Claim: PASS - observed check "tests" concluded success for commit head-needs-review
+- Replay: NOT_RUN
+- Trust policy: NEEDS_REVIEW - touched auth/session.py
+
+Evidence:
+- Evidence Box: proof-pack/pack_manifest.json
+- Verification Report: signed-report/verify_report.json
+- Signature Proof: signed-report/verify_report.sigstore.json
+
+Do not infer:
+- code is secure
+- all possible tests passed
+- AI made a good design decision
+- replay was performed
+- production approval was granted
+
+Signed by expected workflow:
+https://github.com/Haserjian/assay/.github/workflows/assay-pr-gate.yml@refs/heads/main
