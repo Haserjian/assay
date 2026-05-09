@@ -1,21 +1,149 @@
 # Assay
 
-**Receipts for agent work.**
+Assay makes reliance reviewable.
 
-Assay records selected agent/runtime actions as structured evidence: what was
-claimed, what checked it, and what receipt was produced. For audits,
-regulated sales, and incidents, those receipts can be packaged into signed
-proof packs another team can verify offline.
+It turns AI and software claims into signed review packets showing what passed,
+failed, was missing, and what should not be inferred.
+
+Assay does not prove truth.
 
 ![assay demo-challenge](demo.gif)
 
-One byte changed. Verification fails. No server call. Just math.
+## Why This Exists
 
-Receipts are forwardable, offline-verifiable, and tamper-evident.
+AI and software teams make claims constantly: this pull request is ready to
+review, this workflow produced this artifact, this eval passed, this agent only
+changed intended files, this evidence supports this answer. Reviewers need more
+than screenshots, internal logs, and confident summaries. They need a packet
+they can inspect, verify, forward, and challenge.
 
-Not blockchain. Not cryptocurrency. Just signed, inspectable AI evidence.
+Assay packages claims, evidence, verification results, caveats, and signatures
+into portable artifacts. The goal is review compression: make the important
+facts and limits visible at the review moment.
 
-### Install
+Not blockchain. Not cryptocurrency. Not a magic trust badge. Signed,
+inspectable evidence for consequential AI and software work.
+
+## What Works Today
+
+| Layer | Meaning |
+|---|---|
+| Receipt | Evidence that an event, action, check, or observation happened. |
+| Proof Pack | Portable evidence bundle with receipts, hashes, manifests, and verification material. |
+| PR Gate Review Packet | Signed review decision for a pull request, including evidence, verdict channels, caveats, policy context, and verification material. |
+
+The current product surface is software and AI review packets. Unlike ordinary
+CI status or provenance attestations, Assay packets carry verdict channels,
+explicit non-claims, policy context, and a path for later challenge.
+
+## What Works Today: Assay PR Gate
+
+Assay PR Gate produces signed review decisions for pull requests.
+
+For same-repository pull requests, the dogfood workflow captures PR evidence,
+evaluates policy, generates a proof pack, signs a Verification Report, verifies
+the signed packet, uploads an artifact, and posts or updates a PR comment.
+
+```text
+capture -> evaluate -> pack -> sign -> verify -> render comment
+```
+
+The signed review decision is the product object. The PR comment is the review
+surface where humans see it.
+
+See:
+
+- [Assay PR Gate dogfood](docs/product/assay-pr-gate-dogfood-v0.md)
+- [PR Gate comment contract](docs/product/assay-pr-gate-comment-v0.md)
+- [PR Gate policy profile](docs/product/assay-pr-gate-policy-v0.md)
+- [PR Gate trust root](docs/adr/ADR-pr-gate-trust-root.md)
+
+## Evidence Sprint
+
+Assay can also be used as a fixed-scope Evidence Sprint: in two weeks, we turn
+one AI/software claim set into a reviewer-ready evidence packet with verifiable
+artifacts, explicit caveats, and a repeatable verification path.
+
+See [Evidence Sprint](docs/evidence-sprint-one-pager.md).
+
+## What A Review Packet Contains
+
+A review packet should make these fields explicit:
+
+- Claim
+- Consequence if accepted
+- Evidence included
+- Checks run
+- Verdict channels
+- Missing or not evaluated
+- Policy or trust basis
+- Non-claims
+- How to verify
+- How to challenge
+
+For PR Gate, the first bounded claim is intentionally narrow: an observed check
+or command had a specific result for a specific commit. Do not read that as
+"the code is safe" or "all relevant tests passed" unless a packet explicitly
+evaluates those claims.
+
+## What Assay Can Say
+
+Assay can say:
+
+- this packet's files match its manifest;
+- this Verification Report points to this packet;
+- the expected workflow signed the judgment;
+- this policy decision was computed from captured evidence;
+- this specific check passed, failed, or was missing for this commit;
+- specific verdict channels passed, failed, were not run, or were not evaluated.
+
+## What Assay Does Not Say
+
+Do not infer:
+
+- global truth;
+- legal compliance;
+- production approval;
+- safety in all contexts;
+- full claim correctness unless the report says that channel was evaluated;
+- upstream data authenticity beyond the evidence included in the packet.
+
+This distinction is the point. Assay preserves honest failure and explicit
+non-claims instead of turning every packet into a vague green badge.
+
+## What Comes Next
+
+- Counter-Packets: small challenge artifacts against a packet, starting with
+  missing evidence, stale policy, signer trust, replay divergence, overbroad
+  claim, or contradictory evidence.
+- Claim Admission Packets: higher-order packets for deciding whether a claim
+  can be relied on under a policy.
+
+## Try It
+
+Best first run:
+
+```bash
+assay demo-challenge
+```
+
+Other entry points:
+
+- [Verification Gate sample](docs/examples/verification-gate-v0/START-HERE.md) - verify a signed Assay evidence pack and see what did not run.
+- [Browser proof-pack verifier](https://haserjian.github.io/assay-proof-gallery/verify.html) - no install, no account.
+- [Verify an Assay PR Verification Report](docs/verify-report-runbook.md) - runbook for signed PR verification artifacts.
+- MCP demo: `assay try-mcp` - MCP tool calls with signed receipts.
+
+## Roadmap
+
+Near-term work:
+
+- PR Gate polish: direct artifact links, repository-specific check tuning, and local verification runbooks.
+- Evidence Sprint packet templates.
+- Counter-Packet v0: a small file-based challenge artifact, not a dispute platform.
+- Fork-safe PR Gate mode.
+
+## Install
 
 ```bash
 pipx install assay-ai
@@ -25,28 +153,7 @@ To update later: `pipx upgrade assay-ai`
 
 _(No pipx? `python3 -m pip install assay-ai` also works, or `brew install pipx && pipx install assay-ai`)_
 
-### Start here
-
-**Best first run:**
-
-```bash
-assay demo-challenge
-```
-
-**Or choose another path:**
-
-- **[Verify a proof pack in your browser](https://haserjian.github.io/assay-proof-gallery/verify.html)** — no install, no account
-- **[See the Article 11 / Annex IV working map](https://github.com/Haserjian/assay-protocol/blob/main/ARTICLE11_ANNEXIV_MAPPING.md)** — where proof packs help in a technical documentation packet
-- **MCP demo:** `assay try-mcp` — MCP tool calls with signed receipts (30 seconds)
-- **[See the before/after specimen](https://github.com/Haserjian/assay-proof-gallery/tree/main/gallery/07-contested-decision)** — contested decision, reconstruction vs verification
-
-Those receipts can be packaged into signed proof packs another team can
-verify offline.
-It makes tampering visible and preserves honest failure.
-
----
-
-### Exit codes
+## Exit Codes
 
 | Exit | State | Meaning |
 |------|-------|---------|
@@ -56,15 +163,9 @@ It makes tampering visible and preserves honest failure.
 
 A signed failure is stronger evidence than a vague pass.
 
-### Why it matters
+## What A Proof Pack Contains
 
-- **Tamper detection** — every byte of evidence is fingerprinted and signed; post-run edits are visible
-- **Honest failure retention** — a failed run stays failed; evidence cannot be quietly upgraded to a pass
-- **Offline verification** — another team verifies without calling your server or trusting your logs
-
-### What a proof pack contains
-
-```
+```text
 proof_pack/
   receipt_pack.jsonl      # One receipt per tool call, model invocation, or policy check
   pack_manifest.json      # SHA-256 hashes of every file + Ed25519 signature
@@ -89,13 +190,9 @@ passed for the declared `evaluation_profile`. Optional channels may still be
 `NOT_EVALUATED` or `NOT_RUN`; the report lists them in
 `unevaluated_channels` and explains the collapse in `overall_reason`.
 
-Doctrine: **pack root proves the evidence object; ledger index proves
-accepted/citable position; scorecard explains interpretation.**
+## More Commands
 
-To verify a signed PR verification artifact, see
-[Verify an Assay PR Verification Report](docs/verify-report-runbook.md).
-
-### Try more
+Try more:
 
 ```bash
 assay try                  # General proof pack demo (15 seconds)
@@ -103,7 +200,7 @@ assay demo-challenge       # Good pack + tampered pack side by side
 assay start                # Guided setup for your project
 ```
 
-### Golden path
+Golden path:
 
 ```bash
 assay scan . --report      # Find uninstrumented LLM call sites

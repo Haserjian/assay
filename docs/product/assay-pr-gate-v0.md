@@ -1,13 +1,36 @@
-# Assay PR Gate v0.1 Plan
+# Assay PR Gate v0.1 Product Contract
 
 Assay PR Gate produces a signed review decision for pull requests, binding
 evidence, policy, verdict channels, caveats, and recommended action to a
 specific commit.
 
-This is a product planning note. It does not claim that PR Gate is implemented
-today. The current implemented base is Verification Gate v0: evidence pack,
-Verification Report, Sigstore Signature Proof, verdict channels, and
-conservative scope language.
+## Current Status
+
+PR Gate is implemented for the same-repository dogfood path.
+
+Implemented:
+
+- local PR Gate pipeline: capture -> evaluate -> pack -> verify -> render
+  comment
+- same-repository GitHub dogfood workflow
+- stable expected signing identity:
+  `https://github.com/Haserjian/assay/.github/workflows/assay-pr-gate.yml@refs/heads/main`
+- signed Verification Report verification
+- uploaded `assay-pr-gate-report` artifact
+- PR comment upsert with stable `<!-- assay-pr-gate:v0 -->` marker
+
+Dogfood evidence:
+
+- PR `#134` produced a signed packet, uploaded artifact, local verification,
+  and PR comment.
+- PR `#136` also exercised the signed review packet workflow successfully.
+
+Still bounded:
+
+- fork-safe two-lane mode remains future work
+- required-check naming and timing remain polish
+- PR Gate does not prove code security, production approval, full claim
+  correctness, or replay
 
 ## Product Thesis
 
