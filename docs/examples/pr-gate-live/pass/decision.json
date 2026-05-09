@@ -1,0 +1,12 @@
+{
+  "overall_decision": "PASS",
+  "recommended_action": "proceed",
+  "reasons": [],
+  "check_observations": [],
+  "channels": {
+    "integrity": "PASS",
+    "claim": "NOT_EVALUATED",
+    "replay": "NOT_RUN",
+    "trust_policy": "PASS"
+  }
+}

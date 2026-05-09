@@ -1,0 +1,154 @@
+{
+  "capture": {
+    "actor": "Haserjian",
+    "event_name": "pull_request_target",
+    "github_sha": "be09e956faab54eb753545552430abbfad3e9565",
+    "provider": "github_actions",
+    "run_attempt": "1",
+    "run_id": "25590987473",
+    "workflow_ref": "Haserjian/assay/.github/workflows/assay-pr-gate.yml@refs/heads/main",
+    "workflow_sha": "be09e956faab54eb753545552430abbfad3e9565"
+  },
+  "changed_files": [
+    {
+      "path": "README.md",
+      "sha256_after": "sha256:8bfc27a58b70e79cd7c71f104cd588f4cebf6be2e77a9225341c310a2f58d6a4",
+      "status": "modified"
+    }
+  ],
+  "observed_checks": [
+    {
+      "conclusion": null,
+      "head_sha": "8d47f927084f74ed119308b8b8b5ba4d15093a40",
+      "name": "Agent",
+      "observed_at": "2026-05-09T03:53:32Z",
+      "provider": "github_checks",
+      "status": "in_progress"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "8d47f927084f74ed119308b8b8b5ba4d15093a40",
+      "name": "Prepare",
+      "observed_at": "2026-05-09T03:53:30Z",
+      "provider": "github_checks",
+      "status": "completed"
+    },
+    {
+      "conclusion": null,
+      "head_sha": "8d47f927084f74ed119308b8b8b5ba4d15093a40",
+      "name": "assay-gate",
+      "observed_at": "2026-05-09T03:53:29Z",
+      "provider": "github_checks",
+      "status": "in_progress"
+    },
+    {
+      "conclusion": null,
+      "head_sha": "8d47f927084f74ed119308b8b8b5ba4d15093a40",
+      "name": "assay-verify",
+      "observed_at": "2026-05-09T03:53:23Z",
+      "provider": "github_checks",
+      "status": "in_progress"
+    },
+    {
+      "conclusion": null,
+      "head_sha": "8d47f927084f74ed119308b8b8b5ba4d15093a40",
+      "name": "cli-smoke (macos-latest)",
+      "observed_at": "2026-05-09T03:53:24Z",
+      "provider": "github_checks",
+      "status": "in_progress"
+    },
+    {
+      "conclusion": null,
+      "head_sha": "8d47f927084f74ed119308b8b8b5ba4d15093a40",
+      "name": "cli-smoke (ubuntu-latest)",
+      "observed_at": "2026-05-09T03:53:29Z",
+      "provider": "github_checks",
+      "status": "in_progress"
+    },
+    {
+      "conclusion": null,
+      "head_sha": "8d47f927084f74ed119308b8b8b5ba4d15093a40",
+      "name": "cli-smoke (windows-latest)",
+      "observed_at": "2026-05-09T03:53:23Z",
+      "provider": "github_checks",
+      "status": "in_progress"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "8d47f927084f74ed119308b8b8b5ba4d15093a40",
+      "name": "lineage",
+      "observed_at": "2026-05-09T03:53:29Z",
+      "provider": "github_checks",
+      "status": "completed"
+    },
+    {
+      "conclusion": null,
+      "head_sha": "8d47f927084f74ed119308b8b8b5ba4d15093a40",
+      "name": "qa-contract",
+      "observed_at": "2026-05-09T03:53:29Z",
+      "provider": "github_checks",
+      "status": "in_progress"
+    },
+    {
+      "conclusion": null,
+      "head_sha": "8d47f927084f74ed119308b8b8b5ba4d15093a40",
+      "name": "receipt",
+      "observed_at": "2026-05-09T03:53:14Z",
+      "provider": "github_checks",
+      "status": "in_progress"
+    },
+    {
+      "conclusion": null,
+      "head_sha": "8d47f927084f74ed119308b8b8b5ba4d15093a40",
+      "name": "receipt",
+      "observed_at": "2026-05-09T03:53:23Z",
+      "provider": "github_checks",
+      "status": "in_progress"
+    },
+    {
+      "conclusion": null,
+      "head_sha": "8d47f927084f74ed119308b8b8b5ba4d15093a40",
+      "name": "referee-loop",
+      "observed_at": "2026-05-09T03:53:23Z",
+      "provider": "github_checks",
+      "status": "in_progress"
+    },
+    {
+      "conclusion": null,
+      "head_sha": "8d47f927084f74ed119308b8b8b5ba4d15093a40",
+      "name": "reviewer-census",
+      "observed_at": "2026-05-09T03:53:23Z",
+      "provider": "github_checks",
+      "status": "in_progress"
+    },
+    {
+      "conclusion": null,
+      "head_sha": "8d47f927084f74ed119308b8b8b5ba4d15093a40",
+      "name": "shared-corpus-parity",
+      "observed_at": "2026-05-09T03:53:23Z",
+      "provider": "github_checks",
+      "status": "in_progress"
+    },
+    {
+      "conclusion": null,
+      "head_sha": "8d47f927084f74ed119308b8b8b5ba4d15093a40",
+      "name": "signed review packet",
+      "observed_at": "2026-05-09T03:53:23Z",
+      "provider": "github_checks",
+      "status": "in_progress"
+    }
+  ],
+  "policy": {
+    "policy_sha256": "sha256:f4c3d96a81252fe1c2c96127218b2e3c3828c7acc44f4b8e4a6f1d49459087c5",
+    "profile": "coding_pr_v0"
+  },
+  "schema_version": "assay.pr_gate.evidence.v0.1",
+  "subject": {
+    "base_sha": "be09e956faab54eb753545552430abbfad3e9565",
+    "diff_sha256": "sha256:815e8c88c742db6e5f739b859aa1dc6d53851dd12a631b2af961236ded8bf7d9",
+    "diff_source": "git diff --binary --full-index <base_sha> <head_sha>",
+    "head_sha": "8d47f927084f74ed119308b8b8b5ba4d15093a40",
+    "pr_number": 139,
+    "repo": "Haserjian/assay"
+  }
+}

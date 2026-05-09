@@ -1,0 +1,79 @@
+{
+  "capture": {
+    "actor": "Haserjian",
+    "event_name": "pull_request_target",
+    "github_sha": "be09e956faab54eb753545552430abbfad3e9565",
+    "provider": "github_actions",
+    "run_attempt": "1",
+    "run_id": "25590313283",
+    "workflow_ref": "Haserjian/assay/.github/workflows/assay-pr-gate.yml@refs/heads/main",
+    "workflow_sha": "be09e956faab54eb753545552430abbfad3e9565"
+  },
+  "channels": {
+    "claim": "NOT_EVALUATED",
+    "integrity": "PASS",
+    "replay": "NOT_RUN",
+    "trust_policy": "NEEDS_REVIEW"
+  },
+  "check_observations": [],
+  "do_not_infer": [
+    "code is secure",
+    "all possible tests passed",
+    "AI made a good design decision",
+    "replay was performed",
+    "production approval was granted"
+  ],
+  "evidence_refs": [
+    {
+      "kind": "Evidence Box",
+      "path": "proof-pack/pack_manifest.json",
+      "sha256": "sha256:dbc9ebf354941e3d5a386045ee513de8015b44072e3f7467bd2d6471ab868337"
+    },
+    {
+      "kind": "Verification Report",
+      "path": "signed-report/verify_report.json",
+      "sha256": null
+    },
+    {
+      "kind": "Signature Proof",
+      "path": "signed-report/verify_report.sigstore.json",
+      "sha256": null
+    }
+  ],
+  "generator": {
+    "name": "assay pr-gate pack",
+    "version": "v0.1"
+  },
+  "overall_decision": "NEEDS_REVIEW",
+  "pack_id": "prgate_pack_a2032f7ab331ccb6",
+  "pack_manifest_sha256": "sha256:dbc9ebf354941e3d5a386045ee513de8015b44072e3f7467bd2d6471ab868337",
+  "pack_root_sha256": "sha256:20dcb61c3c0c28793f89d0e1ea674e43ef0698eef1c4a4fc7735d9f55032e7d0",
+  "policy": {
+    "policy_sha256": "sha256:f4c3d96a81252fe1c2c96127218b2e3c3828c7acc44f4b8e4a6f1d49459087c5",
+    "profile": "coding_pr_v0"
+  },
+  "reasons": [
+    {
+      "matched_pattern": "docs/product/assay-pr-gate-*.md",
+      "path": "docs/product/assay-pr-gate-dogfood-v0.md",
+      "rule": "risk_path_touched"
+    }
+  ],
+  "recommended_action": "require_human_approval",
+  "report_id": "vr_548e1440a94adeb509cc",
+  "schema_version": "assay.pr_gate.verify_report.v0.1",
+  "signature_policy": {
+    "certificate_oidc_issuer": "https://token.actions.githubusercontent.com",
+    "expected_certificate_identity": "https://github.com/Haserjian/assay/.github/workflows/assay-pr-gate.yml@refs/heads/main",
+    "required": true,
+    "scheme": "sigstore_keyless"
+  },
+  "subject": {
+    "base_sha": "be09e956faab54eb753545552430abbfad3e9565",
+    "diff_sha256": "sha256:8638a7f053588b12d63ca82a9abf0485d69dd041096005cf269bed60c5426bf1",
+    "diff_source": "git diff --binary --full-index <base_sha> <head_sha>",
+    "head_sha": "330f90c1e2616f4937c778bae3f6f197e1fdfa7d",
+    "pr_number": 138,
+    "repo": "Haserjian/assay"
+  }
+}

@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Assay - Build Evidence for What Your AI Did</title>
-<meta name="description" content="Accountable execution for AI systems. Create signed evidence a reviewer can verify offline. Cheap edits stop working.">
+<title>Assay - Make Reliance Reviewable</title>
+<meta name="description" content="Signed review packets for AI and software claims: what passed, what failed, what was missing, and what should not be inferred.">
 <style>
   :root {
     --bg: #0d1117;
@@ -688,6 +688,7 @@
     <button class="hamburger" onclick="this.nextElementSibling.classList.toggle('open')" aria-label="Menu">&#9776;</button>
     <div class="links">
       <a href="evidence-readiness.html">Evidence Readiness</a>
+      <a href="#pr-gate">PR Gate</a>
       <a href="#how-it-works">How It Works</a>
       <a href="#completeness">Coverage</a>
       <a href="#gap-map">Gap Map</a>
@@ -708,21 +709,22 @@
 
 <section class="hero">
   <div class="container">
-    <p style="color: var(--text2); font-size: 14px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 16px;">Accountable execution for AI systems</p>
-    <h1>Build evidence for what your AI did.</h1>
+    <p style="color: var(--text2); font-size: 14px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 16px;">Signed review packets for consequential claims</p>
+    <h1>Assay makes reliance reviewable.</h1>
     <p class="subtitle">
-      Create signed evidence a reviewer can verify offline.
-      When proof is missing, the system fails honestly instead of pretending green.
+      Signed review packets for AI and software claims: what passed, what failed,
+      what was missing, and what should not be inferred.
     </p>
     <p style="color: var(--accent); font-size: 16px; font-weight: 600; margin-bottom: 28px;">
-      Cheap edits stop working.
+      When proof is missing, Assay fails honestly instead of pretending green.
     </p>
     <div class="install" onclick="copyInstall(this)">
-      <span class="dollar">$ </span>pip install assay-ai && assay try
+      <span class="dollar">$ </span>uvx --from assay-ai assay demo-challenge
       <span class="copied" id="copied">Copied!</span>
     </div>
     <p style="color: var(--text2); font-size: 13px; margin-top: 12px;">
-      Requires Python 3.9+. No API key needed. ~10s install. Uses synthetic data. If bare pip is not on PATH on macOS, use python3 -m pip.
+      Requires Python 3.9+. No API key needed. Uses synthetic data. Already installed?
+      Run <code>assay demo-challenge</code>.
     </p>
   </div>
 </section>
@@ -779,6 +781,67 @@
     </p>
   </div>
 </div>
+
+<section class="try-section" id="pr-gate">
+  <div class="container">
+    <h2>Assay PR Gate: two real review decisions</h2>
+    <p class="section-sub">
+      When a pull request opens, Assay produces a signed review decision the
+      reviewer can inspect, verify, forward, and challenge. These are real
+      Assay pull requests with durable artifact copies.
+    </p>
+
+    <div class="try-grid">
+      <div class="try-card">
+        <h3>Green CI, human review required</h3>
+        <p>
+          PR #138 touched PR Gate product-contract docs. CI passed, but policy
+          marked the risk path and returned <strong>NEEDS_REVIEW</strong>.
+        </p>
+        <pre><span class="cmd">Decision: NEEDS_REVIEW
+Action: require_human_approval
+Trust policy: touched docs/product/assay-pr-gate-dogfood-v0.md</span></pre>
+        <p style="font-size:12px; color:var(--text2); margin-top:8px; margin-bottom:0;">
+          <a href="https://github.com/Haserjian/assay/pull/138" target="_blank" style="color: var(--accent);">View PR #138</a>
+          &middot;
+          <a href="examples/pr-gate-live/needs-review/comment.md" style="color: var(--accent);">comment</a>
+          &middot;
+          <a href="examples/pr-gate-live/needs-review/signed-report/verify_report.json" style="color: var(--accent);">signed report</a>
+          &middot;
+          <a href="examples/pr-gate-live/needs-review/signed-report/verify_report.sigstore.json" style="color: var(--accent);">sigstore bundle</a>
+          &middot;
+          <a href="examples/pr-gate-live/needs-review/proof-pack/pack_manifest.json" style="color: var(--accent);">proof pack</a>
+        </p>
+      </div>
+      <div class="try-card">
+        <h3>Low-risk change, gate gets out of the way</h3>
+        <p>
+          PR #139 changed README install guidance. It did not touch a dogfood
+          risk path, so Assay returned <strong>PASS</strong>.
+        </p>
+        <pre><span class="cmd">Decision: PASS
+Action: proceed
+Trust policy: PASS</span></pre>
+        <p style="font-size:12px; color:var(--text2); margin-top:8px; margin-bottom:0;">
+          <a href="https://github.com/Haserjian/assay/pull/139" target="_blank" style="color: var(--accent);">View PR #139</a>
+          &middot;
+          <a href="examples/pr-gate-live/pass/comment.md" style="color: var(--accent);">comment</a>
+          &middot;
+          <a href="examples/pr-gate-live/pass/signed-report/verify_report.json" style="color: var(--accent);">signed report</a>
+          &middot;
+          <a href="examples/pr-gate-live/pass/signed-report/verify_report.sigstore.json" style="color: var(--accent);">sigstore bundle</a>
+          &middot;
+          <a href="examples/pr-gate-live/pass/proof-pack/pack_manifest.json" style="color: var(--accent);">proof pack</a>
+        </p>
+      </div>
+    </div>
+    <p style="color: var(--text2); font-size: 14px; margin-top: 16px;">
+      The comment is the review surface. The signed report and proof pack are
+      the load-bearing objects. Both examples verify against the stable workflow
+      identity in <code>.github/workflows/assay-pr-gate.yml@refs/heads/main</code>.
+    </p>
+  </div>
+</section>
 
 <section class="threat-section">
   <div class="container">
@@ -1050,15 +1113,14 @@
         <h3>See an honest failure</h3>
         <p>Two-act scenario: a passing run, then someone swaps the model and drops the guardian.</p>
         <pre><span class="comment"># Act 1: PASS (exit 0). Act 2: honest FAIL (exit 1).</span>
-<span class="cmd">python3 -m pip install assay-ai
-assay demo-incident</span></pre>
+<span class="cmd">uvx --from assay-ai assay demo-incident</span></pre>
         <p style="font-size:12px; color:var(--text2); margin-top:8px; margin-bottom:0;">You'll see: same system, different behavior, caught by the same contract.</p>
       </div>
       <div class="try-card">
         <h3>Spot the tampered pack</h3>
         <p>CTF-style challenge. One pack is legit, one has been tampered with. Can you tell which?</p>
         <pre><span class="comment"># Good pack vs tampered pack</span>
-<span class="cmd">assay demo-challenge</span></pre>
+<span class="cmd">uvx --from assay-ai assay demo-challenge</span></pre>
         <p style="font-size:12px; color:var(--text2); margin-top:8px; margin-bottom:0;">You'll see: one pack exits 0, the other exits 2 (tampered). Inline verification shows which bytes changed.</p>
       </div>
       <div class="try-card">
@@ -1358,10 +1420,10 @@ assay verify-signer ./proof_pack_*/</span></pre>
 
 <section class="cta-section">
   <div class="container">
-    <h2>Ready to make your AI auditable?</h2>
-    <p>Open source. Apache-2.0. Works with OpenAI, Anthropic, Google Gemini, LiteLLM, and LangChain today.</p>
+    <h2>Ready to make reliance reviewable?</h2>
+    <p>Open source. Apache-2.0. Signed review packets and proof packs for AI and software claims.</p>
     <div class="install" onclick="copyScan(this)" style="margin-bottom: 28px;">
-      <span class="dollar">$ </span>pip install assay-ai && assay try
+      <span class="dollar">$ </span>uvx --from assay-ai assay demo-challenge
       <span class="copied">Copied!</span>
     </div>
     <div class="cta-buttons">
@@ -1477,14 +1539,14 @@ function filterGapTable() {
 }
 
 function copyInstall(el) {
-  navigator.clipboard.writeText('pip install assay-ai && assay try');
+  navigator.clipboard.writeText('uvx --from assay-ai assay demo-challenge');
   const tip = el.querySelector('.copied');
   tip.classList.add('show');
   setTimeout(() => tip.classList.remove('show'), 1500);
 }
 
 function copyScan(el) {
-  navigator.clipboard.writeText('pip install assay-ai && assay try');
+  navigator.clipboard.writeText('uvx --from assay-ai assay demo-challenge');
   const tip = el.querySelector('.copied');
   tip.classList.add('show');
   setTimeout(() => tip.classList.remove('show'), 1500);

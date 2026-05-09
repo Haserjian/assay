@@ -1,0 +1,18 @@
+{
+  "overall_decision": "NEEDS_REVIEW",
+  "recommended_action": "require_human_approval",
+  "reasons": [
+    {
+      "rule": "risk_path_touched",
+      "path": "docs/product/assay-pr-gate-dogfood-v0.md",
+      "matched_pattern": "docs/product/assay-pr-gate-*.md"
+    }
+  ],
+  "check_observations": [],
+  "channels": {
+    "integrity": "PASS",
+    "claim": "NOT_EVALUATED",
+    "replay": "NOT_RUN",
+    "trust_policy": "NEEDS_REVIEW"
+  }
+}
