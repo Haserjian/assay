@@ -173,7 +173,10 @@ def test_render_comment_missing_required_check_does_not_quote_unrelated_check(
 
     comment = _render_case(tmp_path, evidence)
 
-    assert 'Claim: NOT_EVALUATED - required check "tests" was not observed' in comment
+    assert (
+        'Claim: NOT_EVALUATED - required check "tests" was not observed; '
+        'observed checks used other names: "Prepare"'
+    ) in comment
     assert 'observed check "Prepare"' not in comment
 
 

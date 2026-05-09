@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ASSAY_PR_GATE_DIR: .assay/pr-gate
-      ASSAY_PR_GATE_POLICY: docs/examples/pr-gate-v0/assay-policy.yml
+      ASSAY_PR_GATE_POLICY: docs/examples/pr-gate-v0/assay-dogfood-policy.yml
       ASSAY_PR_GATE_EXPECTED_IDENTITY: https://github.com/Haserjian/assay/.github/workflows/assay-pr-gate.yml@refs/heads/main
       PR_NUMBER: ${{ github.event.pull_request.number }}
       PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
@@ -110,18 +110,26 @@ jobs:
             --report "$ASSAY_PR_GATE_DIR/signed-report/verify_report.json" \
             --pack "$ASSAY_PR_GATE_DIR/proof-pack/pack_manifest.json" \
             --out "$ASSAY_PR_GATE_DIR/comment.md"
-          {
-            echo
-            echo "Artifact:"
-            echo "- assay-pr-gate-report"
-          } >> "$ASSAY_PR_GATE_DIR/comment.md"
 
       - name: Upload PR Gate artifacts
+        id: upload-pr-gate-artifacts
         uses: actions/upload-artifact@v4
         with:
           name: assay-pr-gate-report
           path: ${{ env.ASSAY_PR_GATE_DIR }}
           if-no-files-found: error
+
+      - name: Add PR Gate links to comment
+        run: |
+          set -euo pipefail
+          {
+            echo
+            echo "Workflow run:"
+            echo "- https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo
+            echo "Artifact:"
+            echo "- [assay-pr-gate-report](${{ steps.upload-pr-gate-artifacts.outputs.artifact-url }})"
+          } >> "$ASSAY_PR_GATE_DIR/comment.md"
 
       - name: Upsert PR comment
         run: |

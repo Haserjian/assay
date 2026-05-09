@@ -23,6 +23,15 @@ RECOMMENDED_ACTIONS = frozenset(
         "manual_triage",
     }
 )
+CHECK_OBSERVATION_STATUSES = frozenset(
+    {
+        "OBSERVED_PASS",
+        "OBSERVED_FAIL",
+        "OBSERVED_PENDING",
+        "NOT_OBSERVED_YET",
+        "NAME_MISMATCH_POSSIBLE",
+    }
+)
 
 RULE_ORDER = (
     "integrity_failed",
@@ -153,18 +162,27 @@ def evaluate_policy(
         observed_checks=observed_checks,
         head_sha=head_sha,
     )
-    for check_name, outcome, check in check_outcomes:
-        if outcome == "failed":
+    for outcome in check_outcomes:
+        status = str(outcome["status"])
+        if status == "OBSERVED_FAIL":
             reasons_by_rule["required_check_failed"].append(
-                _required_check_failed_reason(check_name, check, head_sha)
+                _required_check_failed_reason(outcome, head_sha)
             )
-        elif outcome == "missing":
+        elif status in {
+            "OBSERVED_PENDING",
+            "NOT_OBSERVED_YET",
+            "NAME_MISMATCH_POSSIBLE",
+        }:
             reason: Dict[str, Any] = {
                 "rule": "required_check_missing",
-                "check": check_name,
+                "check": outcome["name"],
+                "observation_status": status,
             }
             if head_sha:
                 reason["head_sha"] = head_sha
+            observed_names = outcome.get("observed_check_names")
+            if observed_names:
+                reason["observed_check_names"] = observed_names
             reasons_by_rule["required_check_missing"].append(reason)
 
     for path, matched_pattern in _risk_path_matches(changed_files, risk_paths):
@@ -192,6 +210,7 @@ def evaluate_policy(
         "overall_decision": overall_decision,
         "recommended_action": recommended_action,
         "reasons": reasons,
+        "check_observations": check_outcomes,
         "channels": {
             "integrity": "PASS" if integrity == "PASS" else "FAIL",
             "claim": _claim_channel(check_outcomes),
@@ -354,12 +373,23 @@ def _required_check_outcomes(
     required_checks: Iterable[str],
     observed_checks: List[Mapping[str, Any]],
     head_sha: Optional[str],
-) -> List[Tuple[str, str, Optional[Mapping[str, Any]]]]:
-    outcomes: List[Tuple[str, str, Optional[Mapping[str, Any]]]] = []
+) -> List[Dict[str, Any]]:
+    outcomes: List[Dict[str, Any]] = []
+    observed_names = _observed_check_names(observed_checks, head_sha)
     for check_name in sorted(required_checks):
         candidates = _matching_checks(check_name, observed_checks, head_sha)
         if not candidates:
-            outcomes.append((check_name, "missing", None))
+            status = (
+                "NAME_MISMATCH_POSSIBLE"
+                if observed_names
+                else "NOT_OBSERVED_YET"
+            )
+            outcome: Dict[str, Any] = {"name": check_name, "status": status}
+            if head_sha:
+                outcome["head_sha"] = head_sha
+            if observed_names:
+                outcome["observed_check_names"] = observed_names
+            outcomes.append(outcome)
             continue
 
         concluded = [
@@ -368,7 +398,14 @@ def _required_check_outcomes(
             if isinstance(check.get("conclusion"), str) and check.get("conclusion")
         ]
         if not concluded:
-            outcomes.append((check_name, "missing", None))
+            check = _sort_checks(candidates)[0]
+            outcome = {"name": check_name, "status": "OBSERVED_PENDING"}
+            if head_sha:
+                outcome["head_sha"] = head_sha
+            observed_at = check.get("observed_at")
+            if isinstance(observed_at, str) and observed_at:
+                outcome["observed_at"] = observed_at
+            outcomes.append(outcome)
             continue
 
         failed = [
@@ -377,10 +414,59 @@ def _required_check_outcomes(
             if str(check["conclusion"]).lower() not in SUCCESSFUL_CHECK_CONCLUSIONS
         ]
         if failed:
-            outcomes.append((check_name, "failed", _sort_checks(failed)[0]))
+            outcomes.append(
+                _check_observation(
+                    check_name,
+                    "OBSERVED_FAIL",
+                    _sort_checks(failed)[0],
+                    head_sha,
+                )
+            )
         else:
-            outcomes.append((check_name, "passed", _sort_checks(concluded)[0]))
+            outcomes.append(
+                _check_observation(
+                    check_name,
+                    "OBSERVED_PASS",
+                    _sort_checks(concluded)[0],
+                    head_sha,
+                )
+            )
     return outcomes
+
+
+def _observed_check_names(
+    observed_checks: List[Mapping[str, Any]], head_sha: Optional[str]
+) -> List[str]:
+    names = set()
+    for check in observed_checks:
+        check_head = check.get("head_sha")
+        if head_sha and check_head != head_sha:
+            continue
+        name = check.get("name")
+        if isinstance(name, str) and name:
+            names.add(name)
+    return sorted(names)
+
+
+def _check_observation(
+    check_name: str,
+    status: str,
+    check: Mapping[str, Any],
+    head_sha: Optional[str],
+) -> Dict[str, Any]:
+    observation: Dict[str, Any] = {"name": check_name, "status": status}
+    check_head = check.get("head_sha")
+    if isinstance(check_head, str) and check_head:
+        observation["head_sha"] = check_head
+    elif head_sha:
+        observation["head_sha"] = head_sha
+    conclusion = check.get("conclusion")
+    if isinstance(conclusion, str) and conclusion:
+        observation["conclusion"] = conclusion
+    observed_at = check.get("observed_at")
+    if isinstance(observed_at, str) and observed_at:
+        observation["observed_at"] = observed_at
+    return observation
 
 
 def _matching_checks(
@@ -412,16 +498,16 @@ def _sort_checks(checks: List[Mapping[str, Any]]) -> List[Mapping[str, Any]]:
 
 
 def _required_check_failed_reason(
-    check_name: str,
-    check: Optional[Mapping[str, Any]],
+    outcome: Mapping[str, Any],
     head_sha: Optional[str],
 ) -> Dict[str, Any]:
     reason: Dict[str, Any] = {
         "rule": "required_check_failed",
-        "check": check_name,
-        "conclusion": str((check or {}).get("conclusion") or "unknown"),
+        "check": outcome["name"],
+        "conclusion": str(outcome.get("conclusion") or "unknown"),
+        "observation_status": str(outcome.get("status") or "OBSERVED_FAIL"),
     }
-    check_head = (check or {}).get("head_sha")
+    check_head = outcome.get("head_sha")
     if isinstance(check_head, str) and check_head:
         reason["head_sha"] = check_head
     elif head_sha:
@@ -460,14 +546,14 @@ def _selected_rule(
 
 
 def _claim_channel(
-    check_outcomes: List[Tuple[str, str, Optional[Mapping[str, Any]]]]
+    check_outcomes: List[Mapping[str, Any]]
 ) -> str:
-    outcomes = {outcome for _, outcome, _ in check_outcomes}
-    if "failed" in outcomes:
+    statuses = {outcome.get("status") for outcome in check_outcomes}
+    if "OBSERVED_FAIL" in statuses:
         return "FAIL"
-    if "missing" in outcomes:
+    if statuses - {"OBSERVED_PASS"}:
         return "NOT_EVALUATED"
-    if "passed" in outcomes:
+    if "OBSERVED_PASS" in statuses:
         return "PASS"
     return "NOT_EVALUATED"
 
@@ -488,6 +574,7 @@ def _trust_policy_channel(
 
 __all__ = [
     "DECISIONS",
+    "CHECK_OBSERVATION_STATUSES",
     "RECOMMENDED_ACTIONS",
     "RULE_ORDER",
     "PolicyEvaluationError",
