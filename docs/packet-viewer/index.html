@@ -561,8 +561,8 @@ const PACKET_DEFS = [
   },
   {
     id: "verification-gate",
-    title: "Verification Gate PASS",
-    subtitle: "Integrity-only sample",
+    title: "Verification Gate Integrity PASS",
+    subtitle: "Integrity-only sample, not PR approval",
     type: "verification_gate",
     base: "../examples/verification-gate-v0/",
     reportPath: "signed-report/verify_report.json",
@@ -665,6 +665,9 @@ function statusClass(decision) {
 
 function decisionText(packet) {
   const decision = packet.decision;
+  if (packet.type === "verification_gate" && decision === "PASS") {
+    return "PASS - integrity channel passed";
+  }
   if (decision === "PASS") return "PASS - proceed to normal review";
   if (decision === "NEEDS_REVIEW") return "NEEDS_REVIEW - human review required";
   if (decision === "BLOCK") return "BLOCK - do not proceed";
