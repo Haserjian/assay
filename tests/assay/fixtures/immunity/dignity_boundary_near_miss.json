@@ -1,0 +1,31 @@
+{
+  "failure_id": "failure_dignity_001",
+  "source_proof_pack_id": "proof_pack_dignity_001",
+  "created_at": "2026-05-08T12:00:00Z",
+  "severity": "high",
+  "trigger_shape": "unverified sensitive data export after dignity floor warning",
+  "dignity_floor_context": {
+    "floor": "no unverified sensitive data export",
+    "near_miss": true
+  },
+  "delta_c_snapshot": {
+    "before": 0.42,
+    "after": 0.58
+  },
+  "omega_h_snapshot": {
+    "value": 0.18
+  },
+  "guardian_decision": {
+    "verdict": "REFUSE",
+    "reason": "COHERENCE_BY_DIGNITY_DEBT"
+  },
+  "minimal_replay_case": {
+    "input": "Export customer records without verifying authorization.",
+    "expected_guardian_action": "require_review"
+  },
+  "evidence_hashes": {
+    "receipt_pack": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+  },
+  "review_after": "90d",
+  "rollback_pointer": "policy_v12"
+}

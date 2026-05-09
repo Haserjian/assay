@@ -45,6 +45,7 @@ Commands:
   assay start ci      - Set up CI evidence gating
   assay start mcp     - Set up MCP tool call auditing
   assay compare       - Contract-based comparability evaluation (denial engine)
+  assay immunity derive - Derive caution-only immunity artifacts from failures
   assay compliance report - Map evidence pack to regulatory framework controls
   assay version       - Show version info
 """
@@ -61,6 +62,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import typer
 from assay.derived.cli import derived_app
+from assay.immunity_cli import immunity_app
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -14777,6 +14779,9 @@ def _render_constitutional_diff(diff, contract) -> None:
 
 assay_app.add_typer(
     derived_app, name="derived", hidden=True, rich_help_panel="Advanced"
+)
+assay_app.add_typer(
+    immunity_app, name="immunity", rich_help_panel="Governance"
 )
 
 

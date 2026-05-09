@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://assay.local/schemas/inoculation_pack.v0.1.schema.json",
+  "title": "Assay InoculationPack v0.1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "artifact_type",
+    "schema_version",
+    "pack_id",
+    "created_at",
+    "source_failure_id",
+    "failure_class",
+    "severity",
+    "trigger_shape",
+    "minimal_replay_case",
+    "recommended_markers",
+    "regression_tests",
+    "evidence_hashes",
+    "signing_verification_metadata",
+    "rollback_pointer"
+  ],
+  "properties": {
+    "artifact_type": {"const": "assay.inoculation_pack"},
+    "schema_version": {"const": "0.1"},
+    "pack_id": {"type": "string", "pattern": "^ipack_[a-f0-9]{24}$"},
+    "created_at": {"type": "string"},
+    "source_failure_id": {"type": "string"},
+    "source_proof_pack_id": {"type": ["string", "null"]},
+    "failure_class": {
+      "enum": [
+        "dignity_boundary_near_miss",
+        "memory_poisoning_risk",
+        "receipt_lineage_conflict",
+        "provider_disagreement",
+        "unsafe_tool_call_attempt",
+        "evidence_gap",
+        "policy_conflict",
+        "overconfidence_trap",
+        "stale_truth_detected"
+      ]
+    },
+    "severity": {"enum": ["low", "medium", "high", "critical"]},
+    "trigger_shape": {"type": "string"},
+    "dignity_floor_context": {"type": ["object", "null"]},
+    "delta_c_snapshot": {},
+    "omega_h_snapshot": {},
+    "guardian_decision": {},
+    "minimal_replay_case": {"type": "object"},
+    "recommended_markers": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "object"}
+    },
+    "regression_tests": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "object"}
+    },
+    "evidence_hashes": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {"type": "string"}
+    },
+    "signing_verification_metadata": {"type": "object"},
+    "review_after": {"type": ["string", "null"]},
+    "expires_at": {"type": ["string", "null"]},
+    "rollback_pointer": {"type": "string"}
+  },
+  "anyOf": [
+    {"required": ["review_after"]},
+    {"required": ["expires_at"]}
+  ]
+}

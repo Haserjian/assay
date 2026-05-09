@@ -1,4 +1,4 @@
-# Start Here: Verify an Assay Evidence Pack
+# Signed Verification Report — Sample
 
 You do not need to read code or JSON to understand this sample.
 
