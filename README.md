@@ -124,6 +124,12 @@ non-claims instead of turning every packet into a vague green badge.
 Best first run:
 
 ```bash
+uvx --from assay-ai assay demo-challenge
+```
+
+If Assay is already installed:
+
+```bash
 assay demo-challenge
 ```
 
@@ -151,7 +157,9 @@ pipx install assay-ai
 
 To update later: `pipx upgrade assay-ai`
 
-_(No pipx? `python3 -m pip install assay-ai` also works, or `brew install pipx && pipx install assay-ai`)_
+_(No pipx? `uvx --from assay-ai assay demo-challenge` runs the first demo
+without a persistent install. `python3 -m pip install assay-ai` also works, or
+`brew install pipx && pipx install assay-ai`.)_
 
 ## Exit Codes
 
