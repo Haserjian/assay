@@ -1,0 +1,21 @@
+{
+  "failure_id": "failure_lineage_001",
+  "source_proof_pack_id": "proof_pack_lineage_001",
+  "created_at": "2026-05-08T12:05:00Z",
+  "trigger_shape": "mismatched receipt hash in proof pack manifest",
+  "verification_errors": [
+    {
+      "code": "E_CHAIN_BROKEN",
+      "message": "receipt lineage conflict: parent hash does not match"
+    }
+  ],
+  "minimal_replay_case": {
+    "command": "assay verify-pack ./tampered-pack",
+    "expected_exit_code": 2
+  },
+  "evidence_hashes": {
+    "pack_manifest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+  },
+  "review_after": "90d",
+  "rollback_pointer": "policy_v12"
+}

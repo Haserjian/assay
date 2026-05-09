@@ -71,6 +71,13 @@ Until T1 is operational, the honest claim for Assay packs is: **integrity verifi
 
 Assay also exposes episode/checkpoint APIs such as `open_episode`, `seal_checkpoint`, and `verify_checkpoint`. Those are real and important. In this charter they count as advanced public bridge capability, not the first-contact product story.
 
+Assay Immunity Packs are an experimental v0 artifact surface for turning honest
+failures into verified caution signals. A valid immunity pack is safe to
+consider; it is not proof that the source failure is complete, currently
+relevant, or independently witnessed. The current loop can derive an
+`InoculationPack`, verify an `EpigeneticMarker`, bind-check the source proof
+pack, and export a caution-only Guardian/Receiptor signal.
+
 ## One paragraph you should be able to say out loud
 
 Assay is a public evidence compiler for AI execution. It scans for supported call sites, patches the runtime hooks needed for receipts, runs your normal command, packages the receipts from that real run into a signed proof pack, and lets another team verify that pack offline. Evidence that only the producer can interpret is a log. Evidence that a third party can verify offline and use for a trust decision is a product. Compiled packets are the trust artifact that makes that possible: a signed, subject-bound bundle of claims and evidence that a reviewer can verify without access to the original system. The larger Loom/CCIO membrane exists, but that is not the whole public product today.

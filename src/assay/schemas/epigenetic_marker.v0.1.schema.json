@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://assay.local/schemas/epigenetic_marker.v0.1.schema.json",
+  "title": "Assay EpigeneticMarker v0.1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "artifact_type",
+    "schema_version",
+    "marker_id",
+    "marker_type",
+    "source_pack_id",
+    "trigger_shape",
+    "recommended_guardian_action",
+    "authority_delta",
+    "confidence",
+    "rollback_pointer",
+    "rationale",
+    "evidence_hash"
+  ],
+  "properties": {
+    "artifact_type": {"const": "assay.epigenetic_marker"},
+    "schema_version": {"const": "0.1"},
+    "marker_id": {"type": "string", "pattern": "^emarker_[a-f0-9]{24}$"},
+    "marker_type": {
+      "enum": [
+        "dignity_boundary_near_miss",
+        "memory_poisoning_risk",
+        "receipt_lineage_conflict",
+        "provider_disagreement",
+        "unsafe_tool_call_attempt",
+        "evidence_gap",
+        "policy_conflict",
+        "overconfidence_trap",
+        "stale_truth_detected"
+      ]
+    },
+    "source_pack_id": {"type": "string"},
+    "trigger_shape": {"type": "string"},
+    "recommended_guardian_action": {
+      "enum": [
+        "require_review",
+        "require_stronger_proof",
+        "reduce_blast_radius",
+        "block",
+        "defer",
+        "route_to_safe_provider",
+        "emit_honest_failure",
+        "add_regression_test"
+      ]
+    },
+    "authority_delta": {"type": "integer", "maximum": 0},
+    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+    "expires_after": {"type": ["string", "null"]},
+    "expires_at": {"type": ["string", "null"]},
+    "rollback_pointer": {"type": "string"},
+    "rationale": {"type": "string"},
+    "evidence_hash": {"type": "string"}
+  },
+  "anyOf": [
+    {"required": ["expires_after"]},
+    {"required": ["expires_at"]}
+  ]
+}
