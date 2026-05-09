@@ -1055,16 +1055,35 @@ window.addEventListener("hashchange", () => {
   if (id) renderPacket(id);
 });
 
-loadPackets().catch((error) => {
-  document.getElementById("packetView").innerHTML = `
+function loadErrorHtml(error) {
+  const openedFromFile = window.location.protocol === "file:";
+  const title = openedFromFile
+    ? "This file was opened directly."
+    : "Could not load packet artifacts.";
+  const explanation = openedFromFile
+    ? "The viewer is a static page, but it still fetches committed JSON packet artifacts. Browsers block those fetches from file:// pages, so the packets cannot load from this view."
+    : `Packet artifact loading failed: ${error.message}`;
+
+  return `
     <div class="empty">
-      <strong>Could not load packet artifacts.</strong><br>
-      ${escapeHtml(error.message)}<br><br>
-      If you opened this file directly, run a local server from the repo root:
+      <strong>${escapeHtml(title)}</strong><br>
+      ${escapeHtml(explanation)}<br><br>
+      <strong>Open the live viewer:</strong><br>
+      <a href="https://haserjian.github.io/assay/packet-viewer/" target="_blank" rel="noopener noreferrer">https://haserjian.github.io/assay/packet-viewer/</a>
+      <br><br>
+      <strong>Or run it locally from the repo root:</strong>
       <pre class="command">python3 -m http.server 8000</pre>
       then open <code>http://localhost:8000/docs/packet-viewer/</code>.
+      <br><br>
+      When it loads correctly, you should see selectable packet examples for
+      <code>PASS</code>, <code>NEEDS_REVIEW</code>, Verification Gate, and
+      tamper rejection.
     </div>
   `;
+}
+
+loadPackets().catch((error) => {
+  document.getElementById("packetView").innerHTML = loadErrorHtml(error);
 });
 </script>
 </body>
