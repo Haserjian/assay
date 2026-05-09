@@ -793,15 +793,25 @@ function mayRelyText(def, report, channels, isVerification) {
   ];
 }
 
+function normalizeEvidencePath(def, path) {
+  if (!path) return path;
+  if (/^https?:\/\//.test(path)) return path;
+  if (def.type === "verification_gate" && !path.includes("/")) {
+    return `proof-pack/${path}`;
+  }
+  return path;
+}
+
 function rawArtifactLinks(def, evidenceRefs) {
   const links = [];
   if (def.commentPath) links.push({ label: "comment.md", path: def.commentPath });
   if (def.reportPath) links.push({ label: "verify_report.json", path: def.reportPath });
-  links.push({ label: "pack_manifest.json", path: def.type === "verification_gate" ? "proof-pack/pack_manifest.json" : "proof-pack/pack_manifest.json" });
+  links.push({ label: "pack_manifest.json", path: "proof-pack/pack_manifest.json" });
   if (def.type !== "tamper_demo") links.push({ label: "verify_report.sigstore.json", path: "signed-report/verify_report.sigstore.json" });
   for (const ref of evidenceRefs) {
-    if (ref.path && !links.some((link) => link.path === ref.path)) {
-      links.push({ label: ref.kind || ref.path, path: ref.path });
+    const normalizedPath = normalizeEvidencePath(def, ref.path);
+    if (normalizedPath && !links.some((link) => normalizeEvidencePath(def, link.path) === normalizedPath)) {
+      links.push({ label: ref.kind || normalizedPath, path: normalizedPath });
     }
   }
   return links.map((link) => ({
@@ -813,7 +823,7 @@ function rawArtifactLinks(def, evidenceRefs) {
 function renderNav() {
   const nav = document.getElementById("packetNav");
   nav.innerHTML = packets.map((packet) => `
-    <button class="packet-button" data-packet="${escapeHtml(packet.id)}">
+    <button type="button" class="packet-button" data-packet="${escapeHtml(packet.id)}">
       <span class="status-pill ${statusClass(packet.decision)}">${escapeHtml(packet.decision)}</span>
       <strong>${escapeHtml(packet.title)}</strong>
       <span>${escapeHtml(packet.subtitle)}</span>
@@ -926,6 +936,19 @@ function packetHtml(packet) {
       <pre class="command">${escapeHtml(packet.verifyCommand)}</pre>
     </section>
 
+    ${packet.comment ? `
+      <section class="section">
+        <div class="section-header">
+          <h3>Generated PR Comment</h3>
+          <p>The PR-visible surface generated from this packet.</p>
+        </div>
+        <details class="raw">
+          <summary>Show comment Markdown</summary>
+          <pre>${escapeHtml(packet.comment)}</pre>
+        </details>
+      </section>
+    ` : ""}
+
     <section class="section">
       <div class="section-header">
         <h3>Raw Artifacts</h3>
@@ -935,7 +958,7 @@ function packetHtml(packet) {
         ${packet.rawLinks.map((link) => `
           <div class="artifact">
             <b>${escapeHtml(link.label)}</b>
-            <a href="${escapeHtml(link.href)}" target="_blank">open artifact</a>
+            <a href="${escapeHtml(link.href)}" target="_blank" rel="noopener noreferrer">open artifact</a>
             <span>${escapeHtml(link.href)}</span>
           </div>
         `).join("")}
