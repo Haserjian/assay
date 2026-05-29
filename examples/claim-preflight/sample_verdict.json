@@ -1,0 +1,82 @@
+{
+  "version": "claim-preflight-verdict-v0",
+  "subject": {
+    "artifact": "examples/claim-preflight/claims.json",
+    "generated_on": "2026-05-28",
+    "profile": "claim_preflight_matrix_v0"
+  },
+  "overall_verdict": "NEEDS_REVIEW",
+  "summary": "One marketing-substantiation claim is blocked, and the remaining seed claims need reviewer confirmation before publication.",
+  "claim_results": [
+    {
+      "claim_id": "cpf-001-anthropic-sabotage-report",
+      "verdict_channel": "claim",
+      "verdict": "NEEDS_REVIEW",
+      "missing_or_weak_evidence": ["non_claims"],
+      "reviewer_action": "require_human_review"
+    },
+    {
+      "claim_id": "cpf-002-openai-instant-high-capability",
+      "verdict_channel": "claim",
+      "verdict": "NEEDS_REVIEW",
+      "missing_or_weak_evidence": ["deployment-specific safeguard evidence"],
+      "reviewer_action": "require_human_review"
+    },
+    {
+      "claim_id": "cpf-003-microsoft-ncii-process",
+      "verdict_channel": "claim",
+      "verdict": "NEEDS_REVIEW",
+      "missing_or_weak_evidence": ["removal_sla_evidence"],
+      "reviewer_action": "require_human_review"
+    },
+    {
+      "claim_id": "cpf-004-eu-ai-act-high-risk-classification",
+      "verdict_channel": "classification",
+      "verdict": "NEEDS_REVIEW",
+      "missing_or_weak_evidence": [
+        "provider_or_deployer_role",
+        "exception_reasoning",
+        "reviewer_signoff",
+        "non_claims"
+      ],
+      "reviewer_action": "require_human_review"
+    },
+    {
+      "claim_id": "cpf-005-ftc-active-listening-substantiation",
+      "verdict_channel": "claim",
+      "verdict": "BLOCK",
+      "missing_or_weak_evidence": [
+        "capability_evidence",
+        "data_source_evidence",
+        "opt_in_evidence",
+        "prohibited_inference_check",
+        "reviewer_signoff",
+        "non_claims"
+      ],
+      "reviewer_action": "block_publication"
+    }
+  ],
+  "marketing_overclaim_test": {
+    "proposed_claim": "Our frontier model is safe against hazardous requests.",
+    "packet_supports": "One configured endpoint returned output matching one refusal predicate for one named probe at one time.",
+    "verdict": "BLOCK",
+    "reason": "The proposed public claim exceeds the packet. The packet supports only a T0 single-probe refusal observation."
+  },
+  "non_claims": [
+    "This verdict is not legal advice.",
+    "This verdict does not certify compliance.",
+    "This verdict does not prove model safety.",
+    "This verdict does not approve production deployment.",
+    "This verdict does not establish external truth beyond included evidence."
+  ],
+  "pr_comment_rule": {
+    "summary_allowed": true,
+    "authoritative_artifact": "signed_packet",
+    "comment_must_not_claim": [
+      "safe",
+      "compliant",
+      "approved",
+      "all claims passed"
+    ]
+  }
+}

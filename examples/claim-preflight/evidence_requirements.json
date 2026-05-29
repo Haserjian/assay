@@ -1,0 +1,156 @@
+{
+  "version": "claim-preflight-evidence-requirements-v0",
+  "generated_on": "2026-05-28",
+  "requirements": [
+    {
+      "requirement_id": "risk_report_url",
+      "description": "Canonical URL or archived artifact for the risk report being cited.",
+      "acceptable_evidence": ["official_url", "archived_pdf", "signed_report_reference"]
+    },
+    {
+      "requirement_id": "model_identifier",
+      "description": "Exact model name, version, release date when available, and source document.",
+      "acceptable_evidence": ["model_card", "system_card", "release_note"]
+    },
+    {
+      "requirement_id": "threat_model_scope",
+      "description": "The risk or threat model actually evaluated, including exclusions.",
+      "acceptable_evidence": ["source_excerpt", "scope_table", "reviewer_summary"]
+    },
+    {
+      "requirement_id": "overall_risk_assessment",
+      "description": "The author's own stated risk conclusion, kept separate from independent validation.",
+      "acceptable_evidence": ["source_excerpt", "report_section"]
+    },
+    {
+      "requirement_id": "redaction_boundary",
+      "description": "Disclosure of redacted or unavailable evidence and who, if anyone, reviewed it.",
+      "acceptable_evidence": ["report_redaction_note", "reviewer_attestation"]
+    },
+    {
+      "requirement_id": "preparedness_category",
+      "description": "Named capability or preparedness category for the classification claim.",
+      "acceptable_evidence": ["system_card_section", "eval_summary"]
+    },
+    {
+      "requirement_id": "eval_basis",
+      "description": "Evaluation set, metric, threshold, and result basis behind a capability claim.",
+      "acceptable_evidence": ["eval_table", "benchmark_report", "system_card_section"]
+    },
+    {
+      "requirement_id": "reasoning_effort_boundary",
+      "description": "Whether the classification depends on a reasoning mode or deployment setting.",
+      "acceptable_evidence": ["system_card_note", "deployment_config"]
+    },
+    {
+      "requirement_id": "deployment_mode",
+      "description": "How the evaluated model is configured in deployment for the claim context.",
+      "acceptable_evidence": ["deployment_card", "model_config", "release_note"]
+    },
+    {
+      "requirement_id": "safeguard_summary",
+      "description": "Safeguards claimed for the deployment, separated from evidence of effectiveness.",
+      "acceptable_evidence": ["system_card_section", "policy_config_summary"]
+    },
+    {
+      "requirement_id": "policy_scope",
+      "description": "What products, content types, users, or jurisdictions the policy claim covers.",
+      "acceptable_evidence": ["policy_doc", "public_blog", "scope_manifest"]
+    },
+    {
+      "requirement_id": "real_synthetic_parity",
+      "description": "Evidence that real and synthetic content are treated consistently under the stated policy.",
+      "acceptable_evidence": ["policy_text", "case_matrix", "moderation_rule"]
+    },
+    {
+      "requirement_id": "reporting_flow",
+      "description": "User-visible intake process for reports, including required fields and confirmation path.",
+      "acceptable_evidence": ["workflow_screenshot", "runbook", "test_case_receipt"]
+    },
+    {
+      "requirement_id": "hash_matching_flow",
+      "description": "Process for detecting or suppressing known copies by content hash or equivalent mechanism.",
+      "acceptable_evidence": ["architecture_note", "hash_match_receipt", "vendor_attestation"]
+    },
+    {
+      "requirement_id": "removal_sla_evidence",
+      "description": "Timestamped evidence that valid requests and known identical copies were removed within the promised window.",
+      "acceptable_evidence": ["case_receipt", "moderation_log", "audit_sample"]
+    },
+    {
+      "requirement_id": "appeal_path",
+      "description": "Documented path for affected users to appeal or contest moderation decisions.",
+      "acceptable_evidence": ["policy_doc", "product_flow", "support_runbook"]
+    },
+    {
+      "requirement_id": "human_review_policy",
+      "description": "When human review is used, what it covers, and what decision authority it has.",
+      "acceptable_evidence": ["policy_doc", "reviewer_sop", "case_receipt"]
+    },
+    {
+      "requirement_id": "system_description",
+      "description": "Plain description of the AI system being classified.",
+      "acceptable_evidence": ["system_inventory_row", "architecture_summary"]
+    },
+    {
+      "requirement_id": "intended_use",
+      "description": "Specific intended use, users, context, and decision role.",
+      "acceptable_evidence": ["product_requirement", "deployment_record", "classification_memo"]
+    },
+    {
+      "requirement_id": "provider_or_deployer_role",
+      "description": "Role of the organization making the classification decision.",
+      "acceptable_evidence": ["role_memo", "contract_record", "classification_memo"]
+    },
+    {
+      "requirement_id": "article_6_route",
+      "description": "Whether the analysis proceeds under Article 6(1), Article 6(2), or an exception path.",
+      "acceptable_evidence": ["classification_memo", "reviewer_signoff"]
+    },
+    {
+      "requirement_id": "annex_i_or_annex_iii_mapping",
+      "description": "Mapping to the relevant Annex I product/safety component route or Annex III use case.",
+      "acceptable_evidence": ["mapping_table", "classification_memo"]
+    },
+    {
+      "requirement_id": "exception_reasoning",
+      "description": "Reasoning for any low-risk or exception conclusion, including contrary indicators.",
+      "acceptable_evidence": ["classification_memo", "reviewer_signoff"]
+    },
+    {
+      "requirement_id": "exact_marketing_line",
+      "description": "Exact line proposed for publication or sales use.",
+      "acceptable_evidence": ["pr_body", "sales_deck_text", "website_copy"]
+    },
+    {
+      "requirement_id": "capability_evidence",
+      "description": "Evidence that the product does the capability claimed in the marketing line.",
+      "acceptable_evidence": ["test_report", "live_demo_receipt", "evaluation_packet"]
+    },
+    {
+      "requirement_id": "data_source_evidence",
+      "description": "Evidence for the data source represented in the claim.",
+      "acceptable_evidence": ["data_lineage_record", "contract_record", "audit_log"]
+    },
+    {
+      "requirement_id": "opt_in_evidence",
+      "description": "Evidence that opt-in or consent representations are true for the claimed use.",
+      "acceptable_evidence": ["consent_record", "policy_text", "user_flow_receipt"]
+    },
+    {
+      "requirement_id": "prohibited_inference_check",
+      "description": "Check that the public claim does not invite inferences beyond evidence in the packet.",
+      "acceptable_evidence": ["claim_diff", "reviewer_decision", "policy_gate_output"]
+    },
+    {
+      "requirement_id": "reviewer_signoff",
+      "description": "Named reviewer decision on whether the evidence supports the exact claim.",
+      "acceptable_evidence": ["signed_review_decision", "workflow_signed_report"]
+    },
+    {
+      "requirement_id": "non_claims",
+      "description": "Explicit list of conclusions readers must not infer from the verdict.",
+      "acceptable_evidence": ["non_claims_block"]
+    }
+  ]
+}

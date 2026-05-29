@@ -1,0 +1,190 @@
+[
+  {
+    "claim_id": "cpf-001-anthropic-sabotage-report",
+    "claim_text": "Anthropic published a scoped sabotage risk report for Claude Opus 4.6 and framed the overall risk as very low but not negligible.",
+    "claim_type": "frontier_risk_report",
+    "source_string": "overall risk is very low but not negligible",
+    "source": {
+      "publisher": "Anthropic",
+      "title": "Sabotage Risk Report: Claude Opus 4.6",
+      "url": "https://www-cdn.anthropic.com/f21d93f21602ead5cdbecb8c8e1c765759d9e232.pdf",
+      "retrieved_on": "2026-05-28",
+      "source_string": "overall risk is very low but not negligible"
+    },
+    "evidence_required": [
+      "risk_report_url",
+      "model_identifier",
+      "threat_model_scope",
+      "overall_risk_assessment",
+      "redaction_boundary",
+      "non_claims"
+    ],
+    "evidence_present": [
+      "risk_report_url",
+      "model_identifier",
+      "threat_model_scope",
+      "overall_risk_assessment",
+      "redaction_boundary"
+    ],
+    "verdict_channel": "claim",
+    "verdict": "NEEDS_REVIEW",
+    "non_claims": [
+      "Does not prove all Anthropic models are safe.",
+      "Does not evaluate threat models centered on intentional harmful human action.",
+      "Does not independently validate redacted evidence."
+    ],
+    "reviewer_action": "require_human_review",
+    "proof_floor": "T1_PACKET"
+  },
+  {
+    "claim_id": "cpf-002-openai-instant-high-capability",
+    "claim_text": "OpenAI treats GPT-5.5 Instant as High capability in Cybersecurity and Biological and Chemical Preparedness, with deployment safeguards and a reasoning-effort boundary.",
+    "claim_type": "capability_classification",
+    "source_string": "first Instant model to be treated as High Capability",
+    "source": {
+      "publisher": "OpenAI",
+      "title": "GPT-5.5 Instant System Card",
+      "url": "https://deploymentsafety.openai.com/gpt-5-5-instant/prompt-injection",
+      "retrieved_on": "2026-05-28",
+      "source_string": "first Instant model to be treated as High Capability"
+    },
+    "evidence_required": [
+      "model_identifier",
+      "preparedness_category",
+      "eval_basis",
+      "reasoning_effort_boundary",
+      "deployment_mode",
+      "safeguard_summary",
+      "non_claims"
+    ],
+    "evidence_present": [
+      "model_identifier",
+      "preparedness_category",
+      "eval_basis",
+      "reasoning_effort_boundary",
+      "deployment_mode",
+      "safeguard_summary"
+    ],
+    "verdict_channel": "claim",
+    "verdict": "NEEDS_REVIEW",
+    "non_claims": [
+      "Does not prove an application using the model is safe.",
+      "Does not prove deployed low-reasoning-effort behavior equals xhigh evaluation behavior.",
+      "Does not prove customer-specific safeguards are configured correctly."
+    ],
+    "reviewer_action": "require_human_review",
+    "proof_floor": "T1_PACKET"
+  },
+  {
+    "claim_id": "cpf-003-microsoft-ncii-process",
+    "claim_text": "Microsoft describes NCII controls covering real and synthetic content, reporting improvements, hash matching, human review for reported cases, and appeals.",
+    "claim_type": "moderation_process",
+    "source_string": "maintaining human review for reported cases",
+    "source": {
+      "publisher": "Microsoft",
+      "title": "Strengthening our approach to tackling non-consensual intimate imagery",
+      "url": "https://blogs.microsoft.com/on-the-issues/2026/05/27/strengthening-our-approach-to-tackling-non-consensual-intimate-imagery/",
+      "retrieved_on": "2026-05-28",
+      "source_string": "maintaining human review for reported cases"
+    },
+    "evidence_required": [
+      "policy_scope",
+      "real_synthetic_parity",
+      "reporting_flow",
+      "hash_matching_flow",
+      "removal_sla_evidence",
+      "appeal_path",
+      "human_review_policy",
+      "non_claims"
+    ],
+    "evidence_present": [
+      "policy_scope",
+      "real_synthetic_parity",
+      "reporting_flow",
+      "hash_matching_flow",
+      "appeal_path",
+      "human_review_policy"
+    ],
+    "verdict_channel": "claim",
+    "verdict": "NEEDS_REVIEW",
+    "non_claims": [
+      "Does not prove every NCII report is correctly handled.",
+      "Does not prove actual removal within a specific SLA unless timestamped case evidence is present.",
+      "Does not certify compliance with any law."
+    ],
+    "reviewer_action": "require_human_review",
+    "proof_floor": "T1_PACKET"
+  },
+  {
+    "claim_id": "cpf-004-eu-ai-act-high-risk-classification",
+    "claim_text": "The European Commission's draft guidance structures assessment of high-risk AI classification under Article 6 and Annex III.",
+    "claim_type": "regulatory_classification",
+    "source_string": "classification purposes and, in accordance with Article 6(5)",
+    "source": {
+      "publisher": "European Commission",
+      "title": "Draft Commission guidelines on the classification of high-risk AI systems",
+      "url": "https://digital-strategy.ec.europa.eu/en/library/draft-commission-guidelines-classification-high-risk-ai-systems",
+      "retrieved_on": "2026-05-28",
+      "source_string": "classification purposes and, in accordance with Article 6(5)"
+    },
+    "evidence_required": [
+      "system_description",
+      "intended_use",
+      "provider_or_deployer_role",
+      "article_6_route",
+      "annex_i_or_annex_iii_mapping",
+      "exception_reasoning",
+      "reviewer_signoff",
+      "non_claims"
+    ],
+    "evidence_present": [
+      "system_description",
+      "intended_use",
+      "article_6_route",
+      "annex_i_or_annex_iii_mapping"
+    ],
+    "verdict_channel": "classification",
+    "verdict": "NEEDS_REVIEW",
+    "non_claims": [
+      "Does not provide legal advice.",
+      "Does not certify EU AI Act compliance.",
+      "Does not replace provider, deployer, or regulator classification duties."
+    ],
+    "reviewer_action": "require_human_review",
+    "proof_floor": "T1_PACKET"
+  },
+  {
+    "claim_id": "cpf-005-ftc-active-listening-substantiation",
+    "claim_text": "FTC enforcement against Active Listening claims shows that AI marketing claims and opt-in representations require substantiation.",
+    "claim_type": "marketing_substantiation",
+    "source_string": "falsely claiming to offer an AI-powered service",
+    "source": {
+      "publisher": "Federal Trade Commission",
+      "title": "FTC to Require Cox Media Group, Two Other Firms to Pay Nearly $1 Million...",
+      "url": "https://www.ftc.gov/news-events/news/press-releases/2026/05/ftc-require-cox-media-group-two-other-firms-pay-nearly-1-million-settle-charges-they-deceived",
+      "retrieved_on": "2026-05-28",
+      "source_string": "falsely claiming to offer an AI-powered service"
+    },
+    "evidence_required": [
+      "exact_marketing_line",
+      "capability_evidence",
+      "data_source_evidence",
+      "opt_in_evidence",
+      "prohibited_inference_check",
+      "reviewer_signoff",
+      "non_claims"
+    ],
+    "evidence_present": [
+      "exact_marketing_line"
+    ],
+    "verdict_channel": "claim",
+    "verdict": "BLOCK",
+    "non_claims": [
+      "Does not prove the marketed service uses conversation data.",
+      "Does not prove opt-in consent exists.",
+      "Does not permit public claims beyond the supplied evidence."
+    ],
+    "reviewer_action": "block_publication",
+    "proof_floor": "T0_OBSERVATION"
+  }
+]
