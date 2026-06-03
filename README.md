@@ -33,6 +33,16 @@ _(No pipx? `python3 -m pip install assay-ai` also works, or `brew install pipx &
 assay demo-challenge
 ```
 
+**Skeptic's 60-second test:**
+
+```bash
+make demo-challenge-acceptance
+```
+
+Assay ships with a challenge pack: one clean, one intentionally tampered.
+The clean pack must verify, the tampered pack must fail on integrity, and both
+outcomes produce machine-readable reports.
+
 **Or choose another path:**
 
 - **[Verify a proof pack in your browser](https://haserjian.github.io/assay-proof-gallery/verify.html)** — no install, no account
@@ -162,6 +172,21 @@ with file output and manual verification, use the challenge demo:
 ```bash
 assay demo-challenge    # creates challenge_pack/ with good + tampered packs
 ```
+
+For a buyer-style local acceptance packet that writes machine-readable
+verification reports for both packs:
+
+```bash
+bash scripts/demo_challenge_acceptance.sh ./challenge_pack_acceptance
+# or
+make demo-challenge-acceptance
+```
+
+Expected result: the good pack exits 0 with `overall_verdict=PASS`; the
+tampered pack exits 2 with `overall_verdict=TAMPERED` and
+`blocking_channel=integrity`. This proves byte-level pack integrity for this
+demo only. The script emits wrapper-level non-claims: it does not prove model
+quality, model safety, legal compliance, or signer identity without a lock.
 
 Two packs, one byte changed ("gpt-4" -> "gpt-5" in the receipts). Here's what happens
 (pack IDs and timestamps will differ on your machine):
@@ -727,6 +752,18 @@ assay --install-completion
 Restart your shell after installing. Tab completion works for all commands and options.
 
 </details>
+
+---
+
+## Philosophy
+
+Assay makes reliance reviewable.
+
+AI and software systems increasingly produce claims that other people are asked to rely on. Logs, dashboards, and confident summaries are not enough for independent verification. Assay turns bounded claims into signed review packets: what happened, what evidence exists, what passed, what failed, what was missing, and what should not be inferred.
+
+A signed failure is stronger evidence than a vague pass.
+
+[Trust Me Is Not a System](docs/philosophy/trust-me-is-not-a-system.md) — the full essay.
 
 ---
 
