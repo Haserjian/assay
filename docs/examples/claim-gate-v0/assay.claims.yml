@@ -1,0 +1,97 @@
+schema_version: assay.claim_policy.v0
+
+default_verdict: NEEDS_REVIEW
+
+blocked_transitions:
+  prototype_to_production:
+    severity: high
+    requires:
+      - production_deployment_receipt
+      - reproducible_test_suite
+  possible_to_guaranteed:
+    severity: high
+    requires:
+      - direct_evidence
+      - reviewer_acceptance
+  recommendation_to_policy:
+    severity: high
+    requires:
+      - human_acceptance
+      - policy_review_receipt
+  partial_support_to_proven:
+    severity: high
+    requires:
+      - direct_evidence
+      - reviewer_acceptance
+  risk_reduced_to_safe:
+    severity: high
+    requires:
+      - threat_model
+      - safety_evaluation
+
+review_transitions:
+  local_to_general:
+    severity: medium
+    requires:
+      - scope_evidence
+      - reproducibility_note
+  may_might_could_to_does_will:
+    severity: medium
+    requires:
+      - direct_evidence
+  observed_to_causal:
+    severity: medium
+    requires:
+      - causal_evidence
+  demo_to_enterprise:
+    severity: medium
+    requires:
+      - deployment_scope_receipt
+  experimental_to_reliable:
+    severity: medium
+    requires:
+      - reliability_evaluation
+  suggestion_to_recommendation:
+    severity: medium
+    requires:
+      - reviewer_acceptance
+
+allow_markers:
+  - prototype
+  - experimental
+  - draft
+  - roadmap
+  - future work
+  - future goal
+  - hypothesis
+  - exploring
+  - proposal
+
+evidence_paths:
+  production_deployment_receipt:
+    - receipts/production_deployment_receipt.json
+    - proof-pack/**/production_deployment_receipt.json
+  reproducible_test_suite:
+    - tests/**/test_*.py
+  direct_evidence:
+    - evidence/direct_evidence.*
+  reviewer_acceptance:
+    - receipts/reviewer_acceptance.*
+  human_acceptance:
+    - receipts/human_acceptance.*
+  policy_review_receipt:
+    - receipts/policy_review_receipt.*
+  threat_model:
+    - docs/threat-model.md
+  safety_evaluation:
+    - evidence/safety_evaluation.*
+  scope_evidence:
+    - evidence/scope_evidence.*
+  reproducibility_note:
+    - docs/reproducibility.md
+  causal_evidence:
+    - evidence/causal_evidence.*
+  deployment_scope_receipt:
+    - receipts/deployment_scope_receipt.*
+  reliability_evaluation:
+    - evidence/reliability_evaluation.*
