@@ -44,6 +44,7 @@ It does not evaluate hidden agent intent, unobserved runtime activity, productio
 - `assay.agent_policy.schema.json` describes the draft policy shape.
 - `examples/` contains illustrative verdict fixtures for one pass and three rejection modes.
 - `VERIFY_OUTPUT.txt` shows example draft verifier output.
+- `DOGFOOD.md` records the live PR Gate result for the PR that introduced this packet.
 
 ## Related Assay Surfaces
 
@@ -56,6 +57,6 @@ The fixtures use two top-level verdicts:
 - `POLICY_SATISFIED` means the captured evidence satisfied the declared policy.
 - `REJECTED` means the captured evidence failed at least one declared policy rule.
 
-These are a draft-local vocabulary for the agent-policy layer. They map onto the PR Gate recommendation vocabulary — `POLICY_SATISFIED` aligns with PR Gate `PASS` (`proceed`), `REJECTED` aligns with PR Gate `BLOCK` — and are not a second source of truth for the PR Gate recommendation.
+These are a draft-local vocabulary for the agent-policy layer. They map onto the PR Gate recommendation vocabulary: `POLICY_SATISFIED` aligns with PR Gate `PASS` (`proceed`), and `REJECTED` aligns with PR Gate `BLOCK`. They are not a second canonical source for the PR Gate recommendation.
 
 These verdicts are not merge decisions. They are review evidence for a human reviewer or a higher-level gate.
