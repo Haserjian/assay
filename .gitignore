@@ -64,6 +64,8 @@ artifacts/
 .assay-ci-smoke/
 assay_quickstart_report.html
 demo/constitutional_verification/demo_output/
+examples/T0-local-receipt-demo/acceptance/out/
+examples/T0-local-receipt-demo/acceptance/out/keys/ed25519.private.raw
 
 # Internal commercial docs (not public)
 docs/commercial/
