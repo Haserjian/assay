@@ -1,0 +1,51 @@
+{
+  "fixture_id": "passing_agent_pr",
+  "fixture_status": "illustrative_draft",
+  "hash_bindings": {
+    "hash_method": "sha256:file-bytes",
+    "agents_doc_sha256": "sha256:418d0366bc29d824b7a6747eebff04a475a1bad33c127320a8fcf6ea4f0aa55e",
+    "machine_policy_sha256": "sha256:f636952f799bd230470de8f96afaaa584f8408066b5fa4822cdd6a5c76845e08",
+    "evidence_pack_sha256": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "evidence_pack_hash_status": "illustrative_placeholder"
+  },
+  "captured_evidence": {
+    "changed_paths": [
+      "src/example.py",
+      "tests/test_example.py",
+      "docs/example.md"
+    ],
+    "forbidden_paths_touched": [],
+    "required_checks": [
+      {
+        "name": "tests",
+        "conclusion": "success",
+        "commit": "abc1234"
+      }
+    ],
+    "required_receipts_present": [
+      "task_receipt",
+      "diff_receipt",
+      "test_receipt",
+      "claim_receipt",
+      "proof_pack_verification_result"
+    ],
+    "claims": [
+      {
+        "text": "The tests check concluded success for commit abc1234.",
+        "support": "SUPPORTED_BY_CAPTURED_EVIDENCE"
+      }
+    ]
+  },
+  "policy_verdict": "POLICY_SATISFIED",
+  "verdict_signature_status": "SIGNED_EXAMPLE",
+  "reasons": [],
+  "caveats": [
+    "This fixture is illustrative and not produced by a live verifier.",
+    "The verdict is about captured PR evidence, not production approval."
+  ],
+  "non_claims": [
+    "Does not decide merge approval.",
+    "Does not review hidden runtime activity.",
+    "Does not prove general code correctness."
+  ]
+}

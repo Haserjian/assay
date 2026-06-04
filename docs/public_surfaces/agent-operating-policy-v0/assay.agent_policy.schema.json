@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://assay.dev/schemas/agent-operating-policy-v0-draft.json",
+  "title": "Assay Agent Operating Policy v0 Draft",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "policy_id",
+    "status",
+    "scope",
+    "bindings",
+    "allowed_paths",
+    "forbidden_paths",
+    "required_receipts",
+    "required_checks",
+    "claim_boundaries",
+    "rejection_rules",
+    "non_claims"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "agent_operating_policy.v0.draft"
+    },
+    "policy_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "enum": ["draft_example"]
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evaluates", "does_not_evaluate"],
+      "properties": {
+        "evaluates": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1
+        },
+        "does_not_evaluate": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1
+        }
+      }
+    },
+    "bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hash_method",
+        "agents_doc_sha256",
+        "machine_policy_schema_sha256"
+      ],
+      "properties": {
+        "hash_method": {
+          "const": "sha256:file-bytes"
+        },
+        "agents_doc_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "machine_policy_schema_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "allowed_paths": {
+      "$ref": "#/$defs/non_empty_string_array"
+    },
+    "forbidden_paths": {
+      "$ref": "#/$defs/non_empty_string_array"
+    },
+    "required_receipts": {
+      "$ref": "#/$defs/non_empty_string_array"
+    },
+    "required_checks": {
+      "$ref": "#/$defs/non_empty_string_array"
+    },
+    "claim_boundaries": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["supported_claims", "unsupported_claims"],
+      "properties": {
+        "supported_claims": {
+          "$ref": "#/$defs/non_empty_string_array"
+        },
+        "unsupported_claims": {
+          "$ref": "#/$defs/non_empty_string_array"
+        }
+      }
+    },
+    "rejection_rules": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "verdict", "reason", "evidence_field"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "verdict": {
+            "const": "REJECTED"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence_field": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "non_claims": {
+      "$ref": "#/$defs/non_empty_string_array"
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "non_empty_string_array": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}
+

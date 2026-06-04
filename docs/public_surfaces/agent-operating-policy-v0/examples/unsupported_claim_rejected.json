@@ -1,0 +1,56 @@
+{
+  "fixture_id": "unsupported_claim_rejected",
+  "fixture_status": "illustrative_draft",
+  "hash_bindings": {
+    "hash_method": "sha256:file-bytes",
+    "agents_doc_sha256": "sha256:418d0366bc29d824b7a6747eebff04a475a1bad33c127320a8fcf6ea4f0aa55e",
+    "machine_policy_sha256": "sha256:f636952f799bd230470de8f96afaaa584f8408066b5fa4822cdd6a5c76845e08",
+    "evidence_pack_sha256": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+    "evidence_pack_hash_status": "illustrative_placeholder"
+  },
+  "captured_evidence": {
+    "changed_paths": [
+      "src/example.py",
+      "tests/test_example.py"
+    ],
+    "forbidden_paths_touched": [],
+    "required_checks": [
+      {
+        "name": "tests",
+        "conclusion": "success",
+        "commit": "bcd2468"
+      }
+    ],
+    "required_receipts_present": [
+      "task_receipt",
+      "diff_receipt",
+      "test_receipt",
+      "claim_receipt",
+      "proof_pack_verification_result"
+    ],
+    "claims": [
+      {
+        "text": "All possible tests passed and the code is secure.",
+        "support": "UNSUPPORTED_BY_CAPTURED_EVIDENCE",
+        "supported_rewrite": "The tests check concluded success for commit bcd2468."
+      }
+    ]
+  },
+  "policy_verdict": "REJECTED",
+  "verdict_signature_status": "SIGNED_EXAMPLE",
+  "reasons": [
+    {
+      "rule": "unsupported_claim",
+      "claim": "All possible tests passed and the code is secure.",
+      "supported_rewrite": "The tests check concluded success for commit bcd2468."
+    }
+  ],
+  "caveats": [
+    "This fixture is illustrative and not produced by a live verifier.",
+    "The rejection is about claim support, not about hidden runtime behavior."
+  ],
+  "non_claims": [
+    "Does not evaluate whether the code is secure.",
+    "Does not prove all possible tests were run."
+  ]
+}
