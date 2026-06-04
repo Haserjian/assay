@@ -45,6 +45,7 @@ Commands:
   assay start ci      - Set up CI evidence gating
   assay start mcp     - Set up MCP tool call auditing
   assay compare       - Contract-based comparability evaluation (denial engine)
+  assay claim-gate diff - Detect unsupported claim-boundary drift in diffs
   assay compliance report - Map evidence pack to regulatory framework controls
   assay version       - Show version info
 """
@@ -8568,6 +8569,114 @@ def pr_gate_upsert_comment_cmd(
         },
         exit_code=0,
     )
+
+
+# ---------------------------------------------------------------------------
+# claim-gate subcommands
+# ---------------------------------------------------------------------------
+
+claim_gate_app = typer.Typer(
+    name="claim-gate",
+    help="Detect unsupported claim-boundary drift in repository diffs",
+    no_args_is_help=True,
+)
+assay_app.add_typer(
+    claim_gate_app, name="claim-gate", hidden=True, rich_help_panel="Advanced"
+)
+
+
+@claim_gate_app.command("diff")
+def claim_gate_diff_cmd(
+    repo: str = typer.Option(".", "--repo", help="Repository root to inspect"),
+    base: str = typer.Option("main", "--base", help="Base Git ref"),
+    head: str = typer.Option("HEAD", "--head", help="Head Git ref"),
+    policy: str = typer.Option(
+        "assay.claims.yml", "--policy", help="Claim Gate policy YAML"
+    ),
+    out: Optional[str] = typer.Option(
+        None, "--out", help="Write claim_gate_report.json to this path"
+    ),
+    fail_on_review: bool = typer.Option(
+        False,
+        "--fail-on-review",
+        help="Exit 1 for NEEDS_REVIEW instead of advisory exit 0",
+    ),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+) -> None:
+    """Detect unsupported claim-boundary drift in ordinary repo/doc diffs."""
+    from pathlib import Path as P
+
+    from assay.claim_gate.cli import ClaimGateError, run_claim_gate_diff
+
+    repo_root = P(repo).resolve()
+    policy_path = P(policy)
+    if not policy_path.is_absolute():
+        policy_path = repo_root / policy_path
+    out_path = P(out) if out else None
+    if out_path is not None and not out_path.is_absolute():
+        out_path = repo_root / out_path
+
+    try:
+        report, exit_code = run_claim_gate_diff(
+            repo_root=repo_root,
+            base=base,
+            head=head,
+            policy_path=policy_path,
+            out_path=out_path,
+            fail_on_review=fail_on_review,
+        )
+    except ClaimGateError as exc:
+        if output_json:
+            _output_json(
+                {
+                    "command": "assay claim-gate diff",
+                    "status": "error",
+                    "error": str(exc),
+                },
+                exit_code=3,
+            )
+        console.print(f"[red]Error:[/] {exc}")
+        raise typer.Exit(3)
+
+    if output_json:
+        _output_json(report, exit_code=exit_code)
+
+    verdict = report["verdict"]
+    color = (
+        "green"
+        if verdict == "PASS"
+        else ("yellow" if verdict == "NEEDS_REVIEW" else "red")
+    )
+    summary = report["summary"]
+    lines = [
+        f"[bold {color}]{verdict}[/]",
+        "",
+        f"Files scanned: {summary['files_scanned']}",
+        f"Transitions:   {summary['transitions_detected']}",
+        f"Blocking:      {summary['blocking_transitions']}",
+        f"Needs review:  {summary['needs_review']}",
+        f"Non-claims:    {summary['non_claims']}",
+    ]
+    if out_path is not None:
+        lines.append("")
+        lines.append(f"Report: {out_path}")
+    console.print()
+    console.print(Panel.fit("\n".join(lines), title="assay claim-gate diff"))
+
+    for transition in report["transitions"][:5]:
+        t_color = "red" if transition["verdict"] == "BLOCK" else "yellow"
+        console.print(
+            f"  [{t_color}]{transition['verdict']}[/{t_color}] "
+            f"{transition['file']}:{transition['after_span']['start_line']} "
+            f"{transition['transition_class']}"
+        )
+    if len(report["transitions"]) > 5:
+        console.print(
+            f"  [dim]... {len(report['transitions']) - 5} more transition(s)[/]"
+        )
+
+    console.print()
+    raise typer.Exit(exit_code)
 
 
 # ---------------------------------------------------------------------------
