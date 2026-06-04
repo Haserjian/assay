@@ -1,0 +1,41 @@
+Example draft output. No live command produces this transcript yet.
+
+$ assay agent-policy verify --policy assay.agent_policy.json --evidence examples/passing_agent_pr.json
+AGENT POLICY: POLICY_SATISFIED
+Policy: agent-operating-policy-v0-example
+AGENTS.md hash: sha256:418d0366bc29d824b7a6747eebff04a475a1bad33c127320a8fcf6ea4f0aa55e
+Machine policy hash: sha256:f636952f799bd230470de8f96afaaa584f8408066b5fa4822cdd6a5c76845e08
+Evidence pack hash: sha256:1111111111111111111111111111111111111111111111111111111111111111
+Signature status: SIGNED_EXAMPLE
+
+Result:
+Captured evidence satisfied the declared agent operating policy.
+
+Caveats:
+- Example draft output only.
+- Verdict is about captured PR evidence.
+- Verdict is not a merge decision.
+- Verdict is not production approval.
+
+$ assay agent-policy verify --policy assay.agent_policy.json --evidence examples/unsupported_claim_rejected.json
+AGENT POLICY: REJECTED
+Policy: agent-operating-policy-v0-example
+AGENTS.md hash: sha256:418d0366bc29d824b7a6747eebff04a475a1bad33c127320a8fcf6ea4f0aa55e
+Machine policy hash: sha256:f636952f799bd230470de8f96afaaa584f8408066b5fa4822cdd6a5c76845e08
+Evidence pack hash: sha256:4444444444444444444444444444444444444444444444444444444444444444
+Signature status: SIGNED_EXAMPLE
+
+Result:
+Captured evidence failed the declared agent operating policy.
+
+Reason:
+- unsupported_claim: "All possible tests passed and the code is secure."
+
+Supported rewrite:
+- "The tests check concluded success for commit bcd2468."
+
+Caveats:
+- Example draft output only.
+- Verdict is about captured PR evidence.
+- Verdict does not evaluate hidden runtime behavior.
+- Verdict is not a merge decision.

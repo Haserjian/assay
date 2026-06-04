@@ -1,0 +1,89 @@
+{
+  "schema_version": "agent_operating_policy.v0.draft",
+  "policy_id": "agent-operating-policy-v0-example",
+  "status": "draft_example",
+  "scope": {
+    "evaluates": [
+      "captured PR diff paths",
+      "observed check conclusions",
+      "required receipt presence",
+      "proof-pack or review-packet verification status",
+      "declared claims compared with captured evidence"
+    ],
+    "does_not_evaluate": [
+      "hidden agent intent",
+      "unobserved runtime activity",
+      "production approval",
+      "underlying code correctness beyond captured evidence"
+    ]
+  },
+  "bindings": {
+    "hash_method": "sha256:file-bytes",
+    "agents_doc_sha256": "sha256:418d0366bc29d824b7a6747eebff04a475a1bad33c127320a8fcf6ea4f0aa55e",
+    "machine_policy_schema_sha256": "sha256:1d60f827d7d33cccc80a4e65628eccb685fb637c01d3d71210f6a47b57f63b08"
+  },
+  "allowed_paths": [
+    "src/**",
+    "tests/**",
+    "docs/**",
+    ".assay/pr-gate/**"
+  ],
+  "forbidden_paths": [
+    ".env",
+    "secrets/**",
+    "billing/**",
+    "deploy/**",
+    ".github/workflows/**"
+  ],
+  "required_receipts": [
+    "task_receipt",
+    "diff_receipt",
+    "test_receipt",
+    "claim_receipt",
+    "proof_pack_verification_result"
+  ],
+  "required_checks": [
+    "tests"
+  ],
+  "claim_boundaries": {
+    "supported_claims": [
+      "observed check name and conclusion for a specific commit",
+      "captured diff path classification",
+      "required receipt presence in captured evidence",
+      "proof-pack or review-packet verification under stated verifier inputs"
+    ],
+    "unsupported_claims": [
+      "all possible tests passed",
+      "the code is secure",
+      "production approval was granted",
+      "hidden runtime behavior was reviewed",
+      "the agent fully followed AGENTS.md"
+    ]
+  },
+  "rejection_rules": [
+    {
+      "id": "forbidden_path_touched",
+      "verdict": "REJECTED",
+      "reason": "Captured diff touched a forbidden path.",
+      "evidence_field": "diff.changed_paths"
+    },
+    {
+      "id": "required_receipt_missing",
+      "verdict": "REJECTED",
+      "reason": "Captured evidence did not include a required receipt.",
+      "evidence_field": "receipts.present"
+    },
+    {
+      "id": "unsupported_claim",
+      "verdict": "REJECTED",
+      "reason": "A stated claim was stronger than the captured evidence supports.",
+      "evidence_field": "claims.support"
+    }
+  ],
+  "non_claims": [
+    "This policy does not decide whether a PR should be merged.",
+    "This policy does not approve production deployment.",
+    "This policy does not prove hidden agent behavior.",
+    "This policy does not prove general code safety."
+  ]
+}
