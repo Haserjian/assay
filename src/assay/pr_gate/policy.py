@@ -32,6 +32,9 @@ CHECK_OBSERVATION_STATUSES = frozenset(
         "NAME_MISMATCH_POSSIBLE",
     }
 )
+CLAIM_GATE_REPORT_SCHEMA_VERSION = "assay.claim_gate_report.v0"
+CLAIM_GATE_REPORT_COMMAND = "assay claim-gate diff"
+CLAIM_GATE_VERDICTS = frozenset({"PASS", "NEEDS_REVIEW", "BLOCK"})
 
 RULE_ORDER = (
     "integrity_failed",
@@ -162,6 +165,9 @@ def evaluate_policy(
         observed_checks=observed_checks,
         head_sha=head_sha,
     )
+    claim_gate_report = _claim_gate_report(evidence)
+    claim_gate_verdict = _claim_gate_verdict(claim_gate_report)
+    claim_gate_reasons = _claim_gate_reasons(claim_gate_report)
     for outcome in check_outcomes:
         status = str(outcome["status"])
         if status == "OBSERVED_FAIL":
@@ -194,9 +200,13 @@ def evaluate_policy(
             }
         )
 
-    reasons = _ordered_reasons(reasons_by_rule)
+    reasons = _ordered_reasons(reasons_by_rule, claim_gate_reasons)
     selected_rule = _selected_rule(reasons_by_rule)
 
+    # Adapter slice: claim_gate reflects into the Claim channel only. It does
+    # not drive the top-level decision here. Whether a claim_gate FAIL should
+    # escalate overall_decision is deferred to the producer slice, where the
+    # behavior becomes live (CI embeds the report).
     if selected_rule is None:
         default = _mapping(policy["default"], "default")
         overall_decision = str(default["decision"])
@@ -213,7 +223,7 @@ def evaluate_policy(
         "check_observations": check_outcomes,
         "channels": {
             "integrity": "PASS" if integrity == "PASS" else "FAIL",
-            "claim": _claim_channel(check_outcomes),
+            "claim": _claim_channel(claim_gate_verdict),
             "replay": "NOT_RUN",
             "trust_policy": _trust_policy_channel(reasons_by_rule),
         },
@@ -528,10 +538,18 @@ def _risk_path_matches(
 
 
 def _ordered_reasons(
-    reasons_by_rule: Mapping[str, List[Dict[str, Any]]]
+    reasons_by_rule: Mapping[str, List[Dict[str, Any]]],
+    claim_gate_reasons: Optional[List[Dict[str, Any]]] = None,
 ) -> List[Dict[str, Any]]:
     reasons: List[Dict[str, Any]] = []
-    for rule in RULE_ORDER:
+    for rule in (
+        "integrity_failed",
+        "untrusted_signer",
+        "required_check_failed",
+    ):
+        reasons.extend(reasons_by_rule[rule])
+    reasons.extend(claim_gate_reasons or [])
+    for rule in ("required_check_missing", "risk_path_touched"):
         reasons.extend(reasons_by_rule[rule])
     return reasons
 
@@ -545,16 +563,108 @@ def _selected_rule(
     return None
 
 
-def _claim_channel(
-    check_outcomes: List[Mapping[str, Any]]
-) -> str:
-    statuses = {outcome.get("status") for outcome in check_outcomes}
-    if "OBSERVED_FAIL" in statuses:
-        return "FAIL"
-    if statuses - {"OBSERVED_PASS"}:
-        return "NOT_EVALUATED"
-    if "OBSERVED_PASS" in statuses:
+def _claim_gate_report(evidence: Mapping[str, Any]) -> Optional[Mapping[str, Any]]:
+    raw = evidence.get("claim_gate_report")
+    if raw is None:
+        return None
+    if not isinstance(raw, Mapping):
+        raise PolicyEvaluationError("claim_gate_report must be a mapping")
+    if raw.get("schema_version") != CLAIM_GATE_REPORT_SCHEMA_VERSION:
+        raise PolicyEvaluationError(
+            "claim_gate_report schema_version is not assay.claim_gate_report.v0"
+        )
+    if raw.get("command") != CLAIM_GATE_REPORT_COMMAND:
+        raise PolicyEvaluationError(
+            "claim_gate_report command is not assay claim-gate diff"
+        )
+    return raw
+
+
+def _claim_gate_verdict(report: Optional[Mapping[str, Any]]) -> Optional[str]:
+    if report is None:
+        return None
+    verdict = report.get("verdict")
+    if verdict not in CLAIM_GATE_VERDICTS:
+        raise PolicyEvaluationError(
+            f"claim_gate_report.verdict must be one of "
+            f"{sorted(CLAIM_GATE_VERDICTS)}, got {verdict!r}"
+        )
+    return str(verdict)
+
+
+def _claim_gate_reasons(
+    report: Optional[Mapping[str, Any]]
+) -> List[Dict[str, Any]]:
+    verdict = _claim_gate_verdict(report)
+    if report is None or verdict == "PASS":
+        return []
+    transitions = report.get("transitions")
+    if transitions is None:
+        transitions = []
+    if not isinstance(transitions, list):
+        raise PolicyEvaluationError("claim_gate_report.transitions must be a list")
+
+    reasons: List[Dict[str, Any]] = []
+    included_verdicts = {"BLOCK"} if verdict == "BLOCK" else {"NEEDS_REVIEW"}
+    for transition in transitions:
+        if not isinstance(transition, Mapping):
+            raise PolicyEvaluationError(
+                "claim_gate_report.transitions entries must be mappings"
+            )
+        transition_verdict = transition.get("verdict")
+        if transition_verdict not in included_verdicts:
+            continue
+        evidence_required = _string_list_value(
+            transition.get("evidence_required"), "claim_gate_report.evidence_required"
+        )
+        evidence_found = _string_list_value(
+            transition.get("evidence_found", []), "claim_gate_report.evidence_found"
+        )
+        missing_evidence = [
+            item for item in evidence_required if item not in set(evidence_found)
+        ]
+        rule = (
+            "claim_gate_block"
+            if transition_verdict == "BLOCK"
+            else "claim_gate_needs_review"
+        )
+        reason: Dict[str, Any] = {
+            "rule": rule,
+            "claim_gate_verdict": verdict,
+            "transition_verdict": str(transition_verdict),
+            "transition_class": str(transition.get("transition_class") or "unknown"),
+            "missing_evidence": missing_evidence,
+        }
+        for key in ("id", "file", "severity"):
+            value = transition.get(key)
+            if isinstance(value, str) and value:
+                reason[key] = value
+        reasons.append(reason)
+
+    if reasons:
+        return reasons
+
+    return [
+        {
+            "rule": "claim_gate_block"
+            if verdict == "BLOCK"
+            else "claim_gate_needs_review",
+            "claim_gate_verdict": verdict,
+        }
+    ]
+
+
+def _string_list_value(raw: Any, label: str) -> List[str]:
+    if not isinstance(raw, list) or not all(isinstance(item, str) for item in raw):
+        raise PolicyEvaluationError(f"{label} must be a list of strings")
+    return list(raw)
+
+
+def _claim_channel(claim_gate_verdict: Optional[str]) -> str:
+    if claim_gate_verdict == "PASS":
         return "PASS"
+    if claim_gate_verdict in {"NEEDS_REVIEW", "BLOCK"}:
+        return "FAIL"
     return "NOT_EVALUATED"
 
 
@@ -575,6 +685,9 @@ def _trust_policy_channel(
 __all__ = [
     "DECISIONS",
     "CHECK_OBSERVATION_STATUSES",
+    "CLAIM_GATE_REPORT_COMMAND",
+    "CLAIM_GATE_REPORT_SCHEMA_VERSION",
+    "CLAIM_GATE_VERDICTS",
     "RECOMMENDED_ACTIONS",
     "RULE_ORDER",
     "PolicyEvaluationError",

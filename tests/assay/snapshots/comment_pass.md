@@ -11,7 +11,7 @@ Subject:
 
 Verdict channels:
 - Integrity: PASS
-- Claim: PASS - observed check "tests" concluded success for commit head-pass
+- Claim: NOT_EVALUATED
 - Replay: NOT_RUN
 - Trust policy: PASS
 

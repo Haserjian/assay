@@ -11,7 +11,7 @@ Subject:
 
 Verdict channels:
 - Integrity: PASS
-- Claim: FAIL - required check "tests" failed
+- Claim: NOT_EVALUATED
 - Replay: NOT_RUN
 - Trust policy: BLOCK - required check "tests" failed
 

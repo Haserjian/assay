@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import pytest
 from typer.testing import CliRunner
@@ -21,6 +21,14 @@ runner = CliRunner()
 ROOT = Path(__file__).resolve().parents[2]
 POLICY_PATH = ROOT / "docs" / "examples" / "pr-gate-v0" / "assay-policy.yml"
 SNAPSHOT_DIR = Path(__file__).resolve().parent / "snapshots"
+DOGFOOD_CLAIM_GATE_REPORT = (
+    ROOT
+    / "docs"
+    / "examples"
+    / "claim-gate-v0"
+    / "dogfood-overclaim-block-v0"
+    / "claim_gate_report.json"
+)
 
 
 def _evidence(
@@ -28,9 +36,10 @@ def _evidence(
     head_sha: str,
     changed_files: List[Dict[str, Any]],
     conclusion: str,
+    claim_gate_report: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     policy = load_policy(POLICY_PATH)
-    return {
+    evidence = {
         "schema_version": "assay.pr_gate.evidence.v0.1",
         "subject": {
             "repo": "Haserjian/assay",
@@ -69,6 +78,43 @@ def _evidence(
             "policy_sha256": compute_policy_sha256(policy),
         },
     }
+    if claim_gate_report is not None:
+        evidence["claim_gate_report"] = claim_gate_report
+    return evidence
+
+
+def _claim_gate_report(verdict: str) -> Dict[str, Any]:
+    transitions: List[Dict[str, Any]] = []
+    if verdict == "BLOCK":
+        transitions = [
+            {
+                "id": "cgt_001",
+                "file": "README.md",
+                "transition_class": "possible_to_guaranteed",
+                "severity": "high",
+                "evidence_required": ["direct_evidence"],
+                "evidence_found": [],
+                "verdict": "BLOCK",
+            }
+        ]
+    return {
+        "schema_version": "assay.claim_gate_report.v0",
+        "command": "assay claim-gate diff",
+        "verdict": verdict,
+        "summary": {
+            "files_scanned": 1,
+            "transitions_detected": len(transitions),
+            "blocking_transitions": 1 if verdict == "BLOCK" else 0,
+            "needs_review": 0,
+            "non_claims": 0,
+        },
+        "transitions": transitions,
+        "non_claims": [],
+    }
+
+
+def _dogfood_claim_gate_report() -> Dict[str, Any]:
+    return json.loads(DOGFOOD_CLAIM_GATE_REPORT.read_text(encoding="utf-8"))
 
 
 def _render_case(tmp_path: Path, evidence: Dict[str, Any]) -> str:
@@ -173,11 +219,57 @@ def test_render_comment_missing_required_check_does_not_quote_unrelated_check(
 
     comment = _render_case(tmp_path, evidence)
 
-    assert (
-        'Claim: NOT_EVALUATED - required check "tests" was not observed; '
-        'observed checks used other names: "Prepare"'
-    ) in comment
+    assert "Claim: NOT_EVALUATED" in comment
+    assert "Trust policy: NEEDS_REVIEW" in comment
     assert 'observed check "Prepare"' not in comment
+
+
+def test_render_comment_claim_gate_pass_reports_claim_pass(tmp_path: Path) -> None:
+    comment = _render_case(
+        tmp_path,
+        _evidence(
+            head_sha="head-claim-pass",
+            changed_files=[
+                {
+                    "path": "README.md",
+                    "status": "modified",
+                    "sha256_after": "sha256:" + "b" * 64,
+                }
+            ],
+            conclusion="success",
+            claim_gate_report=_claim_gate_report("PASS"),
+        ),
+    )
+
+    assert "Assay PR Gate: PASS - proceed to normal review" in comment
+    assert "Claim: PASS - claim_gate report verdict PASS" in comment
+
+
+def test_render_comment_claim_gate_block_reports_claim_fail(tmp_path: Path) -> None:
+    comment = _render_case(
+        tmp_path,
+        _evidence(
+            head_sha="head-claim-block",
+            changed_files=[
+                {
+                    "path": "README.md",
+                    "status": "modified",
+                    "sha256_after": "sha256:" + "b" * 64,
+                }
+            ],
+            conclusion="success",
+            claim_gate_report=_dogfood_claim_gate_report(),
+        ),
+    )
+
+    # Adapter slice: claim_gate BLOCK surfaces only in the Claim channel.
+    # The top-level header stays PASS; escalation is deferred to the producer slice.
+    assert "Assay PR Gate: PASS - proceed to normal review" in comment
+    assert "Recommended action: proceed" in comment
+    assert (
+        "Claim: FAIL - claim_gate BLOCK: possible_to_guaranteed, "
+        "prototype_to_production"
+    ) in comment
 
 
 def test_pr_gate_render_comment_cli_writes_comment(tmp_path: Path) -> None:

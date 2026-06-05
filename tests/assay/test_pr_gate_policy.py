@@ -5,10 +5,12 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+import pytest
 from typer.testing import CliRunner
 
 from assay.commands import assay_app
 from assay.pr_gate.policy import (
+    PolicyEvaluationError,
     compute_policy_sha256,
     evaluate_policy,
     load_policy,
@@ -18,6 +20,14 @@ runner = CliRunner()
 
 ROOT = Path(__file__).resolve().parents[2]
 POLICY_PATH = ROOT / "docs" / "examples" / "pr-gate-v0" / "assay-policy.yml"
+DOGFOOD_CLAIM_GATE_REPORT = (
+    ROOT
+    / "docs"
+    / "examples"
+    / "claim-gate-v0"
+    / "dogfood-overclaim-block-v0"
+    / "claim_gate_report.json"
+)
 
 
 def _policy() -> Dict[str, Any]:
@@ -30,8 +40,9 @@ def _evidence(
     observed_checks: Optional[List[Dict[str, Any]]] = None,
     integrity_status: str = "PASS",
     signer_trusted: bool = True,
+    claim_gate_report: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    return {
+    evidence = {
         "schema_version": "assay.pr_gate.evidence.v0.1",
         "subject": {
             "repo": "Haserjian/assay",
@@ -66,6 +77,47 @@ def _evidence(
             "policy_sha256": "sha256:" + "c" * 64,
         },
     }
+    if claim_gate_report is not None:
+        evidence["claim_gate_report"] = claim_gate_report
+    return evidence
+
+
+def _claim_gate_report(verdict: str) -> Dict[str, Any]:
+    transitions: List[Dict[str, Any]] = []
+    if verdict in {"BLOCK", "NEEDS_REVIEW"}:
+        transitions = [
+            {
+                "id": "cgt_001",
+                "file": "README.md",
+                "transition_class": "possible_to_guaranteed"
+                if verdict == "BLOCK"
+                else "demo_to_enterprise",
+                "severity": "high" if verdict == "BLOCK" else "medium",
+                "evidence_required": ["direct_evidence"]
+                if verdict == "BLOCK"
+                else ["deployment_scope_receipt"],
+                "evidence_found": [],
+                "verdict": verdict,
+            }
+        ]
+    return {
+        "schema_version": "assay.claim_gate_report.v0",
+        "command": "assay claim-gate diff",
+        "verdict": verdict,
+        "summary": {
+            "files_scanned": 1,
+            "transitions_detected": len(transitions),
+            "blocking_transitions": 1 if verdict == "BLOCK" else 0,
+            "needs_review": 1 if verdict == "NEEDS_REVIEW" else 0,
+            "non_claims": 0,
+        },
+        "transitions": transitions,
+        "non_claims": [],
+    }
+
+
+def _dogfood_claim_gate_report() -> Dict[str, Any]:
+    return json.loads(DOGFOOD_CLAIM_GATE_REPORT.read_text(encoding="utf-8"))
 
 
 class TestPrGatePolicyEvaluator:
@@ -87,7 +139,7 @@ class TestPrGatePolicyEvaluator:
             ],
             "channels": {
                 "integrity": "PASS",
-                "claim": "PASS",
+                "claim": "NOT_EVALUATED",
                 "replay": "NOT_RUN",
                 "trust_policy": "PASS",
             },
@@ -101,7 +153,7 @@ class TestPrGatePolicyEvaluator:
 
         assert decision["overall_decision"] == "NEEDS_REVIEW"
         assert decision["recommended_action"] == "require_human_approval"
-        assert decision["channels"]["claim"] == "PASS"
+        assert decision["channels"]["claim"] == "NOT_EVALUATED"
         assert decision["channels"]["trust_policy"] == "NEEDS_REVIEW"
         assert decision["check_observations"] == [
             {
@@ -164,7 +216,7 @@ class TestPrGatePolicyEvaluator:
 
         assert decision["overall_decision"] == "BLOCK"
         assert decision["recommended_action"] == "block_required_check_failed"
-        assert decision["channels"]["claim"] == "FAIL"
+        assert decision["channels"]["claim"] == "NOT_EVALUATED"
         assert decision["channels"]["trust_policy"] == "BLOCK"
         assert decision["reasons"] == [
             {
@@ -289,6 +341,75 @@ class TestPrGatePolicyEvaluator:
                 "observed_at": "2026-05-08T12:00:00Z",
             }
         ]
+
+    def test_claim_gate_pass_maps_to_claim_pass(self) -> None:
+        decision = evaluate_policy(
+            _evidence(claim_gate_report=_claim_gate_report("PASS")),
+            _policy(),
+        )
+
+        assert decision["overall_decision"] == "PASS"
+        assert decision["recommended_action"] == "proceed"
+        assert decision["channels"]["claim"] == "PASS"
+        assert decision["reasons"] == []
+
+    def test_claim_gate_block_maps_to_claim_fail(self) -> None:
+        decision = evaluate_policy(
+            _evidence(claim_gate_report=_dogfood_claim_gate_report()),
+            _policy(),
+        )
+
+        # Adapter slice: claim_gate BLOCK surfaces in the Claim channel as FAIL
+        # but does NOT drive the top-level decision (deferred to producer slice).
+        assert decision["overall_decision"] == "PASS"
+        assert decision["recommended_action"] == "proceed"
+        assert decision["channels"]["claim"] == "FAIL"
+        assert decision["channels"]["trust_policy"] == "PASS"
+        assert [reason["rule"] for reason in decision["reasons"]] == [
+            "claim_gate_block",
+            "claim_gate_block",
+        ]
+        assert {
+            reason["transition_class"] for reason in decision["reasons"]
+        } == {"possible_to_guaranteed", "prototype_to_production"}
+
+    def test_claim_gate_needs_review_maps_to_claim_fail(self) -> None:
+        decision = evaluate_policy(
+            _evidence(claim_gate_report=_claim_gate_report("NEEDS_REVIEW")),
+            _policy(),
+        )
+
+        # Adapter slice: claim_gate NEEDS_REVIEW surfaces in the Claim channel
+        # as FAIL but does NOT drive the top-level decision.
+        assert decision["overall_decision"] == "PASS"
+        assert decision["recommended_action"] == "proceed"
+        assert decision["channels"]["claim"] == "FAIL"
+        assert decision["reasons"] == [
+            {
+                "rule": "claim_gate_needs_review",
+                "claim_gate_verdict": "NEEDS_REVIEW",
+                "transition_verdict": "NEEDS_REVIEW",
+                "transition_class": "demo_to_enterprise",
+                "missing_evidence": ["deployment_scope_receipt"],
+                "id": "cgt_001",
+                "file": "README.md",
+                "severity": "medium",
+            }
+        ]
+
+    def test_claim_gate_report_rejects_wrong_schema_version(self) -> None:
+        report = _claim_gate_report("PASS")
+        report["schema_version"] = "wrong"
+
+        with pytest.raises(PolicyEvaluationError, match="schema_version"):
+            evaluate_policy(_evidence(claim_gate_report=report), _policy())
+
+    def test_claim_gate_report_rejects_wrong_command(self) -> None:
+        report = _claim_gate_report("PASS")
+        report["command"] = "other"
+
+        with pytest.raises(PolicyEvaluationError, match="command"):
+            evaluate_policy(_evidence(claim_gate_report=report), _policy())
 
     def test_mismatched_check_name_is_reported_without_overclaiming(self) -> None:
         decision = evaluate_policy(

@@ -45,7 +45,7 @@ Subject:
 
 Verdict channels:
 - Integrity: PASS
-- Claim: PASS - observed check "tests" concluded success for commit abc123
+- Claim: NOT_EVALUATED
 - Replay: NOT_RUN
 - Trust policy: NEEDS_REVIEW - touched auth/session.py
 
@@ -109,16 +109,24 @@ Tests passed.
 Write:
 
 ```text
-Observed check "tests" concluded success for commit abc123.
+Claim: PASS - claim_gate report verdict PASS
 ```
 
 or:
 
 ```text
-Observed command "pytest" exited 0 in workflow run 123456 for commit abc123.
+Claim: FAIL - claim_gate BLOCK: possible_to_guaranteed
 ```
 
-The claim must name the observed check or command, the result, and the commit.
+If no `claim_gate_report` is present, write:
+
+```text
+Claim: NOT_EVALUATED
+```
+
+The Claim channel must not treat ordinary required-check observations as claim
+truth. Required checks belong in check observations, trust-policy reasons, or
+the top-level recommendation.
 
 ## Evidence Wording
 

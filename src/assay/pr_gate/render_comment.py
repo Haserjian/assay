@@ -164,6 +164,9 @@ def _claim_line(*, report: Mapping[str, Any], evidence: Mapping[str, Any]) -> st
     claim = channels.get("claim")
     if claim != "PASS":
         return _non_pass_claim_line(report=report, claim=str(claim))
+    claim_gate = evidence.get("claim_gate_report")
+    if isinstance(claim_gate, Mapping) and claim_gate.get("verdict") == "PASS":
+        return "PASS - claim_gate report verdict PASS"
     subject = _mapping(report.get("subject"), "report.subject")
     head_sha = subject.get("head_sha")
     checks = evidence.get("observed_checks") or []
@@ -183,12 +186,24 @@ def _claim_line(*, report: Mapping[str, Any], evidence: Mapping[str, Any]) -> st
 
 
 def _non_pass_claim_line(*, report: Mapping[str, Any], claim: str) -> str:
-    for reason in _reasons(report):
-        rule = reason.get("rule")
-        if rule == "required_check_missing":
-            return f"{claim} - {_missing_check_summary(reason)}"
-        if rule == "required_check_failed":
-            return f"{claim} - required check \"{reason.get('check')}\" failed"
+    claim_gate_reasons = [
+        reason
+        for reason in _reasons(report)
+        if reason.get("rule") in {"claim_gate_block", "claim_gate_needs_review"}
+    ]
+    if claim_gate_reasons:
+        verdict = str(claim_gate_reasons[0].get("claim_gate_verdict") or "UNKNOWN")
+        classes = sorted(
+            {
+                str(reason.get("transition_class"))
+                for reason in claim_gate_reasons
+                if reason.get("transition_class")
+            }
+        )
+        suffix = f": {', '.join(classes)}" if classes else ""
+        if verdict == "NEEDS_REVIEW":
+            return f"{claim} - claim_gate NEEDS_REVIEW{suffix}; claim evidence requires human review"
+        return f"{claim} - claim_gate {verdict}{suffix}"
     return claim
 
 
