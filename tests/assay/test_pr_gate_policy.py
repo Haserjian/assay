@@ -373,6 +373,30 @@ class TestPrGatePolicyEvaluator:
             reason["transition_class"] for reason in decision["reasons"]
         } == {"possible_to_guaranteed", "prototype_to_production"}
 
+    def test_claim_gate_reasons_follow_required_check_failures(self) -> None:
+        decision = evaluate_policy(
+            _evidence(
+                changed_files=["auth/session.py"],
+                observed_checks=[
+                    {
+                        "name": "tests",
+                        "provider": "github_checks",
+                        "head_sha": "head",
+                        "conclusion": "failure",
+                        "observed_at": "2026-05-08T12:00:00Z",
+                    }
+                ],
+                claim_gate_report=_claim_gate_report("BLOCK"),
+            ),
+            _policy(),
+        )
+
+        assert [reason["rule"] for reason in decision["reasons"]] == [
+            "required_check_failed",
+            "claim_gate_block",
+            "risk_path_touched",
+        ]
+
     def test_claim_gate_needs_review_maps_to_claim_fail(self) -> None:
         decision = evaluate_policy(
             _evidence(claim_gate_report=_claim_gate_report("NEEDS_REVIEW")),

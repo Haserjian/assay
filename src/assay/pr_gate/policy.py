@@ -542,15 +542,10 @@ def _ordered_reasons(
     claim_gate_reasons: Optional[List[Dict[str, Any]]] = None,
 ) -> List[Dict[str, Any]]:
     reasons: List[Dict[str, Any]] = []
-    for rule in (
-        "integrity_failed",
-        "untrusted_signer",
-        "required_check_failed",
-    ):
+    for rule in RULE_ORDER:
         reasons.extend(reasons_by_rule[rule])
-    reasons.extend(claim_gate_reasons or [])
-    for rule in ("required_check_missing", "risk_path_touched"):
-        reasons.extend(reasons_by_rule[rule])
+        if rule == "required_check_failed":
+            reasons.extend(claim_gate_reasons or [])
     return reasons
 
 
