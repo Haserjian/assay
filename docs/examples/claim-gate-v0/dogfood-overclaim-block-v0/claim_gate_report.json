@@ -1,0 +1,103 @@
+{
+  "command": "assay claim-gate diff",
+  "non_claims": [],
+  "non_claims_global": [
+    "This report does not determine truth.",
+    "This report does not certify legal compliance.",
+    "This report does not approve production deployment.",
+    "This report only gates configured claim-boundary transitions."
+  ],
+  "schema_version": "assay.claim_gate_report.v0",
+  "subject": {
+    "base": "20b84d7",
+    "head": "078e1a8",
+    "policy": "assay.claims.yml"
+  },
+  "summary": {
+    "blocking_transitions": 2,
+    "files_scanned": 1,
+    "needs_review": 1,
+    "non_claims": 0,
+    "transitions_detected": 3
+  },
+  "transitions": [
+    {
+      "after_span": {
+        "end_line": 3,
+        "start_line": 3,
+        "text": "This production-ready login service guarantees safe authentication and is proven secure."
+      },
+      "before_span": {
+        "end_line": 3,
+        "start_line": 3,
+        "text": "This experimental prototype may reduce login risk in a single local demo."
+      },
+      "confidence": 0.8,
+      "evidence_found": [],
+      "evidence_required": [
+        "deployment_scope_receipt"
+      ],
+      "file": "README.md",
+      "id": "cgt_001",
+      "rationale": "The text upgrades a demo or sample into enterprise or production scope.",
+      "risk_class": "unsupported_claim_escalation",
+      "severity": "medium",
+      "suggested_rewrite": "Keep the claim in demo scope until deployment evidence exists.",
+      "transition_class": "demo_to_enterprise",
+      "verdict": "NEEDS_REVIEW"
+    },
+    {
+      "after_span": {
+        "end_line": 3,
+        "start_line": 3,
+        "text": "This production-ready login service guarantees safe authentication and is proven secure."
+      },
+      "before_span": {
+        "end_line": 3,
+        "start_line": 3,
+        "text": "This experimental prototype may reduce login risk in a single local demo."
+      },
+      "confidence": 0.9,
+      "evidence_found": [],
+      "evidence_required": [
+        "direct_evidence",
+        "reviewer_acceptance"
+      ],
+      "file": "README.md",
+      "id": "cgt_002",
+      "rationale": "The text moves from possibility language to a guarantee.",
+      "risk_class": "unsupported_claim_escalation",
+      "severity": "high",
+      "suggested_rewrite": "Use possibility language unless direct evidence supports the guarantee.",
+      "transition_class": "possible_to_guaranteed",
+      "verdict": "BLOCK"
+    },
+    {
+      "after_span": {
+        "end_line": 3,
+        "start_line": 3,
+        "text": "This production-ready login service guarantees safe authentication and is proven secure."
+      },
+      "before_span": {
+        "end_line": 3,
+        "start_line": 3,
+        "text": "This experimental prototype may reduce login risk in a single local demo."
+      },
+      "confidence": 0.93,
+      "evidence_found": [],
+      "evidence_required": [
+        "production_deployment_receipt",
+        "reproducible_test_suite"
+      ],
+      "file": "README.md",
+      "id": "cgt_003",
+      "rationale": "The text moves from prototype or experimental language to production readiness.",
+      "risk_class": "unsupported_claim_escalation",
+      "severity": "high",
+      "suggested_rewrite": "Frame this as a prototype or production-oriented exploration until deployment evidence is present.",
+      "transition_class": "prototype_to_production",
+      "verdict": "BLOCK"
+    }
+  ],
+  "verdict": "BLOCK"
+}
