@@ -8273,6 +8273,11 @@ def pr_gate_capture_cmd(
     policy: Optional[str] = typer.Option(
         None, "--policy", help="Optional PR Gate policy YAML to hash into evidence"
     ),
+    claim_gate_report: Optional[str] = typer.Option(
+        None,
+        "--claim-gate-report",
+        help="Optional claim_gate_report.json to embed in PR Gate evidence",
+    ),
     out: str = typer.Option(
         ..., "--out", help="Write PR Gate evidence JSON to this path"
     ),
@@ -8305,6 +8310,9 @@ def pr_gate_capture_cmd(
             head_sha=head_sha,
             out_path=P(out),
             policy_path=P(policy) if policy else None,
+            claim_gate_report_path=P(claim_gate_report)
+            if claim_gate_report
+            else None,
             env=os.environ,
             git_cwd=P(git_cwd),
             api_url=github_api_url,

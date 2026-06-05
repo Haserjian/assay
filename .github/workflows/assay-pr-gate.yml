@@ -21,6 +21,7 @@ jobs:
     env:
       ASSAY_PR_GATE_DIR: .assay/pr-gate
       ASSAY_PR_GATE_POLICY: docs/examples/pr-gate-v0/assay-dogfood-policy.yml
+      ASSAY_CLAIM_GATE_POLICY: docs/examples/claim-gate-v0/assay.claims.yml
       ASSAY_PR_GATE_EXPECTED_IDENTITY: https://github.com/Haserjian/assay/.github/workflows/assay-pr-gate.yml@refs/heads/main
       PR_NUMBER: ${{ github.event.pull_request.number }}
       PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
@@ -55,6 +56,24 @@ jobs:
       - name: Install cosign
         uses: sigstore/cosign-installer@v4.0.0
 
+      - name: Run Claim Gate
+        run: |
+          set -euo pipefail
+          mkdir -p "$ASSAY_PR_GATE_DIR"
+          set +e
+          assay claim-gate diff \
+            --repo . \
+            --base "$PR_BASE_SHA" \
+            --head "$PR_HEAD_SHA" \
+            --policy "$ASSAY_CLAIM_GATE_POLICY" \
+            --out "$ASSAY_PR_GATE_DIR/claim_gate_report.json" \
+            --json
+          claim_gate_exit=$?
+          set -e
+          if [ "$claim_gate_exit" -ne 0 ] && [ "$claim_gate_exit" -ne 2 ]; then
+            exit "$claim_gate_exit"
+          fi
+
       - name: Capture PR evidence
         run: |
           set -euo pipefail
@@ -64,6 +83,7 @@ jobs:
             --pr "$PR_NUMBER" \
             --head-sha "$PR_HEAD_SHA" \
             --policy "$ASSAY_PR_GATE_POLICY" \
+            --claim-gate-report "$ASSAY_PR_GATE_DIR/claim_gate_report.json" \
             --out "$ASSAY_PR_GATE_DIR/evidence.json" \
             --git-cwd .
 

@@ -12,7 +12,12 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
-from assay.pr_gate.policy import compute_policy_sha256, load_policy
+from assay.pr_gate.policy import (
+    CLAIM_GATE_REPORT_COMMAND,
+    CLAIM_GATE_REPORT_SCHEMA_VERSION,
+    compute_policy_sha256,
+    load_policy,
+)
 
 DEFAULT_GITHUB_API_URL = "https://api.github.com"
 SCHEMA_VERSION = "assay.pr_gate.evidence.v0.1"
@@ -109,6 +114,7 @@ def capture_github_pr(
     github_client: Optional[GitHubClient] = None,
     api_url: Optional[str] = None,
     token: Optional[str] = None,
+    claim_gate_report_path: Optional[Path] = None,
 ) -> Dict[str, Any]:
     """Capture GitHub PR metadata, checks, and local content hashes."""
     if git_runner is None:
@@ -175,6 +181,11 @@ def capture_github_pr(
             "policy_sha256": compute_policy_sha256(policy),
         }
 
+    if claim_gate_report_path is not None:
+        evidence["claim_gate_report"] = _load_claim_gate_report(
+            claim_gate_report_path
+        )
+
     if out_path is not None:
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_text(
@@ -183,6 +194,26 @@ def capture_github_pr(
         )
 
     return evidence
+
+
+def _load_claim_gate_report(path: Path) -> Dict[str, Any]:
+    if not path.exists():
+        raise CaptureError(f"Claim Gate report not found: {path}")
+    if not path.is_file():
+        raise CaptureError(f"Claim Gate report path is not a file: {path}")
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise CaptureError(f"Claim Gate report is malformed JSON: {exc}") from exc
+    if not isinstance(raw, dict):
+        raise CaptureError("Claim Gate report must be a JSON object")
+    if raw.get("schema_version") != CLAIM_GATE_REPORT_SCHEMA_VERSION:
+        raise CaptureError(
+            "Claim Gate report schema_version is not assay.claim_gate_report.v0"
+        )
+    if raw.get("command") != CLAIM_GATE_REPORT_COMMAND:
+        raise CaptureError("Claim Gate report command is not assay claim-gate diff")
+    return raw
 
 
 def run_git(args: Sequence[str], cwd: Path) -> bytes:
