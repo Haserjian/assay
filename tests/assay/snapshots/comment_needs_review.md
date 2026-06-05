@@ -11,7 +11,7 @@ Subject:
 
 Verdict channels:
 - Integrity: PASS
-- Claim: PASS - observed check "tests" concluded success for commit head-needs-review
+- Claim: NOT_EVALUATED
 - Replay: NOT_RUN
 - Trust policy: NEEDS_REVIEW - touched auth/session.py
 

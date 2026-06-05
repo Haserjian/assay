@@ -80,13 +80,17 @@ required_checks:
   - "tests"
 ```
 
-The first bounded claim is only:
+The Claim channel is evaluated from embedded `claim_gate_report` evidence:
 
 ```text
-Observed check "<name>" concluded "<conclusion>" for commit "<sha>".
+claim_gate PASS         -> Claim PASS
+claim_gate NEEDS_REVIEW -> Claim FAIL
+claim_gate BLOCK        -> Claim FAIL
+claim_gate absent       -> Claim NOT_EVALUATED
 ```
 
-It is not:
+Required check observations are still captured and can drive policy decisions,
+but they do not by themselves make the Claim channel `PASS`. It is not:
 
 ```text
 All tests passed.
@@ -120,7 +124,7 @@ Policy evaluation should produce:
   ],
   "channels": {
     "integrity": "PASS",
-    "claim": "PASS",
+    "claim": "NOT_EVALUATED",
     "replay": "NOT_RUN",
     "trust_policy": "NEEDS_REVIEW"
   }
@@ -135,6 +139,10 @@ The policy evaluator must cover:
 - risk path touched
 - required check missing
 - required check failed
+- claim_gate report absent
+- claim_gate PASS
+- claim_gate NEEDS_REVIEW
+- claim_gate BLOCK
 - integrity failed
 - untrusted signer
 - multiple reasons with deterministic ordering
