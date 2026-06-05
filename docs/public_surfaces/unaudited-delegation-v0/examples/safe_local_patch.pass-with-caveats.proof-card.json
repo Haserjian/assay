@@ -1,0 +1,86 @@
+{
+  "schema_version": "assay.delegation_proof_card.v0",
+  "example_status": "illustrative_from_existing_dogfood_record",
+  "surface": "unaudited-delegation-v0",
+  "principle": "verified change evidence, not verified understanding",
+  "subject": {
+    "kind": "pull_request",
+    "repo": "Haserjian/assay",
+    "pr_number": 152,
+    "branch": "docs/agent-operating-policy-v0",
+    "base_branch": "main",
+    "head_commit": "0d7c367dee2e7885e715bc0cc2c08e243265f3c3"
+  },
+  "declared_claim": {
+    "text": "Add a docs-only Agent Operating Policy public surface.",
+    "claim_type": "docs_only_public_surface"
+  },
+  "scope": {
+    "allowed": [
+      "docs/public_surfaces/agent-operating-policy-v0/**"
+    ],
+    "forbidden": [
+      "src/**",
+      ".github/workflows/**",
+      "tests/**"
+    ]
+  },
+  "evidence": {
+    "diff_hash": "sha256:127d663b92469c5eeaa8233f854cedec87f1c624aca6b5006b046e5010dd82b7",
+    "pr_gate_verdict": "PASS",
+    "recommended_action": "proceed",
+    "channels": {
+      "integrity": "PASS",
+      "claim": "NOT_EVALUATED",
+      "replay": "NOT_RUN",
+      "trust_policy": "PASS"
+    },
+    "dogfood_record": "docs/public_surfaces/agent-operating-policy-v0/DOGFOOD.md"
+  },
+  "signals": {
+    "status": "illustrative_not_computed_from_pr_gate_artifact",
+    "captured_by_dogfood_record": [
+      "diff_hash",
+      "pr_gate_verdict",
+      "recommended_action",
+      "verdict_channels",
+      "dogfood_record_path"
+    ],
+    "not_computed_from_dogfood_record": [
+      "files_touched",
+      "modules_crossed",
+      "public_api_changed",
+      "test_delta_present",
+      "behavioral_equivalence_evidence",
+      "claim_scope_match",
+      "dependency_boundary_crossing",
+      "reviewer_cognitive_load_estimate"
+    ]
+  },
+  "policy_verdict": {
+    "policy_id": "assay.unaudited_delegation.v0",
+    "verdict": "PASS_WITH_CAVEATS",
+    "reasons": [
+      "captured PR Gate evidence verified integrity and trust policy for a docs-only packet",
+      "changed scope was bounded to a public-surface docs directory"
+    ],
+    "caveats": [
+      "claim channel was NOT_EVALUATED",
+      "replay was NOT_RUN",
+      "this example is a public-surface read model, not a generated verifier output"
+    ]
+  },
+  "non_claims": [
+    "does not prove the agent understood the repository",
+    "does not prove code correctness",
+    "does not prove code security",
+    "does not grant merge approval",
+    "does not evaluate hidden agent intent"
+  ],
+  "do_not_infer": [
+    "all possible tests passed",
+    "the docs are complete",
+    "the agent followed every instruction outside captured evidence",
+    "the PR was risk-free"
+  ]
+}

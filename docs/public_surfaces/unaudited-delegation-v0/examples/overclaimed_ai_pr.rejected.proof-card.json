@@ -1,0 +1,81 @@
+{
+  "schema_version": "assay.delegation_proof_card.v0",
+  "example_status": "illustrative_synthetic_fixture",
+  "surface": "unaudited-delegation-v0",
+  "principle": "verified change evidence, not verified understanding",
+  "subject": {
+    "kind": "pull_request",
+    "repo": "example/webapp",
+    "pr_number": 77,
+    "branch": "agent/secure-login",
+    "base_branch": "main"
+  },
+  "declared_claim": {
+    "text": "This AI PR makes login secure and production-ready.",
+    "claim_type": "security_and_production_readiness"
+  },
+  "scope": {
+    "allowed": [
+      "web/login/**"
+    ],
+    "forbidden": [
+      "security/policies/**",
+      "infra/**",
+      ".github/workflows/**"
+    ]
+  },
+  "evidence": {
+    "diff_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "observed_checks": [
+      {
+        "name": "generated unit tests",
+        "conclusion": "success"
+      }
+    ],
+    "missing_evidence": [
+      "threat model",
+      "security review",
+      "dependency audit",
+      "production approval",
+      "replay or integration evidence"
+    ]
+  },
+  "signals": {
+    "files_touched": 12,
+    "modules_crossed": 2,
+    "public_api_changed": false,
+    "test_delta_present": true,
+    "behavioral_equivalence_evidence": "missing",
+    "claim_scope_match": "unsupported_claim",
+    "dependency_boundary_crossing": true,
+    "reviewer_cognitive_load_estimate": "high"
+  },
+  "policy_verdict": {
+    "policy_id": "assay.unaudited_delegation.v0",
+    "verdict": "FAIL",
+    "reasons": [
+      "security and production-readiness claims exceed captured evidence",
+      "generated unit tests do not support the declared security claim",
+      "production approval is outside the review evidence"
+    ],
+    "blocked_claims": [
+      "makes login secure",
+      "production-ready"
+    ],
+    "allowed_rewording": [
+      "updates login code and generated unit tests under the captured diff",
+      "requires security review before any security or production-readiness claim"
+    ]
+  },
+  "non_claims": [
+    "does not prove the patch is insecure",
+    "does not prove the agent understood or failed to understand the login system",
+    "does not evaluate runtime exploitability",
+    "does not grant production approval"
+  ],
+  "do_not_infer": [
+    "passing generated tests establish security",
+    "security claims can be made without security evidence",
+    "AI generation alone establishes production readiness"
+  ]
+}

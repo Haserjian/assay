@@ -1,0 +1,78 @@
+{
+  "schema_version": "assay.delegation_proof_card.v0",
+  "example_status": "illustrative_synthetic_fixture",
+  "surface": "unaudited-delegation-v0",
+  "principle": "verified change evidence, not verified understanding",
+  "subject": {
+    "kind": "pull_request",
+    "repo": "example/service",
+    "pr_number": 418,
+    "branch": "agent/refactor-core-services",
+    "base_branch": "main"
+  },
+  "declared_claim": {
+    "text": "Refactor core services without behavior changes.",
+    "claim_type": "refactor_only"
+  },
+  "scope": {
+    "allowed": [
+      "services/catalog/**"
+    ],
+    "forbidden": [
+      "services/auth/**",
+      "services/billing/**",
+      ".github/workflows/**"
+    ]
+  },
+  "evidence": {
+    "diff_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "observed_checks": [
+      {
+        "name": "unit tests",
+        "conclusion": "success"
+      }
+    ],
+    "missing_evidence": [
+      "behavioral equivalence replay",
+      "dependency boundary map",
+      "auth owner review",
+      "billing owner review"
+    ]
+  },
+  "signals": {
+    "files_touched": 47,
+    "modules_crossed": 4,
+    "public_api_changed": true,
+    "test_delta_present": true,
+    "behavioral_equivalence_evidence": "missing",
+    "claim_scope_match": "mismatch",
+    "dependency_boundary_crossing": true,
+    "reviewer_cognitive_load_estimate": "too_high"
+  },
+  "policy_verdict": {
+    "policy_id": "assay.unaudited_delegation.v0",
+    "verdict": "NEEDS_SPLIT",
+    "reasons": [
+      "declared claim says refactor-only but public API changed",
+      "diff touched forbidden auth and billing boundaries",
+      "review load is too high for one accountable approval",
+      "behavioral-equivalence evidence is missing"
+    ],
+    "required_next_steps": [
+      "split auth, billing, catalog, and workflow changes into separate PRs",
+      "attach behavioral-equivalence evidence for each refactor-only claim",
+      "request owner review for each crossed boundary"
+    ]
+  },
+  "non_claims": [
+    "does not say the patch is useless",
+    "does not prove the model lacked understanding",
+    "does not prove the code is incorrect",
+    "does not replace reviewer judgment"
+  ],
+  "do_not_infer": [
+    "unit tests are enough for a broad refactor claim",
+    "a plausible AI diff is reviewable as one PR",
+    "NEEDS_SPLIT is a code-quality failure"
+  ]
+}
