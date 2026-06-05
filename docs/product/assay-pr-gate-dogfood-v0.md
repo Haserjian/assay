@@ -9,6 +9,12 @@ signed review packet and posts a single marked PR comment. The comment is the
 review surface. The product object is the signed review decision bound to the
 evidence pack, policy, verdict channels, caveats, and PR commit.
 
+Related public surfaces include
+`docs/public_surfaces/agent-operating-policy-v0/` for the agent-policy packet
+and `docs/public_surfaces/unaudited-delegation-v0/` for the broader
+delegation-governance frame. Those surfaces are docs-only read models; this
+document describes the live PR Gate dogfood loop.
+
 ## Workflow
 
 The workflow is `.github/workflows/assay-pr-gate.yml`.

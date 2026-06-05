@@ -50,6 +50,8 @@ It does not evaluate hidden agent intent, unobserved runtime activity, productio
 
 This draft follows the PR Gate boundary described in `docs/product/assay-pr-gate-dogfood-v0.md` and the bounded-evaluation and caveat discipline of `docs/product/assay-pr-gate-policy-v0.md`: captured evidence, bounded policy evaluation, signed review material, caveats, and human review.
 
+`docs/public_surfaces/unaudited-delegation-v0/` is the adjacent public surface for the broader delegation-governance frame: claim firewalls, review boundaries, and proof-card examples for AI-generated changes. It is a docs-only read model and does not add engine behavior.
+
 ## Example Verdicts
 
 The fixtures use two top-level verdicts:
