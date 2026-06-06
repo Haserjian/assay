@@ -89,6 +89,19 @@ claim_gate BLOCK        -> Claim FAIL
 claim_gate absent       -> Claim NOT_EVALUATED
 ```
 
+A claim_gate FAIL also escalates the top-level decision so the gate never
+recommends `proceed` while the Claim channel reads `FAIL`. The escalation is
+conservative and only applies when no rule already fired:
+
+```text
+claim_gate NEEDS_REVIEW -> overall NEEDS_REVIEW (require_human_approval)
+claim_gate BLOCK        -> overall NEEDS_REVIEW (require_human_approval)
+```
+
+Rule-based outcomes take priority. A real `BLOCK` rule (for example a failed
+required check) is never downgraded by claim_gate, and v0 does not let
+claim_gate `BLOCK` hard-block a merge on its own; it routes to human review.
+
 Required check observations are still captured and can drive policy decisions,
 but they do not by themselves make the Claim channel `PASS`. It is not:
 

@@ -155,6 +155,12 @@ claim_gate absent       -> Claim NOT_EVALUATED
 separate `NEEDS_REVIEW` value. The reason must say that claim evidence requires
 human review; it must not imply the code is permanently rejected.
 
+A claim_gate `FAIL` also escalates the top-level decision to `NEEDS_REVIEW`
+(`require_human_approval`) when no rule already fired, so the gate never
+recommends `proceed` while the Claim channel reads `FAIL`. v0 does not let
+claim_gate `BLOCK` hard-block a merge on its own, and a real `BLOCK` rule is
+never downgraded by claim_gate.
+
 The bounded claim is not "tests passed." Required check observations remain
 available as `check_observations` and can drive trust-policy or top-level
 review decisions. They do not by themselves make the Claim channel `PASS`.

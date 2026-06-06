@@ -203,18 +203,25 @@ def evaluate_policy(
     reasons = _ordered_reasons(reasons_by_rule, claim_gate_reasons)
     selected_rule = _selected_rule(reasons_by_rule)
 
-    # Adapter slice: claim_gate reflects into the Claim channel only. It does
-    # not drive the top-level decision here. Whether a claim_gate FAIL should
-    # escalate overall_decision is deferred to the producer slice, where the
-    # behavior becomes live (CI embeds the report).
-    if selected_rule is None:
-        default = _mapping(policy["default"], "default")
-        overall_decision = str(default["decision"])
-        recommended_action = str(default["recommended_action"])
-    else:
+    # Rule-based outcomes take priority: they cover every BLOCK case and the
+    # existing NEEDS_REVIEW cases. A claim_gate FAIL only escalates the
+    # top-level decision when no rule already fired, so the gate never
+    # recommends "proceed" while the Claim channel reads FAIL.
+    #
+    # v0 escalation: claim_gate BLOCK and NEEDS_REVIEW both route to
+    # NEEDS_REVIEW (human review), not a hard merge block. Whether claim_gate
+    # BLOCK should hard-BLOCK is a separate, later decision.
+    if selected_rule is not None:
         spec = _mapping(rules[selected_rule], f"rules.{selected_rule}")
         overall_decision = str(spec["decision"])
         recommended_action = str(spec["recommended_action"])
+    elif claim_gate_verdict in {"BLOCK", "NEEDS_REVIEW"}:
+        overall_decision = "NEEDS_REVIEW"
+        recommended_action = "require_human_approval"
+    else:
+        default = _mapping(policy["default"], "default")
+        overall_decision = str(default["decision"])
+        recommended_action = str(default["recommended_action"])
 
     return {
         "overall_decision": overall_decision,
