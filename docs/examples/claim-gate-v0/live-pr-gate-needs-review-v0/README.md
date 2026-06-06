@@ -1,8 +1,8 @@
 # Live PR Gate Receipt: Claim Gate BLOCK -> NEEDS_REVIEW v0
 
-This is a durable dogfood receipt for the first live same-repo PR Gate run that
-surfaced a generated `claim_gate` `BLOCK` as a Claim-channel failure and
-escalated the top-level PR Gate decision to `NEEDS_REVIEW`.
+This is a durable dogfood receipt for a live same-repo PR Gate run that surfaced
+a generated `claim_gate` `BLOCK` as a Claim-channel failure and escalated the
+top-level PR Gate decision to `NEEDS_REVIEW`.
 
 The source PR was intentionally overclaimed and closed unmerged.
 
@@ -65,13 +65,13 @@ channels.trust_policy: PASS
 channels.replay: NOT_RUN
 ```
 
-The embedded `claim_gate_report` contained:
+Derived summary from the embedded `claim_gate_report`:
 
 ```text
-verdict: BLOCK
-files_scanned: 1
-blocking_transitions: 2
-transitions:
+claim_gate_report.verdict: BLOCK
+claim_gate_report.summary.files_scanned: 1
+claim_gate_report.summary.blocking_transitions: 2
+claim_gate_report.transitions[].transition_class:
   - possible_to_guaranteed
   - prototype_to_production
 ```
@@ -85,9 +85,8 @@ The blocking transitions were caused by unsupported claim-boundary escalation:
 | `possible_to_guaranteed` | `BLOCK` | `direct_evidence`, `reviewer_acceptance` |
 | `prototype_to_production` | `BLOCK` | `production_deployment_receipt`, `reproducible_test_suite` |
 
-The workflow did find generic test-suite paths for the
-`prototype_to_production` transition, but not all required evidence. The
-transition therefore remained `BLOCK`.
+The generated report marked both transitions `BLOCK` because required evidence
+was still missing.
 
 ## Local Verification
 
