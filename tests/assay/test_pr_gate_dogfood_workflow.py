@@ -40,6 +40,7 @@ def test_pr_gate_dogfood_workflow_runs_full_command_sequence() -> None:
     text = _workflow_text()
 
     for command in (
+        "assay claim-gate diff",
         "assay pr-gate capture",
         "assay pr-gate evaluate",
         "assay pr-gate pack",
@@ -56,7 +57,19 @@ def test_pr_gate_dogfood_workflow_uses_dogfood_policy() -> None:
     text = _workflow_text()
 
     assert "ASSAY_PR_GATE_POLICY: docs/examples/pr-gate-v0/assay-dogfood-policy.yml" in text
+    assert "ASSAY_CLAIM_GATE_POLICY: docs/examples/claim-gate-v0/assay.claims.yml" in text
     assert "docs/examples/pr-gate-v0/assay-policy.yml" not in text
+
+
+def test_pr_gate_dogfood_workflow_embeds_claim_gate_report() -> None:
+    text = _workflow_text()
+
+    assert '--out "$ASSAY_PR_GATE_DIR/claim_gate_report.json"' in text
+    assert (
+        '--claim-gate-report "$ASSAY_PR_GATE_DIR/claim_gate_report.json"'
+        in text
+    )
+    assert '"$claim_gate_exit" -ne 2' in text
 
 
 def test_pr_gate_dogfood_policy_does_not_require_named_checks() -> None:

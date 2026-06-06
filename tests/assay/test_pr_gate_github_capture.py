@@ -166,6 +166,45 @@ def test_capture_github_pr_builds_stable_evidence() -> None:
     assert ["show", "head-sha:old.py"] not in fake_git.calls
 
 
+def test_capture_github_pr_embeds_claim_gate_report(tmp_path: Path) -> None:
+    report_path = tmp_path / "claim_gate_report.json"
+    report = {
+        "schema_version": "assay.claim_gate_report.v0",
+        "command": "assay claim-gate diff",
+        "verdict": "BLOCK",
+        "summary": {"blocking_transitions": 1},
+        "transitions": [],
+        "non_claims": [],
+    }
+    report_path.write_text(json.dumps(report), encoding="utf-8")
+
+    evidence = capture_github_pr(
+        repo="Haserjian/assay",
+        pr_number=123,
+        git_cwd=Path("/repo"),
+        git_runner=FakeGit(),
+        github_client=FakeGitHubClient(),  # type: ignore[arg-type]
+        claim_gate_report_path=report_path,
+    )
+
+    assert evidence["claim_gate_report"] == report
+
+
+def test_capture_rejects_malformed_claim_gate_report(tmp_path: Path) -> None:
+    report_path = tmp_path / "claim_gate_report.json"
+    report_path.write_text('{"schema_version": "wrong"}\n', encoding="utf-8")
+
+    with pytest.raises(CaptureError, match="schema_version"):
+        capture_github_pr(
+            repo="Haserjian/assay",
+            pr_number=123,
+            git_cwd=Path("/repo"),
+            git_runner=FakeGit(),
+            github_client=FakeGitHubClient(),  # type: ignore[arg-type]
+            claim_gate_report_path=report_path,
+        )
+
+
 def test_capture_rejects_head_sha_mismatch() -> None:
     with pytest.raises(CaptureError, match="does not match"):
         capture_github_pr(
@@ -256,6 +295,7 @@ def test_capture_cli_writes_evidence(monkeypatch, tmp_path: Path) -> None:
         assert kwargs["repo"] == "Haserjian/assay"
         assert kwargs["pr_number"] == 123
         assert kwargs["head_sha"] == "head-sha"
+        assert kwargs["claim_gate_report_path"] == tmp_path / "claim_gate_report.json"
         kwargs["out_path"].write_text('{"ok": true}\n', encoding="utf-8")
         return {"ok": True}
 
@@ -272,6 +312,8 @@ def test_capture_cli_writes_evidence(monkeypatch, tmp_path: Path) -> None:
             "capture",
             "--head-sha",
             "head-sha",
+            "--claim-gate-report",
+            str(tmp_path / "claim_gate_report.json"),
             "--out",
             str(out_path),
         ],
