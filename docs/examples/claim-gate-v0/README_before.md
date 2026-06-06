@@ -1,3 +1,3 @@
 # Demo Agent
 
-This experimental prototype may help evaluate agent workflows.
+This production-ready framework guarantees safe autonomous agent execution.
