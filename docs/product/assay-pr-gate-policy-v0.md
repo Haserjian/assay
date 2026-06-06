@@ -89,9 +89,10 @@ claim_gate BLOCK        -> Claim FAIL
 claim_gate absent       -> Claim NOT_EVALUATED
 ```
 
-A claim_gate FAIL also escalates the top-level decision so the gate never
-recommends `proceed` while the Claim channel reads `FAIL`. The escalation is
-conservative and only applies when no rule already fired:
+A claim_gate `NEEDS_REVIEW` or `BLOCK` verdict also escalates the top-level
+decision so the gate never recommends `proceed` while the Claim channel reads
+`FAIL`. The escalation is conservative and only applies when no rule already
+fired:
 
 ```text
 claim_gate NEEDS_REVIEW -> overall NEEDS_REVIEW (require_human_approval)

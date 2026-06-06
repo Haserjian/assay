@@ -204,9 +204,9 @@ def evaluate_policy(
     selected_rule = _selected_rule(reasons_by_rule)
 
     # Rule-based outcomes take priority: they cover every BLOCK case and the
-    # existing NEEDS_REVIEW cases. A claim_gate FAIL only escalates the
-    # top-level decision when no rule already fired, so the gate never
-    # recommends "proceed" while the Claim channel reads FAIL.
+    # existing NEEDS_REVIEW cases. A claim_gate NEEDS_REVIEW or BLOCK verdict
+    # only escalates the top-level decision when no rule already fired, so the
+    # gate never recommends "proceed" while the Claim channel reads FAIL.
     #
     # v0 escalation: claim_gate BLOCK and NEEDS_REVIEW both route to
     # NEEDS_REVIEW (human review), not a hard merge block. Whether claim_gate
