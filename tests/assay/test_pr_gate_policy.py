@@ -359,10 +359,11 @@ class TestPrGatePolicyEvaluator:
             _policy(),
         )
 
-        # Adapter slice: claim_gate BLOCK surfaces in the Claim channel as FAIL
-        # but does NOT drive the top-level decision (deferred to producer slice).
-        assert decision["overall_decision"] == "PASS"
-        assert decision["recommended_action"] == "proceed"
+        # Producer is live: claim_gate BLOCK surfaces as Claim FAIL and
+        # escalates the top-level decision to NEEDS_REVIEW (human review),
+        # not a hard BLOCK in v0.
+        assert decision["overall_decision"] == "NEEDS_REVIEW"
+        assert decision["recommended_action"] == "require_human_approval"
         assert decision["channels"]["claim"] == "FAIL"
         assert decision["channels"]["trust_policy"] == "PASS"
         assert [reason["rule"] for reason in decision["reasons"]] == [
@@ -403,10 +404,10 @@ class TestPrGatePolicyEvaluator:
             _policy(),
         )
 
-        # Adapter slice: claim_gate NEEDS_REVIEW surfaces in the Claim channel
-        # as FAIL but does NOT drive the top-level decision.
-        assert decision["overall_decision"] == "PASS"
-        assert decision["recommended_action"] == "proceed"
+        # Producer is live: claim_gate NEEDS_REVIEW surfaces as Claim FAIL and
+        # escalates the top-level decision to NEEDS_REVIEW.
+        assert decision["overall_decision"] == "NEEDS_REVIEW"
+        assert decision["recommended_action"] == "require_human_approval"
         assert decision["channels"]["claim"] == "FAIL"
         assert decision["reasons"] == [
             {
@@ -420,6 +421,31 @@ class TestPrGatePolicyEvaluator:
                 "severity": "medium",
             }
         ]
+
+    def test_hard_block_rule_wins_over_claim_gate_block(self) -> None:
+        # A real BLOCK rule (failed required check) must not be downgraded by
+        # claim_gate escalation: claim_gate v0 escalates to NEEDS_REVIEW only
+        # when no rule already fired.
+        decision = evaluate_policy(
+            _evidence(
+                observed_checks=[
+                    {
+                        "name": "tests",
+                        "provider": "github_checks",
+                        "head_sha": "head",
+                        "conclusion": "failure",
+                        "observed_at": "2026-05-08T12:00:00Z",
+                    }
+                ],
+                claim_gate_report=_dogfood_claim_gate_report(),
+            ),
+            _policy(),
+        )
+
+        assert decision["overall_decision"] == "BLOCK"
+        assert decision["recommended_action"] == "block_required_check_failed"
+        assert decision["channels"]["claim"] == "FAIL"
+        assert decision["channels"]["trust_policy"] == "BLOCK"
 
     def test_claim_gate_report_rejects_wrong_schema_version(self) -> None:
         report = _claim_gate_report("PASS")

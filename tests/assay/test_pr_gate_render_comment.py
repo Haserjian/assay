@@ -262,10 +262,10 @@ def test_render_comment_claim_gate_block_reports_claim_fail(tmp_path: Path) -> N
         ),
     )
 
-    # Adapter slice: claim_gate BLOCK surfaces only in the Claim channel.
-    # The top-level header stays PASS; escalation is deferred to the producer slice.
-    assert "Assay PR Gate: PASS - proceed to normal review" in comment
-    assert "Recommended action: proceed" in comment
+    # Producer is live: claim_gate BLOCK surfaces as Claim FAIL and escalates
+    # the top-level decision to NEEDS_REVIEW (human review), not a hard BLOCK.
+    assert "Assay PR Gate: NEEDS_REVIEW" in comment
+    assert "Recommended action: require_human_approval" in comment
     assert (
         "Claim: FAIL - claim_gate BLOCK: possible_to_guaranteed, "
         "prototype_to_production"
