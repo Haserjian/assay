@@ -1,0 +1,266 @@
+{
+  "card_version": "assay.pr_review_proof_card.observed.v0",
+  "projection_status": "observed_projection",
+  "consumer": {
+    "role": "maintainer_or_tech_lead",
+    "call_site": "github_pr_comment_or_pr_gate_artifact",
+    "decision_supported": [
+      "proceed_to_review",
+      "require_more_evidence",
+      "block"
+    ]
+  },
+  "invariant": [
+    "A Proof Card displays which checks ran and where the evidence stops.",
+    "It does not assert truth, correctness, safety, security, or merge-readiness.",
+    "Absence of a check is shown, never hidden."
+  ],
+  "non_authority": [
+    "This observed card is not canonical evidence.",
+    "The signed Verification Report remains canonical.",
+    "This card is a reader projection over PR Gate output, not a new proof substrate."
+  ],
+  "source_artifact": {
+    "github_actions_run_id": "27047357238",
+    "artifact_name": "assay-pr-gate-report",
+    "workflow_name": "Assay PR Gate",
+    "artifact_files_used": [
+      "signed-report/verify_report.json",
+      "decision.json",
+      "proof-pack/pack_manifest.json",
+      "comment.md"
+    ],
+    "source_precedence": [
+      {
+        "rank": 1,
+        "path": "signed-report/verify_report.json",
+        "role": "canonical_signed_report_source"
+      },
+      {
+        "rank": 2,
+        "path": "decision.json",
+        "role": "local_pr_gate_decision_object"
+      },
+      {
+        "rank": 3,
+        "path": "proof-pack/pack_manifest.json",
+        "role": "evidence_pack_structure"
+      },
+      {
+        "rank": 4,
+        "path": "comment.md",
+        "role": "rendered_review_surface_not_authority"
+      }
+    ]
+  },
+  "canonical_source_of_truth": {
+    "path": "signed-report/verify_report.json",
+    "schema_version": "assay.pr_gate.verify_report.v0.1",
+    "report_id": "vr_292c223cecdf60f2cd31",
+    "signed_by_expected_workflow": "https://github.com/Haserjian/assay/.github/workflows/assay-pr-gate.yml@refs/heads/main"
+  },
+  "rendered_surface_comparison": {
+    "path": "comment.md",
+    "role": "rendered review surface; not used as authority for this card"
+  },
+  "subject": {
+    "base_sha": "21aa7b8c8cfbd2d04ad8e1560b111a9ed9b45ed2",
+    "diff_sha256": "sha256:d64768533af7e6742ccbceae35064d7f84980e62f05b2d7a91c3cb257c506cea",
+    "diff_source": "git diff --binary --full-index <base_sha> <head_sha>",
+    "head_sha": "87eb68c6f1e9afb16b380ba1d2ef9df90af9a758",
+    "pr_number": 161,
+    "repo": "Haserjian/assay"
+  },
+  "capture": {
+    "actor": "Haserjian",
+    "event_name": "pull_request_target",
+    "github_sha": "21aa7b8c8cfbd2d04ad8e1560b111a9ed9b45ed2",
+    "provider": "github_actions",
+    "run_attempt": "1",
+    "run_id": "27047357238",
+    "workflow_ref": "Haserjian/assay/.github/workflows/assay-pr-gate.yml@refs/heads/main",
+    "workflow_sha": "21aa7b8c8cfbd2d04ad8e1560b111a9ed9b45ed2"
+  },
+  "policy": {
+    "policy_sha256": "sha256:f4c3d96a81252fe1c2c96127218b2e3c3828c7acc44f4b8e4a6f1d49459087c5",
+    "profile": "coding_pr_v0"
+  },
+  "signature_policy": {
+    "certificate_oidc_issuer": "https://token.actions.githubusercontent.com",
+    "expected_certificate_identity": "https://github.com/Haserjian/assay/.github/workflows/assay-pr-gate.yml@refs/heads/main",
+    "required": true,
+    "scheme": "sigstore_keyless"
+  },
+  "decision": {
+    "overall_decision": "NEEDS_REVIEW",
+    "recommended_action": "require_human_approval",
+    "reasons": [
+      {
+        "claim_gate_verdict": "BLOCK",
+        "file": "docs/examples/claim-gate-v0/README_before.md",
+        "id": "cgt_001",
+        "missing_evidence": [
+          "direct_evidence",
+          "reviewer_acceptance"
+        ],
+        "rule": "claim_gate_block",
+        "severity": "high",
+        "transition_class": "possible_to_guaranteed",
+        "transition_verdict": "BLOCK"
+      },
+      {
+        "claim_gate_verdict": "BLOCK",
+        "file": "docs/examples/claim-gate-v0/README_before.md",
+        "id": "cgt_002",
+        "missing_evidence": [
+          "production_deployment_receipt",
+          "reproducible_test_suite"
+        ],
+        "rule": "claim_gate_block",
+        "severity": "high",
+        "transition_class": "prototype_to_production",
+        "transition_verdict": "BLOCK"
+      }
+    ]
+  },
+  "verdict_channels": {
+    "claim": "FAIL",
+    "integrity": "PASS",
+    "replay": "NOT_RUN",
+    "trust_policy": "PASS"
+  },
+  "failures": {
+    "claim_channel_status": "FAIL",
+    "claim_gate_blocks": [
+      {
+        "claim_gate_verdict": "BLOCK",
+        "file": "docs/examples/claim-gate-v0/README_before.md",
+        "id": "cgt_001",
+        "missing_evidence": [
+          "direct_evidence",
+          "reviewer_acceptance"
+        ],
+        "rule": "claim_gate_block",
+        "severity": "high",
+        "transition_class": "possible_to_guaranteed",
+        "transition_verdict": "BLOCK"
+      },
+      {
+        "claim_gate_verdict": "BLOCK",
+        "file": "docs/examples/claim-gate-v0/README_before.md",
+        "id": "cgt_002",
+        "missing_evidence": [
+          "production_deployment_receipt",
+          "reproducible_test_suite"
+        ],
+        "rule": "claim_gate_block",
+        "severity": "high",
+        "transition_class": "prototype_to_production",
+        "transition_verdict": "BLOCK"
+      }
+    ]
+  },
+  "checks": {
+    "check_observations_status": "NONE_RECORDED",
+    "check_observations": [],
+    "absence_visibility": [
+      {
+        "field": "check_observations",
+        "observed_value": [],
+        "meaning": "No required-check observations were recorded in this artifact."
+      },
+      {
+        "field": "channels.replay",
+        "observed_value": "NOT_RUN",
+        "meaning": "Replay was not run for this PR Gate artifact."
+      }
+    ]
+  },
+  "evidence": {
+    "pack_id": "prgate_pack_0659bcbd9ca2cdb7",
+    "pack_manifest_sha256": "sha256:b752cdd27a3370b1b15238571fbccef1aaa3edc3a7e01b4176680f77a47f104f",
+    "pack_root_sha256": "sha256:8cf5b64706a015c7eb9840d316f6592277ebdc7eead3594b61f585a80551aa94",
+    "evidence_refs": [
+      {
+        "kind": "Evidence Box",
+        "path": "proof-pack/pack_manifest.json",
+        "sha256": "sha256:b752cdd27a3370b1b15238571fbccef1aaa3edc3a7e01b4176680f77a47f104f"
+      },
+      {
+        "kind": "Verification Report",
+        "path": "signed-report/verify_report.json",
+        "sha256": null
+      },
+      {
+        "kind": "Signature Proof",
+        "path": "signed-report/verify_report.sigstore.json",
+        "sha256": null
+      }
+    ],
+    "pack_manifest": {
+      "schema_version": "assay.pr_gate.pack_manifest.v0.1",
+      "files": [
+        {
+          "bytes": 17797,
+          "path": "pr_gate_evidence.json",
+          "sha256": "sha256:ec957c49eedcdcd047f01d8de11e1ec024ee185f4d4b7a6cdeaaadd407e38fbc"
+        },
+        {
+          "bytes": 1030,
+          "path": "pr_gate_decision.json",
+          "sha256": "sha256:654b4ff9e607475a52fc9a824a1ab61cce6e9fde1d02b616bcc4777ce5859b76"
+        },
+        {
+          "bytes": 192,
+          "path": "changed_files.json",
+          "sha256": "sha256:7ad6603e0bb8a37f649d9f411daf7c03b84d6b7d88af280113958f1583fac340"
+        },
+        {
+          "bytes": 2052,
+          "path": "observed_checks.json",
+          "sha256": "sha256:6be835beb9af781a77d26a8196a81c40e6160a899ef6ea12df61c01aaebd2029"
+        },
+        {
+          "bytes": 715,
+          "path": "policy.yml",
+          "sha256": "sha256:17e6cd6a5c43a2201f11c1c438189e97fcbd1c26e7075c3c285751c0cf16417c"
+        },
+        {
+          "bytes": 1143,
+          "path": "verify_transcript.md",
+          "sha256": "sha256:18990f6f739d7b077dcb54e6a8227878bbf0c1d1031d299e5f4a1c33e48a689d"
+        }
+      ]
+    }
+  },
+  "do_not_infer": [
+    "code is secure",
+    "all possible tests passed",
+    "AI made a good design decision",
+    "replay was performed",
+    "production approval was granted"
+  ],
+  "unavailable_or_not_derived": [
+    {
+      "field": "evidence_refs[Verification Report].sha256",
+      "observed_value": null,
+      "reason": "The signed report evidence reference in the source report records this value as null."
+    },
+    {
+      "field": "evidence_refs[Signature Proof].sha256",
+      "observed_value": null,
+      "reason": "The signature proof evidence reference in the source report records this value as null."
+    },
+    {
+      "field": "proof-pack/pack_manifest.json.root_sha256",
+      "observed_value": null,
+      "reason": "The manifest field is null; the report-level pack_root_sha256 is preserved separately."
+    }
+  ],
+  "derivation_checks": {
+    "decision_overall_matches_report": true,
+    "decision_recommended_action_matches_report": true,
+    "decision_channels_match_report": true,
+    "manifest_pack_root_matches_report": true
+  }
+}
