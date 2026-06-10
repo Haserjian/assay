@@ -3723,6 +3723,7 @@ def verify_pack_cmd(
 
         if html_out:
             from assay import __version__ as _assay_version
+            from assay.verify_report import build_scope
 
             html_str = render_verification_html(
                 verdict=_verdict,
@@ -3737,6 +3738,13 @@ def verify_pack_cmd(
                 warnings=result.warnings,
                 head_hash=result.head_hash,
                 version=_assay_version,
+                # Canonical scope derivation -- same inputs build_verify_report
+                # receives below, pinned identical by conformance test.
+                scope=build_scope(
+                    verify_result=result,
+                    claim_check=claim_check,
+                    trust_eval=trust_eval,
+                ),
             )
             html_path = Path(html_out)
             html_path.parent.mkdir(parents=True, exist_ok=True)

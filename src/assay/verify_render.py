@@ -16,6 +16,64 @@ from assay.verification_status import (
 )
 
 
+def _humanize(item: str) -> str:
+    """Render a scope vocabulary identifier as readable text."""
+    return item.replace("_", " ")
+
+
+def _render_scope_panel(scope: Optional[Dict[str, Any]]) -> str:
+    """Render the Scope & Caveats panel from a verify_report scope object.
+
+    Display-only: this renders what the verifier already computed. It must
+    never derive or adjust verdicts. Returns "" when no scope is provided
+    (older reports without the scope object).
+    """
+    if not scope:
+        return ""
+
+    proves = scope.get("proves") or []
+    does_not_prove = scope.get("does_not_prove") or []
+    channels = scope.get("channels") or {}
+    note = scope.get("note")
+
+    proves_items = "".join(
+        f'<li class="proves">{html.escape(_humanize(str(p)))}</li>' for p in proves
+    )
+    dnp_items = "".join(
+        f'<li class="does-not-prove">{html.escape(_humanize(str(d)))}</li>'
+        for d in does_not_prove
+    )
+    channel_rows = "".join(
+        f"<tr><td>{html.escape(str(name))}</td>"
+        f"<td>{html.escape(_humanize(str(status)))}</td></tr>"
+        for name, status in channels.items()
+    )
+    note_html = (
+        f'<p class="scope-note">{html.escape(str(note))}</p>' if note else ""
+    )
+
+    return f"""<h3>Scope &amp; Caveats</h3>
+<div class="scope-panel">
+{note_html}
+<div class="scope-cols">
+<div>
+<h4>This verification proves</h4>
+<ul>{proves_items}</ul>
+</div>
+<div>
+<h4>This verification does <em>not</em> prove</h4>
+<ul>{dnp_items}</ul>
+</div>
+</div>
+<h4>Verdict channels</h4>
+<table>
+<tr><th>Channel</th><th>Status</th></tr>
+{channel_rows}
+</table>
+</div>
+"""
+
+
 def render_verification_html(
     *,
     verdict: VerificationVerdict,
@@ -31,6 +89,7 @@ def render_verification_html(
     head_hash: Optional[str] = None,
     generated_at: Optional[str] = None,
     version: Optional[str] = None,
+    scope: Optional[Dict[str, Any]] = None,
 ) -> str:
     """Render a self-contained HTML verification report.
 
@@ -74,6 +133,9 @@ def render_verification_html(
             warning_rows += f"<li>{html.escape(w)}</li>"
         warning_rows += "</ul>"
 
+    # Scope & Caveats panel (display-only; "" when scope absent)
+    scope_panel = _render_scope_panel(scope)
+
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -93,6 +155,13 @@ def render_verification_html(
   code {{ background: #f6f8fa; padding: 0.15rem 0.4rem; border-radius: 3px; font-size: 0.9em; }}
   pre {{ background: #f6f8fa; padding: 0.8rem; border-radius: 4px; overflow-x: auto; font-size: 0.85rem; }}
   .footer {{ margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #d0d7de; color: #57606a; font-size: 0.8rem; }}
+  .scope-panel {{ border: 1px solid #d0d7de; border-radius: 6px; padding: 0.8rem 1rem; margin-bottom: 1rem; }}
+  .scope-panel h4 {{ font-size: 0.9rem; margin: 0.6rem 0 0.3rem; }}
+  .scope-cols {{ display: flex; gap: 2rem; flex-wrap: wrap; }}
+  .scope-cols > div {{ flex: 1; min-width: 240px; }}
+  li.proves {{ color: #1a7f37; }}
+  li.does-not-prove {{ color: #57606a; }}
+  .scope-note {{ background: #fff8c5; border: 1px solid #d4a72c66; border-radius: 4px; padding: 0.5rem 0.8rem; font-size: 0.9rem; }}
 </style>
 </head>
 <body>
@@ -121,7 +190,7 @@ def render_verification_html(
 
 {error_rows}
 {warning_rows}
-
+{scope_panel}
 <h3>Reproduce</h3>
 <pre>assay verify-pack {e_pack_dir}</pre>
 

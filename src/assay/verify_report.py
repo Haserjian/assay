@@ -180,6 +180,36 @@ def _scope(
     return scope
 
 
+def build_scope(
+    *,
+    verify_result: Any,
+    claim_check: Optional[str] = None,
+    claim_result: Optional[Any] = None,
+    replay_verdict: str = "NOT_RUN",
+    trust_eval: Optional[Any] = None,
+) -> Dict[str, Any]:
+    """Public canonical scope derivation for renderers.
+
+    Resolves the channel verdicts through the same helpers
+    `build_verify_report` uses, then delegates to `_scope`. Renderers must
+    call this (or read `verify_report["scope"]` directly) rather than
+    deriving their own boundary — one scope truth, no parallel verdict
+    engine. A conformance test pins this against the report's scope.
+    """
+    if claim_result is not None:
+        claim_verdict = (
+            "PASS" if getattr(claim_result, "passed", False) else "HONEST_FAIL"
+        )
+    else:
+        claim_verdict = _legacy_claim_check(claim_check)
+    return _scope(
+        integrity_verdict="PASS" if verify_result.passed else "TAMPERED",
+        claim_verdict=claim_verdict,
+        replay_verdict=_replay_verdict(replay_verdict),
+        trust_verdict=_trust_verdict(trust_eval),
+    )
+
+
 def _pass_reason(*, unevaluated_channels: tuple[str, ...]) -> str:
     if not unevaluated_channels:
         return "required_channels_passed"
