@@ -873,6 +873,13 @@ class TestProofPackBuilder:
         assert "## Scope & Caveats" in transcript
         # Conditional tense: capability of a conforming verifier.
         assert "A conforming verifier can use this pack to check" in transcript
+        # Negative guard on the tense split: the transcript must NOT assert what
+        # a specific run checked in declarative tense. That per-run fact lives in
+        # the `scope` object of verify_report.json, not transcript prose. Without
+        # this canary, the conditional/declarative split is convention only --
+        # presence of the capability sentence is pinned above, but nothing stops
+        # a future edit from adding a declarative per-run claim alongside it.
+        assert "This verification run checked" not in transcript
         # Boundary language: what verification does NOT prove.
         assert "does **not** prove" in transcript
         assert "output safety" in transcript
