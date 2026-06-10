@@ -172,6 +172,34 @@
     },
     "warnings": {
       "type": "array"
+    },
+    "scope": {
+      "type": "object",
+      "description": "Verifier boundary object: what this verification run checked and what that check does not imply. Local to Assay's verifier output; not an estate-wide proof vocabulary. Optional for backward compatibility.",
+      "required": ["schema", "channels", "proves", "does_not_prove", "extensions"],
+      "additionalProperties": false,
+      "properties": {
+        "schema": {"const": "assay.verify.scope.v1"},
+        "channels": {
+          "type": "object",
+          "additionalProperties": {
+            "enum": ["ran", "not_run", "not_evaluated"]
+          }
+        },
+        "proves": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1}
+        },
+        "does_not_prove": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1}
+        },
+        "note": {"type": "string"},
+        "extensions": {
+          "type": "object",
+          "description": "Reserved for future, explicitly-versioned extensions. Empty and non-normative; ignored by the core verifier."
+        }
+      }
     }
   },
   "$defs": {
