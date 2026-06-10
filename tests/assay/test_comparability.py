@@ -1471,10 +1471,32 @@ class TestGateCompare:
     """assay gate compare is fail-closed. Only SATISFIED passes."""
 
     @pytest.fixture
-    def cli_env(self, tmp_path):
-        """Set up contract and bundle files for gate tests."""
+    def cli_env(self, tmp_path, monkeypatch):
+        """Set up contract and bundle files for gate tests.
+
+        Isolates the Assay store. `gate compare` emits a governance receipt via
+        assay.store.emit_receipt(), which writes through a process-level cached
+        singleton (get_default_store / _default_store) bound to
+        ``Path.home() / ".assay"`` at first use. Without isolation these tests
+        read/write the operator's real append-only store, so their verdict
+        depends on host state -- e.g. a legacy store without ``_store_seq`` makes
+        governance emission fail-close and the gate exits 3. Redirect HOME to a
+        per-test tmp dir AND drop the cached singleton so emit_receipt rebuilds
+        the store against the isolated HOME. monkeypatch restores both at
+        teardown, so the operator's real store is never touched.
+        """
         from typer.testing import CliRunner
+        import assay.store as _assay_store
         from assay.commands import assay_app
+
+        home = tmp_path / "home"
+        home.mkdir()
+        monkeypatch.setenv("HOME", str(home))
+        monkeypatch.setenv("USERPROFILE", str(home))  # Path.home() on Windows
+        # The default store is a module-level singleton built once per process
+        # (store.py:_default_store). Reset it so the next get_default_store()
+        # picks up the patched HOME instead of a stale real-store handle.
+        monkeypatch.setattr(_assay_store, "_default_store", None)
 
         contract = tmp_path / "contract.json"
         contract.write_text(json.dumps({
