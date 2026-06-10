@@ -19,6 +19,7 @@ from assay.verification_status import (
     classify_verdict,
 )
 from assay.verify_render import render_verification_badge, render_verification_html
+from assay.verify_report import build_scope, build_verify_report
 
 
 # ---------------------------------------------------------------------------
@@ -120,6 +121,100 @@ class TestRenderHtml:
     def test_html_includes_receipt_count(self):
         html = render_verification_html(**_HTML_DEFAULTS)
         assert "3" in html
+
+
+# ---------------------------------------------------------------------------
+# Scope & Caveats panel (display-only rendering of verify_report scope)
+# ---------------------------------------------------------------------------
+
+
+def _scope_for(*, passed: bool, claim_check: str = "N/A") -> Dict[str, Any]:
+    return build_scope(
+        verify_result=VerifyResult(passed=passed), claim_check=claim_check
+    )
+
+
+class TestScopePanel:
+    def test_no_scope_no_panel(self):
+        """Older reports without scope render no panel (backward compat)."""
+        html = render_verification_html(**_HTML_DEFAULTS)
+        assert "Scope &amp; Caveats" not in html
+
+    def test_pass_panel_shows_proves_and_boundaries(self):
+        html = render_verification_html(
+            **_HTML_DEFAULTS, scope=_scope_for(passed=True, claim_check="PASS")
+        )
+        assert "Scope &amp; Caveats" in html
+        # Proves (humanized from scope vocabulary)
+        assert "pack integrity" in html
+        assert "receipt sequence integrity" in html
+        assert "signature validity" in html
+        assert "claim set satisfied" in html
+        # Standing boundaries always render
+        assert "output safety" in html
+        assert "instrumentation completeness" in html
+        assert "signer authority beyond configured trust" in html
+        # Channels table
+        assert "Verdict channels" in html
+        assert "integrity" in html
+
+    def test_tampered_panel_collapses(self):
+        """The money shot: a tampered pack proves only tamper detection."""
+        scope = _scope_for(passed=False, claim_check="PASS")
+        html = render_verification_html(
+            **{**_HTML_DEFAULTS, "verdict": "TAMPERED", "integrity_passed": False},
+            scope=scope,
+        )
+        assert "tamper evidence detected" in html
+        # Integrity facts must appear ONLY in does-not-prove items, never as proves
+        assert html.count('<li class="proves">') == 1
+        assert '<li class="does-not-prove">pack integrity</li>' in html
+        assert '<li class="does-not-prove">signature validity</li>' in html
+        # The not-intact note renders
+        assert "not intact" in html
+
+    def test_panel_escapes_scope_content(self):
+        """Scope content is untrusted input to the renderer: escape it."""
+        hostile = {
+            "schema": "assay.verify.scope.v1",
+            "channels": {"integrity": "<script>x</script>"},
+            "proves": ["<img src=x onerror=alert(1)>"],
+            "does_not_prove": [],
+            "note": "<script>alert(1)</script>",
+            "extensions": {},
+        }
+        html = render_verification_html(**_HTML_DEFAULTS, scope=hostile)
+        assert "<script>" not in html
+        assert "<img" not in html
+
+    def test_build_scope_conforms_to_report_scope(self):
+        """The HTML panel and verify_report.json must share one scope truth.
+
+        build_scope (renderer path) must equal build_verify_report's scope
+        (report path) for identical inputs -- pinned mechanically, not by
+        convention.
+        """
+        for passed, claim_check in (
+            (True, "N/A"),
+            (True, "PASS"),
+            (True, "FAIL"),
+            (False, "N/A"),
+            (False, "PASS"),
+        ):
+            result = VerifyResult(passed=passed)
+            report = build_verify_report(
+                verify_result=result,
+                verified_at="2026-06-10T00:00:00+00:00",
+                verifier_name="t",
+                verifier_version="t",
+                claim_check=claim_check,
+                pack_root_sha256="a" * 64,
+                pack_manifest_sha256="a" * 64,
+            )
+            assert (
+                build_scope(verify_result=result, claim_check=claim_check)
+                == report["scope"]
+            ), f"scope drift for passed={passed} claim_check={claim_check}"
 
     def test_html_includes_head_hash_truncated(self):
         html = render_verification_html(**_HTML_DEFAULTS)
