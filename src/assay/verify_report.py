@@ -12,6 +12,39 @@ DEFAULT_VERIFY_POLICY_ID = "assay.verify_policy.v0.1"
 _PUBLIC_REPLAY_VERDICTS = {"MATCH", "DIVERGE", "NOT_RUN"}
 _ALL_CHANNELS = ("integrity", "claim", "replay", "trust")
 
+# ---------------------------------------------------------------------------
+# Scope & Caveats vocabulary.
+#
+# Local to Assay's verifier output. This does NOT define estate-wide proof
+# vocabulary; it only states what this verifier checked and what that check
+# does not imply. A verdict must always carry its boundary: PASS must not
+# imply output correctness, safety, legal compliance, policy fitness,
+# instrumentation completeness, or signer authority beyond configured trust.
+# ---------------------------------------------------------------------------
+SCOPE_SCHEMA_VERSION = "assay.verify.scope.v1"
+
+# What an intact-pack verification establishes (integrity channel PASS).
+SCOPE_PROVES_INTEGRITY = (
+    "pack_integrity",
+    "receipt_sequence_integrity",
+    "signature_validity",
+)
+
+# What no verification verdict establishes, ever.
+SCOPE_DOES_NOT_PROVE = (
+    "output_correctness",
+    "output_safety",
+    "business_policy_fitness",
+    "legal_compliance",
+    "instrumentation_completeness",
+    "signer_authority_beyond_configured_trust",
+)
+
+_SCOPE_TAMPERED_NOTE = (
+    "Integrity failed. Channel claims are unavailable because the evidence "
+    "object is not intact."
+)
+
 
 def sha256_file(path: Path) -> str:
     """Return SHA-256 of a file's raw bytes."""
@@ -92,6 +125,59 @@ def _optional_channels(required_channels: tuple[str, ...]) -> tuple[str, ...]:
 
 def _evaluation_profile(required_channels: tuple[str, ...]) -> str:
     return "_".join(required_channels) + "_required"
+
+
+def _scope(
+    *,
+    integrity_verdict: str,
+    claim_verdict: str,
+    replay_verdict: str,
+    trust_verdict: str,
+) -> Dict[str, Any]:
+    """Build the verifier boundary object from existing channel verdicts.
+
+    Derives entirely from the channel truth computed elsewhere in this module;
+    it is a restatement of what ran and what it implies, not a new verdict
+    engine. On TAMPERED, `proves` collapses: a non-intact evidence object
+    cannot support normal channel claims, only the tamper finding itself.
+    """
+    channels = {
+        "integrity": "ran",
+        "claim": "not_evaluated" if claim_verdict == "NOT_EVALUATED" else "ran",
+        "replay": "ran" if replay_verdict in ("MATCH", "DIVERGE") else "not_run",
+        "trust": "not_evaluated" if trust_verdict == "NOT_EVALUATED" else "ran",
+    }
+
+    scope: Dict[str, Any] = {
+        "schema": SCOPE_SCHEMA_VERSION,
+        "channels": channels,
+        # Reserved for future, explicitly-versioned extensions. Empty and
+        # non-normative: the core verifier ignores this field entirely.
+        "extensions": {},
+    }
+
+    if integrity_verdict == "TAMPERED":
+        scope["proves"] = ["tamper_evidence_detected"]
+        scope["does_not_prove"] = [
+            *SCOPE_PROVES_INTEGRITY,
+            *SCOPE_DOES_NOT_PROVE,
+        ]
+        scope["note"] = _SCOPE_TAMPERED_NOTE
+        return scope
+
+    proves = list(SCOPE_PROVES_INTEGRITY)
+    if claim_verdict != "NOT_EVALUATED":
+        proves.append("claim_set_evaluated")
+        if claim_verdict == "PASS":
+            proves.append("claim_set_satisfied")
+    if replay_verdict == "MATCH":
+        proves.append("replay_match")
+    if trust_verdict == "PASS":
+        proves.append("signer_trust_policy_satisfied")
+
+    scope["proves"] = proves
+    scope["does_not_prove"] = list(SCOPE_DOES_NOT_PROVE)
+    return scope
 
 
 def _pass_reason(*, unevaluated_channels: tuple[str, ...]) -> str:
@@ -322,6 +408,12 @@ def build_verify_report(
         "evidence_refs": evidence_refs,
         "checks": checks,
         "summary": summary,
+        "scope": _scope(
+            integrity_verdict=integrity_verdict,
+            claim_verdict=claim_verdict,
+            replay_verdict=replay_verdict,
+            trust_verdict=trust_verdict,
+        ),
         "errors": [e.to_dict() for e in verify_result.errors],
         "warnings": list(verify_result.warnings),
         **legacy,

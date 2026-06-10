@@ -854,6 +854,33 @@ class TestProofPackBuilder:
         assert "PASS" in transcript
         assert "test_trace_009" in transcript
 
+    def test_transcript_contains_scope_and_caveats(
+        self, tmp_path, tmp_keys, sample_receipts
+    ):
+        """The transcript states the verification boundary in conditional tense.
+
+        It describes what a conforming verifier CAN check for this pack, not
+        what any particular verification run checked (that lives in the
+        per-run scope object of verify_report.json).
+        """
+        pack = ProofPack(
+            trace_id="test_trace_scope",
+            entries=sample_receipts,
+            signer_id="test-signer",
+        )
+        out = pack.build(tmp_path / "pack", keystore=tmp_keys)
+        transcript = (out / "verify_transcript.md").read_text()
+        assert "## Scope & Caveats" in transcript
+        # Conditional tense: capability of a conforming verifier.
+        assert "A conforming verifier can use this pack to check" in transcript
+        # Boundary language: what verification does NOT prove.
+        assert "does **not** prove" in transcript
+        assert "output safety" in transcript
+        assert "instrumentation completeness" in transcript
+        assert "signer authority beyond configured trust" in transcript
+        # PASS must not be read as a blanket endorsement.
+        assert "does not imply the underlying work was safe" in transcript
+
     def test_mixed_run_receipts_are_rejected(self, tmp_path, tmp_keys):
         receipts = [
             _make_receipt(receipt_id="r_ok", run_id="expected-run", seq=0),
