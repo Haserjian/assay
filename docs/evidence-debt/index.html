@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Evidence Debt: A Green Check Is Not a Trust Decision | Assay</title>
+<meta name="description" content="Evidence debt accumulates when institutions act on claims faster than those claims can be inspected. Assay makes consequential claims reviewable.">
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg2: #161b22;
+    --bg3: #1c2128;
+    --border: #30363d;
+    --border2: #484f58;
+    --text: #e6edf3;
+    --text2: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --red: #f85149;
+    --yellow: #d29922;
+    --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .wrap {
+    width: min(1060px, calc(100% - 40px));
+    margin: 0 auto;
+  }
+
+  nav {
+    border-bottom: 1px solid var(--border);
+    background: rgba(13, 17, 23, 0.95);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    backdrop-filter: blur(10px);
+  }
+
+  .nav-inner {
+    min-height: 58px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+  }
+
+  .brand {
+    color: var(--text);
+    font-family: var(--mono);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    flex-wrap: wrap;
+    font-size: 14px;
+  }
+
+  .nav-links a { color: var(--text2); }
+  .nav-links a:hover { color: var(--text); text-decoration: none; }
+
+  header {
+    padding: 74px 0 48px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .eyebrow {
+    margin: 0 0 16px;
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  h1 {
+    max-width: 920px;
+    margin: 0;
+    font-size: clamp(42px, 7vw, 82px);
+    line-height: 0.98;
+    letter-spacing: -0.055em;
+  }
+
+  .dek {
+    max-width: 760px;
+    margin: 28px 0 0;
+    color: var(--text2);
+    font-size: clamp(19px, 2.4vw, 25px);
+    line-height: 1.45;
+  }
+
+  .thesis {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 34px;
+  }
+
+  .thesis div {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg2);
+    padding: 16px;
+  }
+
+  .thesis b {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--text);
+  }
+
+  .thesis span {
+    display: block;
+    color: var(--text2);
+    font-size: 14px;
+  }
+
+  main {
+    padding: 52px 0 68px;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(0, 720px) 280px;
+    gap: 48px;
+    align-items: start;
+  }
+
+  article p {
+    margin: 0 0 22px;
+    font-size: 18px;
+  }
+
+  article p.lead {
+    color: var(--text);
+    font-size: 24px;
+    line-height: 1.42;
+  }
+
+  h2 {
+    margin: 42px 0 16px;
+    font-size: 28px;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+  }
+
+  blockquote {
+    margin: 28px 0;
+    padding: 22px 24px;
+    border-left: 3px solid var(--accent);
+    background: var(--bg2);
+    color: var(--text);
+    font-size: 23px;
+    font-weight: 700;
+    line-height: 1.34;
+  }
+
+  .claim-list {
+    display: grid;
+    gap: 10px;
+    margin: 18px 0 26px;
+    padding: 0;
+    list-style: none;
+  }
+
+  .claim-list li {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    background: var(--bg2);
+    color: var(--text2);
+    font-size: 16px;
+  }
+
+  .claim-list strong { color: var(--text); }
+
+  .ask {
+    margin-top: 34px;
+    border: 1px solid rgba(88, 166, 255, 0.42);
+    border-radius: 12px;
+    background: rgba(88, 166, 255, 0.08);
+    padding: 24px;
+  }
+
+  .ask p {
+    margin: 0 0 16px;
+    font-size: 20px;
+    font-weight: 700;
+  }
+
+  .button-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .button {
+    display: inline-flex;
+    align-items: center;
+    min-height: 38px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    color: var(--text);
+    background: var(--bg);
+    font-weight: 700;
+    font-size: 14px;
+  }
+
+  .button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--bg);
+  }
+
+  .button:hover { text-decoration: none; border-color: var(--border2); }
+
+  aside {
+    position: sticky;
+    top: 82px;
+    display: grid;
+    gap: 14px;
+  }
+
+  .side-card {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg2);
+    padding: 16px;
+  }
+
+  .side-card h3 {
+    margin: 0 0 10px;
+    font-size: 15px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text2);
+  }
+
+  .side-card p,
+  .side-card li {
+    color: var(--text2);
+    font-size: 14px;
+  }
+
+  .side-card p { margin: 0 0 12px; }
+  .side-card p:last-child { margin-bottom: 0; }
+
+  .side-card ul {
+    margin: 0;
+    padding-left: 18px;
+  }
+
+  .source-list {
+    display: grid;
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .source-list a {
+    color: var(--text2);
+    font-size: 13px;
+  }
+
+  code {
+    padding: 2px 5px;
+    border-radius: 5px;
+    background: var(--bg2);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 0.9em;
+  }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 28px 0;
+    color: var(--text2);
+    font-size: 13px;
+  }
+
+  .footer-inner {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    flex-wrap: wrap;
+  }
+
+  @media (max-width: 860px) {
+    .layout,
+    .thesis {
+      grid-template-columns: 1fr;
+    }
+
+    aside { position: static; }
+    header { padding-top: 52px; }
+  }
+</style>
+</head>
+<body>
+<nav>
+  <div class="wrap nav-inner">
+    <a class="brand" href="../">assay</a>
+    <div class="nav-links">
+      <a href="#epic-sepsis">Epic Sepsis</a>
+      <a href="../claim-gap-report/">Claim Gap Report</a>
+      <a href="../packet-viewer/">Packet Viewer</a>
+      <a href="https://github.com/Haserjian/assay" target="_blank" rel="noreferrer">GitHub</a>
+    </div>
+  </div>
+</nav>
+
+<header>
+  <div class="wrap">
+    <p class="eyebrow">Evidence Debt</p>
+    <h1>A green check is not a trust decision.</h1>
+    <p class="dek">
+      The next bottleneck in science and AI is not answer generation. It is
+      evidence debt accounting.
+    </p>
+    <div class="thesis" aria-label="Evidence debt thesis">
+      <div>
+        <b>The wound</b>
+        <span>Institutions act on claims they cannot inspect.</span>
+      </div>
+      <div>
+        <b>The mechanism</b>
+        <span>Claim receipts expose what is proven, missing, scoped, or stale.</span>
+      </div>
+      <div>
+        <b>The ask</b>
+        <span>Send one claim. Assay shows what evidence debt it carries.</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="wrap layout">
+    <article>
+      <p class="lead">
+        We are surrounded by claims that look finished. A model has a vendor
+        score. A product has a security badge. A paper has citations. A clinical
+        tool is live in the hospital. A benchmark has a leaderboard. A supplement
+        has studies. A system has a green check.
+      </p>
+
+      <p>
+        But a green check is not a trust decision. It usually means a process
+        completed. It does not mean the claim is scoped correctly, externally
+        validated, reproducible, current, or safe to act on.
+      </p>
+
+      <blockquote>
+        Evidence debt accumulates when institutions act on claims faster than
+        those claims can be inspected.
+      </blockquote>
+
+      <p>
+        You can see it clearly in medical AI.
+      </p>
+
+      <h2 id="epic-sepsis">Epic Sepsis</h2>
+
+      <p>
+        The Epic Sepsis Model was deployed across hundreds of hospitals as a
+        proprietary early-warning system for sepsis. The promise was obvious:
+        detect sepsis earlier, alert clinicians, save lives. That is exactly the
+        kind of claim hospitals want to believe. It is high-stakes, operationally
+        useful, and wrapped in the authority of a major health software vendor.
+      </p>
+
+      <p>
+        Then independent validation arrived.
+      </p>
+
+      <p>
+        A 2021 external validation at Michigan Medicine found the model performed
+        far worse than expected. At the hospitalization level, its AUC was 0.63.
+        At a commonly discussed threshold, contemporary reporting summarized
+        sensitivity at 33%. The model missed roughly two-thirds of sepsis cases
+        while still generating alerts across a large share of hospitalizations.
+      </p>
+
+      <p>
+        The story forced the portability question into the open. A later 2024
+        JAMIA Open validation of Epic Sepsis Predictive Model v1.0 in two county
+        emergency departments found 14.7% sensitivity within a 6-hour window at
+        the Epic-recommended alert threshold. Later versioning and localization
+        debates do not erase the point. They prove it.
+      </p>
+
+      <p>
+        The problem was not simply "the model was bad." The deeper problem was
+        that the trust surface was bad. A proprietary model had crossed into
+        clinical workflow before the claim attached to it had enough inspectable
+        receipts.
+      </p>
+
+      <h2>Those details are the claim</h2>
+
+      <p>
+        What exactly was the claim?
+      </p>
+
+      <p>
+        That the model predicts sepsis? In which population? At what time
+        horizon? Against what baseline? With what threshold? At which hospital?
+        With what definition of sepsis? Before clinicians already suspected it?
+        With what false-alert burden? With what external validation? With what
+        monitoring after deployment?
+      </p>
+
+      <p>
+        Those are not details. Those are the claim.
+      </p>
+
+      <p>
+        When those details are missing, collapsed, or hidden, the claim is
+        carrying debt.
+      </p>
+
+      <h2>The atomic unit is the claim</h2>
+
+      <p>
+        This is the conceptual shift we need: stop treating documents, dashboards,
+        and badges as the atomic unit of trust. The atomic unit is the claim.
+      </p>
+
+      <p>
+        A paper can contain twenty claims. A vendor page can contain ten. A
+        benchmark can contain several hidden assumptions. A clinical model can
+        carry different claims for different hospitals, patient populations,
+        thresholds, and workflows.
+      </p>
+
+      <p>
+        Each consequential claim should have a receipt trail: a structured account
+        of what is being claimed, what evidence supports it, where it applies,
+        where it does not apply, who checked it, what changed, and what remains
+        unresolved.
+      </p>
+
+      <p>
+        Not a vague badge saying "validated." Not a PDF nobody reads.
+      </p>
+
+      <h2>What an Evidence Debt Report asks</h2>
+
+      <p>
+        An Evidence Debt Report does not say "trust this" or "do not trust this."
+        It asks a harder question:
+      </p>
+
+      <blockquote>
+        What would need to be reconstructed before this claim is safe to act on?
+      </blockquote>
+
+      <p>
+        A healthy claim has inspectable scope. It says who, what, when, where,
+        compared to what, measured how, and under what constraints.
+      </p>
+
+      <p>
+        A debt-heavy claim has missing scope. It says "works," "secure,"
+        "validated," "AI-powered," "clinically proven," or "state of the art"
+        without enough receipts to make the statement computable.
+      </p>
+
+      <ul class="claim-list">
+        <li><strong>Vendor claim:</strong> compliant with which control, assessed by whom, against which version, with what exclusions?</li>
+        <li><strong>Benchmark claim:</strong> what test set, what leakage risk, what scaffolding, and can the run be reproduced?</li>
+        <li><strong>Clinical model claim:</strong> does external validation match this workflow, threshold, and patient population?</li>
+        <li><strong>Supplement claim:</strong> in whom, at what dose, under what condition, with what effect size, compared to what?</li>
+      </ul>
+
+      <h2>The model is a clerk, not the judge</h2>
+
+      <p>
+        This is where AI should be pointed: not at generating more confident
+        summaries, not at producing more prose, and not at turning the literature
+        into a faster pile of literature.
+      </p>
+
+      <p>
+        AI should help expose evidence debt. The model can extract candidate
+        claims, bind source spans, detect contradictions, compare scope, check
+        whether the conclusion outruns the methods, and surface missing receipts.
+      </p>
+
+      <p>
+        But the model should not be the judge.
+      </p>
+
+      <p>
+        The commit layer has to be outside the model: structured receipts,
+        explicit checks, versioned evidence, human review where stakes demand it,
+        and a refusal to let unsupported claims cross a trust boundary just
+        because the prose sounds good.
+      </p>
+
+      <h2>The missing layer</h2>
+
+      <p>
+        The evidence-synthesis world is already moving. Cochrane announced on
+        March 17, 2026 that Laser AI and Nested Knowledge were selected from 48
+        submissions for an AI tools platform study aligned with Responsible AI in
+        Evidence SynthEsis principles. That is good and necessary.
+      </p>
+
+      <p>
+        But speeding up reviews is not enough. The deeper shift is from document
+        review to claim inspection.
+      </p>
+
+      <p>
+        The question should not only be: "What does the literature say?"
+      </p>
+
+      <p>
+        The better question is: "What claims are we acting on, and what evidence
+        debt do they carry?"
+      </p>
+
+      <p>
+        That is the layer we are missing.
+      </p>
+
+      <p>
+        Assay exists for that layer. It does not decide truth. It detects when a
+        consequential claim is trying to cross a trust boundary without enough
+        receipts.
+      </p>
+
+      <p>
+        The future of AI governance, medical evidence, vendor assurance, and
+        scientific credibility all rhyme here. We do not need systems that sound
+        more certain. We need systems that make uncertainty inspectable.
+      </p>
+
+      <div class="ask">
+        <p>Send me one claim your organization relies on. I will show you the evidence debt.</p>
+        <div class="button-row">
+          <a class="button primary" href="#epic-sepsis">Review the Epic Sepsis example</a>
+          <a class="button" href="https://github.com/Haserjian/assay/issues/new?template=pilot-inquiry.md" target="_blank" rel="noreferrer">Send a claim</a>
+        </div>
+      </div>
+    </article>
+
+    <aside aria-label="Evidence Debt notes and sources">
+      <div class="side-card">
+        <h3>Core Lines</h3>
+        <ul>
+          <li>A paper is not the atomic unit of knowledge. A claim is.</li>
+          <li>A green check tells you a process completed, not that a claim deserves trust.</li>
+          <li>The model may produce witnesses. The ledger decides what can be committed.</li>
+        </ul>
+      </div>
+
+      <div class="side-card">
+        <h3>Assay Wedge</h3>
+        <p>
+          Assay does not certify truth. It makes reliance reviewable by showing
+          what evidence a claim has, what is missing, and where the claim cannot
+          safely travel.
+        </p>
+      </div>
+
+      <div class="side-card">
+        <h3>Sources</h3>
+        <div class="source-list">
+          <a href="https://jamanetwork.com/journals/jamainternalmedicine/fullarticle/2781307" target="_blank" rel="noreferrer">JAMA Internal Medicine: Epic Sepsis validation</a>
+          <a href="https://academic.oup.com/jamiaopen/article/7/4/ooae133/7900014" target="_blank" rel="noreferrer">JAMIA Open: ESPMv1 ED validation</a>
+          <a href="https://www.cochrane.org/about-us/news/cochrane-announces-selected-ai-tools-innovative-platform-study" target="_blank" rel="noreferrer">Cochrane: AI tools platform study</a>
+          <a href="#epic-sepsis">Epic Sepsis example above</a>
+        </div>
+      </div>
+    </aside>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap footer-inner">
+    <span>Assay Evidence Debt manifesto</span>
+    <span>
+      <a href="../">Assay home</a>
+      &nbsp;/&nbsp;
+      <a href="../claim-gap-report/">Claim Gap Report</a>
+    </span>
+  </div>
+</footer>
+</body>
+</html>
