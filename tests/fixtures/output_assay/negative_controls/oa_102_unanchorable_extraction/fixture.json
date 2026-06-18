@@ -1,0 +1,25 @@
+{
+    "fixture_id": "oa_102_unanchorable_extraction",
+    "title": "Negative control with an unanchorable blocked observation",
+    "status": "active",
+    "category": "negative_control",
+    "artifact_path": "artifact.md",
+    "artifact_hash": "sha256:e3908013822071ad0efb4204319224da8527642dba50c68713b74296aae28155",
+    "artifact_kind": "spec_proposal",
+    "declared_intent_class": "argument",
+    "expected_run_disposition": "block",
+    "expected_failure_modes": [
+        "unanchorable_extraction",
+        "invented_span",
+        "receipt_gap"
+    ],
+    "expected_compression_behavior": "quarantine",
+    "promotion_surface": "observation_only",
+    "labels": [
+        "seed",
+        "negative_control",
+        "guardian_blocked",
+        "anchoring_target"
+    ],
+    "notes": "Includes one anchored observation and one blocked invented span so the fixture distinguishes a ghost observation from a wholly unreadable artifact."
+}

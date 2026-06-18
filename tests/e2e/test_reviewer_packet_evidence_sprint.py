@@ -35,6 +35,11 @@ import pytest
 from assay.claim_verifier import ClaimSpec
 from assay.integrity import verify_pack_manifest
 from assay.keystore import AssayKeyStore
+from assay.output_assay import (
+    OutputAssayExtractionFailure,
+    OutputAssayRunEnvelope,
+    run_output_assay_locally,
+)
 from assay.proof_pack import ProofPack
 from assay.reviewer_packet import (
     ANSWER_STATUSES,
@@ -65,10 +70,115 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _output_assay_artifact_text() -> str:
+    return "Observation is not assertion.\nAction: validate locally first.\n"
+
+
+def _output_assay_valid_payload() -> dict[str, object]:
+    return {
+        "intent_class": "technical_answer",
+        "summary": "The draft extracts one claim and one instruction without stamping any canonical receipt fields.",
+        "observed_units": [
+            {
+                "unit_type": "claim",
+                "source_role": "assertion",
+                "artifact_span": {
+                    "text": "Observation is not assertion.",
+                    "start_char": 0,
+                    "end_char": 29,
+                },
+                "normalized_text": "Observation is not assertion.",
+                "observation_confidence": 0.94,
+                "notes": "Candidate claim pending Guardian review.",
+            },
+            {
+                "unit_type": "instruction",
+                "source_role": "instruction",
+                "artifact_span": {
+                    "text": "Action: validate locally first.",
+                    "start_char": 30,
+                    "end_char": 61,
+                },
+                "normalized_text": "Action: validate locally first.",
+                "observation_confidence": 0.81,
+                "notes": "Non-claim units remain observation-only in v0.",
+            },
+        ],
+    }
+
+
+def _output_assay_invalid_payload() -> dict[str, object]:
+    return {
+        "intent_class": "technical_answer",
+        "summary": "Missing observed units.",
+    }
+
+
+def _proof_pack_output_assay_receipt(
+    result: OutputAssayRunEnvelope | OutputAssayExtractionFailure,
+    *,
+    run_id: str,
+    receipt_id: str,
+    timestamp: str,
+    seq: int,
+) -> dict:
+    payload = result.model_dump(mode="json")
+    receipt_type = payload["receipt_type"]
+    output_assay_run_id = payload.pop("run_id", None)
+    receipt = {
+        "receipt_id": receipt_id,
+        "type": receipt_type,
+        "timestamp": timestamp,
+        "schema_version": "3.0",
+        "seq": seq,
+        "_trace_id": run_id,
+        **payload,
+    }
+    if output_assay_run_id is not None:
+        receipt["output_assay_run_id"] = output_assay_run_id
+    return receipt
+
+
+def _build_output_assay_receipts(
+    run_id: str,
+    *,
+    timestamp: str,
+    seq_start: int,
+) -> list[dict]:
+    artifact_text = _output_assay_artifact_text()
+    run_result = run_output_assay_locally(
+        artifact_text,
+        _output_assay_valid_payload(),
+    )
+    failure_result = run_output_assay_locally(
+        artifact_text,
+        _output_assay_invalid_payload(),
+    )
+    assert isinstance(run_result, OutputAssayRunEnvelope)
+    assert isinstance(failure_result, OutputAssayExtractionFailure)
+
+    return [
+        _proof_pack_output_assay_receipt(
+            run_result,
+            run_id=run_id,
+            receipt_id=f"r_{run_id}_006",
+            timestamp=timestamp,
+            seq=seq_start,
+        ),
+        _proof_pack_output_assay_receipt(
+            failure_result,
+            run_id=run_id,
+            receipt_id=f"r_{run_id}_007",
+            timestamp=timestamp,
+            seq=seq_start + 1,
+        ),
+    ]
+
+
 def _build_receipts(run_id: str) -> list[dict]:
     """Build realistic receipts matching what the OpenAI integration emits."""
     ts_base = _now_iso()
-    return [
+    receipts = [
         {
             "receipt_id": f"r_{run_id}_001",
             "type": "model_call",
@@ -139,6 +249,14 @@ def _build_receipts(run_id: str) -> list[dict]:
             ],
         },
     ]
+    receipts.extend(
+        _build_output_assay_receipts(
+            run_id,
+            timestamp=ts_base,
+            seq_start=len(receipts),
+        )
+    )
+    return receipts
 
 
 def _build_claims() -> list[ClaimSpec]:
@@ -398,6 +516,52 @@ class TestProofPackIntegrity:
         ]
         assert len(lines) >= 4, f"Expected >= 4 receipts, got {len(lines)}"
 
+    def test_output_assay_receipts_enter_signed_pack(self, run_dir):
+        pack_dir = run_dir["pack_dir"]
+        receipts = [
+            json.loads(line)
+            for line in (pack_dir / "receipt_pack.jsonl").read_text().splitlines()
+            if line.strip()
+        ]
+
+        output_assay_run = next(
+            receipt for receipt in receipts if receipt["type"] == "output_assay.run"
+        )
+        extraction_failure = next(
+            receipt
+            for receipt in receipts
+            if receipt["type"] == "output_assay.extraction_failure"
+        )
+
+        assert output_assay_run["_trace_id"] == run_dir["run_id"]
+        assert output_assay_run["output_assay_run_id"].startswith("oa_run_")
+        assert output_assay_run["guardian_verdict"]["run_status"] == "pass"
+        assert output_assay_run["compression"]["status"] == "preserve"
+        assert output_assay_run["truth_verification"] == {
+            "performed": False,
+            "tier": "internal_support_only",
+            "notes": "Calibration validates observation behavior and internal support only, not external truth.",
+        }
+        assert {
+            unit["observer"]["provider"]
+            for unit in output_assay_run["observed_units"]
+        } == {"local"}
+        assert all(
+            unit["receipt_type"] == "artifact.unit_observed"
+            for unit in output_assay_run["observed_units"]
+        )
+
+        assert extraction_failure["_trace_id"] == run_dir["run_id"]
+        assert extraction_failure["extraction_stage"] == "draft_validation"
+        assert extraction_failure["failure_modes"] == ["schema_validation_failed"]
+        assert extraction_failure["truth_verification"]["performed"] is False
+        assert any(
+            "observed_units" in error for error in extraction_failure["errors"]
+        )
+
+        receipt_types = {receipt["type"] for receipt in receipts}
+        assert "claim.observation_promoted" not in receipt_types
+
     def test_signed_pack_verifies(self, run_dir):
         assert run_dir["verify_result"].passed, (
             f"Proof pack verification failed: "
@@ -477,6 +641,21 @@ class TestReviewerPacket:
         packet_dir = run_dir["packet_dir"]
         summary = (packet_dir / "reviewer_summary.md").read_text()
         assert "GAP" in summary or "INSUFFICIENT_EVIDENCE" in summary or "unresolved" in summary.lower()
+
+    def test_output_assay_receipts_do_not_answer_unresolved_question(self, run_dir):
+        packet = run_dir["reviewer_packet"]
+        q6 = next(q for q in packet.questions if q.question_id == "Q6")
+        assert q6.status == "INSUFFICIENT_EVIDENCE"
+        assert q6.evidence_refs == []
+
+        index = json.loads(
+            (run_dir["packet_dir"] / "evidence_index.json").read_text()
+        )
+        indexed_receipt_types = {
+            evidence["receipt_type"] for evidence in index.values()
+        }
+        assert "output_assay.run" not in indexed_receipt_types
+        assert "output_assay.extraction_failure" not in indexed_receipt_types
 
 
 class TestPacketValidation:

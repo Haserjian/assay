@@ -1,0 +1,19 @@
+{
+    "fixture_id": "oa_401_support_note",
+    "title": "Non-claim support note with emotion and instruction units",
+    "status": "active",
+    "category": "non_claim_artifact",
+    "artifact_path": "artifact.md",
+    "artifact_hash": "sha256:0571c6a01018b44f722486f5703c837f6fa227a681451b32615ccb4a72c8acbd",
+    "declared_intent_class": "emotional_support",
+    "expected_run_disposition": "pass",
+    "expected_failure_modes": [],
+    "expected_compression_behavior": "preserve",
+    "promotion_surface": "observation_only",
+    "labels": [
+        "seed",
+        "non_claim_artifact",
+        "support_note"
+    ],
+    "notes": "Non-claim units remain observable but promotion-ineligible in v0."
+}

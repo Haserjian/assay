@@ -1,0 +1,102 @@
+{
+    "fixture_id": "oa_105_failed_extraction_refusal",
+    "input_hash": "sha256:87c1772473acca664d5a56e0c3037ce52a6de3bc71bb43812e89c1301fc70c9c",
+    "intent_class": "argument",
+    "summary": "The artifact itself marks extraction as failed and warns the assayer not to invent spans, but the run is blocked because a continuation claim was still hallucinated.",
+    "observed_units": [
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_105_u001",
+            "unit_type": "claim",
+            "source_role": "assertion",
+            "artifact_span": {
+                "text": "Failed extraction produces `output_assay.extraction_failure`.",
+                "start_char": 0,
+                "end_char": 61
+            },
+            "normalized_text": "Failed extraction produces `output_assay.extraction_failure`.",
+            "observation_status": "guardian_passed",
+            "anchoring_expectation": "anchored",
+            "anchoring_notes": "This refusal signal is grounded directly in the artifact text but remains unusable because the run is blocked.",
+            "promotion_eligibility": {
+                "status": "ineligible",
+                "reason": "receipt_gap",
+                "reasons": [
+                    "receipt_gap"
+                ]
+            }
+        },
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_105_u002",
+            "unit_type": "instruction",
+            "source_role": "instruction",
+            "artifact_span": {
+                "text": "Stop here; do not invent missing spans.",
+                "start_char": 62,
+                "end_char": 101
+            },
+            "normalized_text": "Stop here; do not invent missing spans.",
+            "observation_status": "guardian_passed",
+            "anchoring_expectation": "anchored",
+            "anchoring_notes": "The artifact explicitly instructs the assayer to stop before inventing missing content.",
+            "promotion_eligibility": {
+                "status": "ineligible",
+                "reason": "non_claim_unit",
+                "reasons": [
+                    "non_claim_unit"
+                ]
+            }
+        },
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_105_u003",
+            "unit_type": "claim",
+            "source_role": "assertion",
+            "artifact_span": {
+                "text": "The missing continuation proves the control already passed review.",
+                "start_char": 220,
+                "end_char": 282
+            },
+            "normalized_text": "The missing continuation proves the control already passed review.",
+            "observation_status": "guardian_blocked",
+            "anchoring_expectation": "unanchorable",
+            "anchoring_notes": "This continuation claim is absent from artifact.md and its offsets extend beyond artifact length, so the run must block.",
+            "promotion_eligibility": {
+                "status": "ineligible",
+                "reason": "unanchorable_extraction",
+                "reasons": [
+                    "unanchorable_extraction",
+                    "invented_span",
+                    "receipt_gap"
+                ]
+            }
+        }
+    ],
+    "guardian_verdict": {
+        "run_status": "block",
+        "observation_counts": {
+            "guardian_passed": 2,
+            "guardian_warned": 0,
+            "guardian_blocked": 1
+        },
+        "failure_modes": [
+            "unanchorable_extraction",
+            "invented_span",
+            "receipt_gap"
+        ],
+        "warnings": [],
+        "block_reasons": [
+            "continued_extraction_after_refusal"
+        ]
+    },
+    "compression": {
+        "status": "quarantine",
+        "compressed_summary": "The run is quarantined because extraction should have stopped at refusal, yet a nonexistent continuation claim was still produced."
+    },
+    "truth_verification": {
+        "performed": false,
+        "tier": "internal_support_only",
+        "notes": "Calibration validates observation behavior and internal support only, not external truth."
+    }
+}

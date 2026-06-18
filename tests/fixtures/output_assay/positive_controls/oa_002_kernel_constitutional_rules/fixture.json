@@ -1,0 +1,20 @@
+{
+    "fixture_id": "oa_002_kernel_constitutional_rules",
+    "title": "Positive control derived from kernel constitutional rules",
+    "status": "active",
+    "category": "positive_control",
+    "artifact_kind": "spec_proposal",
+    "artifact_path": "artifact.md",
+    "artifact_hash": "sha256:12bdc8fa985744576042d470d429e6cc8bffa3ef300e1764945d14a435549e87",
+    "declared_intent_class": "technical_answer",
+    "expected_run_disposition": "pass",
+    "expected_failure_modes": [],
+    "expected_compression_behavior": "preserve",
+    "promotion_surface": "claim_review_possible",
+    "labels": [
+        "seed",
+        "positive_control",
+        "kernel_spec"
+    ],
+    "notes": "Anchored constitutional-rule claims from the kernel spec with clean promotion-safe support."
+}

@@ -1,0 +1,22 @@
+{
+    "fixture_id": "oa_202_partial_evidence_brief",
+    "title": "Mixed-quality technical answer with one supported claim, one overconfident claim, and one non-claim constraint",
+    "status": "active",
+    "category": "mixed_quality",
+    "artifact_path": "artifact.md",
+    "artifact_hash": "sha256:4436b6f737ae294f2632a9257df803f6aabc64fbe164581d0408d765c27077fc",
+    "declared_intent_class": "technical_answer",
+    "expected_run_disposition": "warn",
+    "expected_failure_modes": [
+        "unearned_confidence"
+    ],
+    "expected_compression_behavior": "preserve",
+    "promotion_surface": "claim_review_possible",
+    "labels": [
+        "seed",
+        "mixed_quality",
+        "technical_answer",
+        "partial_evidence"
+    ],
+    "notes": "Closes the mixed-quality semantic gap by placing one eligible claim and one non-claim unit inside the same category-specific fixture."
+}

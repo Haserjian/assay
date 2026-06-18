@@ -1,0 +1,90 @@
+{
+    "fixture_id": "oa_202_partial_evidence_brief",
+    "input_hash": "sha256:4436b6f737ae294f2632a9257df803f6aabc64fbe164581d0408d765c27077fc",
+    "intent_class": "technical_answer",
+    "summary": "The brief mixes one supported technical claim with one overconfident projection and one non-promotable constraint.",
+    "observed_units": [
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_202_u001",
+            "unit_type": "claim",
+            "source_role": "assertion",
+            "artifact_span": {
+                "text": "The current fixture validator already forces guardian_blocked observations to remain promotion-ineligible.",
+                "start_char": 0,
+                "end_char": 106
+            },
+            "normalized_text": "The current fixture validator already forces guardian_blocked observations to remain promotion-ineligible.",
+            "observation_status": "guardian_passed",
+            "promotion_eligibility": {
+                "status": "eligible",
+                "reason": "claim_unit_with_clean_provenance"
+            }
+        },
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_202_u002",
+            "unit_type": "claim",
+            "source_role": "assertion",
+            "artifact_span": {
+                "text": "That guarantee will make Output Assay easy for every repository to adopt this quarter.",
+                "start_char": 107,
+                "end_char": 193
+            },
+            "normalized_text": "That guarantee will make Output Assay easy for every repository to adopt this quarter.",
+            "observation_status": "guardian_warned",
+            "promotion_eligibility": {
+                "status": "ineligible",
+                "reason": "support_gap_requires_review",
+                "reasons": [
+                    "unearned_confidence",
+                    "support_gap_requires_review"
+                ]
+            }
+        },
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_202_u003",
+            "unit_type": "constraint",
+            "source_role": "instruction",
+            "artifact_span": {
+                "text": "Constraint: keep analyzer integration behind fixture stability and span-anchoring checks.",
+                "start_char": 194,
+                "end_char": 283
+            },
+            "normalized_text": "Constraint: keep analyzer integration behind fixture stability and span-anchoring checks.",
+            "observation_status": "guardian_passed",
+            "promotion_eligibility": {
+                "status": "ineligible",
+                "reason": "non_claim_unit",
+                "reasons": [
+                    "non_claim_unit"
+                ]
+            }
+        }
+    ],
+    "guardian_verdict": {
+        "run_status": "warn",
+        "observation_counts": {
+            "guardian_passed": 2,
+            "guardian_warned": 1,
+            "guardian_blocked": 0
+        },
+        "failure_modes": [
+            "unearned_confidence"
+        ],
+        "warnings": [
+            "support_gap_present"
+        ],
+        "block_reasons": []
+    },
+    "compression": {
+        "status": "preserve",
+        "compressed_summary": "The technical answer preserves one promotable rule claim while keeping an overconfident projection and a non-claim constraint separate from promotion-safe evidence."
+    },
+    "truth_verification": {
+        "performed": false,
+        "tier": "internal_support_only",
+        "notes": "Calibration validates observation behavior and internal support only, not external truth."
+    }
+}

@@ -1,0 +1,104 @@
+{
+    "fixture_id": "oa_204_ambiguous_stance_argument",
+    "input_hash": "sha256:dc4059422850427ad73fe6678a85c92fd7a106aa8aa8e2e6d63c92bfbcae77e7",
+    "intent_class": "argument",
+    "summary": "The argument mixes one clean observation boundary claim, one ambiguous margin-note claim, one promotion-safe provenance rule, and one overclaim about future trust.",
+    "observed_units": [
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_204_u001",
+            "unit_type": "claim",
+            "source_role": "assertion",
+            "artifact_span": {
+                "text": "Observation is not assertion.",
+                "start_char": 0,
+                "end_char": 29
+            },
+            "normalized_text": "Observation is not assertion.",
+            "observation_status": "guardian_passed",
+            "promotion_eligibility": {
+                "status": "eligible",
+                "reason": "claim_unit_with_clean_provenance"
+            }
+        },
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_204_u002",
+            "unit_type": "claim",
+            "source_role": "unknown",
+            "artifact_span": {
+                "text": "Margin note: \"Ready to ship.\"",
+                "start_char": 30,
+                "end_char": 59
+            },
+            "normalized_text": "Ready to ship.",
+            "observation_status": "guardian_passed",
+            "promotion_eligibility": {
+                "status": "ineligible",
+                "reason": "source_role_not_assertive"
+            }
+        },
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_204_u003",
+            "unit_type": "claim",
+            "source_role": "assertion",
+            "artifact_span": {
+                "text": "A `claim.observation_promoted` receipt MUST reference `run_id`, `unit_id`, `artifact_hash`, and `artifact_span` from the source observation.",
+                "start_char": 60,
+                "end_char": 200
+            },
+            "normalized_text": "A `claim.observation_promoted` receipt MUST reference `run_id`, `unit_id`, `artifact_hash`, and `artifact_span` from the source observation.",
+            "observation_status": "guardian_passed",
+            "promotion_eligibility": {
+                "status": "eligible",
+                "reason": "claim_unit_with_clean_provenance"
+            }
+        },
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_204_u004",
+            "unit_type": "claim",
+            "source_role": "assertion",
+            "artifact_span": {
+                "text": "That provenance rule means the operator can trust every future promotion automatically.",
+                "start_char": 201,
+                "end_char": 288
+            },
+            "normalized_text": "That provenance rule means the operator can trust every future promotion automatically.",
+            "observation_status": "guardian_warned",
+            "promotion_eligibility": {
+                "status": "ineligible",
+                "reason": "support_gap_requires_review",
+                "reasons": [
+                    "unearned_confidence",
+                    "support_gap_requires_review"
+                ]
+            }
+        }
+    ],
+    "guardian_verdict": {
+        "run_status": "warn",
+        "observation_counts": {
+            "guardian_passed": 3,
+            "guardian_warned": 1,
+            "guardian_blocked": 0
+        },
+        "failure_modes": [
+            "unearned_confidence"
+        ],
+        "warnings": [
+            "support_gap_present"
+        ],
+        "block_reasons": []
+    },
+    "compression": {
+        "status": "preserve",
+        "compressed_summary": "The argument preserves one ambiguous margin-note claim as observation-only, one promotable provenance rule, and one warned overclaim about future trust."
+    },
+    "truth_verification": {
+        "performed": false,
+        "tier": "internal_support_only",
+        "notes": "Calibration validates observation behavior and internal support only, not external truth."
+    }
+}

@@ -1,0 +1,23 @@
+{
+    "fixture_id": "oa_205_verify_status_boundary",
+    "title": "Mixed-quality technical answer on the verify-versus-status boundary",
+    "status": "active",
+    "category": "mixed_quality",
+    "artifact_path": "artifact.md",
+    "artifact_hash": "sha256:06b5f8724ac8b77e125757b2eb3da55571e133985ed56ecc850dda02c28a12aa",
+    "artifact_kind": "boundary_example",
+    "declared_intent_class": "technical_answer",
+    "expected_run_disposition": "warn",
+    "expected_failure_modes": [
+        "unearned_confidence"
+    ],
+    "expected_compression_behavior": "preserve",
+    "promotion_surface": "claim_review_possible",
+    "labels": [
+        "seed",
+        "mixed_quality",
+        "support_gap",
+        "verify_status_boundary"
+    ],
+    "notes": "Pairs one clean boundary claim with a non-claim action and one warned overclaim that incorrectly collapses reliance posture into semantic truth."
+}

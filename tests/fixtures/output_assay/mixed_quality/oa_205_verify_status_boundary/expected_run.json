@@ -1,0 +1,90 @@
+{
+    "fixture_id": "oa_205_verify_status_boundary",
+    "input_hash": "sha256:06b5f8724ac8b77e125757b2eb3da55571e133985ed56ecc850dda02c28a12aa",
+    "intent_class": "technical_answer",
+    "summary": "The technical answer preserves one clean claim about verify versus status, one operational action, and one warned overclaim that overstates what PASS means.",
+    "observed_units": [
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_205_u001",
+            "unit_type": "claim",
+            "source_role": "assertion",
+            "artifact_span": {
+                "text": "`verify` is about object truth. `status` is about reliance posture.",
+                "start_char": 0,
+                "end_char": 67
+            },
+            "normalized_text": "`verify` is about object truth. `status` is about reliance posture.",
+            "observation_status": "guardian_passed",
+            "promotion_eligibility": {
+                "status": "eligible",
+                "reason": "claim_unit_with_clean_provenance"
+            }
+        },
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_205_u002",
+            "unit_type": "action",
+            "source_role": "instruction",
+            "artifact_span": {
+                "text": "Action: run `verify` before using `status` in a reviewer-facing flow.",
+                "start_char": 68,
+                "end_char": 137
+            },
+            "normalized_text": "Action: run `verify` before using `status` in a reviewer-facing flow.",
+            "observation_status": "guardian_passed",
+            "promotion_eligibility": {
+                "status": "ineligible",
+                "reason": "non_claim_unit",
+                "reasons": [
+                    "non_claim_unit"
+                ]
+            }
+        },
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_205_u003",
+            "unit_type": "claim",
+            "source_role": "assertion",
+            "artifact_span": {
+                "text": "That separation guarantees every PASS status means the artifact is semantically correct.",
+                "start_char": 138,
+                "end_char": 226
+            },
+            "normalized_text": "That separation guarantees every PASS status means the artifact is semantically correct.",
+            "observation_status": "guardian_warned",
+            "promotion_eligibility": {
+                "status": "ineligible",
+                "reason": "support_gap_requires_review",
+                "reasons": [
+                    "unearned_confidence",
+                    "support_gap_requires_review"
+                ]
+            }
+        }
+    ],
+    "guardian_verdict": {
+        "run_status": "warn",
+        "observation_counts": {
+            "guardian_passed": 2,
+            "guardian_warned": 1,
+            "guardian_blocked": 0
+        },
+        "failure_modes": [
+            "unearned_confidence"
+        ],
+        "warnings": [
+            "support_gap_present"
+        ],
+        "block_reasons": []
+    },
+    "compression": {
+        "status": "preserve",
+        "compressed_summary": "The answer preserves one clean verify-versus-status boundary claim, one operational action, and one warned overclaim about semantic correctness."
+    },
+    "truth_verification": {
+        "performed": false,
+        "tier": "internal_support_only",
+        "notes": "Calibration validates observation behavior and internal support only, not external truth."
+    }
+}

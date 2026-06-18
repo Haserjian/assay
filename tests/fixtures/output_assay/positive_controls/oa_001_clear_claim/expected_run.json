@@ -1,0 +1,45 @@
+{
+    "fixture_id": "oa_001_clear_claim",
+    "input_hash": "sha256:1ae43ea00fae48e95a278b38ffb2f0bb0ca6a47f85b298c24d42e060ec144169",
+    "intent_class": "technical_answer",
+    "summary": "The artifact argues for deterministic receipt hashing to improve reviewability and reproducibility.",
+    "observed_units": [
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "unit_001",
+            "unit_type": "claim",
+            "source_role": "assertion",
+            "artifact_span": {
+                "text": "We should adopt deterministic receipt hashes for outbound attestations.",
+                "start_char": 0,
+                "end_char": 71
+            },
+            "normalized_text": "We should adopt deterministic receipt hashes for outbound attestations.",
+            "observation_status": "guardian_passed",
+            "promotion_eligibility": {
+                "status": "eligible",
+                "reason": "claim_unit_with_clean_provenance"
+            }
+        }
+    ],
+    "guardian_verdict": {
+        "run_status": "pass",
+        "observation_counts": {
+            "guardian_passed": 1,
+            "guardian_warned": 0,
+            "guardian_blocked": 0
+        },
+        "failure_modes": [],
+        "warnings": [],
+        "block_reasons": []
+    },
+    "compression": {
+        "status": "preserve",
+        "compressed_summary": "Deterministic receipt hashing improves reviewability and reproducibility."
+    },
+    "truth_verification": {
+        "performed": false,
+        "tier": "internal_support_only",
+        "notes": "Calibration validates observation behavior and internal support only, not external truth."
+    }
+}

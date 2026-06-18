@@ -1,0 +1,96 @@
+{
+    "fixture_id": "oa_005_verification_order_plan",
+    "input_hash": "sha256:7ff76450dbeee2cc9b3c3758dd4d38e5361e4d09ed9e543ef8525f62c9a7aeb9",
+    "intent_class": "plan",
+    "summary": "The verification-order plan preserves a clean sequence where schema, file-hash, and receipt checks precede signature-based trust decisions.",
+    "observed_units": [
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_005_u001",
+            "unit_type": "claim",
+            "source_role": "assertion",
+            "artifact_span": {
+                "text": "Plan: validate schema before any later verification step.",
+                "start_char": 0,
+                "end_char": 57
+            },
+            "normalized_text": "Plan: validate schema before any later verification step.",
+            "observation_status": "guardian_passed",
+            "promotion_eligibility": {
+                "status": "eligible",
+                "reason": "claim_unit_with_clean_provenance"
+            }
+        },
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_005_u002",
+            "unit_type": "claim",
+            "source_role": "assertion",
+            "artifact_span": {
+                "text": "Plan: verify file hashes before relying on manifest signature.",
+                "start_char": 58,
+                "end_char": 120
+            },
+            "normalized_text": "Plan: verify file hashes before relying on manifest signature.",
+            "observation_status": "guardian_passed",
+            "promotion_eligibility": {
+                "status": "eligible",
+                "reason": "claim_unit_with_clean_provenance"
+            }
+        },
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_005_u003",
+            "unit_type": "claim",
+            "source_role": "assertion",
+            "artifact_span": {
+                "text": "Plan: recompute receipt integrity before attestation and signature validation.",
+                "start_char": 121,
+                "end_char": 199
+            },
+            "normalized_text": "Plan: recompute receipt integrity before attestation and signature validation.",
+            "observation_status": "guardian_passed",
+            "promotion_eligibility": {
+                "status": "eligible",
+                "reason": "claim_unit_with_clean_provenance"
+            }
+        },
+        {
+            "receipt_type": "artifact.unit_observed",
+            "unit_id": "oa_005_u004",
+            "unit_type": "claim",
+            "source_role": "assertion",
+            "artifact_span": {
+                "text": "No unsigned artifact influences a trust decision before its hash or signature is verified.",
+                "start_char": 200,
+                "end_char": 290
+            },
+            "normalized_text": "No unsigned artifact influences a trust decision before its hash or signature is verified.",
+            "observation_status": "guardian_passed",
+            "promotion_eligibility": {
+                "status": "eligible",
+                "reason": "claim_unit_with_clean_provenance"
+            }
+        }
+    ],
+    "guardian_verdict": {
+        "run_status": "pass",
+        "observation_counts": {
+            "guardian_passed": 4,
+            "guardian_warned": 0,
+            "guardian_blocked": 0
+        },
+        "failure_modes": [],
+        "warnings": [],
+        "block_reasons": []
+    },
+    "compression": {
+        "status": "preserve",
+        "compressed_summary": "The plan preserves a clean verification sequence where schema, file-hash, and receipt integrity checks precede trust decisions."
+    },
+    "truth_verification": {
+        "performed": false,
+        "tier": "internal_support_only",
+        "notes": "Calibration validates observation behavior and internal support only, not external truth."
+    }
+}
