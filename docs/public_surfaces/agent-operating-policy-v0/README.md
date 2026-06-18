@@ -45,6 +45,7 @@ It does not evaluate hidden agent intent, unobserved runtime activity, productio
 - `examples/` contains illustrative verdict fixtures for one pass and three rejection modes.
 - `VERIFY_OUTPUT.txt` shows example draft verifier output.
 - `DOGFOOD.md` records the live PR Gate result for the PR that introduced this packet.
+- `EVIDENCE_LADDER.md` is a skeptical challenge card for testing the packet's claim boundaries.
 
 ## Related Assay Surfaces
 
