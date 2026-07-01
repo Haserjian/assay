@@ -126,8 +126,9 @@ def test_directed_terminal_settlement_links_parent_to_predecessor(
 
     settled = _receipts(episode, "episode.settled")[-1]
     idx = episode.receipts.index(settled)
-    predecessor = episode.receipts[idx - 1]
     assert idx > 0
+    predecessor = episode.receipts[idx - 1]
+    assert predecessor.receipt_type == "episode.state_directed"
     assert settled.parent_receipt_id == predecessor.receipt_id
     assert settled.to_trace_dict()["parent_receipt_id"] == predecessor.receipt_id
 
