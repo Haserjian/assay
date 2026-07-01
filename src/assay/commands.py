@@ -2436,6 +2436,102 @@ def try_openclaw_cmd(
     )
 
 
+openclaw_app = typer.Typer(
+    name="openclaw",
+    help="Verify real exported OpenClaw session logs.",
+    no_args_is_help=True,
+)
+
+
+@openclaw_app.command("verify")
+def openclaw_verify_cmd(
+    session_logs: List[str] = typer.Argument(
+        ...,
+        metavar="SESSION_LOG...",
+        help="One or more exported OpenClaw session .jsonl files to verify.",
+    ),
+    allowlist: str = typer.Option(
+        "*",
+        "--allowlist",
+        help="Browser allowlist pattern used during import (default: '*').",
+    ),
+    output_json: bool = typer.Option(False, "--json", help="Structured output"),
+):
+    """Import selected exported OpenClaw session logs and report what was found.
+
+    Read-only and fail-closed. It records which rows imported, which were
+    skipped (with reasons), which tool calls were surfaced, and a clean/partial
+    status. If a file is missing or nothing importable is found, it returns a
+    blocked result instead of inventing confidence.
+
+    It does NOT claim complete runtime capture, live OpenClaw Gateway
+    interception, planner correctness, browser-page truth, or that the imported
+    log was complete or honest before Assay read it. For a signed,
+    offline-verifiable proof pack, see: assay try-openclaw.
+    """
+    from pathlib import Path
+
+    from assay.openclaw_validation import (
+        render_openclaw_live_validation,
+        validate_openclaw_session_logs,
+    )
+
+    # Fail closed on missing or unreadable inputs before importing anything.
+    paths = [Path(raw).expanduser() for raw in session_logs]
+    missing = [str(path) for path in paths if not path.is_file()]
+    if missing:
+        if output_json:
+            _output_json(
+                {
+                    "command": "openclaw verify",
+                    "status": "blocked",
+                    "reason": "session_log_missing",
+                    "missing": missing,
+                },
+                exit_code=3,
+            )
+        console.print(f"[red]No readable session log at:[/] {', '.join(missing)}")
+        console.print(
+            "[dim]Fail-closed: nothing imported, no confidence invented.[/]"
+        )
+        raise typer.Exit(3)
+
+    result = validate_openclaw_session_logs(
+        session_log_paths=paths,
+        allowlist=[allowlist],
+    )
+
+    # Fail closed when no importable rows were recognized in any provided log.
+    nothing_imported = result.status != "ok" or result.imported_count == 0
+
+    if output_json:
+        payload = result.to_dict()
+        payload["command"] = "openclaw verify"
+        if nothing_imported and result.status == "ok":
+            payload["status"] = "blocked"
+            payload["reason"] = "no_rows_imported"
+        _output_json(payload, exit_code=1 if nothing_imported else 0)
+        return
+
+    console.print(render_openclaw_live_validation(result))
+    console.print()
+    if nothing_imported:
+        console.print(
+            "[yellow]Fail-closed:[/] no importable rows found; not reporting success."
+        )
+        raise typer.Exit(1)
+    console.print(
+        "[dim]Scope: import + attribution only. Not complete runtime capture, "
+        "live Gateway interception, or planner/browser truth.[/]"
+    )
+    console.print(
+        "[dim]For a signed, offline-verifiable proof pack, see: [green]assay try-openclaw[/][/]"
+    )
+
+
+assay_app.add_typer(openclaw_app, name="openclaw", rich_help_panel=_TRY_PANEL)
+
+
 # --- End of early Start Here registration ---
 
 
