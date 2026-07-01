@@ -109,6 +109,30 @@ def test_close_as_tainted_settles_episode_as_tampered(tmp_store: AssayStore) -> 
     assert settled[-1].payload["directed"] is True
 
 
+def test_directed_terminal_settlement_links_parent_to_predecessor(
+    tmp_store: AssayStore,
+) -> None:
+    """The directed terminal path must also stamp lineage: the emitted
+    ``episode.settled`` receipt links to its immediate predecessor in the
+    trace (here the ``episode.state_directed`` receipt)."""
+    episode = open_episode(store=tmp_store)
+    episode.emit("model.invoked", {"model": "x"})
+    episode.mark_execution_complete()
+
+    apply_episode_state_directive(
+        episode,
+        _directive(episode.episode_id, EpisodeDirectiveCode.CLOSE_AS_TAINTED),
+    )
+
+    settled = _receipts(episode, "episode.settled")[-1]
+    idx = episode.receipts.index(settled)
+    assert idx > 0
+    predecessor = episode.receipts[idx - 1]
+    assert predecessor.receipt_type == "episode.state_directed"
+    assert settled.parent_receipt_id == predecessor.receipt_id
+    assert settled.to_trace_dict()["parent_receipt_id"] == predecessor.receipt_id
+
+
 def test_close_as_refused_settles_episode_as_honest_fail(tmp_store: AssayStore) -> None:
     episode = open_episode(store=tmp_store)
     episode.start_execution()

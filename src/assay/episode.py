@@ -1122,6 +1122,7 @@ class Episode:
                 "evidence_refs": list(payload["evidence_refs"]),
                 "directed": True,
             },
+            parent_receipt_id=self.receipts[-1].receipt_id if self.receipts else None,
             created_at=decision_time,
             enforce_state=False,
         )
@@ -1313,6 +1314,7 @@ class Episode:
                 "contradiction_ids": list(contradiction_ids),
                 "tampered": tampered,
             },
+            parent_receipt_id=self.receipts[-1].receipt_id if self.receipts else None,
             created_at=decision_time,
             enforce_state=False,
         )
