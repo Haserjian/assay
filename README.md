@@ -57,6 +57,7 @@ See:
 - [PR Gate comment contract](docs/product/assay-pr-gate-comment-v0.md)
 - [PR Gate policy profile](docs/product/assay-pr-gate-policy-v0.md)
 - [PR Gate trust root](docs/adr/ADR-pr-gate-trust-root.md)
+- [Provenance crosswalk](docs/public_surfaces/provenance-crosswalk-v0/README.md)
 
 ## Evidence Sprint
 
@@ -864,6 +865,15 @@ or main product.
 
 - **OpenClaw demo:** `assay try-openclaw` — deterministic subprocess-membrane demo + receipt adapter + signed proof pack
 - [OpenClaw v1 Claim Sheet](docs/openclaw-v1-claim-sheet.md) -- tight public claim: proofs, non-proofs, trust assumptions, and required artifacts
+
+**How this sits next to OpenClaw observability plugins.** For live OpenClaw
+observability and dashboards, see [ClawMetry](https://clawhub.ai/vivekchand/clawmetry) —
+OpenClaw keeps that kind of telemetry ingestion in plugin/community territory rather than
+core ([#7783](https://github.com/openclaw/openclaw/issues/7783), closed *not planned*).
+Assay's OpenClaw support is narrower: it acts as an **evidence membrane** for selected
+session-log traces, importing supported rows with skipped-row accounting and emitting
+**offline-verifiable proof packs**. It does not claim complete runtime capture, live
+Gateway interception, or planner/browser truth.
 
 ## Common Issues
 
