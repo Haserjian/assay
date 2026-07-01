@@ -536,3 +536,55 @@ class TestImportSurface:
         import assay
 
         assert callable(assay.verify_checkpoint)
+
+
+# ---------------------------------------------------------------------------
+# episode.settled lineage (parent_receipt_id closure)
+# ---------------------------------------------------------------------------
+
+
+class TestSettledLineage:
+    """The terminal ``episode.settled`` receipt must assert its parent so the
+    causal chain closes at the source, with nothing left for a downstream
+    adapter to invent."""
+
+    def test_auto_settle_links_parent_to_immediate_predecessor(self, tmp_store):
+        ep = open_episode(episode_id="settled_auto", store=tmp_store)
+        ep.emit("model.invoked", {"model": "x"})
+        predecessor = ep.receipts[-1].receipt_id  # last receipt before settle()
+
+        ep.settle()
+
+        settled = [r for r in ep.receipts if r.receipt_type == "episode.settled"][-1]
+        assert settled.parent_receipt_id == predecessor
+        assert settled.to_trace_dict()["parent_receipt_id"] == predecessor
+
+    def test_degenerate_open_then_settle_links_to_opened(self, tmp_store):
+        """An episode with no work receipts still closes lineage: settled links
+        to the opened receipt (the only predecessor)."""
+        ep = open_episode(episode_id="settled_degenerate", store=tmp_store)
+        opened = ep.receipts[-1]
+        assert opened.receipt_type == "episode.opened"
+
+        ep.settle()
+
+        settled = [r for r in ep.receipts if r.receipt_type == "episode.settled"][-1]
+        assert settled.parent_receipt_id == opened.receipt_id
+
+    def test_proof_pack_still_verifies_with_settled_parent(self, tmp_store, tmp_path):
+        """Adding the parent changes the settled receipt's canonical hash; a
+        freshly built pack must remain self-consistent and verify."""
+        ks = AssayKeyStore(keys_dir=tmp_path / "keys")
+        ep = open_episode(episode_id="settled_pack", store=tmp_store)
+        r1 = ep.emit("model.invoked", {"model": "x"})
+        ep.emit("guardian.approved", {"ok": True}, parent_receipt_id=r1)
+        ep.settle()
+
+        artifact = ep.emit_proof_pack(output_dir=tmp_path / "pack", keystore=ks)
+        verdict = verify_pack(artifact.pack_dir)
+
+        assert verdict.ok is True
+        entries = tmp_store.read_trace(ep.trace_id)
+        settled = [e for e in entries if e.get("type") == "episode.settled"]
+        assert len(settled) == 1
+        assert settled[0].get("parent_receipt_id")  # present and non-null in the pack
